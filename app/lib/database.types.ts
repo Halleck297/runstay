@@ -1,0 +1,178 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export type ListingType = "room" | "bib" | "room_and_bib";
+export type UserType = "tour_operator" | "private";
+export type ListingStatus = "active" | "sold" | "expired";
+
+export interface Database {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          email: string;
+          full_name: string | null;
+          user_type: UserType;
+          company_name: string | null;
+          phone: string | null;
+          is_verified: boolean;
+          avatar_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          email: string;
+          full_name?: string | null;
+          user_type?: UserType;
+          company_name?: string | null;
+          phone?: string | null;
+          is_verified?: boolean;
+          avatar_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          full_name?: string | null;
+          user_type?: UserType;
+          company_name?: string | null;
+          phone?: string | null;
+          is_verified?: boolean;
+          avatar_url?: string | null;
+          updated_at?: string;
+        };
+      };
+      events: {
+        Row: {
+          id: string;
+          name: string;
+          location: string;
+          country: string;
+          event_date: string;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          location: string;
+          country: string;
+          event_date: string;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          location?: string;
+          country?: string;
+          event_date?: string;
+        };
+      };
+      listings: {
+        Row: {
+          id: string;
+          author_id: string;
+          event_id: string;
+          listing_type: ListingType;
+          title: string;
+          description: string | null;
+          hotel_name: string | null;
+          hotel_stars: number | null;
+          room_count: number | null;
+          check_in: string | null;
+          check_out: string | null;
+          bib_count: number | null;
+          price: number | null;
+          price_negotiable: boolean;
+          status: ListingStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          event_id: string;
+          listing_type: ListingType;
+          title: string;
+          description?: string | null;
+          hotel_name?: string | null;
+          hotel_stars?: number | null;
+          room_count?: number | null;
+          check_in?: string | null;
+          check_out?: string | null;
+          bib_count?: number | null;
+          price?: number | null;
+          price_negotiable?: boolean;
+          status?: ListingStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          listing_type?: ListingType;
+          title?: string;
+          description?: string | null;
+          hotel_name?: string | null;
+          hotel_stars?: number | null;
+          room_count?: number | null;
+          check_in?: string | null;
+          check_out?: string | null;
+          bib_count?: number | null;
+          price?: number | null;
+          price_negotiable?: boolean;
+          status?: ListingStatus;
+          updated_at?: string;
+        };
+      };
+      conversations: {
+        Row: {
+          id: string;
+          listing_id: string;
+          participant_1: string;
+          participant_2: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          listing_id: string;
+          participant_1: string;
+          participant_2: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          updated_at?: string;
+        };
+      };
+      messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          read_at?: string | null;
+        };
+      };
+    };
+  };
+}
