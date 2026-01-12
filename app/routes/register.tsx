@@ -46,24 +46,41 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  // Create auth user
+  // Create auth user with metadata
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        full_name: fullName,
+        user_type: userType,
+        company_name: userType === "tour_operator" ? companyName : null,
+      },
+    },
   });
 
   if (authError) {
     return json({ error: authError.message }, { status: 400 });
   }
 
-  if (!authData.user || !authData.session) {
+  if (!authData.user) {
     return json(
       { error: "Registration failed. Please try again." },
       { status: 400 }
     );
   }
 
-  // Create profile
+  // Check if email confirmation is required
+  if (!authData.session) {
+    // Email confirmation is required
+    return json({
+      success: true,
+      emailConfirmationRequired: true,
+      message: "Please check your email to confirm your account before logging in.",
+    });
+  }
+
+  // Create profile (only if session exists, meaning email is confirmed or confirmation disabled)
   const { error: profileError } = await supabase.from("profiles").insert({
     id: authData.user.id,
     email,
@@ -125,12 +142,43 @@ export default function Register() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-sm rounded-xl sm:px-10 border border-gray-200">
-          <Form method="post" className="space-y-6">
-            {actionData?.error && (
-              <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-                {actionData.error}
+          {actionData?.emailConfirmationRequired ? (
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                <svg
+                  className="h-6 w-6 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
               </div>
-            )}
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Check your email
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                {actionData.message}
+              </p>
+              <Link
+                to="/login"
+                className="btn-primary inline-block"
+              >
+                Go to login
+              </Link>
+            </div>
+          ) : (
+            <Form method="post" className="space-y-6">
+              {actionData?.error && (
+                <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+                  {actionData.error}
+                </div>
+              )}
 
             <div>
               <label htmlFor="fullName" className="label">
@@ -245,6 +293,7 @@ export default function Register() {
               Policy.
             </p>
           </Form>
+          )}
         </div>
       </div>
     </div>
