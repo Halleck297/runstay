@@ -41,6 +41,11 @@ export async function getUserSession(request: Request) {
 }
 
 export async function getUserId(request: Request) {
+  // Demo mode: bypass authentication
+  if (process.env.DISABLE_AUTH === "true") {
+    return "demo-user-id";
+  }
+
   const session = await getUserSession(request);
   const userId = session.get("userId");
   if (!userId || typeof userId !== "string") return null;
@@ -50,6 +55,22 @@ export async function getUserId(request: Request) {
 export async function getUser(request: Request) {
   const userId = await getUserId(request);
   if (!userId) return null;
+
+  // Demo mode: return a mock user
+  if (process.env.DISABLE_AUTH === "true") {
+    return {
+      id: "demo-user-id",
+      email: "demo@runstay.com",
+      full_name: "Demo User",
+      user_type: "tour_operator" as const,
+      company_name: "Demo Tour Company",
+      phone: null,
+      is_verified: true,
+      avatar_url: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -74,6 +95,22 @@ export async function requireUserId(
 
 export async function requireUser(request: Request) {
   const userId = await requireUserId(request);
+
+  // Demo mode: return a mock user
+  if (process.env.DISABLE_AUTH === "true") {
+    return {
+      id: "demo-user-id",
+      email: "demo@runstay.com",
+      full_name: "Demo User",
+      user_type: "tour_operator" as const,
+      company_name: "Demo Tour Company",
+      phone: null,
+      is_verified: true,
+      avatar_url: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

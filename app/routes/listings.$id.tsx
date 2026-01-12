@@ -17,6 +17,113 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const { id } = params;
 
+  // Demo mode: return mock data
+  if (process.env.DISABLE_AUTH === "true") {
+    const mockListings: Record<string, any> = {
+      "1": {
+        id: "1",
+        title: "2 Hotel Rooms + 2 Bibs - Berlin Marathon 2025",
+        description: "Premium hotel near start line, includes breakfast. Perfect location for marathon weekend. Rooms are spacious and comfortable.",
+        listing_type: "room_and_bib",
+        price: 450,
+        price_negotiable: true,
+        status: "active",
+        hotel_name: "Hotel Berlin Central",
+        hotel_stars: 4,
+        room_count: 2,
+        bib_count: 2,
+        check_in: "2025-09-26",
+        check_out: "2025-09-29",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        author_id: "demo-1",
+        author: {
+          id: "demo-1",
+          full_name: "Marco Rossi",
+          company_name: "Run Tours Italia",
+          user_type: "tour_operator",
+          is_verified: true,
+          email: "marco@runtours.it",
+        },
+        event: {
+          id: "event-1",
+          name: "Berlin Marathon 2025",
+          location: "Berlin",
+          country: "Germany",
+          event_date: "2025-09-28",
+        },
+      },
+      "2": {
+        id: "2",
+        title: "1 Marathon Bib - London Marathon 2025",
+        description: "Can't run anymore due to injury, looking to sell my bib. Already paid for and confirmed.",
+        listing_type: "bib",
+        price: 80,
+        price_negotiable: false,
+        status: "active",
+        bib_count: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        author_id: "demo-2",
+        author: {
+          id: "demo-2",
+          full_name: "Sarah Johnson",
+          company_name: null,
+          user_type: "private",
+          is_verified: false,
+          email: "sarah.j@example.com",
+        },
+        event: {
+          id: "event-2",
+          name: "London Marathon 2025",
+          location: "London",
+          country: "UK",
+          event_date: "2025-04-27",
+        },
+      },
+      "3": {
+        id: "3",
+        title: "3 Hotel Rooms - New York Marathon 2025",
+        description: "Excellent location in Manhattan, walking distance to Central Park. Modern hotel with great amenities and breakfast included.",
+        listing_type: "room",
+        price: 600,
+        price_negotiable: true,
+        status: "active",
+        hotel_name: "Manhattan Runner's Hotel",
+        hotel_stars: 5,
+        room_count: 3,
+        check_in: "2025-11-01",
+        check_out: "2025-11-04",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        author_id: "demo-3",
+        author: {
+          id: "demo-3",
+          full_name: "John Smith",
+          company_name: "NYC Marathon Tours",
+          user_type: "tour_operator",
+          is_verified: true,
+          email: "john@nycmarathontours.com",
+        },
+        event: {
+          id: "event-3",
+          name: "New York City Marathon 2025",
+          location: "New York",
+          country: "USA",
+          event_date: "2025-11-02",
+        },
+      },
+    };
+
+    const listing = mockListings[id!];
+
+    if (!listing) {
+      throw new Response("Listing not found", { status: 404 });
+    }
+
+    return { user, listing };
+  }
+
   const { data: listing, error } = await supabase
     .from("listings")
     .select(
