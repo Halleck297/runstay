@@ -7,11 +7,11 @@ import { ListingCard } from "~/components/ListingCard";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "RunStay Exchange - Marathon Room & Bib Marketplace" },
+    { title: "Runoot - Room & Bibs Exchange Marketplace" },
     {
       name: "description",
       content:
-        "Exchange unsold hotel rooms and bibs for marathons. Connect tour operators and runners.",
+        "Exchange unsold hotel rooms and bibs for running events. Connect tour operators and runners.",
     },
   ];
 };
@@ -31,7 +31,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     )
     .eq("status", "active")
     .order("created_at", { ascending: false })
-    .limit(6);
+    .limit(3);
 
   return { user, listings: listings || [] };
 }
@@ -74,93 +74,6 @@ export default function Index() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-20 bg-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="font-display text-3xl font-bold text-gray-900">
-              How It Works
-            </h2>
-            <p className="mt-4 text-lg text-gray-600">
-              Simple, fast, and direct
-            </p>
-          </div>
-
-          <div className="mt-16 grid gap-8 sm:grid-cols-3">
-            <div className="text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-brand-600">
-                <svg
-                  className="h-8 w-8"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-              </div>
-              <h3 className="mt-6 font-display text-xl font-semibold text-gray-900">
-                1. Post Your Listing
-              </h3>
-              <p className="mt-2 text-gray-600">
-                Have unsold rooms or bibs? Create a listing in seconds.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accent-100 text-accent-600">
-                <svg
-                  className="h-8 w-8"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
-              </div>
-              <h3 className="mt-6 font-display text-xl font-semibold text-gray-900">
-                2. Connect Directly
-              </h3>
-              <p className="mt-2 text-gray-600">
-                Interested buyers message you through our platform.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-brand-600">
-                <svg
-                  className="h-8 w-8"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="mt-6 font-display text-xl font-semibold text-gray-900">
-                3. Close the Deal
-              </h3>
-              <p className="mt-2 text-gray-600">
-                Agree on terms and complete the transaction your way.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Recent Listings */}
       {listings.length > 0 && (
@@ -171,7 +84,7 @@ export default function Index() {
                 Recent Listings
               </h2>
               <Link
-                to="/listings"
+                to={user ? "/listings" : "/login"}
                 className="text-brand-600 hover:text-brand-700 font-medium"
               >
                 View all →
@@ -180,7 +93,7 @@ export default function Index() {
 
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {listings.map((listing: any) => (
-                <ListingCard key={listing.id} listing={listing} />
+                <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} />
               ))}
             </div>
           </div>
@@ -214,7 +127,7 @@ export default function Index() {
       <footer className="bg-gray-900 border-t border-gray-800">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <p className="text-center text-sm text-gray-500">
-            © {new Date().getFullYear()} RunStay Exchange. Platform for
+            © {new Date().getFullYear()} Runoot Exchange. Platform for
             informational purposes only. Transactions are between users.
           </p>
         </div>

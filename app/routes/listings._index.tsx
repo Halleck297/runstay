@@ -6,7 +6,7 @@ import { Header } from "~/components/Header";
 import { ListingCard } from "~/components/ListingCard";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Browse Listings - RunStay Exchange" }];
+  return [{ title: "Browse Listings - Runoot" }];
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -26,6 +26,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         listing_type: "room_and_bib",
         price: 450,
         price_negotiable: true,
+        transfer_type: "package",
+        associated_costs: 450,
         status: "active",
         hotel_name: "Hotel Berlin Central",
         hotel_stars: 4,
@@ -53,8 +55,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         title: "1 Marathon Bib - London Marathon 2025",
         description: "Can't run anymore, looking to sell my bib",
         listing_type: "bib",
-        price: 80,
-        price_negotiable: false,
+        transfer_type: "official_process",
+        associated_costs: 80,
         status: "active",
         bib_count: 1,
         created_at: new Date().toISOString(),

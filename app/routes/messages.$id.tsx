@@ -13,11 +13,11 @@ import {
 } from "@remix-run/react";
 import { useEffect, useRef } from "react";
 import { requireUser } from "~/lib/session.server";
-import { supabase } from "~/lib/supabase.server";
+import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Conversation - RunStay Exchange" }];
+  return [{ title: "Conversation - Runoot" }];
 };
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -25,19 +25,20 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
 
   // Get conversation with messages
-  const { data: conversation, error } = await supabase
-    .from("conversations")
-    .select(
-      `
-      *,
-      listing:listings(id, title, listing_type, status),
-      participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified),
-      participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified),
-      messages(id, content, sender_id, created_at, read_at)
+const { data: conversation, error } = await supabaseAdmin
+  .from("conversations")
+  .select(
     `
-    )
-    .eq("id", id)
-    .single();
+    *,
+    listing:listings(id, title, listing_type, status),
+    participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified),
+    participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified),
+    messages(id, content, sender_id, created_at, read_at)
+  `
+  )
+  .eq("id", id!)
+  .single<any>();
+
 
   if (error || !conversation) {
     throw new Response("Conversation not found", { status: 404 });
@@ -57,8 +58,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .map((m: any) => m.id);
 
   if (unreadMessageIds?.length > 0) {
-    await supabase
-      .from("messages")
+    (supabaseAdmin
+      .from("messages") as any)
       .update({ read_at: new Date().toISOString() })
       .in("id", unreadMessageIds);
   }
@@ -87,11 +88,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   // Verify user is participant
-  const { data: conversation } = await supabase
+  const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("participant_1, participant_2")
-    .eq("id", id)
-    .single();
+    .eq("id", id!)
+    .single<{ participant_1: string; participant_2: string }>();
 
   if (
     !conversation ||
@@ -102,21 +103,22 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   // Create message
-  const { error } = await supabase.from("messages").insert({
+  const { error } = await supabaseAdmin.from("messages").insert({
     conversation_id: id!,
     sender_id: user.id,
     content: content.trim(),
-  });
+  } as any);
 
   if (error) {
     return json({ error: "Failed to send message" }, { status: 500 });
   }
 
   // Update conversation timestamp
-  await supabase
-    .from("conversations")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("id", id);
+  await (supabaseAdmin
+   .from("conversations") as any)
+   .update({ updated_at: new Date().toISOString() })
+   .eq("id", id!);
+
 
   return json({ success: true });
 }
@@ -138,7 +140,7 @@ export default function Conversation() {
 
   // Clear form and scroll after sending
   useEffect(() => {
-    if (navigation.state === "idle" && actionData?.success) {
+    if (navigation.state === "idle" && actionData && "success" in actionData && actionData.success) {
       formRef.current?.reset();
     }
   }, [navigation.state, actionData]);
@@ -275,7 +277,7 @@ export default function Conversation() {
       {/* Message input */}
       <div className="bg-white border-t border-gray-200">
         <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6 lg:px-8">
-          {actionData?.error && (
+          {actionData && "error" in actionData && (
             <p className="text-sm text-red-600 mb-2">{actionData.error}</p>
           )}
           <Form ref={formRef} method="post" className="flex gap-3">

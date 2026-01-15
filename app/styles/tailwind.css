@@ -14,7 +14,7 @@
   }
 
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500;
+    @apply btn bg-accent-500 text-white hover:bg-accent-600 focus:ring-accent-500;
   }
 
   .btn-secondary {
@@ -22,7 +22,7 @@
   }
 
   .btn-accent {
-    @apply btn bg-accent-500 text-white hover:bg-accent-600 focus:ring-accent-500;
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500;
   }
 
   .input {

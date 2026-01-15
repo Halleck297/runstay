@@ -1,18 +1,18 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { requireUser } from "~/lib/session.server";
-import { supabase } from "~/lib/supabase.server";
+import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Dashboard - RunStay Exchange" }];
+  return [{ title: "Dashboard - Runoot" }];
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
 
   // Get user's listings
-  const { data: listings } = await supabase
+  const { data: listings } = await supabaseAdmin
     .from("listings")
     .select(
       `
@@ -24,7 +24,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .order("created_at", { ascending: false });
 
   // Get user's conversations
-  const { data: conversations } = await supabase
+  const { data: conversations } = await supabaseAdmin
     .from("conversations")
     .select(
       `
@@ -281,7 +281,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <Link to="/settings" className="btn-secondary">
+            <Link to="/profile" className="btn-secondary">
               Edit Profile
             </Link>
           </div>

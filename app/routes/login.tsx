@@ -9,7 +9,7 @@ import { supabase } from "~/lib/supabase.server";
 import { createUserSession, getUserId } from "~/lib/session.server";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Login - RunStay Exchange" }];
+  return [{ title: "Login - Runoot" }];
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {

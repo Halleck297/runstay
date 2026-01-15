@@ -9,6 +9,7 @@ export type Json =
 export type ListingType = "room" | "bib" | "room_and_bib";
 export type UserType = "tour_operator" | "private";
 export type ListingStatus = "active" | "sold" | "expired";
+export type TransferType = "official_process" | "package" | "contact";
 
 export interface Database {
   public: {
@@ -76,60 +77,110 @@ export interface Database {
           event_date?: string;
         };
       };
+
       listings: {
-        Row: {
-          id: string;
-          author_id: string;
-          event_id: string;
-          listing_type: ListingType;
-          title: string;
-          description: string | null;
-          hotel_name: string | null;
-          hotel_stars: number | null;
-          room_count: number | null;
-          check_in: string | null;
-          check_out: string | null;
-          bib_count: number | null;
-          price: number | null;
-          price_negotiable: boolean;
-          status: ListingStatus;
-          created_at: string;
-          updated_at: string;
-        };
+  Row: {
+    id: string;
+    author_id: string;
+    event_id: string;
+    listing_type: ListingType;
+    title: string;
+    description: string | null;
+    hotel_name: string | null;
+    hotel_website: string | null;
+    hotel_place_id: string | null;
+    hotel_city: string | null;
+    hotel_country: string | null;
+    hotel_stars: number | null;
+    hotel_lat: number | null;
+    hotel_lng: number | null;
+    hotel_rating: number | null;
+    room_count: number | null;
+    check_in: string | null;
+    check_out: string | null;
+    bib_count: number | null;
+    room_type: "single" | "twin" | "double" | "double_shared" | "double_single_use" | "Triple" | "Quadruple" |null;
+    // DEPRECATI (mantieni per backward compatibility)
+    price: number | null;
+    price_negotiable: boolean;
+    
+    // NUOVI CAMPI - aggiungere dopo riga 94
+    transfer_type: TransferType | null;
+    associated_costs: number | null;
+    cost_notes: string | null;
+    package_id: string | null;
+    
+    status: ListingStatus;
+    created_at: string;
+    updated_at: string;
+  };
+
         Insert: {
-          id?: string;
-          author_id: string;
-          event_id: string;
-          listing_type: ListingType;
-          title: string;
-          description?: string | null;
-          hotel_name?: string | null;
-          hotel_stars?: number | null;
-          room_count?: number | null;
-          check_in?: string | null;
-          check_out?: string | null;
-          bib_count?: number | null;
-          price?: number | null;
-          price_negotiable?: boolean;
-          status?: ListingStatus;
-          created_at?: string;
-          updated_at?: string;
-        };
+  id?: string;
+  author_id: string;
+  event_id: string;
+  listing_type: ListingType;
+  title: string;
+  description?: string | null;
+  hotel_name?: string | null;
+  hotel_stars?: number | null;
+  hotel_website?: string | null;
+  hotel_place_id?: string | null;
+  hotel_city?: string | null;
+  hotel_country?: string | null;
+  hotel_lat?: number | null; 
+  hotel_lng?: number | null;
+  hotel_rating?: number | null;
+  room_count?: number | null;
+  room_type: "single" | "twin" | "double" | "double_shared" | "double_single_use" | "Triple" | "Quadruple" |null;
+  check_in?: string | null;
+  check_out?: string | null;
+  bib_count?: number | null;
+  price?: number | null;
+  price_negotiable?: boolean;
+  
+  // NUOVI - aggiungere dopo riga 113
+  transfer_type?: TransferType | null;
+  associated_costs?: number | null;
+  cost_notes?: string | null;
+  package_id?: string | null;
+  
+  status?: ListingStatus;
+  created_at?: string;
+  updated_at?: string;
+};
+
         Update: {
-          listing_type?: ListingType;
-          title?: string;
-          description?: string | null;
-          hotel_name?: string | null;
-          hotel_stars?: number | null;
-          room_count?: number | null;
-          check_in?: string | null;
-          check_out?: string | null;
-          bib_count?: number | null;
-          price?: number | null;
-          price_negotiable?: boolean;
-          status?: ListingStatus;
-          updated_at?: string;
-        };
+  listing_type?: ListingType;
+  title?: string;
+  description?: string | null;
+  hotel_name?: string | null;
+  hotel_website?: string | null;
+  hotel_place_id?: string | null;
+  hotel_city?: string | null;
+  hotel_country?: string | null;
+  hotel_lat?: number | null;
+  hotel_lng?: number | null;
+  hotel_rating?: number | null;
+  hotel_stars?: number | null;
+  room_count?: number | null;
+  room_type: "single" | "twin" | "double" | "double_shared" | "double_single_use" | "Triple" | "Quadruple" |null;
+  check_in?: string | null;
+  check_out?: string | null;
+  bib_count?: number | null;
+  price?: number | null;
+  price_negotiable?: boolean;
+  
+  // NUOVI - aggiungere dopo riga 129
+  transfer_type?: TransferType | null;
+  associated_costs?: number | null;
+  cost_notes?: string | null;
+  package_id?: string | null;
+  
+  status?: ListingStatus;
+  updated_at?: string;
+};
+
       };
       conversations: {
         Row: {

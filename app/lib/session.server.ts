@@ -1,5 +1,6 @@
 import { createCookieSessionStorage, redirect } from "@remix-run/node";
 import { supabase } from "./supabase.server";
+import type { UserType } from "./database.types";
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -8,7 +9,7 @@ if (!sessionSecret) {
 
 const storage = createCookieSessionStorage({
   cookie: {
-    name: "runstay_session",
+    name: "runoot_session",
     secure: process.env.NODE_ENV === "production",
     secrets: [sessionSecret],
     sameSite: "lax",
@@ -62,7 +63,7 @@ export async function getUser(request: Request) {
       id: "demo-user-id",
       email: "demo@runstay.com",
       full_name: "Demo User",
-      user_type: "tour_operator" as const,
+      user_type: "tour_operator" as UserType,
       company_name: "Demo Tour Company",
       phone: null,
       is_verified: true,
@@ -102,7 +103,7 @@ export async function requireUser(request: Request) {
       id: "demo-user-id",
       email: "demo@runstay.com",
       full_name: "Demo User",
-      user_type: "tour_operator" as const,
+      user_type: "tour_operator" as UserType,
       company_name: "Demo Tour Company",
       phone: null,
       is_verified: true,

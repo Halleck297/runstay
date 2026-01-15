@@ -1,18 +1,18 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { requireUser } from "~/lib/session.server";
-import { supabase } from "~/lib/supabase.server";
+import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Messages - RunStay Exchange" }];
+  return [{ title: "Messages - Runoot" }];
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
 
   // Get all conversations with last message and other participant info
-  const { data: conversations } = await supabase
+  const { data: conversations } = await supabaseAdmin
     .from("conversations")
     .select(
       `

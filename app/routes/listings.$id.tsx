@@ -6,11 +6,11 @@ import type {
 import { json, redirect } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
 import { getUser } from "~/lib/session.server";
-import { supabase } from "~/lib/supabase.server";
+import { supabase, supabaseAdmin  } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
-  return [{ title: data?.listing?.title || "Listing - RunStay Exchange" }];
+  return [{ title: data?.listing?.title || "Listing - Runoot" }];
 };
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -27,6 +27,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         listing_type: "room_and_bib",
         price: 450,
         price_negotiable: true,
+        transfer_type: "package",
+        associated_costs: 450,
+        cost_notes: "Includes hotel + bibs as complete package",
         status: "active",
         hotel_name: "Hotel Berlin Central",
         hotel_stars: 4,
@@ -58,8 +61,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         title: "1 Marathon Bib - London Marathon 2025",
         description: "Can't run anymore due to injury, looking to sell my bib. Already paid for and confirmed.",
         listing_type: "bib",
-        price: 80,
-        price_negotiable: false,
+        transfer_type: "official_process",
+        associated_costs: 80,
+        cost_notes: "Includes official name change fee",
         status: "active",
         bib_count: 1,
         created_at: new Date().toISOString(),
@@ -133,7 +137,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       event:events(id, name, location, country, event_date)
     `
     )
-    .eq("id", id)
+    .eq("id", id!)
     .single();
 
   if (error || !listing) {
@@ -152,11 +156,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const { id } = params;
 
   // Get the listing to find the author
-  const { data: listing } = await supabase
+  const { data: listing } = await supabaseAdmin
     .from("listings")
     .select("author_id")
-    .eq("id", id)
-    .single();
+    .eq("id", id!)
+    .single<{ author_id: string }>();
 
   if (!listing) {
     return json({ error: "Listing not found" }, { status: 404 });
@@ -167,29 +171,29 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   // Check if conversation already exists
-  const { data: existingConversation } = await supabase
+  const { data: existingConversation } = await supabaseAdmin
     .from("conversations")
     .select("id")
-    .eq("listing_id", id)
+    .eq("listing_id", id!)
     .or(
       `and(participant_1.eq.${user.id},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${user.id})`
     )
-    .single();
+    .single<{ id: string }>();
 
   if (existingConversation) {
     return redirect(`/messages/${existingConversation.id}`);
   }
 
   // Create new conversation
-  const { data: newConversation, error } = await supabase
+  const { data: newConversation, error } = await supabaseAdmin
     .from("conversations")
     .insert({
       listing_id: id!,
       participant_1: user.id,
       participant_2: listing.author_id,
-    })
+    }as any)
     .select()
-    .single();
+    .single<{ id: string }>();
 
   if (error) {
     return json({ error: "Failed to start conversation" }, { status: 500 });
@@ -324,35 +328,50 @@ export default function ListingDetail() {
                   listing.listing_type === "room_and_bib") && (
                   <>
                     {listing.hotel_name && (
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
-                          <svg
-                            className="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                            />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Hotel</p>
-                          <p className="font-medium text-gray-900">
-                            {listing.hotel_name}
-                            {listing.hotel_stars && (
-                              <span className="ml-1 text-yellow-500">
-                                {"★".repeat(listing.hotel_stars)}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    )}
+  <div className="flex items-center gap-3">
+    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    </div>
+    <div>
+      <p className="text-sm text-gray-500">Hotel</p>
+      <p className="font-medium text-gray-900">
+        {listing.hotel_website ? (
+          <a
+            href={listing.hotel_website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1"
+          >
+            {listing.hotel_name}
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        ) : (
+          listing.hotel_name
+        )}
+        {listing.hotel_rating && (
+          <span className="ml-2 text-sm text-gray-600">
+            ⭐ {listing.hotel_rating.toFixed(1)}
+          </span>
+        )}
+        {listing.hotel_stars && (
+          <span className="ml-1 text-yellow-500">
+            {"★".repeat(listing.hotel_stars)}
+          </span>
+        )}
+      </p>
+      {listing.hotel_city && (
+        <p className="text-xs text-gray-500">
+          {listing.hotel_city}{listing.hotel_country ? `, ${listing.hotel_country}` : ""}
+        </p>
+      )}
+    </div>
+  </div>
+)}
+
 
                     {listing.room_count && (
                       <div className="flex items-center gap-3">
@@ -372,11 +391,18 @@ export default function ListingDetail() {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-500">Rooms</p>
-                          <p className="font-medium text-gray-900">
-                            {listing.room_count} room
-                            {listing.room_count > 1 ? "s" : ""}
-                          </p>
+                         <p className="text-sm text-gray-500">Rooms</p>
+<p className="font-medium text-gray-900">
+  {listing.room_count} {listing.room_type ? (
+    <>
+      {listing.room_type.replace(/_/g, ' ')}
+      {listing.room_count > 1 && "s"}
+    </>
+  ) : (
+    `room${listing.room_count > 1 ? "s" : ""}`
+  )}
+</p>
+
                         </div>
                       </div>
                     )}
@@ -458,25 +484,55 @@ export default function ListingDetail() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Price card */}
-            <div className="card p-6">
-              <div className="text-center">
-                {listing.price ? (
-                  <>
-                    <p className="text-3xl font-bold text-gray-900">
-                      €{listing.price.toLocaleString()}
-                    </p>
-                    {listing.price_negotiable && (
-                      <p className="mt-1 text-sm text-gray-500">
-                        Price negotiable
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-xl font-medium text-gray-600">
-                    Contact for price
-                  </p>
-                )}
-              </div>
+<div className="card p-6">
+  <div className="text-center">
+    {/* Se è bib o room_and_bib, mostra associated costs */}
+    {(listing.listing_type === "bib" || listing.listing_type === "room_and_bib") ? (
+      listing.associated_costs ? (
+        <>
+          <p className="text-sm text-gray-500 mb-2">Associated costs</p>
+          <p className="text-3xl font-bold text-gray-900">
+            €{listing.associated_costs.toLocaleString()}
+          </p>
+          {listing.cost_notes && (
+            <p className="mt-2 text-sm text-gray-600">
+              {listing.cost_notes}
+            </p>
+          )}
+          {listing.transfer_type && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-500">Transfer method:</p>
+              <p className="text-sm text-gray-700 font-medium">
+                {listing.transfer_type === "official_process" && "Official organizer process"}
+                {listing.transfer_type === "package" && "Included in package"}
+                {listing.transfer_type === "contact" && "Contact for details"}
+              </p>
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="text-xl font-medium text-gray-600">
+          Contact for details
+        </p>
+      )
+    ) : listing.price ? (
+      <>
+        <p className="text-3xl font-bold text-gray-900">
+          €{listing.price.toLocaleString()}
+        </p>
+        {listing.price_negotiable && (
+          <p className="mt-1 text-sm text-gray-500">
+            Price negotiable
+          </p>
+        )}
+      </>
+    ) : (
+      <p className="text-xl font-medium text-gray-600">
+        Contact for price
+      </p>
+    )}
+  </div>
+
 
               {actionData?.error && (
                 <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">

@@ -5,9 +5,21 @@ import type {
 } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import { useState, useEffect  } from "react";
 import { requireUser } from "~/lib/session.server";
-import { supabase } from "~/lib/supabase.server";
+import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
+import { EventPicker } from "~/components/EventPicker";
+import { HotelAutocomplete } from "~/components/HotelAutocomplete";
+import {
+  getMaxLimit,
+  getTransferMethodOptions,
+  getVisibleFieldsForTransferMethod,
+  validateListingLimits
+} from "~/config/listing-rules";
+import type { TransferMethod } from "~/config/listing-rules";
+
+
 
 export const meta: MetaFunction = () => {
   return [{ title: "Create Listing - RunStay Exchange" }];
@@ -22,15 +34,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select("*")
     .order("event_date", { ascending: true });
 
-  return { user, events: events || [] };
+  return { 
+    user, 
+    events: events || [],
+    googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || ""
+  };
 }
+
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
   const formData = await request.formData();
 
   const listingType = formData.get("listingType") as string;
-  const title = formData.get("title") as string;
   const description = formData.get("description") as string;
 
   // Event fields
@@ -39,25 +55,52 @@ export async function action({ request }: ActionFunctionArgs) {
   const newEventLocation = formData.get("newEventLocation") as string;
   const newEventCountry = formData.get("newEventCountry") as string;
   const newEventDate = formData.get("newEventDate") as string;
-
-  // Room fields
+  
+    // Hotel fields from HotelAutocomplete component
+  const hotelPlaceId = formData.get("hotelPlaceId") as string;
   const hotelName = formData.get("hotelName") as string;
+  const hotelWebsite = formData.get("hotelWebsite") as string; 
+  const hotelCity = formData.get("hotelCity") as string;
+  const hotelCountry = formData.get("hotelCountry") as string;
+  const hotelLat = formData.get("hotelLat") as string;
+  const hotelLng = formData.get("hotelLng") as string;
+  const hotelRating = formData.get("hotelRating") as string;
   const hotelStars = formData.get("hotelStars") as string;
+  
+  
+
+  
+  // Room fields
   const roomCount = formData.get("roomCount") as string;
+  const roomType = formData.get("roomType") as string;
   const checkIn = formData.get("checkIn") as string;
   const checkOut = formData.get("checkOut") as string;
 
   // Bib fields
   const bibCount = formData.get("bibCount") as string;
-
+  const transferType = formData.get("transferType") as string;
+  const associatedCosts = formData.get("associatedCosts") as string;
+  const costNotes = formData.get("costNotes") as string;
   // Price
   const price = formData.get("price") as string;
   const priceNegotiable = formData.get("priceNegotiable") === "on";
 
   // Validation
-  if (!listingType || !title) {
-    return json({ error: "Type and title are required" }, { status: 400 });
+  if (!listingType) {
+    return json({ error: "Please select a listing type" }, { status: 400 });
   }
+
+  // Validate user type limits
+  const validation = validateListingLimits(
+    user.user_type,
+    roomCount ? parseInt(roomCount) : null,
+    bibCount ? parseInt(bibCount) : null,
+    transferType
+  );
+
+  if (!validation.valid) {
+    return json({ error: validation.error }, { status: 400 });
+  }  
 
   // Handle event - use existing or create new
   let finalEventId = eventId;
@@ -71,9 +114,9 @@ export async function action({ request }: ActionFunctionArgs) {
         country: newEventCountry || "",
         event_date: newEventDate,
         created_by: user.id,
-      })
+      } as any)
       .select()
-      .single();
+      .single<{ id: string }>();
 
     if (eventError) {
       return json({ error: "Failed to create event" }, { status: 400 });
@@ -86,27 +129,112 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: "Please select or create an event" }, { status: 400 });
   }
 
-  // Create listing
-  const { data: listing, error } = await supabase
-    .from("listings")
-    .insert({
-      author_id: user.id,
-      event_id: finalEventId,
-      listing_type: listingType as "room" | "bib" | "room_and_bib",
-      title,
-      description: description || null,
-      hotel_name: hotelName || null,
-      hotel_stars: hotelStars ? parseInt(hotelStars) : null,
-      room_count: roomCount ? parseInt(roomCount) : null,
-      check_in: checkIn || null,
-      check_out: checkOut || null,
-      bib_count: bibCount ? parseInt(bibCount) : null,
-      price: price ? parseFloat(price) : null,
-      price_negotiable: priceNegotiable,
-      status: "active",
-    })
+  // Get event details for auto-generating title
+  const { data: eventData } = await supabase
+    .from("events")
+    .select("name")
+    .eq("id", finalEventId)
+    .single<{ name: string }>();
+
+  // Auto-generate title based on listing type and event
+  const listingTypeText = 
+    listingType === "room" ? "Rooms" :
+    listingType === "bib" ? "Bibs" :
+    "Rooms + Bibs";
+
+  const autoTitle = `${listingTypeText} for ${eventData?.name || "Marathon"}`;
+  
+    // Handle hotel - create or find existing
+  let finalHotelId: string | null = null;
+  let finalHotelNameFree: string | null = null;
+  let finalHotelCity: string | null = null;
+  let finalHotelCountry: string | null = null;
+
+  if (listingType === "room" || listingType === "room_and_bib") {
+    if (hotelPlaceId) {
+      // Hotel from Google Places - check if exists or create
+      const { data: existingHotel } = await supabaseAdmin
+        .from("hotels")
+        .select("id")
+        .eq("place_id", hotelPlaceId)
+        .maybeSingle();
+
+      if (existingHotel) {
+                finalHotelId = (existingHotel as any).id;
+      } else {
+        // Create new hotel (usa supabaseAdmin per bypassare RLS)
+        const { data: newHotel, error: hotelError } = await supabaseAdmin
+          .from("hotels")
+          .insert({
+            place_id: hotelPlaceId,
+            name: hotelName,
+            city: hotelCity,
+            country: hotelCountry,
+            website: hotelWebsite,
+            lat: hotelLat ? parseFloat(hotelLat) : null,
+            lng: hotelLng ? parseFloat(hotelLng) : null,
+            rating: hotelRating ? parseFloat(hotelRating) : null,
+          } as any)
+          .select()
+          .single();
+
+                if (hotelError || !newHotel) {
+          console.error("Hotel creation error:", hotelError);
+          return json({ error: "Failed to create hotel" }, { status: 400 });
+        }
+
+        finalHotelId = (newHotel as any).id;
+
+      }
+    } else if (hotelName) {
+      // Manual hotel entry - save as free text
+      finalHotelNameFree = hotelName;
+      finalHotelCity = hotelCity;
+      finalHotelCountry = hotelCountry;
+    }
+  }
+
+
+    // Create listing (usa supabaseAdmin per bypassare RLS)
+  const { data: listing, error } = await supabaseAdmin
+  .from("listings")
+  .insert({
+    author_id: user.id,
+    event_id: finalEventId,
+    listing_type: listingType as "room" | "bib" | "room_and_bib",
+    title: autoTitle,
+    description: description || null,
+
+    // Campi hotel
+    hotel_name: hotelName || null,
+    hotel_website: hotelWebsite || null,
+    hotel_place_id: hotelPlaceId || null, 
+    hotel_stars: null,
+    hotel_lat: hotelLat ? parseFloat(hotelLat) : null,
+    hotel_lng: hotelLng ? parseFloat(hotelLng) : null,
+    hotel_rating: hotelRating ? parseFloat(hotelRating) : null,  
+    
+    // Campi room
+    room_count: roomCount ? parseInt(roomCount) : null,
+    room_type: roomType || null,
+    check_in: checkIn || null,
+    check_out: checkOut || null,
+    bib_count: bibCount ? parseInt(bibCount) : null,
+    
+    // MODIFICARE QUESTE RIGHE:
+    price: price ? parseFloat(price) : null, // mantieni per backward compatibility
+    price_negotiable: priceNegotiable, // mantieni per backward compatibility
+    
+    // AGGIUNGERE QUESTE RIGHE:
+    transfer_type: transferType || null,
+    associated_costs: associatedCosts ? parseFloat(associatedCosts) : null,
+    cost_notes: costNotes || null,
+    package_id: null,
+    
+    status: "active",
+    }as any)
     .select()
-    .single();
+    .single<{ id: string }>();
 
   if (error) {
     console.error("Listing creation error:", error);
@@ -117,8 +245,58 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function NewListing() {
-  const { user, events } = useLoaderData<typeof loader>();
+  const { user, events, googlePlacesApiKey } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const [listingType, setListingType] = useState<"room" | "bib" | "room_and_bib">("room");
+  const [roomType, setRoomType] = useState<string>("");
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [transferMethod, setTransferMethod] = useState<TransferMethod | null>(null);
+
+  // Custom validation message
+useEffect(() => {
+  const textarea = document.getElementById("description") as HTMLTextAreaElement;
+  if (textarea && roomType === "other") {
+    textarea.setCustomValidity(textarea.value ? "" : "Required");
+    const handleInput = () => {
+      textarea.setCustomValidity(textarea.value ? "" : "Required");
+    };
+    textarea.addEventListener("input", handleInput);
+    return () => textarea.removeEventListener("input", handleInput);
+  }
+}, [roomType]);
+
+  // Calcola date min/max basate sull'evento (±7 giorni)
+  const getDateConstraints = () => {
+    if (!selectedEvent?.event_date) return { min: undefined, max: undefined };
+
+    const eventDate = new Date(selectedEvent.event_date);
+    const minDate = new Date(eventDate);
+    minDate.setDate(minDate.getDate() - 7);
+    const maxDate = new Date(eventDate);
+    maxDate.setDate(maxDate.getDate() + 7);
+
+    return {
+      min: minDate.toISOString().split('T')[0],
+      max: maxDate.toISOString().split('T')[0]
+    };
+  };
+
+  const dateConstraints = getDateConstraints();
+
+  // Get max limits based on user type
+  const maxRooms = getMaxLimit(user.user_type, "rooms");
+  const maxBibs = getMaxLimit(user.user_type, "bibs");
+
+  // Get available transfer methods for this user type
+  const transferMethodOptions = getTransferMethodOptions(user.user_type);
+
+  // Get visible fields based on transfer method selection
+  const visibleFields = getVisibleFieldsForTransferMethod(
+    user.user_type,
+    transferMethod,
+    listingType as "bib" | "room_and_bib"
+  );
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -135,7 +313,7 @@ export default function NewListing() {
         </div>
 
         <div className="card p-6 sm:p-8">
-          <Form method="post" className="space-y-8">
+          <Form method="post" className="space-y-8" onSubmit={() => setFormSubmitted(true)}>
             {actionData?.error && (
               <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
                 {actionData.error}
@@ -153,6 +331,7 @@ export default function NewListing() {
                     value="room"
                     className="sr-only"
                     defaultChecked
+                    onChange={(e) => setListingType(e.target.value as "room")}
                   />
                   <span className="flex flex-1 flex-col items-center text-center">
                     <svg
@@ -179,6 +358,7 @@ export default function NewListing() {
                     name="listingType"
                     value="bib"
                     className="sr-only"
+                    onChange={(e) => setListingType(e.target.value as "bib")}
                   />
                   <span className="flex flex-1 flex-col items-center text-center">
                     <svg
@@ -205,6 +385,7 @@ export default function NewListing() {
                     name="listingType"
                     value="room_and_bib"
                     className="sr-only"
+                    onChange={(e) => setListingType(e.target.value as "room_and_bib")}
                   />
                   <span className="flex flex-1 flex-col items-center text-center">
                     <svg
@@ -228,145 +409,90 @@ export default function NewListing() {
               </div>
             </div>
 
-            {/* Title */}
-            <div>
-              <label htmlFor="title" className="label">
-                Listing title
-              </label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                required
-                placeholder="e.g. 2 rooms at Hilton for Berlin Marathon"
-                className="input"
-              />
-            </div>
 
-            {/* Event Selection */}
-            <div className="space-y-4">
-              <label className="label">Marathon Event</label>
 
-              {events.length > 0 && (
-                <div>
-                  <select name="eventId" className="input">
-                    <option value="">-- Select existing event --</option>
-                    {events.map((event: any) => (
-                      <option key={event.id} value={event.id}>
-                        {event.name} - {event.location} (
-                        {new Date(event.event_date).toLocaleDateString()})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+            {/* Event Selection with Modal */}
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="bg-white px-2 text-gray-500">
-                    Or create new event
-                  </span>
-                </div>
-              </div>
+                        <div>
+             <label className="label">Marathon Event</label>
+                          <EventPicker 
+               events={events as any}
+               onSelectEvent={(eventId: string) => {
+                const event = events.find((e: any) => e.id === eventId);
+                setSelectedEvent(event);
+              }}
+            />
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="newEventName" className="label">
-                    Event name
-                  </label>
-                  <input
-                    type="text"
-                    id="newEventName"
-                    name="newEventName"
-                    placeholder="e.g. Berlin Marathon 2025"
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="newEventDate" className="label">
-                    Event date
-                  </label>
-                  <input
-                    type="date"
-                    id="newEventDate"
-                    name="newEventDate"
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="newEventLocation" className="label">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    id="newEventLocation"
-                    name="newEventLocation"
-                    placeholder="e.g. Berlin"
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="newEventCountry" className="label">
-                    Country
-                  </label>
-                  <input
-                    type="text"
-                    id="newEventCountry"
-                    name="newEventCountry"
-                    placeholder="e.g. Germany"
-                    className="input"
-                  />
-                </div>
-              </div>
-            </div>
+          </div>
 
             {/* Room Details */}
+            {(listingType === "room" || listingType === "room_and_bib") && (
             <div className="space-y-4" id="roomFields">
               <h3 className="font-medium text-gray-900 border-b pb-2">
                 Room Details
               </h3>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="hotelName" className="label">
-                    Hotel name
-                  </label>
-                  <input
-                    type="text"
-                    id="hotelName"
-                    name="hotelName"
-                    placeholder="e.g. Hilton Berlin"
-                    className="input"
+                                <div className="sm:col-span-2">
+                  <label className="label">Hotel</label>
+                                   <HotelAutocomplete
+                    apiKey={googlePlacesApiKey}
+                    eventCity={selectedEvent?.location}
+                    eventCountry={selectedEvent?.country}
+                    onSelectHotel={(hotel) => {
+                      // Hotel data is handled via hidden inputs in component
+                    }}
                   />
+
                 </div>
+<div> </div>
+  <div> </div>              
                 <div>
-                  <label htmlFor="hotelStars" className="label">
-                    Stars
+                <label htmlFor="roomCount" className="label">
+                   Number of rooms
+                  {maxRooms !== null && user.user_type === "tour_operator" && (
+                  <span className="text-xs text-gray-500 ml-2">(max {maxRooms} for your account)</span>
+                  )}
                   </label>
-                  <select id="hotelStars" name="hotelStars" className="input">
-                    <option value="">Select</option>
-                    <option value="2">2 stars</option>
-                    <option value="3">3 stars</option>
-                    <option value="4">4 stars</option>
-                    <option value="5">5 stars</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="roomCount" className="label">
-                    Number of rooms
-                  </label>
-                  <input
-                    type="number"
-                    id="roomCount"
-                    name="roomCount"
-                    min="1"
+                  {user.user_type === "private" ? (
+                  <>
+                   <div className="flex items-center gap-3 mt-2">
+                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-100 text-brand-700 font-bold text-2xl">
+                    1
+                    </div>
+                    <span className="text-sm text-gray-600">Private users can list 1 room only</span>
+                   </div>
+                   <input type="hidden" name="roomCount" value="1" />
+                   </>
+                    ) : (
+                    <input
+                      type="number"
+                      id="roomCount"
+                      name="roomCount"
+                      min="1"
+                      max={maxRooms || undefined}
                     placeholder="e.g. 2"
-                    className="input"
+                   className="input"
                   />
+                   )}
                 </div>
-                <div></div>
+
+<div>
+  <label htmlFor="roomType" className="label">
+    Room type
+  </label>
+  <select id="roomType" name="roomType" className="input" onChange={(e) => setRoomType(e.target.value)}>
+    <option value="">Select type</option>
+    <option value="single">Single</option>
+    <option value="double">Double</option>
+    <option value="twin">Twin</option>
+    <option value="twin_shared">Twin Shared</option>
+    <option value="double_single_use">Double Single Use</option>
+    <option value="triple">Triple</option>
+    <option value="quadruple">Quadruple</option>
+    <option value="other">Other * (specify)</option>
+  </select>
+</div>
+
                 <div>
                   <label htmlFor="checkIn" className="label">
                     Check-in date
@@ -375,9 +501,18 @@ export default function NewListing() {
                     type="date"
                     id="checkIn"
                     name="checkIn"
+                    placeholder="dd/mm/yyyy"
+                    min={dateConstraints.min}
+                    max={dateConstraints.max}
                     className="input"
                   />
+                  {selectedEvent && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Event date: {new Date(selectedEvent.event_date).toLocaleDateString()} (±7 days)
+                    </p>
+                  )}
                 </div>
+                
                 <div>
                   <label htmlFor="checkOut" className="label">
                     Check-out date
@@ -386,78 +521,190 @@ export default function NewListing() {
                     type="date"
                     id="checkOut"
                     name="checkOut"
+                    placeholder="dd/mm/yyyy"
+                    min={dateConstraints.min}
+                    max={dateConstraints.max}
                     className="input"
                   />
                 </div>
               </div>
             </div>
-
+            )}
             {/* Bib Details */}
-            <div className="space-y-4" id="bibFields">
-              <h3 className="font-medium text-gray-900 border-b pb-2">
-                Bib Details
-              </h3>
-              <div>
-                <label htmlFor="bibCount" className="label">
-                  Number of bibs
-                </label>
-                <input
-                  type="number"
-                  id="bibCount"
-                  name="bibCount"
-                  min="1"
-                  placeholder="e.g. 1"
-                  className="input w-full sm:w-48"
-                />
-              </div>
-            </div>
+            {(listingType === "bib" || listingType === "room_and_bib") && (
+<div className="space-y-4" id="bibFields">
+  <h3 className="font-medium text-gray-900 border-b pb-2">
+    Bib Transfer Details
+  </h3>
+  
+  {/* Disclaimer - solo per utenti privati */}
+  {user.user_type === "private" && (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <p className="text-sm text-blue-800">
+        <strong>Important:</strong> RunOot facilitates connections for legitimate
+        bib transfers only. Direct sale of bibs may violate event regulations.
+      </p>
+    </div>
+  )}
+  
+  <div>
+  <label htmlFor="bibCount" className="label">
+    Number of bibs
+    {maxBibs !== null && user.user_type === "tour_operator" && (
+      <span className="text-xs text-gray-500 ml-2">(max {maxBibs} for your account)</span>
+    )}
+  </label>
+  {user.user_type === "private" ? (
+    <>
+      <div className="flex items-center gap-3 mt-2">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-100 text-brand-700 font-bold text-2xl">
+          1
+        </div>
+        <span className="text-sm text-gray-600">Private users can list 1 bib only</span>
+      </div>
+      <input type="hidden" name="bibCount" value="1" />
+    </>
+  ) : (
+    <input
+      type="number"
+      id="bibCount"
+      name="bibCount"
+      min="1"
+      max={maxBibs || undefined}
+      placeholder="e.g. 1"
+      className="input w-full sm:w-48"
+    />
+  )}
+</div>
 
-            {/* Price */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-gray-900 border-b pb-2">Price</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="price" className="label">
-                    Price (€)
-                  </label>
-                  <input
-                    type="number"
-                    id="price"
-                    name="price"
-                    min="0"
-                    step="0.01"
-                    placeholder="Leave empty for 'Contact for price'"
-                    className="input"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2 cursor-pointer">
+  
+    <div>
+    <label htmlFor="transferType" className="label">
+      Transfer Method <span className="text-red-500">*</span>
+    </label>
+    {user.user_type === "private" ? (
+      <>
+        <div className="mt-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700">
+          Official Organizer Name Change
+        </div>
+        <input type="hidden" name="transferType" value="direct" />
+        <p className="mt-1 text-xs text-gray-500">
+          How the bib will be transferred to the new participant
+        </p>
+      </>
+    ) : (
+      <>
+        <select
+          id="transferType"
+          name="transferType"
+          className="input"
+          onChange={(e) => setTransferMethod(e.target.value as TransferMethod)}
+        >
+          <option value="">Select transfer method</option>
+          {transferMethodOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-gray-500">
+          How the bib will be transferred to the new participant
+        </p>
+      </>
+    )}
+  </div>
+
+
+  {/* Associated costs - show based on transfer method and listing type */}
+  {visibleFields.showAssociatedCosts && (
+    <div>
+      <label htmlFor="associatedCosts" className="label">
+        Associated Costs (€) <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="number"
+        id="associatedCosts"
+        name="associatedCosts"
+        min="0"
+        step="0.01"
+        placeholder="e.g. 50"
+        className="input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        required
+      />
+      <p className="mt-1 text-xs text-gray-500">
+        Official name change fee from the event organizer
+      </p>
+    </div>
+  )}
+
+  {/* Package info - show when "package" is selected */}
+  {visibleFields.showPackageInfo && (
+    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+      <p className="text-sm text-green-800">
+        <strong>Package Transfer:</strong> The bib is included in your travel package.
+        All costs are included in the package price.
+      </p>
+    </div>
+  )}
+
+</div>
+            )}
+            {/* Price - nascondi per privati con bib only */}
+            {!(user.user_type === "private" && listingType === "bib") && (
+              <div className="space-y-4">
+                <h3 className="font-medium text-gray-900 border-b pb-2">
+                  Price
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="price" className="label">
+                      Price (€)
+                    </label>
                     <input
-                      type="checkbox"
-                      name="priceNegotiable"
-                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                      type="number"
+                      id="price"
+                      name="price"
+                      min="0"
+                      step="0.01"
+                      placeholder="Empty = Contact for price"
+                      className="input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <span className="text-sm text-gray-700">
-                      Price is negotiable
-                    </span>
-                  </label>
+                  </div>
+                  {/* Price negotiable - solo per room e room_and_bib, non per bib */}
+                  {(listingType === "room" || listingType === "room_and_bib") && (
+                    <div className="flex items-end">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="priceNegotiable"
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        <span className="text-sm text-gray-700">
+                          Price is negotiable
+                        </span>
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Description */}
             <div>
               <label htmlFor="description" className="label">
-                Additional details{" "}
-                <span className="text-gray-400">(optional)</span>
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                rows={4}
-                placeholder="Any other information buyers should know..."
-                className="input"
-              />
+  {user.user_type === "private" && listingType === "bib" ? "Notes" : "Additional details"}{" "}
+  <span className={roomType === "other" ? "text-red-500" : "text-gray-400"}>
+    {roomType === "other" ? "(required)" : "(optional)"}
+  </span>
+</label>
+             <textarea
+  id="description"
+  name="description"
+  rows={4}
+  placeholder="Any other information runners should know..."
+  className={`input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`}
+  required={roomType === "other"}
+/>
             </div>
 
             {/* Submit */}

@@ -6,10 +6,11 @@ import type {
 import { json, redirect } from "@remix-run/node";
 import { Form, Link, useActionData } from "@remix-run/react";
 import { supabase } from "~/lib/supabase.server";
+import type { Database } from "~/lib/database.types";
 import { createUserSession, getUserId } from "~/lib/session.server";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Sign Up - RunStay Exchange" }];
+  return [{ title: "Sign Up - Runoot" }];
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -81,14 +82,23 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // Create profile (only if session exists, meaning email is confirmed or confirmation disabled)
-  const { error: profileError } = await supabase.from("profiles").insert({
+  const profileData: Database["public"]["Tables"]["profiles"]["Insert"] = {
     id: authData.user.id,
-    email,
+    email: email,
     full_name: fullName,
     user_type: userType as "tour_operator" | "private",
-    company_name: userType === "tour_operator" ? (companyName as string) : null,
+    company_name: userType === "tour_operator" && companyName ? (companyName as string) : null,
     is_verified: false,
-  });
+  };
+
+    const { error: profileError } = await supabase.from("profiles").insert({
+    id: authData.user.id,
+    email: email,
+    full_name: fullName,
+    user_type: userType as "tour_operator" | "private",
+    company_name: userType === "tour_operator" && companyName ? (companyName as string) : null,
+    is_verified: false,
+  } as any);
 
   if (profileError) {
     console.error("Profile creation error:", profileError);
@@ -104,7 +114,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Register() {
-  const actionData = useActionData<typeof action>();
+  const actionData = useActionData<typeof action>() as 
+    | { error: string }
+    | { success: boolean; emailConfirmationRequired: boolean; message: string }
+    | undefined;
 
   return (
     <div className="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50">
@@ -142,7 +155,7 @@ export default function Register() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-sm rounded-xl sm:px-10 border border-gray-200">
-          {actionData?.emailConfirmationRequired ? (
+          {actionData && "emailConfirmationRequired" in actionData && actionData.emailConfirmationRequired ? (
             <div className="text-center">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
                 <svg
@@ -163,7 +176,7 @@ export default function Register() {
                 Check your email
               </h3>
               <p className="text-sm text-gray-600 mb-6">
-                {actionData.message}
+                {"message" in actionData ? actionData.message : "Please check your email to confirm your account."}
               </p>
               <Link
                 to="/login"
@@ -174,9 +187,9 @@ export default function Register() {
             </div>
           ) : (
             <Form method="post" className="space-y-6">
-              {actionData?.error && (
+              {actionData && "error" in actionData && actionData.error && (
                 <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-                  {actionData.error}
+                  {"error" in actionData ? actionData.error : ""}
                 </div>
               )}
 
