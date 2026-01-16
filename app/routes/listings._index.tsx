@@ -4,6 +4,8 @@ import { getUser } from "~/lib/session.server";
 import { supabase } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { ListingCard } from "~/components/ListingCard";
+import { ListingCardCompact } from "~/components/ListingCardCompact";
+
 
 export const meta: MetaFunction = () => {
   return [{ title: "Browse Listings - Runoot" }];
@@ -214,13 +216,24 @@ export default function Listings() {
         </div>
 
         {/* Results */}
-        {listings.length > 0 ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {listings.map((listing: any) => (
-              <ListingCard key={listing.id} listing={listing} />
-            ))}
-          </div>
-        ) : (
+{listings.length > 0 ? (
+  <>
+    {/* Desktop: Grid di card */}
+    <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {listings.map((listing: any) => (
+        <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} />
+      ))}
+    </div>
+
+    {/* Mobile: Lista verticale compatta */}
+    <div className="flex flex-col gap-3 md:hidden">
+      {listings.map((listing: any) => (
+        <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} />
+      ))}
+    </div>
+  </>
+) : (
+
           <div className="text-center py-12">
             <svg
               className="mx-auto h-12 w-12 text-gray-400"

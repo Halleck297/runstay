@@ -78,6 +78,46 @@ export interface Database {
         };
       };
 
+            hotels: {
+        Row: {
+          id: string;
+          place_id: string | null;
+          name: string;
+          city: string | null;
+          country: string | null;
+          website: string | null;
+          lat: number | null;
+          lng: number | null;
+          rating: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          place_id?: string | null;
+          name: string;
+          city?: string | null;
+          country?: string | null;
+          website?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          rating?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          place_id?: string | null;
+          name?: string;
+          city?: string | null;
+          country?: string | null;
+          website?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          rating?: number | null;
+          updated_at?: string;
+        };
+      };
+
       listings: {
   Row: {
     id: string;
@@ -95,11 +135,12 @@ export interface Database {
     hotel_lat: number | null;
     hotel_lng: number | null;
     hotel_rating: number | null;
+    hotel_id: string | null;
     room_count: number | null;
     check_in: string | null;
     check_out: string | null;
     bib_count: number | null;
-    room_type: "single" | "twin" | "double" | "double_shared" | "double_single_use" | "Triple" | "Quadruple" |null;
+    room_type: "single" | "twin" | "double" | "twin_shared" | "double_single_use" | "triple" | "quadruple" |null;
     // DEPRECATI (mantieni per backward compatibility)
     price: number | null;
     price_negotiable: boolean;
@@ -108,7 +149,7 @@ export interface Database {
     transfer_type: TransferType | null;
     associated_costs: number | null;
     cost_notes: string | null;
-    package_id: string | null;
+    
     
     status: ListingStatus;
     created_at: string;
@@ -131,8 +172,9 @@ export interface Database {
   hotel_lat?: number | null; 
   hotel_lng?: number | null;
   hotel_rating?: number | null;
+  hotel_id: string | null;
   room_count?: number | null;
-  room_type: "single" | "twin" | "double" | "double_shared" | "double_single_use" | "Triple" | "Quadruple" |null;
+  room_type: "single" | "twin" | "double" | "twin_shared" | "double_single_use" | "triple" | "quadruple" |null;
   check_in?: string | null;
   check_out?: string | null;
   bib_count?: number | null;
@@ -143,7 +185,7 @@ export interface Database {
   transfer_type?: TransferType | null;
   associated_costs?: number | null;
   cost_notes?: string | null;
-  package_id?: string | null;
+  
   
   status?: ListingStatus;
   created_at?: string;
@@ -162,9 +204,10 @@ export interface Database {
   hotel_lat?: number | null;
   hotel_lng?: number | null;
   hotel_rating?: number | null;
+  hotel_id: string | null;
   hotel_stars?: number | null;
   room_count?: number | null;
-  room_type: "single" | "twin" | "double" | "double_shared" | "double_single_use" | "Triple" | "Quadruple" |null;
+  room_type: "single" | "twin" | "double" | "twin_shared" | "double_single_use" | "triple" | "quadruple" |null;
   check_in?: string | null;
   check_out?: string | null;
   bib_count?: number | null;
@@ -175,7 +218,7 @@ export interface Database {
   transfer_type?: TransferType | null;
   associated_costs?: number | null;
   cost_notes?: string | null;
-  package_id?: string | null;
+  
   
   status?: ListingStatus;
   updated_at?: string;

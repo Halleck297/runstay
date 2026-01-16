@@ -65,7 +65,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const hotelLat = formData.get("hotelLat") as string;
   const hotelLng = formData.get("hotelLng") as string;
   const hotelRating = formData.get("hotelRating") as string;
-  const hotelStars = formData.get("hotelStars") as string;
+  
   
   
 
@@ -132,9 +132,43 @@ export async function action({ request }: ActionFunctionArgs) {
   // Get event details for auto-generating title
   const { data: eventData } = await supabase
     .from("events")
-    .select("name")
+    .select("name, event_date")
     .eq("id", finalEventId)
-    .single<{ name: string }>();
+    .single<{ name: string; event_date: string }>();
+
+      // Validate check-in/check-out dates (±10 days from event)
+  if ((listingType === "room" || listingType === "room_and_bib") && checkIn && checkOut) {
+    const eventDate = new Date(eventData!.event_date);
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    
+    // Calculate min/max dates (±10 days from event)
+    const minDate = new Date(eventDate);
+    minDate.setDate(minDate.getDate() - 10);
+    const maxDate = new Date(eventDate);
+    maxDate.setDate(maxDate.getDate() + 10);
+    
+    // Validate check-in
+    if (checkInDate < minDate || checkInDate > maxDate) {
+      return json({ 
+        error: "Check-in date must be within 10 days before or after the event date" 
+      }, { status: 400 });
+    }
+    
+    // Validate check-out
+    if (checkOutDate < minDate || checkOutDate > maxDate) {
+      return json({ 
+        error: "Check-out date must be within 10 days before or after the event date" 
+      }, { status: 400 });
+    }
+    
+    // Validate check-out is after check-in
+    if (checkOutDate <= checkInDate) {
+      return json({ 
+        error: "Check-out date must be after check-in date" 
+      }, { status: 400 });
+    }
+  }
 
   // Auto-generate title based on listing type and event
   const listingTypeText = 
@@ -208,7 +242,8 @@ export async function action({ request }: ActionFunctionArgs) {
     // Campi hotel
     hotel_name: hotelName || null,
     hotel_website: hotelWebsite || null,
-    hotel_place_id: hotelPlaceId || null, 
+    hotel_place_id: hotelPlaceId || null,
+    hotel_id: finalHotelId, 
     hotel_stars: null,
     hotel_lat: hotelLat ? parseFloat(hotelLat) : null,
     hotel_lng: hotelLng ? parseFloat(hotelLng) : null,
@@ -229,7 +264,7 @@ export async function action({ request }: ActionFunctionArgs) {
     transfer_type: transferType || null,
     associated_costs: associatedCosts ? parseFloat(associatedCosts) : null,
     cost_notes: costNotes || null,
-    package_id: null,
+    
     
     status: "active",
     }as any)
@@ -587,7 +622,7 @@ useEffect(() => {
         <div className="mt-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700">
           Official Organizer Name Change
         </div>
-        <input type="hidden" name="transferType" value="direct" />
+        <input type="hidden" name="transferType" value="official_process" />
         <p className="mt-1 text-xs text-gray-500">
           How the bib will be transferred to the new participant
         </p>

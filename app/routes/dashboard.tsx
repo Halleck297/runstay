@@ -3,6 +3,8 @@ import { Link, useLoaderData } from "@remix-run/react";
 import { requireUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
+import { ListingCardCompact } from "~/components/ListingCardCompact";
+
 
 export const meta: MetaFunction = () => {
   return [{ title: "Dashboard - Runoot" }];
@@ -17,7 +19,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select(
       `
       *,
-      event:events(id, name, location, event_date)
+      event:events(id, name, location, event_date),
+      author:profiles(id, full_name, company_name, user_type, is_verified)
     `
     )
     .eq("author_id", user.id)
@@ -56,9 +59,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 const statusColors = {
-  active: "bg-green-100 text-green-700",
-  sold: "bg-gray-100 text-gray-600",
-  expired: "bg-red-100 text-red-700",
+  active: "bg-success-100 text-success-700 border border-success-200",
+  sold: "bg-gray-100 text-gray-700 border border-gray-200",
+  expired: "bg-alert-100 text-alert-700 border border-alert-200",
 };
 
 export default function Dashboard() {
@@ -113,73 +116,61 @@ export default function Dashboard() {
 
         <div className="grid gap-8 lg:grid-cols-2">
           {/* My Listings */}
-          <div className="card">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold text-gray-900">
-                My Listings
-              </h2>
-              <Link
-                to="/listings/new"
-                className="text-sm font-medium text-brand-600 hover:text-brand-700"
-              >
-                + New Listing
-              </Link>
-            </div>
+<div className="card">
+  <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+    <h2 className="font-display text-lg font-semibold text-gray-900">
+      My Listings
+    </h2>
+    <Link
+      to="/listings/new"
+      className="text-sm font-medium text-brand-600 hover:text-brand-700"
+    >
+      + New Listing
+    </Link>
+  </div>
 
-            {listings.length > 0 ? (
-              <div className="divide-y divide-gray-100">
-                {listings.slice(0, 5).map((listing: any) => (
-                  <Link
-                    key={listing.id}
-                    to={`/listings/${listing.id}`}
-                    className="block p-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 truncate">
-                          {listing.title}
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {listing.event?.name} ·{" "}
-                          {new Date(
-                            listing.event?.event_date
-                          ).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <span
-                        className={`ml-4 px-2.5 py-1 rounded-full text-xs font-medium ${
-                          statusColors[listing.status as keyof typeof statusColors]
-                        }`}
-                      >
-                        {listing.status}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="p-8 text-center">
-                <p className="text-gray-500">No listings yet</p>
-                <Link
-                  to="/listings/new"
-                  className="mt-4 inline-block text-brand-600 hover:text-brand-700 font-medium"
-                >
-                  Create your first listing →
-                </Link>
-              </div>
-            )}
-
-            {listings.length > 5 && (
-              <div className="p-4 border-t border-gray-100">
-                <Link
-                  to="/dashboard/listings"
-                  className="text-sm text-gray-600 hover:text-gray-900"
-                >
-                  View all {listings.length} listings →
-                </Link>
-              </div>
-            )}
+  {listings.length > 0 ? (
+    <div className="p-4 space-y-3">
+      {listings.slice(0, 5).map((listing: any) => (
+        <div key={listing.id} className="relative">
+          <ListingCardCompact listing={listing} isUserLoggedIn={true} />
+          {/* Status badge overlay */}
+          <div className="absolute top-3 right-3">
+            <span
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${
+                statusColors[listing.status as keyof typeof statusColors]
+              }`}
+            >
+              {listing.status}
+            </span>
           </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="p-8 text-center">
+      <p className="text-gray-500">No listings yet</p>
+      <Link
+        to="/listings/new"
+        className="mt-4 inline-block text-brand-600 hover:text-brand-700 font-medium"
+      >
+        Create your first listing →
+      </Link>
+    </div>
+  )}
+
+  {listings.length > 5 && (
+    <div className="p-4 border-t border-gray-100">
+      <Link
+        to="/dashboard/listings"
+        className="text-sm text-gray-600 hover:text-gray-900"
+      >
+        View all {listings.length} listings →
+      </Link>
+    </div>
+  )}
+</div>
+
 
           {/* Recent Conversations */}
           <div className="card">

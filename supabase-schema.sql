@@ -32,6 +32,21 @@ CREATE TABLE public.events (
   created_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- Hotels
+CREATE TABLE public.hotels (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  place_id TEXT UNIQUE,
+  name TEXT NOT NULL,
+  city TEXT,
+  country TEXT,
+  website TEXT,
+  lat DECIMAL(10, 7),
+  lng DECIMAL(10, 7),
+  rating DECIMAL(3, 2),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 -- Listings
 CREATE TABLE public.listings (
@@ -43,12 +58,27 @@ CREATE TABLE public.listings (
   description TEXT,
   hotel_name TEXT,
   hotel_stars INTEGER CHECK (hotel_stars >= 1 AND hotel_stars <= 5),
+  hotel_website TEXT,
+  hotel_place_id TEXT,
+  hotel_city TEXT,
+  hotel_country TEXT,
+  hotel_lat DECIMAL(10, 7),
+  hotel_lng DECIMAL(10, 7),
+  hotel_rating DECIMAL(3, 2),
+  hotel_id UUID REFERENCES public.hotels(id) ON DELETE SET NULL,
+
+
   room_count INTEGER,
+  room_type TEXT CHECK (room_type IN ('single', 'twin', 'double', 'twin_shared', 'double_single_use', 'triple', 'quadruple')),
   check_in DATE,
   check_out DATE,
   bib_count INTEGER,
   price DECIMAL(10,2),
   price_negotiable BOOLEAN DEFAULT FALSE,
+  transfer_type TEXT CHECK (transfer_type IN ('official_process', 'package', 'contact')),
+  associated_costs DECIMAL(10,2),
+  cost_notes TEXT,
+
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'sold', 'expired')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -84,6 +114,10 @@ CREATE INDEX idx_listings_event ON public.listings(event_id);
 CREATE INDEX idx_listings_status ON public.listings(status);
 CREATE INDEX idx_listings_type ON public.listings(listing_type);
 CREATE INDEX idx_listings_created ON public.listings(created_at DESC);
+CREATE INDEX idx_listings_hotel ON public.listings(hotel_id);
+CREATE INDEX idx_hotels_place_id ON public.hotels(place_id);
+CREATE INDEX idx_hotels_city ON public.hotels(city);
+CREATE INDEX idx_hotels_country ON public.hotels(country);
 
 CREATE INDEX idx_conversations_participants ON public.conversations(participant_1, participant_2);
 CREATE INDEX idx_conversations_listing ON public.conversations(listing_id);
@@ -103,6 +137,8 @@ ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.listings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hotels ENABLE ROW LEVEL SECURITY;
+
 
 -- Profiles: anyone can read, users can update their own
 CREATE POLICY "Profiles are viewable by everyone" ON public.profiles
@@ -120,6 +156,16 @@ CREATE POLICY "Events are viewable by everyone" ON public.events
 
 CREATE POLICY "Authenticated users can create events" ON public.events
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Hotels: everyone can read, only service role can write
+CREATE POLICY "Hotels are viewable by everyone" ON public.hotels
+  FOR SELECT USING (true);
+
+CREATE POLICY "Service role can insert hotels" ON public.hotels
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Service role can update hotels" ON public.hotels
+  FOR UPDATE USING (true);
 
 -- Listings: anyone can read, authors can modify their own
 CREATE POLICY "Listings are viewable by everyone" ON public.listings
@@ -197,6 +243,11 @@ CREATE TRIGGER on_listings_updated
 CREATE TRIGGER on_conversations_updated
   BEFORE UPDATE ON public.conversations
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+  CREATE TRIGGER on_hotels_updated
+  BEFORE UPDATE ON public.hotels
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
 
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()

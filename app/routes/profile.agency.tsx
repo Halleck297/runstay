@@ -1,8 +1,5 @@
-import type {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-  MetaFunction,
-} from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { requireUser } from "~/lib/session.server";
@@ -18,7 +15,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   
   // Redirect private runners to their profile page
   if ((user.user_type as string) === "private") {
-    throw new Response("Redirect", { status: 302, headers: { Location: "/profile/runner" } });
+    return redirect("/profile/runner");
   }
   
   return { user };

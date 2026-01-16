@@ -4,6 +4,8 @@ import { getUser } from "~/lib/session.server";
 import { supabase } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { ListingCard } from "~/components/ListingCard";
+import { ListingCardCompact } from "~/components/ListingCardCompact";
+
 
 export const meta: MetaFunction = () => {
   return [
@@ -76,29 +78,38 @@ export default function Index() {
 
 
       {/* Recent Listings */}
-      {listings.length > 0 && (
-        <section className="py-20 bg-gray-50">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-3xl font-bold text-gray-900">
-                Recent Listings
-              </h2>
-              <Link
-                to={user ? "/listings" : "/login"}
-                className="text-brand-600 hover:text-brand-700 font-medium"
-              >
-                View all →
-              </Link>
-            </div>
+{listings.length > 0 && (
+  <section className="py-20 bg-gray-50">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-3xl font-bold text-gray-900">
+          Recent Listings
+        </h2>
+        <Link
+          to={user ? "/listings" : "/login"}
+          className="text-brand-600 hover:text-brand-700 font-medium"
+        >
+          View all →
+        </Link>
+      </div>
 
-            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {listings.map((listing: any) => (
-                <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Desktop: Grid di card */}
+      <div className="mt-8 hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {listings.map((listing: any) => (
+          <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} />
+        ))}
+      </div>
+
+      {/* Mobile: Lista verticale compatta */}
+      <div className="mt-6 flex flex-col gap-3 md:hidden">
+        {listings.map((listing: any) => (
+          <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} />
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
 
       {/* CTA */}
       <section className="py-20 bg-gray-900">
