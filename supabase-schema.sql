@@ -125,6 +125,8 @@ CREATE INDEX idx_conversations_updated ON public.conversations(updated_at DESC);
 
 CREATE INDEX idx_messages_conversation ON public.messages(conversation_id);
 CREATE INDEX idx_messages_created ON public.messages(created_at);
+CREATE INDEX idx_saved_listings_user ON public.saved_listings(user_id);
+CREATE INDEX idx_saved_listings_listing ON public.saved_listings(listing_id);
 
 CREATE INDEX idx_events_date ON public.events(event_date);
 
@@ -138,6 +140,7 @@ ALTER TABLE public.listings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hotels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_listings ENABLE ROW LEVEL SECURITY;
 
 
 -- Profiles: anyone can read, users can update their own
@@ -218,6 +221,24 @@ CREATE POLICY "Recipients can mark messages as read" ON public.messages
       AND (c.participant_1 = auth.uid() OR c.participant_2 = auth.uid())
     )
   );
+-- Saved Listings: users can only see and manage their own
+CREATE POLICY "Users can view own saved listings" ON public.saved_listings
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can save listings" ON public.saved_listings
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can unsave listings" ON public.saved_listings
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Saved Listings (user favorites)
+CREATE TABLE public.saved_listings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  listing_id UUID NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, listing_id)
+);
 
 -- ============================================
 -- FUNCTIONS & TRIGGERS

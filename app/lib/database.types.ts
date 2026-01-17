@@ -272,6 +272,26 @@ export interface Database {
           read_at?: string | null;
         };
       };
+            saved_listings: {
+        Row: {
+          id: string;
+          user_id: string;
+          listing_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          listing_id: string;
+          created_at?: string;
+        };
+        Delete: {
+          id?: string;
+          user_id?: string;
+          listing_id?: string;
+        };
+      };
+
     };
   };
 }

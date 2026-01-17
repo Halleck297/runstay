@@ -4,130 +4,19 @@ import type {
   MetaFunction,
 } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
+import { Form, Link, useActionData, useLoaderData, useFetcher } from "@remix-run/react";
 import { useState } from "react";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
-  return [{ title: data?.listing?.title || "Listing - Runoot" }];
+  return [{ title: (data as any)?.listing?.title || "Listing - Runoot" }];
 };
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const { id } = params;
-
-  // Demo mode: return mock data
-  if (process.env.DISABLE_AUTH === "true") {
-    const mockListings: Record<string, any> = {
-      "1": {
-        id: "1",
-        title: "2 Hotel Rooms + 2 Bibs - Berlin Marathon 2025",
-        description: "Premium hotel near start line, includes breakfast. Perfect location for marathon weekend. Rooms are spacious and comfortable.",
-        listing_type: "room_and_bib",
-        price: 450,
-        price_negotiable: true,
-        transfer_type: "package",
-        associated_costs: 450,
-        cost_notes: "Includes hotel + bibs as complete package",
-        status: "active",
-        hotel_name: "Hotel Berlin Central",
-        hotel_stars: 4,
-        room_count: 2,
-        bib_count: 2,
-        check_in: "2025-09-26",
-        check_out: "2025-09-29",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        author_id: "demo-1",
-        author: {
-          id: "demo-1",
-          full_name: "Marco Rossi",
-          company_name: "Run Tours Italia",
-          user_type: "tour_operator",
-          is_verified: true,
-          email: "marco@runtours.it",
-        },
-        event: {
-          id: "event-1",
-          name: "Berlin Marathon 2025",
-          location: "Berlin",
-          country: "Germany",
-          event_date: "2025-09-28",
-        },
-      },
-      "2": {
-        id: "2",
-        title: "1 Marathon Bib - London Marathon 2025",
-        description: "Can't run anymore due to injury, looking to sell my bib. Already paid for and confirmed.",
-        listing_type: "bib",
-        transfer_type: "official_process",
-        associated_costs: 80,
-        cost_notes: "Includes official name change fee",
-        status: "active",
-        bib_count: 1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        author_id: "demo-2",
-        author: {
-          id: "demo-2",
-          full_name: "Sarah Johnson",
-          company_name: null,
-          user_type: "private",
-          is_verified: false,
-          email: "sarah.j@example.com",
-        },
-        event: {
-          id: "event-2",
-          name: "London Marathon 2025",
-          location: "London",
-          country: "UK",
-          event_date: "2025-04-27",
-        },
-      },
-      "3": {
-        id: "3",
-        title: "3 Hotel Rooms - New York Marathon 2025",
-        description: "Excellent location in Manhattan, walking distance to Central Park. Modern hotel with great amenities and breakfast included.",
-        listing_type: "room",
-        price: 600,
-        price_negotiable: true,
-        status: "active",
-        hotel_name: "Manhattan Runner's Hotel",
-        hotel_stars: 5,
-        room_count: 3,
-        check_in: "2025-11-01",
-        check_out: "2025-11-04",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        author_id: "demo-3",
-        author: {
-          id: "demo-3",
-          full_name: "John Smith",
-          company_name: "NYC Marathon Tours",
-          user_type: "tour_operator",
-          is_verified: true,
-          email: "john@nycmarathontours.com",
-        },
-        event: {
-          id: "event-3",
-          name: "New York City Marathon 2025",
-          location: "New York",
-          country: "USA",
-          event_date: "2025-11-02",
-        },
-      },
-    };
-
-    const listing = mockListings[id!];
-
-    if (!listing) {
-      throw new Response("Listing not found", { status: 404 });
-    }
-
-    return { user, listing };
-  }
 
   const { data: listing, error } = await supabase
     .from("listings")
@@ -145,7 +34,21 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Listing not found", { status: 404 });
   }
 
-  return { user, listing };
+  // Check if user has saved this listing
+  let isSaved = false;
+  if (user) {
+    const userId = (user as any).id as string;
+    const { data: savedListing } = await (supabase as any)
+      .from("saved_listings")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("listing_id", id!)
+      .single();
+    
+    isSaved = !!savedListing;
+  }
+
+  return { user, listing, isSaved };
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -154,6 +57,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return redirect(`/login?redirectTo=/listings/${params.id}`);
   }
 
+  const userId = (user as any).id as string;
   const { id } = params;
 
   // Get the listing to find the author
@@ -167,7 +71,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return json({ error: "Listing not found" }, { status: 404 });
   }
 
-  if (listing.author_id === user.id) {
+  if (listing.author_id === userId) {
     return json({ error: "You cannot message yourself" }, { status: 400 });
   }
 
@@ -177,7 +81,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .select("id")
     .eq("listing_id", id!)
     .or(
-      `and(participant_1.eq.${user.id},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${user.id})`
+      `and(participant_1.eq.${userId},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${userId})`
     )
     .single<{ id: string }>();
 
@@ -190,7 +94,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .from("conversations")
     .insert({
       listing_id: id!,
-      participant_1: user.id,
+      participant_1: userId,
       participant_2: listing.author_id,
     } as any)
     .select()
@@ -241,11 +145,18 @@ function getDaysUntilEvent(eventDate: string): number {
 }
 
 export default function ListingDetail() {
-  const { user, listing } = useLoaderData<typeof loader>();
+  const { user, listing, isSaved } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [showSafety, setShowSafety] = useState(false);
-
-  const eventDate = new Date(listing.event.event_date);
+  const saveFetcher = useFetcher();
+  const isSavedOptimistic = saveFetcher.formData
+    ? saveFetcher.formData.get("action") === "save"
+    : isSaved;
+  
+  const listingData = listing as any;
+  const userData = user as any;
+  
+  const eventDate = new Date(listingData.event.event_date);
   const eventDateFormatted = eventDate.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
@@ -259,25 +170,25 @@ export default function ListingDetail() {
     year: "numeric",
   });
 
-  const isOwner = user?.id === listing.author_id;
-  const daysUntil = getDaysUntilEvent(listing.event.event_date);
+  const isOwner = userData?.id === listingData.author_id;
+  const daysUntil = getDaysUntilEvent(listingData.event.event_date);
 
   // Genera sottotitolo contestuale
   let subtitle = "";
-  if (listing.listing_type === "room") {
-    const nights = listing.check_in && listing.check_out 
-      ? Math.ceil((new Date(listing.check_out).getTime() - new Date(listing.check_in).getTime()) / (1000 * 60 * 60 * 24))
+  if (listingData.listing_type === "room") {
+    const nights = listingData.check_in && listingData.check_out 
+      ? Math.ceil((new Date(listingData.check_out).getTime() - new Date(listingData.check_in).getTime()) / (1000 * 60 * 60 * 24))
       : 0;
-    subtitle = `${formatRoomType(listing.room_type)} · ${nights > 0 ? `${nights} nights` : "Race weekend"}`;
-  } else if (listing.listing_type === "bib") {
-    subtitle = `${listing.bib_count || 1} bib${(listing.bib_count || 1) > 1 ? "s" : ""} available`;
+    subtitle = `${formatRoomType(listingData.room_type)} · ${nights > 0 ? `${nights} nights` : "Race weekend"}`;
+  } else if (listingData.listing_type === "bib") {
+    subtitle = `${listingData.bib_count || 1} bib${(listingData.bib_count || 1) > 1 ? "s" : ""} available`;
   } else {
     subtitle = "Complete race weekend package";
   }
 
   // Price anchor (stima comparativa)
-  const priceAnchor = listing.hotel_stars 
-    ? `Comparable ${listing.hotel_stars}-star hotels from €${Math.round((listing.hotel_stars * 80) + 100)}`
+  const priceAnchor = listingData.hotel_stars 
+    ? `Comparable ${listingData.hotel_stars}-star hotels from €${Math.round((listingData.hotel_stars * 80) + 100)}`
     : "Comparable hotels from €200+";
 
   return (
@@ -301,46 +212,79 @@ export default function ListingDetail() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex-1">
               {/* Badge tipo listing */}
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${typeColors[listing.listing_type as keyof typeof typeColors]}`}>
-                {typeLabels[listing.listing_type as keyof typeof typeLabels]}
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${typeColors[listingData.listing_type as keyof typeof typeColors]}`}>
+                {typeLabels[listingData.listing_type as keyof typeof typeLabels]}
               </span>
               
               {/* Titolo principale */}
               <h1 className="mt-3 font-display text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
-                {subtitle} · {listing.event.name}
+                {subtitle} · {listingData.event.name}
               </h1>
               
               {/* Hotel name + rating (se presente) */}
-              {listing.hotel_name && (
+              {listingData.hotel_name && (
                 <div className="mt-2 flex items-center gap-2 text-gray-700">
                   <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
-                  <span className="font-medium">{listing.hotel_name}</span>
-                  {listing.hotel_rating && (
-                    <span className="text-sm">⭐ {listing.hotel_rating.toFixed(1)}</span>
+                  <span className="font-medium">{listingData.hotel_name}</span>
+                  {listingData.hotel_rating && (
+                    <span className="text-sm">⭐ {listingData.hotel_rating.toFixed(1)}</span>
                   )}
-                  {listing.hotel_stars && (
-                    <span className="text-yellow-500 text-sm">{"★".repeat(listing.hotel_stars)}</span>
+                  {listingData.hotel_stars && (
+                    <span className="text-yellow-500 text-sm">{"★".repeat(listingData.hotel_stars)}</span>
                   )}
                 </div>
               )}
               
               {/* Date range compatto */}
-              {listing.check_in && listing.check_out && (
+              {listingData.check_in && listingData.check_out && (
                 <p className="mt-2 text-sm text-gray-600">
-                  🗓 {new Date(listing.check_in).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} → {new Date(listing.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  🗓 {new Date(listingData.check_in).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} → {new Date(listingData.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   <span className="ml-2 text-gray-500">· Covers race day</span>
                 </p>
               )}
             </div>
 
-            {/* Status badge (se non attivo) */}
-            {listing.status !== "active" && (
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600 self-start">
-                {listing.status === "sold" ? "Sold" : "Expired"}
-              </span>
-            )}
+            {/* Save button + Status badge */}
+            <div className="flex items-center gap-3 self-start">
+              {user && !isOwner && listingData.status === "active" && (
+                <saveFetcher.Form method="post" action="/api/saved">
+                  <input type="hidden" name="listingId" value={listingData.id} />
+                  <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
+                  <button
+                    type="submit"
+                    className={`p-2 rounded-full border transition-colors ${
+                      isSavedOptimistic
+                        ? "bg-red-50 border-red-200 text-red-500 hover:bg-red-100"
+                        : "bg-white border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200"
+                    }`}
+                    title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
+                  >
+                    <svg
+                      className="h-6 w-6"
+                      fill={isSavedOptimistic ? "currentColor" : "none"}
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                  </button>
+                </saveFetcher.Form>
+              )}
+              
+              {listingData.status !== "active" && (
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                  {listingData.status === "sold" ? "Sold" : "Expired"}
+                </span>
+              )}
+            </div>
+
           </div>
         </div>
 
@@ -359,10 +303,10 @@ export default function ListingDetail() {
                 </div>
                 <div className="flex-1">
                   <h2 className="font-display text-lg font-bold text-gray-900">
-                    {listing.event.name}
+                    {listingData.event.name}
                   </h2>
                   <p className="text-sm text-gray-700 mt-1">
-                    📍 {listing.event.location}, {listing.event.country}
+                    📍 {listingData.event.location}, {listingData.event.country}
                   </p>
                   <p className="text-sm text-gray-600 mt-1">
                     🏁 Race day: {eventDateFormatted}
@@ -377,29 +321,29 @@ export default function ListingDetail() {
             </div>
 
             {/* Why this listing - Value propositions */}
-            {(listing.listing_type === "room" || listing.listing_type === "room_and_bib") && listing.hotel_name && (
+            {(listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && listingData.hotel_name && (
               <div className="card p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
                   Why this stay
                 </h3>
                 <div className="space-y-2.5">
-                  {listing.hotel_rating && listing.hotel_rating >= 4 && (
+                  {listingData.hotel_rating && listingData.hotel_rating >= 4 && (
                     <div className="flex items-start gap-3">
                       <svg className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                       <span className="text-gray-700">
-                        Top-rated hotel (⭐ {listing.hotel_rating.toFixed(1)} on Google)
+                        Top-rated hotel (⭐ {listingData.hotel_rating.toFixed(1)} on Google)
                       </span>
                     </div>
                   )}
-                  {listing.hotel_city && (
+                  {listingData.hotel_city && (
                     <div className="flex items-start gap-3">
                       <svg className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                       <span className="text-gray-700">
-                        {listing.hotel_city === listing.event.location ? "Central location near race route" : `Located in ${listing.hotel_city}`}
+                        {listingData.hotel_city === listingData.event.location ? "Central location near race route" : `Located in ${listingData.hotel_city}`}
                       </span>
                     </div>
                   )}
@@ -416,7 +360,7 @@ export default function ListingDetail() {
             )}
 
             {/* Details - Hotel & Location */}
-            {(listing.listing_type === "room" || listing.listing_type === "room_and_bib") && (
+            {(listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && (
               <div className="card p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-100">
                   Hotel & Location
@@ -424,7 +368,7 @@ export default function ListingDetail() {
 
                 <div className="space-y-5">
                   {/* Hotel info block */}
-                  {listing.hotel_name && (
+                  {listingData.hotel_name && (
                     <div>
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700 flex-shrink-0">
@@ -435,30 +379,30 @@ export default function ListingDetail() {
                         <div className="flex-1">
                           <p className="text-sm text-gray-500 mb-1">Hotel</p>
                           <p className="font-semibold text-gray-900">
-                            {listing.hotel_website ? (
+                            {listingData.hotel_website ? (
                               <a
-                                href={listing.hotel_website}
+                                href={listingData.hotel_website}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1"
                               >
-                                {listing.hotel_name}
+                                {listingData.hotel_name}
                                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
                               </a>
                             ) : (
-                              listing.hotel_name
+                              listingData.hotel_name
                             )}
                           </p>
-                          {(listing.hotel_city || listing.hotel_country) && (
+                          {(listingData.hotel_city || listingData.hotel_country) && (
                             <p className="text-sm text-gray-600 mt-0.5">
-                              📍 {listing.hotel_city || ""}{listing.hotel_city && listing.hotel_country ? ", " : ""}{listing.hotel_country || ""}
+                              📍 {listingData.hotel_city || ""}{listingData.hotel_city && listingData.hotel_country ? ", " : ""}{listingData.hotel_country || ""}
                             </p>
                           )}
-                          {listing.hotel_rating && (
+                          {listingData.hotel_rating && (
                             <p className="text-sm text-gray-600 mt-1">
-                              ⭐ {listing.hotel_rating.toFixed(1)} rating
+                              ⭐ {listingData.hotel_rating.toFixed(1)} rating
                             </p>
                           )}
                         </div>
@@ -476,13 +420,13 @@ export default function ListingDetail() {
                     <div className="flex-1">
                       <p className="text-sm text-gray-500 mb-1">Accommodation</p>
                       <p className="font-semibold text-gray-900">
-                        {listing.room_count || 1} {formatRoomType(listing.room_type)} room{(listing.room_count || 1) > 1 ? "s" : ""}
+                        {listingData.room_count || 1} {formatRoomType(listingData.room_type)} room{(listingData.room_count || 1) > 1 ? "s" : ""}
                       </p>
                     </div>
                   </div>
 
                   {/* Check-in/out */}
-                  {listing.check_in && listing.check_out && (
+                  {listingData.check_in && listingData.check_out && (
                     <div className="flex items-start gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0">
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -492,7 +436,7 @@ export default function ListingDetail() {
                       <div className="flex-1">
                         <p className="text-sm text-gray-500 mb-1">Dates</p>
                         <p className="font-semibold text-gray-900">
-                          {new Date(listing.check_in).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} → {new Date(listing.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                          {new Date(listingData.check_in).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} → {new Date(listingData.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">
                           Check-out after race day
@@ -505,7 +449,7 @@ export default function ListingDetail() {
             )}
 
             {/* Bib details */}
-            {(listing.listing_type === "bib" || listing.listing_type === "room_and_bib") && (
+            {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && (
               <div className="card p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-100">
                   Bib Transfer Details
@@ -520,18 +464,18 @@ export default function ListingDetail() {
                     <div className="flex-1">
                       <p className="text-sm text-gray-500 mb-1">Available bibs</p>
                       <p className="font-semibold text-gray-900">
-                        {listing.bib_count || 1} bib{(listing.bib_count || 1) > 1 ? "s" : ""}
+                        {listingData.bib_count || 1} bib{(listingData.bib_count || 1) > 1 ? "s" : ""}
                       </p>
                     </div>
                   </div>
                   
-                  {listing.transfer_type && (
+                  {listingData.transfer_type && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <p className="text-sm font-medium text-blue-900 mb-1">Transfer method</p>
                       <p className="text-sm text-blue-800">
-                        {listing.transfer_type === "official_process" && "✓ Official organizer name change process"}
-                        {listing.transfer_type === "package" && "✓ Included in complete race package"}
-                        {listing.transfer_type === "contact" && "Contact seller for transfer details"}
+                        {listingData.transfer_type === "official_process" && "✓ Official organizer name change process"}
+                        {listingData.transfer_type === "package" && "✓ Included in complete race package"}
+                        {listingData.transfer_type === "contact" && "Contact seller for transfer details"}
                       </p>
                     </div>
                   )}
@@ -540,13 +484,13 @@ export default function ListingDetail() {
             )}
 
             {/* Description */}
-            {listing.description && (
+            {listingData.description && (
               <div className="card p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-3">
                   Additional Information
                 </h3>
                 <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                  {listing.description}
+                  {listingData.description}
                 </p>
               </div>
             )}
@@ -558,16 +502,16 @@ export default function ListingDetail() {
             <div className="card p-6 lg:sticky lg:top-6">
               <div className="text-center pb-4 border-b border-gray-100">
                 {/* Se è bib o room_and_bib, mostra associated costs */}
-                {(listing.listing_type === "bib" || listing.listing_type === "room_and_bib") ? (
-                  listing.associated_costs ? (
+                {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") ? (
+                  listingData.associated_costs ? (
                     <>
                       <p className="text-sm text-gray-500 mb-2">Associated costs</p>
                       <p className="text-3xl font-bold text-gray-900">
-                        €{listing.associated_costs.toLocaleString()}
+                        €{listingData.associated_costs.toLocaleString()}
                       </p>
-                      {listing.cost_notes && (
+                      {listingData.cost_notes && (
                         <p className="mt-2 text-sm text-gray-600">
-                          {listing.cost_notes}
+                          {listingData.cost_notes}
                         </p>
                       )}
                     </>
@@ -581,12 +525,12 @@ export default function ListingDetail() {
                       </p>
                     </>
                   )
-                ) : listing.price ? (
+                ) : listingData.price ? (
                   <>
                     <p className="text-3xl font-bold text-gray-900">
-                      €{listing.price.toLocaleString()}
+                      €{listingData.price.toLocaleString()}
                     </p>
-                    {listing.price_negotiable && (
+                    {listingData.price_negotiable && (
                       <p className="mt-1 text-sm text-green-600 font-medium">
                         Price negotiable
                       </p>
@@ -604,13 +548,13 @@ export default function ListingDetail() {
                 )}
               </div>
 
-              {actionData?.error && (
+              {(actionData as any)?.error && (
                 <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                  {actionData.error}
+                  {(actionData as any).error}
                 </div>
               )}
 
-              {listing.status === "active" && !isOwner && (
+              {listingData.status === "active" && !isOwner && (
                 <Form method="post" className="mt-4">
                   <button type="submit" className="btn-primary w-full text-base py-3 font-semibold">
                     Request price & availability
@@ -621,7 +565,7 @@ export default function ListingDetail() {
               {isOwner && (
                 <div className="mt-4 space-y-3">
                   <Link
-                    to={`/listings/${listing.id}/edit`}
+                    to={`/listings/${listingData.id}/edit`}
                     className="btn-secondary w-full"
                   >
                     Edit Listing
@@ -629,10 +573,10 @@ export default function ListingDetail() {
                 </div>
               )}
 
-              {!user && listing.status === "active" && (
+              {!user && listingData.status === "active" && (
                 <div className="mt-4">
                   <Link
-                    to={`/login?redirectTo=/listings/${listing.id}`}
+                    to={`/login?redirectTo=/listings/${listingData.id}`}
                     className="btn-primary w-full"
                   >
                     Login to Contact
@@ -646,27 +590,27 @@ export default function ListingDetail() {
               <h3 className="font-medium text-gray-900 mb-4">Seller</h3>
               <div className="flex items-start gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold text-lg flex-shrink-0">
-                  {listing.author.company_name?.charAt(0) ||
-                    listing.author.full_name?.charAt(0) ||
+                  {listingData.author.company_name?.charAt(0) ||
+                    listingData.author.full_name?.charAt(0) ||
                     "?"}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="font-semibold text-gray-900 truncate">
-                      {listing.author.company_name || listing.author.full_name}
+                      {listingData.author.company_name || listingData.author.full_name}
                     </p>
-                    {listing.author.is_verified && (
+                    {listingData.author.is_verified && (
                       <svg className="h-5 w-5 text-brand-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     )}
                   </div>
                   <p className="text-sm text-gray-600 mt-0.5">
-                    {listing.author.user_type === "tour_operator"
+                    {listingData.author.user_type === "tour_operator"
                       ? "Tour Operator"
                       : "Private Seller"}
                   </p>
-                  {listing.author.is_verified && (
+                  {listingData.author.is_verified && (
                     <p className="text-xs text-green-600 font-medium mt-1">
                       ✓ Verified seller
                     </p>
@@ -730,7 +674,7 @@ export default function ListingDetail() {
         </div>
 
         {/* Mobile sticky CTA - solo su mobile */}
-        {listing.status === "active" && !isOwner && (
+        {listingData.status === "active" && !isOwner && (
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg lg:hidden z-10">
             <Form method="post">
               <button type="submit" className="btn-primary w-full text-base py-3 font-semibold">

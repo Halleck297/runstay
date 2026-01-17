@@ -1,4 +1,5 @@
-import { Link } from "@remix-run/react";
+import { Link, useFetcher } from "@remix-run/react";
+
 
 interface ListingCardProps {
   listing: {
@@ -33,6 +34,7 @@ interface ListingCardProps {
     };
   };
   isUserLoggedIn?: boolean;
+  isSaved?: boolean;
 }
 
 // Helper: genera titolo automatico
@@ -74,7 +76,12 @@ function formatRoomType(roomType: string | null): string {
   return labels[roomType] || roomType;
 }
 
-export function ListingCard({ listing, isUserLoggedIn = true }: ListingCardProps) {
+export function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }: ListingCardProps) {
+    const saveFetcher = useFetcher();
+  const isSavedOptimistic = saveFetcher.formData
+    ? saveFetcher.formData.get("action") === "save"
+    : isSaved;
+
   const eventDate = new Date(listing.event.event_date).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -127,21 +134,63 @@ if (listing.listing_type === "bib") {
       to={isUserLoggedIn ? `/listings/${listing.id}` : "/login"} 
       className={cardClass}
     >
-      {/* Badges */}
+            {/* Badges + Save button */}
       <div className="flex items-center gap-2 mb-3">
         <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${badgeColor}`}>
           {badgeText}
-        </span>
-        <span className="ml-auto inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-         🗓 Race Day: {eventDate}
         </span>
         {isLM && (
           <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
             Last Minute
           </span>
-          
+        )}
+        <span className="ml-auto inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+         🗓 Race Day: {eventDate}
+        </span>
+        {isUserLoggedIn && (
+          <saveFetcher.Form 
+            method="post" 
+            action="/api/saved"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input type="hidden" name="listingId" value={listing.id} />
+            <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
+            <button
+              type="submit"
+              onClick={(e) => e.preventDefault()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                saveFetcher.submit(
+                  { listingId: listing.id, action: isSavedOptimistic ? "unsave" : "save" },
+                  { method: "post", action: "/api/saved" }
+                );
+              }}
+              className={`p-1.5 rounded-full transition-colors ${
+                isSavedOptimistic
+                  ? "text-red-500 hover:text-red-600"
+                  : "text-gray-400 hover:text-red-500"
+              }`}
+              title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
+            >
+              <svg
+                className="h-5 w-5"
+                fill={isSavedOptimistic ? "currentColor" : "none"}
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                />
+              </svg>
+            </button>
+          </saveFetcher.Form>
         )}
       </div>
+
 
       {/* Titolo */}
       <h3 className="font-display text-xl font-bold text-gray-900 mb-1">

@@ -18,112 +18,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const type = url.searchParams.get("type");
   const search = url.searchParams.get("search");
 
-  // Demo mode: return mock data
-  if (process.env.DISABLE_AUTH === "true") {
-    const mockListings = [
-      {
-        id: "1",
-        title: "2 Hotel Rooms + 2 Bibs - Berlin Marathon 2025",
-        description: "Premium hotel near start line, includes breakfast",
-        listing_type: "room_and_bib",
-        price: 450,
-        price_negotiable: true,
-        transfer_type: "package",
-        associated_costs: 450,
-        status: "active",
-        hotel_name: "Hotel Berlin Central",
-        hotel_stars: 4,
-        room_count: 2,
-        bib_count: 2,
-        check_in: "2025-09-26",
-        check_out: "2025-09-29",
-        created_at: new Date().toISOString(),
-        author: {
-          id: "demo-1",
-          full_name: "Marco Rossi",
-          company_name: "Run Tours Italia",
-          user_type: "tour_operator",
-          is_verified: true,
-        },
-        event: {
-          id: "event-1",
-          name: "Berlin Marathon 2025",
-          location: "Berlin",
-          event_date: "2025-09-28",
-        },
-      },
-      {
-        id: "2",
-        title: "1 Marathon Bib - London Marathon 2025",
-        description: "Can't run anymore, looking to sell my bib",
-        listing_type: "bib",
-        transfer_type: "official_process",
-        associated_costs: 80,
-        status: "active",
-        bib_count: 1,
-        created_at: new Date().toISOString(),
-        author: {
-          id: "demo-2",
-          full_name: "Sarah Johnson",
-          company_name: null,
-          user_type: "private",
-          is_verified: false,
-        },
-        event: {
-          id: "event-2",
-          name: "London Marathon 2025",
-          location: "London",
-          event_date: "2025-04-27",
-        },
-      },
-      {
-        id: "3",
-        title: "3 Hotel Rooms - New York Marathon 2025",
-        description: "Excellent location in Manhattan, walking distance to Central Park",
-        listing_type: "room",
-        price: 600,
-        price_negotiable: true,
-        status: "active",
-        hotel_name: "Manhattan Runner's Hotel",
-        hotel_stars: 5,
-        room_count: 3,
-        check_in: "2025-11-01",
-        check_out: "2025-11-04",
-        created_at: new Date().toISOString(),
-        author: {
-          id: "demo-3",
-          full_name: "John Smith",
-          company_name: "NYC Marathon Tours",
-          user_type: "tour_operator",
-          is_verified: true,
-        },
-        event: {
-          id: "event-3",
-          name: "New York City Marathon 2025",
-          location: "New York",
-          event_date: "2025-11-02",
-        },
-      },
-    ];
-
-    let filteredListings = mockListings;
-
-    if (type && type !== "all") {
-      filteredListings = filteredListings.filter((l) => l.listing_type === type);
-    }
-
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredListings = filteredListings.filter(
-        (l) =>
-          l.event?.name?.toLowerCase().includes(searchLower) ||
-          l.event?.location?.toLowerCase().includes(searchLower) ||
-          l.title?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    return { user, listings: filteredListings };
-  }
 
   let query = supabase
     .from("listings")
@@ -160,11 +54,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
     );
   }
 
-  return { user, listings: filteredListings };
+     // Get saved listing IDs for this user
+  let savedListingIds: string[] = [];
+  if (user) {
+    const { data: savedListings } = await (supabase as any)
+      .from("saved_listings")
+      .select("listing_id")
+      .eq("user_id", (user as any).id);
+    
+    savedListingIds = savedListings?.map((s: any) => s.listing_id) || [];
+  }
+
+
+  return { user, listings: filteredListings, savedListingIds };
+
 }
 
 export default function Listings() {
-  const { user, listings } = useLoaderData<typeof loader>();
+  const { user, listings, savedListingIds } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
 
   const currentType = searchParams.get("type") || "all";
@@ -221,14 +128,26 @@ export default function Listings() {
     {/* Desktop: Grid di card */}
     <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {listings.map((listing: any) => (
-        <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} />
+        <ListingCard 
+          key={listing.id} 
+          listing={listing} 
+          isUserLoggedIn={!!user}
+          isSaved={(savedListingIds || []).includes(listing.id)}
+
+        />
       ))}
     </div>
 
     {/* Mobile: Lista verticale compatta */}
     <div className="flex flex-col gap-3 md:hidden">
       {listings.map((listing: any) => (
-        <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} />
+        <ListingCardCompact 
+          key={listing.id} 
+          listing={listing} 
+          isUserLoggedIn={!!user}
+          isSaved={(savedListingIds || []).includes(listing.id)}
+
+        />
       ))}
     </div>
   </>

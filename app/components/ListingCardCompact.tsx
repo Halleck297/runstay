@@ -1,4 +1,5 @@
-import { Link } from "@remix-run/react";
+import { Link, useFetcher } from "@remix-run/react";
+
 
 interface ListingCardCompactProps {
   listing: {
@@ -27,6 +28,7 @@ interface ListingCardCompactProps {
     };
   };
   isUserLoggedIn?: boolean;
+  isSaved?: boolean;
 }
 
 // Helper: calcola se è Last Minute (≤ 21 giorni)
@@ -55,7 +57,12 @@ function formatRoomTypeShort(roomType: string | null): string {
   return labels[roomType] || roomType;
 }
 
-export function ListingCardCompact({ listing, isUserLoggedIn = true }: ListingCardCompactProps) {
+export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false }: ListingCardCompactProps) {
+    const saveFetcher = useFetcher();
+  const isSavedOptimistic = saveFetcher.formData
+    ? saveFetcher.formData.get("action") === "save"
+    : isSaved;
+
   const eventDateShort = new Date(listing.event.event_date).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -103,7 +110,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true }: ListingCa
       to={isUserLoggedIn ? `/listings/${listing.id}` : "/login"}
       className={cardClass}
     >
-      {/* Header row: Badges + Data */}
+            {/* Header row: Badges + Data + Save */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`}>
@@ -115,10 +122,55 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true }: ListingCa
             </span>
           )}
         </div>
-        <span className="text-xs font-medium text-gray-600">
-          🗓 {eventDateShort}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-600">
+            🗓 {eventDateShort}
+          </span>
+          {isUserLoggedIn && (
+            <saveFetcher.Form 
+              method="post" 
+              action="/api/saved"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input type="hidden" name="listingId" value={listing.id} />
+              <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
+              <button
+                type="submit"
+                onClick={(e) => e.preventDefault()}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  saveFetcher.submit(
+                    { listingId: listing.id, action: isSavedOptimistic ? "unsave" : "save" },
+                    { method: "post", action: "/api/saved" }
+                  );
+                }}
+                className={`p-1 rounded-full transition-colors ${
+                  isSavedOptimistic
+                    ? "text-red-500"
+                    : "text-gray-400 hover:text-red-500"
+                }`}
+                title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill={isSavedOptimistic ? "currentColor" : "none"}
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+              </button>
+            </saveFetcher.Form>
+          )}
+        </div>
       </div>
+
 
       {/* Titolo evento */}
       <h3 className="font-display text-base font-bold text-gray-900 leading-tight mb-0.5 line-clamp-1">

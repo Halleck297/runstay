@@ -22,6 +22,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
+  const userId = (user as any).id as string;
   const { id } = params;
 
   // Get conversation with messages
@@ -46,15 +47,15 @@ const { data: conversation, error } = await supabaseAdmin
 
   // Check user is participant
   if (
-    conversation.participant_1 !== user.id &&
-    conversation.participant_2 !== user.id
+    conversation.participant_1 !== userId &&
+    conversation.participant_2 !== userId
   ) {
     throw new Response("Unauthorized", { status: 403 });
   }
 
   // Identifica messaggi non letti
   const unreadMessageIds = conversation.messages
-    ?.filter((m: any) => m.sender_id !== user.id && !m.read_at)
+    ?.filter((m: any) => m.sender_id !== userId && !m.read_at)
     .map((m: any) => m.id);
 
   // Marca ottimisticamente come letti NEI DATI che restituiamo
@@ -93,6 +94,7 @@ const { data: conversation, error } = await supabaseAdmin
 
 export async function action({ request, params }: ActionFunctionArgs) {
   const user = await requireUser(request);
+  const userId = (user as any).id as string;
   const { id } = params;
 
   const formData = await request.formData();
@@ -111,8 +113,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   if (
     !conversation ||
-    (conversation.participant_1 !== user.id &&
-      conversation.participant_2 !== user.id)
+    (conversation.participant_1 !== userId &&
+      conversation.participant_2 !== userId)
   ) {
     return json({ error: "Unauthorized" }, { status: 403 });
   }
@@ -120,7 +122,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Create message
   const { error } = await supabaseAdmin.from("messages").insert({
     conversation_id: id!,
-    sender_id: user.id,
+    sender_id: userId,
     content: content.trim(),
   } as any);
 
@@ -146,10 +148,11 @@ export default function Conversation() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isSubmitting = navigation.state === "submitting";
+  const oddsUserId = (user as any).id as string;
 
   // Determine the other participant
   const otherUser =
-    conversation.participant_1 === user.id
+    conversation.participant_1 === oddsUserId
       ? conversation.participant2
       : conversation.participant1;
 
@@ -250,7 +253,7 @@ export default function Conversation() {
           {/* Messages */}
           <div className="space-y-4">
             {conversation.messages?.map((message: any) => {
-              const isOwnMessage = message.sender_id === user.id;
+              const isOwnMessage = message.sender_id === oddsUserId;
 
               return (
                 <div
