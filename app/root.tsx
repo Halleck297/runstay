@@ -8,7 +8,7 @@ import {
 } from "@remix-run/react";
 import type { LinksFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { getUser } from "~/lib/session.server";
-
+import { supabaseAdmin } from "~/lib/supabase.server";
 import "./styles/tailwind.css";
 
 export const links: LinksFunction = () => [
@@ -26,7 +26,29 @@ export const links: LinksFunction = () => [
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
-  return { user };
+    // Se l'utente è loggato, conta i messaggi non letti
+  let unreadCount = 0;
+  if (user) {
+    const { data: conversations } = await supabaseAdmin
+      .from("conversations")
+      .select(`
+        id,
+        messages(id, sender_id, read_at)
+      `)
+      .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`);
+
+    if (conversations) {
+      conversations.forEach((conv: any) => {
+        conv.messages?.forEach((msg: any) => {
+          if (msg.sender_id !== user.id && !msg.read_at) {
+            unreadCount++;
+          }
+        });
+      });
+    }
+  }
+
+  return { user: user ? { ...user, unreadCount } : null };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {

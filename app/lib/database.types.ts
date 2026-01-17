@@ -10,6 +10,10 @@ export type ListingType = "room" | "bib" | "room_and_bib";
 export type UserType = "tour_operator" | "private";
 export type ListingStatus = "active" | "sold" | "expired";
 export type TransferType = "official_process" | "package" | "contact";
+// Estendi il tipo Profile con unreadCount (usato nel root loader)
+export type ProfileWithUnread = Database["public"]["Tables"]["profiles"]["Row"] & {
+  unreadCount?: number;
+};
 
 export interface Database {
   public: {
@@ -27,6 +31,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
+        
         Insert: {
           id: string;
           email: string;

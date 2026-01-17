@@ -52,16 +52,31 @@ const { data: conversation, error } = await supabaseAdmin
     throw new Response("Unauthorized", { status: 403 });
   }
 
-  // Mark unread messages as read
+  // Identifica messaggi non letti
   const unreadMessageIds = conversation.messages
     ?.filter((m: any) => m.sender_id !== user.id && !m.read_at)
     .map((m: any) => m.id);
 
+  // Marca ottimisticamente come letti NEI DATI che restituiamo
   if (unreadMessageIds?.length > 0) {
+    const now = new Date().toISOString();
+    
+    // Aggiorna i messaggi nei dati locali
+    conversation.messages = conversation.messages.map((m: any) => {
+      if (unreadMessageIds.includes(m.id)) {
+        return { ...m, read_at: now };
+      }
+      return m;
+    });
+
+    // Aggiorna il database in background (fire-and-forget)
     (supabaseAdmin
       .from("messages") as any)
-      .update({ read_at: new Date().toISOString() })
-      .in("id", unreadMessageIds);
+      .update({ read_at: now })
+      .in("id", unreadMessageIds)
+      .then(() => {
+        // Update completato in background
+      });
   }
 
   // Sort messages by date
