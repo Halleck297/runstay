@@ -18,11 +18,23 @@ interface HotelAutocompleteProps {
   onSelectHotel: (hotel: Hotel | null) => void;
   apiKey: string;
   eventCity?: string;
-  eventCountry?: string;  
+  eventCountry?: string;
+  defaultHotelName?: string;
 }
 
-export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry }: HotelAutocompleteProps) {
-  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
+export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, defaultHotelName }: HotelAutocompleteProps) {
+  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(() => {
+    if (defaultHotelName) {
+      return {
+        placeId: "",
+        name: defaultHotelName,
+        city: "",
+        country: "",
+        formattedAddress: "",
+      };
+    }
+    return null;
+  });
   const [showManualForm, setShowManualForm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);

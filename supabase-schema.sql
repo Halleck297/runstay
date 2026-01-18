@@ -5,6 +5,14 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================
+-- REALTIME (enable for messages table)
+-- ============================================
+-- This enables realtime updates for the messages table
+-- Run this if realtime isn't working:
+ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations;
+
+-- ============================================
 -- TABLES
 -- ============================================
 
@@ -90,6 +98,7 @@ CREATE TABLE public.conversations (
   listing_id UUID NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
   participant_1 UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   participant_2 UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  activated BOOLEAN DEFAULT TRUE,  -- false = only visible to listing owner until they reply
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(listing_id, participant_1, participant_2)
@@ -101,6 +110,7 @@ CREATE TABLE public.messages (
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   sender_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
+  message_type TEXT DEFAULT 'user' CHECK (message_type IN ('user', 'system', 'heart')),
   read_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

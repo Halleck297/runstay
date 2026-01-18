@@ -60,6 +60,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const userId = (user as any).id as string;
   const { id } = params;
 
+  const formData = await request.formData();
+  const actionType = formData.get("_action") as string;
+
   // Get the listing to find the author
   const { data: listing } = await supabaseAdmin
     .from("listings")
@@ -71,6 +74,25 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return json({ error: "Listing not found" }, { status: 404 });
   }
 
+  // Handle delete action
+  if (actionType === "delete") {
+    if (listing.author_id !== userId) {
+      return json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    const { error } = await supabaseAdmin
+      .from("listings")
+      .delete()
+      .eq("id", id!);
+
+    if (error) {
+      return json({ error: "Failed to delete listing" }, { status: 500 });
+    }
+
+    return redirect("/dashboard");
+  }
+
+  // Handle contact action (default)
   if (listing.author_id === userId) {
     return json({ error: "You cannot message yourself" }, { status: 400 });
   }
@@ -570,6 +592,19 @@ export default function ListingDetail() {
                   >
                     Edit Listing
                   </Link>
+                  <Form method="post" onSubmit={(e) => {
+                    if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) {
+                      e.preventDefault();
+                    }
+                  }}>
+                    <input type="hidden" name="_action" value="delete" />
+                    <button
+                      type="submit"
+                      className="w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors"
+                    >
+                      Delete Listing
+                    </button>
+                  </Form>
                 </div>
               )}
 

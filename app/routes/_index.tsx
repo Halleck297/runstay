@@ -1,7 +1,7 @@
 import type { MetaFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { getUser } from "~/lib/session.server";
-import { supabase } from "~/lib/supabase.server";
+import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
@@ -34,12 +34,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(3);
+      // Get saved listing IDs for this user
+  let savedListingIds: string[] = [];
+  if (user) {
+    const { data: savedListings } = await (supabaseAdmin as any)
+      .from("saved_listings")
+      .select("listing_id")
+      .eq("user_id", (user as any).id);
+    
+    savedListingIds = savedListings?.map((s: any) => s.listing_id) || [];
+  }
 
-  return { user, listings: listings || [] };
+
+    return { user, listings: listings || [], savedListingIds };
+
 }
 
 export default function Index() {
-  const { user, listings } = useLoaderData<typeof loader>();
+    const { user, listings, savedListingIds } = useLoaderData<typeof loader>();
 
   return (
     <div className="min-h-full">
@@ -96,14 +108,14 @@ export default function Index() {
       {/* Desktop: Grid di card */}
       <div className="mt-8 hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {listings.map((listing: any) => (
-          <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} />
+          <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} />
         ))}
       </div>
 
       {/* Mobile: Lista verticale compatta */}
       <div className="mt-6 flex flex-col gap-3 md:hidden">
         {listings.map((listing: any) => (
-          <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} />
+          <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} />
         ))}
       </div>
     </div>

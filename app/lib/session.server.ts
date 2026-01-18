@@ -42,11 +42,15 @@ export async function getUserSession(request: Request) {
 }
 
 export async function getUserId(request: Request) {
-
   const session = await getUserSession(request);
   const userId = session.get("userId");
   if (!userId || typeof userId !== "string") return null;
   return userId;
+}
+
+export async function getAccessToken(request: Request) {
+  const session = await getUserSession(request);
+  return session.get("accessToken") as string | null;
 }
 
 export async function getUser(request: Request) {

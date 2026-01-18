@@ -144,14 +144,13 @@ if (listing.listing_type === "bib") {
             Last Minute
           </span>
         )}
-        <span className="ml-auto inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-         🗓 Race Day: {eventDate}
-        </span>
+        
         {isUserLoggedIn && (
           <saveFetcher.Form 
             method="post" 
             action="/api/saved"
             onClick={(e) => e.stopPropagation()}
+            className="ml-auto"
           >
             <input type="hidden" name="listingId" value={listing.id} />
             <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
@@ -174,7 +173,7 @@ if (listing.listing_type === "bib") {
               title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
             >
               <svg
-                className="h-5 w-5"
+                className="h-7 w-7"
                 fill={isSavedOptimistic ? "currentColor" : "none"}
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -201,12 +200,17 @@ if (listing.listing_type === "bib") {
 </p>
 
       {/* Location & Date */}
-      <div className="flex items-center gap-1.5 text-sm text-gray-600 mb-3">
+      <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+  <div className="flex items-center gap-1.5">
   <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
-  <span className="font-medium">{listing.event.location}</span>
+      <span className="font-medium">{listing.event.location}</span>
+  </div>
+  <span className="text-xs font-medium text-gray-500">
+    🗓 Race Day: {eventDate}
+  </span>
 </div>
 
       {/* Hotel info se presente */}

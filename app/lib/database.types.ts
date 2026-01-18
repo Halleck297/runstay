@@ -230,12 +230,14 @@ export interface Database {
 };
 
       };
-      conversations: {
+            conversations: {
         Row: {
           id: string;
           listing_id: string;
           participant_1: string;
           participant_2: string;
+          deleted_by_1: boolean;
+          deleted_by_2: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -244,13 +246,18 @@ export interface Database {
           listing_id: string;
           participant_1: string;
           participant_2: string;
+          deleted_by_1?: boolean;
+          deleted_by_2?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
+          deleted_by_1?: boolean;
+          deleted_by_2?: boolean;
           updated_at?: string;
         };
       };
+
       messages: {
         Row: {
           id: string;
@@ -289,6 +296,55 @@ export interface Database {
           id?: string;
           user_id?: string;
           listing_id?: string;
+        };
+      };
+             blocked_users: {
+        Row: {
+          id: string;
+          blocker_id: string;
+          blocked_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          blocker_id: string;
+          blocked_id: string;
+          created_at?: string;
+        };
+        Delete: {
+          id?: string;
+          blocker_id?: string;
+          blocked_id?: string;
+        };
+      };
+      reports: {
+        Row: {
+          id: string;
+          reporter_id: string;
+          reported_user_id: string | null;
+          reported_listing_id: string | null;
+          report_type: 'user' | 'listing' | 'bug' | 'other';
+          reason: string;
+          description: string | null;
+          status: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          reporter_id: string;
+          reported_user_id?: string | null;
+          reported_listing_id?: string | null;
+          report_type: 'user' | 'listing' | 'bug' | 'other';
+          reason: string;
+          description?: string | null;
+          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+          updated_at?: string;
         };
       };
 

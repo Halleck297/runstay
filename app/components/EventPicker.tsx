@@ -11,12 +11,18 @@ interface Event {
 interface EventPickerProps {
   events: Event[];
   onSelectEvent: (eventId: string) => void;
+  defaultEventId?: string;
 }
 
-export function EventPicker({ events, onSelectEvent }: EventPickerProps) {
+export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(() => {
+    if (defaultEventId) {
+      return events.find(e => e.id === defaultEventId) || null;
+    }
+    return null;
+  });
   const [showNewEventForm, setShowNewEventForm] = useState(false);
 
   const filteredEvents = events.filter(event => 

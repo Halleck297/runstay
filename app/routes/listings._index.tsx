@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useLoaderData, useSearchParams, Form } from "@remix-run/react";
 import { getUser } from "~/lib/session.server";
-import { supabase } from "~/lib/supabase.server";
+import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
@@ -57,7 +57,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
      // Get saved listing IDs for this user
   let savedListingIds: string[] = [];
   if (user) {
-    const { data: savedListings } = await (supabase as any)
+    const { data: savedListings } = await (supabaseAdmin as any)
       .from("saved_listings")
       .select("listing_id")
       .eq("user_id", (user as any).id);

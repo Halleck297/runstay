@@ -105,6 +105,7 @@ export default function SavedListings() {
                 key={listing.id}
                 listing={listing}
                 isUserLoggedIn={true}
+                isSaved={true}
               />
             ))}
           </div>

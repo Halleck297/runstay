@@ -7,7 +7,7 @@ import {
   useLoaderData,
 } from "@remix-run/react";
 import type { LinksFunction, LoaderFunctionArgs } from "@remix-run/node";
-import { getUser } from "~/lib/session.server";
+import { getUser, getAccessToken } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import "./styles/tailwind.css";
 
@@ -26,7 +26,9 @@ export const links: LinksFunction = () => [
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
-    // Se l'utente è loggato, conta i messaggi non letti
+  const accessToken = await getAccessToken(request);
+
+  // Se l'utente è loggato, conta i messaggi non letti
   let unreadCount = 0;
   if (user) {
     const { data: conversations } = await supabaseAdmin
@@ -48,7 +50,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
 
-  return { user: user ? { ...user, unreadCount } : null };
+  return {
+    user: user ? { ...user, unreadCount } : null,
+    ENV: {
+      SUPABASE_URL: process.env.SUPABASE_URL!,
+      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY!,
+      ACCESS_TOKEN: accessToken,
+    },
+  };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -70,5 +79,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  const { ENV } = useLoaderData<typeof loader>();
+
+  return (
+    <>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `window.ENV = ${JSON.stringify(ENV)}`,
+        }}
+      />
+      <Outlet />
+    </>
+  );
 }

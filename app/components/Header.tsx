@@ -1,25 +1,50 @@
 import { Link, Form, useFetcher } from "@remix-run/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { Database } from "~/lib/database.types";
 
-type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
+  unreadCount?: number;
+};
 
 interface HeaderProps {
   user: Profile | null;
 }
 
+// Polling interval for unread count
+const UNREAD_POLL_INTERVAL = 5000;
+
 export function Header({ user }: HeaderProps) {
   const fetcher = useFetcher<{ unreadCount: number }>();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isPollingRef = useRef(false);
 
-  // Carica il conteggio messaggi non letti quando il componente si monta
+  // Polling per il conteggio messaggi non letti
   useEffect(() => {
-    if (user && fetcher.state === "idle" && !fetcher.data) {
+    if (!user || typeof window === "undefined") return;
+
+    // Initial load
+    if (fetcher.state === "idle" && !fetcher.data) {
       fetcher.load("/api/unread");
     }
-  }, [user]);
 
-  const unreadCount = fetcher.data?.unreadCount || 0;
+    const poll = () => {
+      if (isPollingRef.current) return;
+      if (fetcher.state !== "idle") return;
+
+      isPollingRef.current = true;
+      fetcher.load("/api/unread");
+      isPollingRef.current = false;
+    };
+
+    const intervalId = setInterval(poll, UNREAD_POLL_INTERVAL);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user, fetcher]);
+
+  // Usa il conteggio dal fetcher o dal user (passato dal root loader)
+  const unreadCount = fetcher.data?.unreadCount ?? (user as any)?.unreadCount ?? 0;
 
   return (
     <header className="bg-white border-b border-gray-200">
@@ -28,48 +53,46 @@ export function Header({ user }: HeaderProps) {
           
           {/* Logo */}
           <Link to="/" className="flex items-center">
-           <img 
-             src="/logo.png" 
-             alt="Runoot" 
-             className="h-16 w-auto"
+           <img
+             src="/logo.png"
+             alt="Runoot"
+             className="h-12 w-auto"
            />
          </Link>
 
 
 {/* Navigation */}
 {user ? (
-  <nav className="flex items-center justify-between flex-1">
-    {/* Browse Listings - centrato */}
-    <div className="flex-1 flex justify-center">
+  <nav className="flex items-center justify-end flex-1">
+    <div className="flex items-center gap-6">
+
+      {/* Search button (Browse Listings) */}
       <Link
         to="/listings"
-        className="text-gray-700 hover:text-gray-900 font-medium text-xl"
+        className="flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 transition-colors"
+        title="Browse Listings"
       >
-        Browse Listings
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
       </Link>
-    </div>
-
-    <div className="flex items-center gap-6">
-      
 
       {/* User menu dropdown */}
-<div 
+<div
   className="relative"
   onMouseEnter={() => setIsMenuOpen(true)}
   onMouseLeave={() => setIsMenuOpen(false)}
 >
 <button
-  className="flex items-center gap-2 text-gray-900 hover:text-gray-700"
+  className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-2xl bg-white hover:bg-gray-50 text-gray-900 transition-colors"
 >
   {/* Pallino rosso notifiche */}
   {unreadCount > 0 && (
-    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
-      {unreadCount > 9 ? '9+' : unreadCount}
-    </span>
+    <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
   )}
-  <span className="text-lg font-medium">{user.full_name || user.email}</span>
+  <span className="text-sm font-bold">{user.full_name || user.email}</span>
   <svg
-    className={`h-5 w-5 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
+    className={`h-4 w-4 text-gray-500 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
     fill="none"
     viewBox="0 0 24 24"
     stroke="currentColor"
@@ -187,7 +210,7 @@ export function Header({ user }: HeaderProps) {
       {/* Bottone New Listing */}
       <Link
         to="/listings/new"
-        className="btn-primary flex items-center gap-2"
+        className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold"
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

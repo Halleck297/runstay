@@ -16,6 +16,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const userId = (user as any).id as string;
 
   if (actionType === "save") {
+    // Save the listing
     const { error } = await (supabaseAdmin as any)
       .from("saved_listings")
       .insert({
@@ -25,6 +26,49 @@ export async function action({ request }: ActionFunctionArgs) {
 
     if (error && error.code !== "23505") {
       return json({ error: "Failed to save listing" }, { status: 500 });
+    }
+
+    // Get the listing owner
+    const { data: listing } = await supabaseAdmin
+      .from("listings")
+      .select("author_id, title")
+      .eq("id", listingId)
+      .single();
+
+    if (listing && listing.author_id !== userId) {
+      // Check if conversation already exists
+      const { data: existingConv } = await supabaseAdmin
+        .from("conversations")
+        .select("id")
+        .eq("listing_id", listingId)
+        .or(`and(participant_1.eq.${userId},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${userId})`)
+        .single();
+
+      if (!existingConv) {
+        // Create a new conversation (not activated - only visible to owner)
+        const { data: newConv, error: convError } = await (supabaseAdmin as any)
+          .from("conversations")
+          .insert({
+            listing_id: listingId,
+            participant_1: userId, // The person who saved
+            participant_2: listing.author_id, // The listing owner
+            activated: false, // Hidden from participant_1 until owner replies
+          })
+          .select()
+          .single();
+
+        if (newConv && !convError) {
+          // Create the heart system message
+          await (supabaseAdmin as any)
+            .from("messages")
+            .insert({
+              conversation_id: newConv.id,
+              sender_id: userId, // The person who saved
+              content: "HEART_NOTIFICATION",
+              message_type: "heart",
+            });
+        }
+      }
     }
 
     return json({ saved: true });

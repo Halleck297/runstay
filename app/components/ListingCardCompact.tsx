@@ -123,9 +123,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-600">
-            🗓 {eventDateShort}
-          </span>
+          
           {isUserLoggedIn && (
             <saveFetcher.Form 
               method="post" 
@@ -153,7 +151,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
                 title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
               >
                 <svg
-                  className="h-4 w-4"
+                  className="h-5 w-5"
                   fill={isSavedOptimistic ? "currentColor" : "none"}
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -190,7 +188,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
             {/* Left: Location + Seller */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <span className="text-xs text-gray-600 truncate">
-                📍 {listing.event.location}
+                📍 {listing.event.location} • 🗓 Race Day : {eventDateShort}
               </span>
               <span className="text-xs text-gray-400">•</span>
               <div className="flex items-center gap-1 min-w-0">
