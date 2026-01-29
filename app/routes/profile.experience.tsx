@@ -7,7 +7,7 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "My Profile - runoot" }];
+  return [{ title: "Running Experience - runoot" }];
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -25,20 +25,24 @@ export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
   const formData = await request.formData();
 
-  const fullName = formData.get("fullName");
-  const country = formData.get("country");
-  const city = formData.get("city");
-  const bio = formData.get("bio");
-
-  if (typeof fullName !== "string" || !fullName) {
-    return data({ error: "Full name is required" }, { status: 400 });
-  }
+  const marathonsCompleted = formData.get("marathonsCompleted");
+  const marathonPB = formData.get("marathonPB");
+  const marathonPBLocation = formData.get("marathonPBLocation");
+  const halfMarathonsCompleted = formData.get("halfMarathonsCompleted");
+  const halfMarathonPB = formData.get("halfMarathonPB");
+  const halfMarathonPBLocation = formData.get("halfMarathonPBLocation");
+  const favoriteRaces = formData.get("favoriteRaces");
+  const runningGoals = formData.get("runningGoals");
 
   const updateData = {
-    full_name: fullName,
-    country: (country as string) || null,
-    city: (city as string) || null,
-    bio: (bio as string) || null,
+    marathons_completed: marathonsCompleted ? parseInt(marathonsCompleted as string) : null,
+    marathon_pb: (marathonPB as string) || null,
+    marathon_pb_location: (marathonPBLocation as string) || null,
+    half_marathons_completed: halfMarathonsCompleted ? parseInt(halfMarathonsCompleted as string) : null,
+    half_marathon_pb: (halfMarathonPB as string) || null,
+    half_marathon_pb_location: (halfMarathonPBLocation as string) || null,
+    favorite_races: (favoriteRaces as string) || null,
+    running_goals: (runningGoals as string) || null,
   };
 
   const { error } = await supabaseAdmin
@@ -50,7 +54,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: error.message }, { status: 400 });
   }
 
-  return data({ success: true, message: "Profile updated successfully!" });
+  return data({ success: true, message: "Running experience updated successfully!" });
 }
 
 // Sidebar navigation items
@@ -61,7 +65,7 @@ const sidebarNavItems = [
   { name: "Settings", href: "/profile/settings", icon: "settings" },
 ];
 
-export default function ProfileIndex() {
+export default function RunningExperience() {
   const { user } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
     | { error: string }
@@ -159,10 +163,10 @@ export default function ProfileIndex() {
           <main className="flex-1 min-w-0">
             <div className="mb-6">
               <h1 className="font-display text-2xl font-bold text-gray-900">
-                Personal information
+                Running Experience
               </h1>
               <p className="mt-1 text-gray-500">
-                Manage your personal details and how others see you on runoot
+                Share your running journey and achievements with the community
               </p>
             </div>
 
@@ -186,96 +190,108 @@ export default function ProfileIndex() {
             )}
 
             <Form method="post">
-              {/* Profile Cards Grid */}
+              {/* Marathons Section */}
+              <h3 className="font-display font-semibold text-gray-900 text-lg mb-3">Marathons</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
+                  <label className="text-sm font-medium text-gray-500">Completed</label>
+                  <input
+                    name="marathonsCompleted"
+                    type="number"
+                    min="0"
+                    defaultValue={(user as any).marathons_completed || ""}
+                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
+                  <label className="text-sm font-medium text-gray-500">Personal best</label>
+                  <input
+                    name="marathonPB"
+                    type="text"
+                    defaultValue={(user as any).marathon_pb || ""}
+                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none"
+                    placeholder="3:45:00"
+                  />
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
+                  <label className="text-sm font-medium text-gray-500">PB Location</label>
+                  <input
+                    name="marathonPBLocation"
+                    type="text"
+                    defaultValue={(user as any).marathon_pb_location || ""}
+                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none"
+                    placeholder="Berlin 2023"
+                  />
+                </div>
+              </div>
+
+              {/* Half Marathons Section */}
+              <h3 className="font-display font-semibold text-gray-900 text-lg mb-3">Half Marathons</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
+                  <label className="text-sm font-medium text-gray-500">Completed</label>
+                  <input
+                    name="halfMarathonsCompleted"
+                    type="number"
+                    min="0"
+                    defaultValue={(user as any).half_marathons_completed || ""}
+                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
+                  <label className="text-sm font-medium text-gray-500">Personal best</label>
+                  <input
+                    name="halfMarathonPB"
+                    type="text"
+                    defaultValue={(user as any).half_marathon_pb || ""}
+                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none"
+                    placeholder="1:45:00"
+                  />
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
+                  <label className="text-sm font-medium text-gray-500">PB Location</label>
+                  <input
+                    name="halfMarathonPBLocation"
+                    type="text"
+                    defaultValue={(user as any).half_marathon_pb_location || ""}
+                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none"
+                    placeholder="Valencia 2024"
+                  />
+                </div>
+              </div>
+
+              {/* Other Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                {/* Full Name Card */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
-                  <label className="text-sm font-medium text-gray-500">Full name</label>
-                  <input
-                    name="fullName"
-                    type="text"
-                    defaultValue={user.full_name || ""}
-                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none"
-                    placeholder="Enter your name"
-                    required
-                  />
-                </div>
-
-                {/* Email Card (Read-only) */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">Email address</label>
-                      <p className="mt-1 text-gray-900 font-medium">{user.email}</p>
-                    </div>
-                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Phone Card (Read-only) */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">Phone number <span className="text-gray-400">(not visible)</span></label>
-                      <p className="mt-1 text-gray-900 font-medium">{user.phone || "Not set"}</p>
-                    </div>
-                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Account Type Card (Read-only) */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">Account type</label>
-                      <p className="mt-1 text-gray-900 font-medium">Private Runner</p>
-                    </div>
-                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Country Card */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
-                  <label className="text-sm font-medium text-gray-500">Country</label>
-                  <input
-                    name="country"
-                    type="text"
-                    defaultValue={(user as any).country || ""}
-                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none"
-                    placeholder="Italy"
-                  />
-                </div>
-
-                {/* City Card */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
-                  <label className="text-sm font-medium text-gray-500">City</label>
-                  <input
-                    name="city"
-                    type="text"
-                    defaultValue={(user as any).city || ""}
-                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none"
-                    placeholder="Milan"
-                  />
-                </div>
-
-                {/* About Me Card - Full Width */}
+                {/* Favorite Races Card - Full Width */}
                 <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors md:col-span-2">
-                  <label className="text-sm font-medium text-gray-500">About me</label>
+                  <label className="text-sm font-medium text-gray-500">Favorite races</label>
                   <textarea
-                    name="bio"
+                    name="favoriteRaces"
                     rows={3}
-                    defaultValue={(user as any).bio || ""}
+                    defaultValue={(user as any).favorite_races || ""}
                     className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none resize-none"
-                    placeholder="Tell others about yourself and your running journey..."
+                    placeholder="Berlin Marathon, New York Marathon, Tokyo Marathon..."
                   />
-                  <p className="mt-2 text-xs text-gray-400">Brief description visible to other users</p>
+                  <p className="mt-2 text-xs text-gray-400">List the races you've enjoyed the most</p>
+                </div>
+
+                {/* Running Goals Card - Full Width */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors md:col-span-2">
+                  <label className="text-sm font-medium text-gray-500">Running goals</label>
+                  <textarea
+                    name="runningGoals"
+                    rows={3}
+                    defaultValue={(user as any).running_goals || ""}
+                    className="mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none resize-none"
+                    placeholder="Complete all 6 World Marathon Majors, qualify for Boston..."
+                  />
+                  <p className="mt-2 text-xs text-gray-400">What are you training for?</p>
                 </div>
 
               </div>

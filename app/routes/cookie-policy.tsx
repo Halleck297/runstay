@@ -432,7 +432,7 @@ export default function CookiePolicy() {
 
         {/* Footer links */}
         <div className="mt-8 text-center text-sm text-gray-500">
-          <a href="/privacy" className="hover:text-brand-600">Privacy Policy</a>
+          <a href="/privacy-policy" className="hover:text-brand-600">Privacy Policy</a>
           <span className="mx-2">•</span>
           <a href="/terms" className="hover:text-brand-600">Termini di Servizio</a>
           <span className="mx-2">•</span>

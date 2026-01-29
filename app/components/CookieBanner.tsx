@@ -21,8 +21,8 @@ export default function CookieBanner({
   const [showDetails, setShowDetails] = useState(false);
   const [preferences, setPreferences] = useState<CookiePreferences>({
     necessary: true, // Always enabled
-    analytics: false,
-    marketing: false,
+    analytics: true,  // Pre-selected, user can deselect
+    marketing: true,  // Pre-selected, user can deselect
   });
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function CookieBanner({
   const saveConsent = (type: "all" | "necessary" | "custom") => {
     const consentData = {
       type,
-      preferences: type === "all" 
+      preferences: type === "all"
         ? { necessary: true, analytics: true, marketing: true }
         : type === "necessary"
         ? { necessary: true, analytics: false, marketing: false }
@@ -46,7 +46,7 @@ export default function CookieBanner({
     };
 
     localStorage.setItem("cookie_consent", JSON.stringify(consentData));
-    
+
     // Set a cookie as well for server-side access
     const expires = new Date();
     expires.setFullYear(expires.getFullYear() + 1);
@@ -90,14 +90,14 @@ export default function CookieBanner({
             <div className="flex flex-col lg:flex-row lg:items-center gap-4">
               <div className="flex-1">
                 <h2 id="cookie-banner-title" className="text-lg font-semibold text-gray-900">
-                  🍪 Questo sito utilizza i cookie
+                  We use cookies
                 </h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Utilizziamo cookie tecnici necessari per il funzionamento del sito e, con il tuo consenso, 
-                  cookie analitici per migliorare la tua esperienza. Puoi accettare tutti i cookie, 
-                  rifiutarli o personalizzare le tue preferenze.{" "}
+                  We use essential cookies to make our site work. With your consent, we may also use
+                  analytics cookies to improve your experience. You can accept all cookies or
+                  customize your preferences.{" "}
                   <a href="/cookie-policy" className="text-brand-600 hover:underline">
-                    Maggiori informazioni
+                    Learn more
                   </a>
                 </p>
               </div>
@@ -105,21 +105,15 @@ export default function CookieBanner({
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-shrink-0">
                 <button
                   onClick={() => setShowDetails(true)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Personalizza
-                </button>
-                <button
-                  onClick={handleRejectAll}
                   className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
                 >
-                  Rifiuta tutti
+                  Customize
                 </button>
                 <button
                   onClick={handleAcceptAll}
                   className="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
                 >
-                  Accetta tutti
+                  Accept All
                 </button>
               </div>
             </div>
@@ -128,12 +122,12 @@ export default function CookieBanner({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 id="cookie-banner-title" className="text-lg font-semibold text-gray-900">
-                  🍪 Gestione preferenze cookie
+                  Cookie Preferences
                 </h2>
                 <button
                   onClick={() => setShowDetails(false)}
                   className="text-gray-400 hover:text-gray-600"
-                  aria-label="Chiudi dettagli"
+                  aria-label="Close details"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -142,8 +136,8 @@ export default function CookieBanner({
               </div>
 
               <p className="text-sm text-gray-600">
-                Seleziona quali categorie di cookie desideri abilitare. I cookie necessari non possono 
-                essere disabilitati in quanto essenziali per il funzionamento del sito.
+                Select which cookie categories you want to enable. Essential cookies cannot be
+                disabled as they are required for the site to function properly.
               </p>
 
               <div className="space-y-3">
@@ -151,14 +145,14 @@ export default function CookieBanner({
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-gray-900">Cookie Necessari</h3>
+                      <h3 className="font-medium text-gray-900">Essential Cookies</h3>
                       <span className="px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
-                        Sempre attivi
+                        Always active
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
-                      Essenziali per la navigazione e l'utilizzo delle funzionalità del sito, 
-                      inclusa l'autenticazione e la gestione della sessione.
+                      Required for basic site functionality, including authentication
+                      and session management.
                     </p>
                   </div>
                   <div className="ml-4">
@@ -167,7 +161,7 @@ export default function CookieBanner({
                       checked={true}
                       disabled
                       className="w-5 h-5 rounded border-gray-300 text-brand-600 cursor-not-allowed"
-                      aria-label="Cookie necessari (sempre attivi)"
+                      aria-label="Essential cookies (always active)"
                     />
                   </div>
                 </div>
@@ -175,10 +169,10 @@ export default function CookieBanner({
                 {/* Analytics Cookies */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div className="flex-1">
-                    <h3 className="font-medium text-gray-900">Cookie Analitici</h3>
+                    <h3 className="font-medium text-gray-900">Analytics Cookies</h3>
                     <p className="text-sm text-gray-600 mt-1">
-                      Ci permettono di capire come i visitatori interagiscono con il sito, 
-                      raccogliendo informazioni in forma anonima e aggregata.
+                      Help us understand how visitors interact with the site by collecting
+                      anonymous and aggregated information.
                     </p>
                   </div>
                   <div className="ml-4">
@@ -189,18 +183,18 @@ export default function CookieBanner({
                         setPreferences({ ...preferences, analytics: e.target.checked })
                       }
                       className="w-5 h-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
-                      aria-label="Abilita cookie analitici"
+                      aria-label="Enable analytics cookies"
                     />
                   </div>
                 </div>
 
-                {/* Marketing Cookies (if applicable) */}
+                {/* Marketing Cookies */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div className="flex-1">
-                    <h3 className="font-medium text-gray-900">Cookie di Marketing</h3>
+                    <h3 className="font-medium text-gray-900">Marketing Cookies</h3>
                     <p className="text-sm text-gray-600 mt-1">
-                      Utilizzati per mostrarti pubblicità più pertinenti e misurare 
-                      l'efficacia delle campagne pubblicitarie.
+                      Used to show you relevant ads and measure the effectiveness
+                      of advertising campaigns.
                     </p>
                   </div>
                   <div className="ml-4">
@@ -211,7 +205,7 @@ export default function CookieBanner({
                         setPreferences({ ...preferences, marketing: e.target.checked })
                       }
                       className="w-5 h-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
-                      aria-label="Abilita cookie di marketing"
+                      aria-label="Enable marketing cookies"
                     />
                   </div>
                 </div>
@@ -222,20 +216,20 @@ export default function CookieBanner({
                   href="/cookie-policy"
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-brand-600 text-center"
                 >
-                  Leggi la Cookie Policy completa
+                  Read full Cookie Policy
                 </a>
                 <div className="flex-1" />
                 <button
                   onClick={handleRejectAll}
                   className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
                 >
-                  Rifiuta tutti
+                  Only Essential
                 </button>
                 <button
                   onClick={handleSavePreferences}
                   className="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
                 >
-                  Salva preferenze
+                  Save Preferences
                 </button>
               </div>
             </div>
@@ -247,8 +241,8 @@ export default function CookieBanner({
 }
 
 /**
- * Hook per verificare il consenso ai cookie
- * Usalo nelle pagine dove vuoi condizionare il caricamento di script di terze parti
+ * Hook to check cookie consent
+ * Use in pages where you want to conditionally load third-party scripts
  */
 export function useCookieConsent() {
   const [consent, setConsent] = useState<{
@@ -273,8 +267,8 @@ export function useCookieConsent() {
 }
 
 /**
- * Funzione per aprire nuovamente il banner dei cookie
- * Da usare nel footer per il link "Gestisci Cookie"
+ * Function to reopen the cookie banner
+ * Use in the footer for the "Manage Cookies" link
  */
 export function reopenCookieBanner() {
   localStorage.removeItem("cookie_consent");

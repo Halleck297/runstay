@@ -13,9 +13,10 @@ interface EventPickerProps {
   events: Event[];
   onSelectEvent: (eventId: string) => void;
   defaultEventId?: string;
+  hasError?: boolean;
 }
 
-export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPickerProps) {
+export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }: EventPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(() => {
@@ -46,14 +47,14 @@ export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPick
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="input text-left text-gray-500 hover:border-brand-500"
+          className={`input text-left text-gray-500 hover:border-brand-500 ${hasError ? "border-red-500 ring-1 ring-red-500" : ""}`}
         >
           Choose your event...
         </button>
       ) : (
-        <div className="flex items-center justify-between rounded-lg border border-accent-500 bg-accent-50 p-4">
+        <div className="flex items-center justify-between rounded-lg border border-green-500 bg-green-50 p-4">
           <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-accent-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <div>
@@ -148,17 +149,23 @@ export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPick
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                       />
                     </svg>
-                    <p className="mt-4 text-sm text-gray-600">
+                    <p className="mt-4 text-sm font-medium text-gray-900">
                       Can't find your event?
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Contact us and we'll add it for you
                     </p>
                     <Link
                       to="/contact"
-                      className="mt-3 inline-block px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent-500 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-accent-500/30 hover:bg-accent-600 transition-colors"
                     >
-                      Contact us
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Contact Us
                     </Link>
                   </div>
                 )}

@@ -22,6 +22,7 @@
     "@supabase/supabase-js": "^2.47.0",
     "isbot": "^4.1.0",
     "react": "^18.2.0",
+    "react-datepicker": "^9.1.0",
     "react-dom": "^18.2.0",
     "react-router": "^7.0.0"
   },
@@ -29,6 +30,7 @@
     "@react-router/dev": "^7.0.0",
     "@types/google.maps": "^3.58.1",
     "@types/react": "^18.2.20",
+    "@types/react-datepicker": "^6.2.0",
     "@types/react-dom": "^18.2.7",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",

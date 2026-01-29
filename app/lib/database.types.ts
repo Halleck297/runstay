@@ -10,6 +10,7 @@ export type ListingType = "room" | "bib" | "room_and_bib";
 export type UserType = "tour_operator" | "private";
 export type ListingStatus = "active" | "sold" | "expired";
 export type TransferType = "official_process" | "package" | "contact";
+export type Currency = "EUR" | "USD" | "GBP" | "JPY";
 // Estendi il tipo Profile con unreadCount (usato nel root loader)
 export type ProfileWithUnread = Database["public"]["Tables"]["profiles"]["Row"] & {
   unreadCount?: number;
@@ -28,10 +29,29 @@ export interface Database {
           phone: string | null;
           is_verified: boolean;
           avatar_url: string | null;
+          // Personal Information
+          country: string | null;
+          city: string | null;
+          bio: string | null;
+          // Running Experience
+          marathons_completed: number | null;
+          marathon_pb: string | null;
+          marathon_pb_location: string | null;
+          half_marathons_completed: number | null;
+          half_marathon_pb: string | null;
+          half_marathon_pb_location: string | null;
+          favorite_races: string | null;
+          running_goals: string | null;
+          // Social Media
+          instagram: string | null;
+          strava: string | null;
+          facebook: string | null;
+          linkedin: string | null;
+          website: string | null;
           created_at: string;
           updated_at: string;
         };
-        
+
         Insert: {
           id: string;
           email: string;
@@ -41,6 +61,22 @@ export interface Database {
           phone?: string | null;
           is_verified?: boolean;
           avatar_url?: string | null;
+          country?: string | null;
+          city?: string | null;
+          bio?: string | null;
+          marathons_completed?: number | null;
+          marathon_pb?: string | null;
+          marathon_pb_location?: string | null;
+          half_marathons_completed?: number | null;
+          half_marathon_pb?: string | null;
+          half_marathon_pb_location?: string | null;
+          favorite_races?: string | null;
+          running_goals?: string | null;
+          instagram?: string | null;
+          strava?: string | null;
+          facebook?: string | null;
+          linkedin?: string | null;
+          website?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -53,6 +89,22 @@ export interface Database {
           phone?: string | null;
           is_verified?: boolean;
           avatar_url?: string | null;
+          country?: string | null;
+          city?: string | null;
+          bio?: string | null;
+          marathons_completed?: number | null;
+          marathon_pb?: string | null;
+          marathon_pb_location?: string | null;
+          half_marathons_completed?: number | null;
+          half_marathon_pb?: string | null;
+          half_marathon_pb_location?: string | null;
+          favorite_races?: string | null;
+          running_goals?: string | null;
+          instagram?: string | null;
+          strava?: string | null;
+          facebook?: string | null;
+          linkedin?: string | null;
+          website?: string | null;
           updated_at?: string;
         };
       };
@@ -146,8 +198,8 @@ export interface Database {
     check_out: string | null;
     bib_count: number | null;
     room_type: "single" | "twin" | "double" | "twin_shared" | "double_single_use" | "triple" | "quadruple" |null;
-    // DEPRECATI (mantieni per backward compatibility)
     price: number | null;
+    currency: Currency;
     price_negotiable: boolean;
     
     // NUOVI CAMPI - aggiungere dopo riga 94
@@ -184,9 +236,8 @@ export interface Database {
   check_out?: string | null;
   bib_count?: number | null;
   price?: number | null;
+  currency?: Currency;
   price_negotiable?: boolean;
-  
-  // NUOVI - aggiungere dopo riga 113
   transfer_type?: TransferType | null;
   associated_costs?: number | null;
   cost_notes?: string | null;
@@ -217,9 +268,8 @@ export interface Database {
   check_out?: string | null;
   bib_count?: number | null;
   price?: number | null;
+  currency?: Currency;
   price_negotiable?: boolean;
-  
-  // NUOVI - aggiungere dopo riga 129
   transfer_type?: TransferType | null;
   associated_costs?: number | null;
   cost_notes?: string | null;

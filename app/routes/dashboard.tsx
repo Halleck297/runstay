@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { Link, useLoaderData } from "react-router";
+import { Link, useLoaderData, redirect } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -12,6 +12,11 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
+
+  // Dashboard is only for tour operators
+  if (user.user_type !== "tour_operator") {
+    return redirect("/listings");
+  }
 
   // Get user's listings
   const { data: listings } = await supabaseAdmin

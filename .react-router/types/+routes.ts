@@ -19,6 +19,9 @@ type Pages = {
       "id": string;
     };
   };
+  "/profile/experience": {
+    params: {};
+  };
   "/api/conversations": {
     params: {};
   };
@@ -27,7 +30,13 @@ type Pages = {
       "id": string;
     };
   };
+  "/profile/settings": {
+    params: {};
+  };
   "/listings": {
+    params: {};
+  };
+  "/privacy-policy": {
     params: {};
   };
   "/profile": {
@@ -36,7 +45,7 @@ type Pages = {
   "/profile/agency": {
     params: {};
   };
-  "/profile/runner": {
+  "/profile/social": {
     params: {};
   };
   "/api/translate": {
@@ -99,16 +108,23 @@ type Pages = {
   "/saved": {
     params: {};
   };
+  "/terms": {
+    params: {};
+  };
 };
 
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/listings/:id/edit" | "/api/conversations" | "/api/messages/:id" | "/listings" | "/profile" | "/profile/agency" | "/profile/runner" | "/api/translate" | "/cookie-policy" | "/listings/:id" | "/listings/:id/backup" | "/listings/new" | "/my-listings" | "/api/unread" | "/api/saved" | "/dashboard" | "/messages" | "/messages/:id" | "/register" | "/settings" | "/contact" | "/logout" | "/report" | "/login" | "/saved";
+    page: "/" | "/listings/:id/edit" | "/profile/experience" | "/api/conversations" | "/api/messages/:id" | "/profile/settings" | "/listings" | "/privacy-policy" | "/profile" | "/profile/agency" | "/profile/social" | "/api/translate" | "/cookie-policy" | "/listings/:id" | "/listings/:id/backup" | "/listings/new" | "/my-listings" | "/api/unread" | "/api/saved" | "/dashboard" | "/messages" | "/messages/:id" | "/register" | "/settings" | "/contact" | "/logout" | "/report" | "/login" | "/saved" | "/terms";
   };
   "routes/listings.$id_.edit.tsx": {
     id: "routes/listings.$id_.edit";
     page: "/listings/:id/edit";
+  };
+  "routes/profile.experience.tsx": {
+    id: "routes/profile.experience";
+    page: "/profile/experience";
   };
   "routes/api.conversations.tsx": {
     id: "routes/api.conversations";
@@ -118,9 +134,17 @@ type RouteFiles = {
     id: "routes/api.messages.$id";
     page: "/api/messages/:id";
   };
+  "routes/profile.settings.tsx": {
+    id: "routes/profile.settings";
+    page: "/profile/settings";
+  };
   "routes/listings._index.tsx": {
     id: "routes/listings._index";
     page: "/listings";
+  };
+  "routes/privacy-policy.tsx": {
+    id: "routes/privacy-policy";
+    page: "/privacy-policy";
   };
   "routes/profile._index.tsx": {
     id: "routes/profile._index";
@@ -130,9 +154,9 @@ type RouteFiles = {
     id: "routes/profile.agency";
     page: "/profile/agency";
   };
-  "routes/profile.runner.tsx": {
-    id: "routes/profile.runner";
-    page: "/profile/runner";
+  "routes/profile.social.tsx": {
+    id: "routes/profile.social";
+    page: "/profile/social";
   };
   "routes/api.translate.tsx": {
     id: "routes/api.translate";
@@ -214,17 +238,24 @@ type RouteFiles = {
     id: "routes/saved";
     page: "/saved";
   };
+  "routes/terms.tsx": {
+    id: "routes/terms";
+    page: "/terms";
+  };
 };
 
 type RouteModules = {
   "root": typeof import("./app/root.tsx");
   "routes/listings.$id_.edit": typeof import("./app/routes/listings.$id_.edit.tsx");
+  "routes/profile.experience": typeof import("./app/routes/profile.experience.tsx");
   "routes/api.conversations": typeof import("./app/routes/api.conversations.tsx");
   "routes/api.messages.$id": typeof import("./app/routes/api.messages.$id.tsx");
+  "routes/profile.settings": typeof import("./app/routes/profile.settings.tsx");
   "routes/listings._index": typeof import("./app/routes/listings._index.tsx");
+  "routes/privacy-policy": typeof import("./app/routes/privacy-policy.tsx");
   "routes/profile._index": typeof import("./app/routes/profile._index.tsx");
   "routes/profile.agency": typeof import("./app/routes/profile.agency.tsx");
-  "routes/profile.runner": typeof import("./app/routes/profile.runner.tsx");
+  "routes/profile.social": typeof import("./app/routes/profile.social.tsx");
   "routes/api.translate": typeof import("./app/routes/api.translate.tsx");
   "routes/cookie-policy": typeof import("./app/routes/cookie-policy.tsx");
   "routes/listings.$id": typeof import("./app/routes/listings.$id.tsx");
@@ -245,4 +276,5 @@ type RouteModules = {
   "routes/report": typeof import("./app/routes/report.tsx");
   "routes/login": typeof import("./app/routes/login.tsx");
   "routes/saved": typeof import("./app/routes/saved.tsx");
+  "routes/terms": typeof import("./app/routes/terms.tsx");
 };

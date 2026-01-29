@@ -1,16 +1,20 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useSearchParams } from "react-router";
-import { supabase } from "~/lib/supabase.server";
-import { createUserSession, getUserId } from "~/lib/session.server";
+import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { createUserSession, getUserId, getUser } from "~/lib/session.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Login - Runoot" }];
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const userId = await getUserId(request);
-  if (userId) return redirect("/dashboard");
+  const user = await getUser(request);
+  if (user) {
+    // Redirect based on user type
+    const redirectUrl = user.user_type === "tour_operator" ? "/dashboard" : "/listings";
+    return redirect(redirectUrl);
+  }
   return null;
 }
 
@@ -18,7 +22,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const email = formData.get("email");
   const password = formData.get("password");
-  const redirectTo = formData.get("redirectTo") || "/dashboard";
+  const redirectToParam = formData.get("redirectTo") as string | null;
 
   if (typeof email !== "string" || typeof password !== "string") {
     return data({ error: "Invalid form submission" }, { status: 400 });
@@ -41,18 +45,33 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: "Login failed" }, { status: 400 });
   }
 
+  // Get user profile to determine redirect
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("user_type")
+    .eq("id", authData.user.id)
+    .single();
+
+  // Determine redirect: use param if provided and not default, otherwise based on user type
+  let redirectTo = "/listings";
+  if (redirectToParam && redirectToParam !== "/dashboard") {
+    redirectTo = redirectToParam;
+  } else if (profile?.user_type === "tour_operator") {
+    redirectTo = "/dashboard";
+  }
+
   return createUserSession(
     authData.user.id,
     authData.session.access_token,
     authData.session.refresh_token,
-    redirectTo as string
+    redirectTo
   );
 }
 
 export default function Login() {
   const [searchParams] = useSearchParams();
   const actionData = useActionData<typeof action>();
-  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+  const redirectTo = searchParams.get("redirectTo") || "";
 
   return (
     <div className="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50">

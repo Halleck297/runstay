@@ -7,6 +7,9 @@ import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { EventPicker } from "~/components/EventPicker";
 import { HotelAutocomplete } from "~/components/HotelAutocomplete";
+import { DatePicker } from "~/components/DatePicker";
+import { RoomTypeDropdown } from "~/components/RoomTypeDropdown";
+import { CurrencyPicker } from "~/components/CurrencyPicker";
 import {
   getMaxLimit,
   getTransferMethodOptions,
@@ -78,7 +81,8 @@ export async function action({ request }: ActionFunctionArgs) {
   const costNotes = formData.get("costNotes") as string;
   // Price
   const price = formData.get("price") as string;
-  const priceNegotiable = formData.get("priceNegotiable") === "on";
+  const currency = formData.get("currency") as string || "EUR";
+  const priceNegotiable = formData.get("priceNegotiable") === "true";
 
   // Validation
   if (!listingType) {
@@ -97,31 +101,12 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: validation.error }, { status: 400 });
   }  
 
-  // Handle event - use existing or create new
-  let finalEventId = eventId;
-
-  if (!eventId && newEventName && newEventDate) {
-    const { data: newEvent, error: eventError } = await supabase
-      .from("events")
-      .insert({
-        name: newEventName,
-        country: newEventCountry || "",
-        event_date: newEventDate,
-        created_by: user.id,
-      } as any)
-      .select()
-      .single<{ id: string }>();
-
-    if (eventError) {
-      return data({ error: "Failed to create event" }, { status: 400 });
-    }
-
-    finalEventId = newEvent.id;
+  // Validate event is selected
+  if (!eventId) {
+    return data({ error: "Please select an event", field: "event" }, { status: 400 });
   }
 
-  if (!finalEventId) {
-    return data({ error: "Please select or create an event" }, { status: 400 });
-  }
+  const finalEventId = eventId;
 
   // Get event details for auto-generating title
   const { data: eventData } = await supabase
@@ -130,7 +115,17 @@ export async function action({ request }: ActionFunctionArgs) {
     .eq("id", finalEventId)
     .single<{ name: string; event_date: string }>();
 
-      // Validate check-in/check-out dates (±10 days from event)
+      // Validate hotel is required for room listings
+  if ((listingType === "room" || listingType === "room_and_bib") && !hotelName) {
+    return data({ error: "Please select or add a hotel", field: "hotel" }, { status: 400 });
+  }
+
+  // Validate room type is required for room listings
+  if ((listingType === "room" || listingType === "room_and_bib") && !roomType) {
+    return data({ error: "Please select a room type", field: "roomType" }, { status: 400 });
+  }
+
+  // Validate check-in/check-out dates (±10 days from event)
   if ((listingType === "room" || listingType === "room_and_bib") && checkIn && checkOut) {
     const eventDate = new Date(eventData!.event_date);
     const checkInDate = new Date(checkIn);
@@ -250,9 +245,10 @@ export async function action({ request }: ActionFunctionArgs) {
     check_out: checkOut || null,
     bib_count: bibCount ? parseInt(bibCount) : null,
     
-    // MODIFICARE QUESTE RIGHE:
-    price: price ? parseFloat(price) : null, // mantieni per backward compatibility
-    price_negotiable: priceNegotiable, // mantieni per backward compatibility
+    // Price fields
+    price: price ? parseFloat(price) : null,
+    currency: currency,
+    price_negotiable: priceNegotiable,
     
     // AGGIUNGERE QUESTE RIGHE:
     transfer_type: transferType || null,
@@ -284,6 +280,10 @@ export default function NewListing() {
   const [transferMethod, setTransferMethod] = useState<TransferMethod | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
+  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
+  const [currency, setCurrency] = useState<string>("EUR");
+  const [priceValue, setPriceValue] = useState<string>("");
+  const [priceNegotiable, setPriceNegotiable] = useState<boolean>(false);
 
   // Show success modal when listing is created
   useEffect(() => {
@@ -344,7 +344,7 @@ useEffect(() => {
 
       {/* Container con immagine di sfondo ai lati */}
       <div
-        className="min-h-screen bg-cover bg-center bg-no-repeat"
+        className="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed"
         style={{ backgroundImage: "url('/new-listing.jpg')" }}
       >
         <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
@@ -357,14 +357,8 @@ useEffect(() => {
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
+          <div className="rounded-2xl bg-white/90 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
           <Form method="post" className="space-y-8" onSubmit={() => setFormSubmitted(true)}>
-            {actionData?.error && (
-              <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-                {actionData.error}
-              </div>
-            )}
-
             {/* Listing Type */}
             <div>
               <label className="label">What are you offering?</label>
@@ -467,6 +461,7 @@ useEffect(() => {
                   const event = events.find((e: any) => e.id === eventId);
                   setSelectedEvent(event);
                 }}
+                hasError={actionData?.field === "event"}
               />
             </div>
 
@@ -486,13 +481,14 @@ useEffect(() => {
                     onSelectHotel={(hotel) => {
                       // Hotel data is handled via hidden inputs in component
                     }}
+                    hasError={actionData?.field === "hotel"}
                   />
 
                 </div>
 <div> </div>
   <div> </div>              
                 <div>
-                <label htmlFor="roomCount" className="label">
+                <label htmlFor="roomCount" className="label mb-3">
                    Number of rooms
                   {maxRooms !== null && user.user_type === "tour_operator" && (
                   <span className="text-xs text-gray-500 ml-2">(max {maxRooms} for your account)</span>
@@ -504,7 +500,7 @@ useEffect(() => {
                    <div className={`flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "room" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
                     1
                     </div>
-                    <span className="text-sm text-gray-600">Private users can list 1 room only</span>
+                    <span className="text-sm text-gray-600">Private users can list<br />1 room only</span>
                    </div>
                    <input type="hidden" name="roomCount" value="1" />
                    </>
@@ -521,35 +517,23 @@ useEffect(() => {
                    )}
                 </div>
 
-<div>
-  <label htmlFor="roomType" className="label">
-    Room type
-  </label>
-  <select id="roomType" name="roomType" className="input" onChange={(e) => setRoomType(e.target.value)}>
-    <option value="">Select type</option>
-    <option value="single">Single</option>
-    <option value="double">Double</option>
-    <option value="twin">Twin</option>
-    <option value="twin_shared">Twin Shared</option>
-    <option value="double_single_use">Double Single Use</option>
-    <option value="triple">Triple</option>
-    <option value="quadruple">Quadruple</option>
-    <option value="other">Other * (specify)</option>
-  </select>
-</div>
+<RoomTypeDropdown
+  value={roomType}
+  onChange={setRoomType}
+  hasError={actionData?.field === "roomType"}
+/>
 
-                <div>
-                  <label htmlFor="checkIn" className="label">
-                    Check-in date
+                <div className="mt-4">
+                  <label htmlFor="checkIn" className="label mb-3">
+                    Check-in
                   </label>
-                  <input
-                    type="date"
+                  <DatePicker
                     id="checkIn"
                     name="checkIn"
                     placeholder="dd/mm/yyyy"
-                    min={dateConstraints.min}
-                    max={dateConstraints.max}
-                    className="input"
+                    minDate={dateConstraints.min ? new Date(dateConstraints.min) : undefined}
+                    maxDate={dateConstraints.max ? new Date(dateConstraints.max) : undefined}
+                    onChange={(date) => setCheckInDate(date)}
                   />
                   {selectedEvent && (
                     <p className="mt-1 text-xs text-gray-500">
@@ -557,19 +541,17 @@ useEffect(() => {
                     </p>
                   )}
                 </div>
-                
-                <div>
-                  <label htmlFor="checkOut" className="label">
-                    Check-out date
+
+                <div className="mt-4">
+                  <label htmlFor="checkOut" className="label mb-3">
+                    Check-out
                   </label>
-                  <input
-                    type="date"
+                  <DatePicker
                     id="checkOut"
                     name="checkOut"
                     placeholder="dd/mm/yyyy"
-                    min={dateConstraints.min}
-                    max={dateConstraints.max}
-                    className="input"
+                    minDate={checkInDate || (dateConstraints.min ? new Date(dateConstraints.min) : undefined)}
+                    maxDate={dateConstraints.max ? new Date(dateConstraints.max) : undefined}
                   />
                 </div>
               </div>
@@ -586,7 +568,7 @@ useEffect(() => {
   {user.user_type === "private" && (
     <div className={`rounded-lg p-4 ${listingType === "bib" ? "bg-purple-50 border border-purple-200" : "bg-green-50 border border-green-200"}`}>
       <p className={`text-sm ${listingType === "bib" ? "text-purple-800" : "text-green-800"}`}>
-        <strong>Important:</strong> RunOot facilitates connections for legitimate
+        <strong>Important:</strong> runoot facilitates connections for legitimate
         bib transfers only. Direct sale of bibs may violate event regulations.
       </p>
     </div>
@@ -664,7 +646,7 @@ useEffect(() => {
   {visibleFields.showAssociatedCosts && (
     <div>
       <label htmlFor="associatedCosts" className="label">
-        Associated Costs (€) <span className="text-red-500">*</span>
+        Associated Costs (€) <span className="text-gray-400">(optional)</span>
       </label>
       <input
         type="number"
@@ -674,10 +656,9 @@ useEffect(() => {
         step="0.01"
         placeholder="e.g. 50"
         className="input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        required
       />
       <p className="mt-1 text-xs text-gray-500">
-        Official name change fee from the event organizer
+        Official name change fee from the event organizer (if applicable)
       </p>
     </div>
   )}
@@ -700,11 +681,11 @@ useEffect(() => {
                 <h3 className="font-medium text-gray-900 border-b pb-2">
                   Price
                 </h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="price" className="label">
-                      Price (€)
-                    </label>
+                <div>
+                  <label htmlFor="price" className="label mb-3">
+                    Amount
+                  </label>
+                  <div className="flex gap-2">
                     <input
                       type="number"
                       id="price"
@@ -712,25 +693,54 @@ useEffect(() => {
                       min="0"
                       step="0.01"
                       placeholder="Empty = Contact for price"
-                      className="input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="input w-[205px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-sm placeholder:font-sans"
+                      value={priceValue}
+                      onChange={(e) => {
+                        setPriceValue(e.target.value);
+                        // Reset negotiable to false when price is cleared
+                        if (!e.target.value) {
+                          setPriceNegotiable(false);
+                        }
+                      }}
+                    />
+                    <CurrencyPicker
+                      value={currency}
+                      onChange={setCurrency}
                     />
                   </div>
-                  {/* Price negotiable - solo per room e room_and_bib, non per bib */}
-                  {(listingType === "room" || listingType === "room_and_bib") && (
-                    <div className="flex items-end">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="priceNegotiable"
-                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                        />
-                        <span className="text-sm text-gray-700">
-                          Price is negotiable
-                        </span>
-                      </label>
-                    </div>
-                  )}
                 </div>
+
+                {/* Price negotiable - appare solo quando c'è un prezzo */}
+                {priceValue && (listingType === "room" || listingType === "room_and_bib") && (
+                  <div className="mt-4">
+                    <input type="hidden" name="priceNegotiable" value={priceNegotiable.toString()} />
+                    <span className="text-sm text-gray-700">Is the price negotiable?</span>
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setPriceNegotiable(true)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          priceNegotiable
+                            ? "bg-brand-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPriceNegotiable(false)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          !priceNegotiable
+                            ? "bg-brand-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        No
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -751,6 +761,16 @@ useEffect(() => {
   required={roomType === "other"}
 />
             </div>
+
+            {/* Error Message */}
+            {actionData?.error && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700 flex items-center gap-2">
+                <svg className="h-5 w-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {actionData.error}
+              </div>
+            )}
 
             {/* Submit */}
             <div className="flex gap-4 pt-4">

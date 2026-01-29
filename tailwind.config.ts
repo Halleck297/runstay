@@ -17,6 +17,19 @@ export default {
         '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
       },
       colors: {
+        // Navy per titoli e testo principale
+        navy: {
+          50: "#F0F4F8",
+          100: "#D9E2EC",
+          200: "#BCCCDC",
+          300: "#9FB3C8",
+          400: "#829AB1",
+          500: "#627D98",
+          600: "#486581",
+          700: "#334E68",
+          800: "#243B53",  // Buono per titoli
+          900: "#102A43",  // Molto scuro
+        },
         brand: {
           50: "#E8F4FE",
           100: "#C5E3FD",

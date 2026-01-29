@@ -20,9 +20,10 @@ interface HotelAutocompleteProps {
   eventCity?: string;
   eventCountry?: string;
   defaultHotelName?: string;
+  hasError?: boolean;
 }
 
-export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, defaultHotelName }: HotelAutocompleteProps) {
+export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, defaultHotelName, hasError }: HotelAutocompleteProps) {
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(() => {
     if (defaultHotelName) {
       return {
@@ -154,14 +155,14 @@ return (
           ref={inputRef}
           type="text"
           placeholder="Start typing hotel name or city..."
-          className="input"
+          className={`input ${hasError ? "border-red-500 ring-1 ring-red-500" : ""}`}
           onChange={handleChange}
         />
           
                     <button
             type="button"
             onClick={() => setShowManualForm(!showManualForm)}
-            className="mt-2 inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+            className="mt-2 inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors"
           >
             {showManualForm ? (
               <>
@@ -224,7 +225,7 @@ return (
                 </div>
               </div>
               <div className="flex gap-2">
-                <button type="submit" className="btn-primary text-sm">
+                <button type="submit" className="rounded-full bg-accent-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-accent-500/30 hover:bg-accent-600 transition-colors">
                   Save hotel
                 </button>
                 <button

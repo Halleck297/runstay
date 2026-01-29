@@ -1,8 +1,8 @@
-# CLAUDE.md - RunStay Exchange
+# CLAUDE.md - Runoot Exchange
 
 ## Project Overview
 
-RunStay Exchange is a marketplace platform for tour operators and runners to exchange unsold hotel rooms and marathon bibs. The platform solves the problem of unsold inventory (rooms booked in advance that remain empty due to cancellations, no-shows, or unsold packages).
+Runoot Exchange is a marketplace platform for tour operators and runners to exchange unsold hotel rooms and marathon bibs. The platform solves the problem of unsold inventory (rooms booked in advance that remain empty due to cancellations, no-shows, or unsold packages).
 
 ## Tech Stack
 
@@ -31,7 +31,7 @@ The project was originally built with Remix v2. Remix was acquired by Shopify an
 ## Project Structure
 
 ```
-runstay-exchange/
+runoot-exchange/
 ├── app/
 │   ├── components/          # Reusable UI components
 │   │   ├── Header.tsx       # Navigation header

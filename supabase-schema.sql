@@ -26,9 +26,52 @@ CREATE TABLE public.profiles (
   phone TEXT,
   is_verified BOOLEAN DEFAULT FALSE,
   avatar_url TEXT,
+
+  -- Personal Information
+  country TEXT,
+  city TEXT,
+  bio TEXT,
+
+  -- Running Experience
+  marathons_completed INTEGER DEFAULT 0,
+  marathon_pb TEXT,
+  marathon_pb_location TEXT,
+  half_marathons_completed INTEGER DEFAULT 0,
+  half_marathon_pb TEXT,
+  half_marathon_pb_location TEXT,
+  favorite_races TEXT,
+  running_goals TEXT,
+
+  -- Social Media
+  instagram TEXT,
+  strava TEXT,
+  facebook TEXT,
+  linkedin TEXT,
+  website TEXT,
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ============================================
+-- MIGRATION: Add profile fields (run if table exists)
+-- ============================================
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS country TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS city TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS marathons_completed INTEGER DEFAULT 0;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS marathon_pb TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS marathon_pb_location TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS half_marathons_completed INTEGER DEFAULT 0;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS half_marathon_pb TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS half_marathon_pb_location TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS favorite_races TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS running_goals TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS instagram TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS strava TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS facebook TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS linkedin TEXT;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS website TEXT;
 
 -- Events (marathons)
 CREATE TABLE public.events (
@@ -87,6 +130,7 @@ CREATE TABLE public.listings (
   check_out DATE,
   bib_count INTEGER,
   price DECIMAL(10,2),
+  currency TEXT DEFAULT 'EUR' CHECK (currency IN ('EUR', 'USD', 'GBP', 'JPY')),
   price_negotiable BOOLEAN DEFAULT FALSE,
   transfer_type TEXT CHECK (transfer_type IN ('official_process', 'package', 'contact')),
   associated_costs DECIMAL(10,2),

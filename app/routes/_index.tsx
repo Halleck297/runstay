@@ -293,6 +293,17 @@ export default function Index() {
             © {new Date().getFullYear()} Runoot Exchange. Platform for
             informational purposes only. Transactions are between users.
           </p>
+          <div className="mt-4 flex justify-center gap-6 text-sm text-gray-500">
+            <Link to="/privacy-policy" className="hover:text-gray-300 transition-colors">
+              Privacy Policy
+            </Link>
+            <Link to="/cookie-policy" className="hover:text-gray-300 transition-colors">
+              Cookie Policy
+            </Link>
+            <Link to="/terms" className="hover:text-gray-300 transition-colors">
+              Terms & Conditions
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

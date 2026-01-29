@@ -48,11 +48,11 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
-      <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+      <div className="mx-auto max-w-7xl px-0">
         <div className="flex h-20 items-center justify-between">
           
           {/* Logo */}
-          <Link to="/" className="flex items-center -ml-6 mt-2">
+          <Link to="/" className="flex items-center mt-2">
            <img
              src="/logo.svg"
              alt="Runoot"
@@ -133,12 +133,12 @@ export function Header({ user }: HeaderProps) {
               <Link
                 to="/profile"
                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                
+
               >
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                Profilo
+                Profile
               </Link>
 
               {/* My Listings - link condizionale */}
@@ -214,7 +214,7 @@ export function Header({ user }: HeaderProps) {
       {/* Bottone New Listing */}
       <Link
         to="/listings/new"
-        className="btn-primary flex items-center gap-2 px-8 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30"
+        className="btn-primary flex items-center gap-2 px-8 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30 mr-6"
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
