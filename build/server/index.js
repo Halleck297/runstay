@@ -1629,7 +1629,7 @@ async function loader$l({
       listing:listings(id, title, listing_type, author_id),
       participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type),
       participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type),
-      messages(id, content, sender_id, created_at, read_at, message_type)
+      messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
     `).or(`participant_1.eq.${userId},participant_2.eq.${userId}`).order("updated_at", {
     ascending: false
   });
