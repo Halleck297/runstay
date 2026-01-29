@@ -1,6 +1,4 @@
-import { useState, forwardRef } from "react";
-import ReactDatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import { useState, forwardRef, useEffect } from "react";
 
 interface DatePickerProps {
   name: string;
@@ -27,6 +25,18 @@ export function DatePicker({
     }
     return null;
   });
+  const [ReactDatePicker, setReactDatePicker] = useState<any>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Dynamically import react-datepicker only on client side
+  useEffect(() => {
+    setIsClient(true);
+    import("react-datepicker").then((mod) => {
+      setReactDatePicker(() => mod.default);
+    });
+    // Import CSS
+    import("react-datepicker/dist/react-datepicker.css");
+  }, []);
 
   const handleChange = (date: Date | null) => {
     setSelectedDate(date);
@@ -76,6 +86,37 @@ export function DatePicker({
     );
   });
   CustomInput.displayName = "CustomInput";
+
+  // Show a placeholder input while loading or on server
+  if (!isClient || !ReactDatePicker) {
+    return (
+      <div className="relative">
+        <input type="hidden" name={name} value={formattedDate} />
+        <div className="relative w-40">
+          <input
+            type="text"
+            className="input w-full pr-10 cursor-pointer"
+            value={displayValue}
+            readOnly
+            placeholder={placeholder}
+          />
+          <svg
+            className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
