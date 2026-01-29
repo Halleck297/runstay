@@ -1,5 +1,5 @@
-import type { ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { ActionFunctionArgs } from "react-router";
+import { data } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -10,7 +10,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const actionType = formData.get("action") as string;
 
   if (!listingId) {
-    return json({ error: "Missing listing ID" }, { status: 400 });
+    return data({ error: "Missing listing ID" }, { status: 400 });
   }
 
   const userId = (user as any).id as string;
@@ -25,7 +25,7 @@ export async function action({ request }: ActionFunctionArgs) {
       });
 
     if (error && error.code !== "23505") {
-      return json({ error: "Failed to save listing" }, { status: 500 });
+      return data({ error: "Failed to save listing" }, { status: 500 });
     }
 
     // Get the listing owner
@@ -71,7 +71,7 @@ export async function action({ request }: ActionFunctionArgs) {
       }
     }
 
-    return json({ saved: true });
+    return data({ saved: true });
   }
 
   if (actionType === "unsave") {
@@ -82,11 +82,11 @@ export async function action({ request }: ActionFunctionArgs) {
       .eq("listing_id", listingId);
 
     if (error) {
-      return json({ error: "Failed to unsave listing" }, { status: 500 });
+      return data({ error: "Failed to unsave listing" }, { status: 500 });
     }
 
-    return json({ saved: false });
+    return data({ saved: false });
   }
 
-  return json({ error: "Invalid action" }, { status: 400 });
+  return data({ error: "Invalid action" }, { status: 400 });
 }

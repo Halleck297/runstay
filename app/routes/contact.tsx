@@ -1,6 +1,6 @@
-import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, Form, useSearchParams, useNavigation } from "@remix-run/react";
+import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
+import { data, redirect } from "react-router";
+import { useLoaderData, useActionData, Form, useSearchParams, useNavigation } from "react-router";
 import { requireUser, getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -59,11 +59,11 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Validation
   if (!reason || reason.trim() === "") {
-    return json({ error: "Please select a reason" }, { status: 400 });
+    return data({ error: "Please select a reason" }, { status: 400 });
   }
 
   if (!description || description.trim().length < 10) {
-    return json({ error: "Please provide a description (at least 10 characters)" }, { status: 400 });
+    return data({ error: "Please provide a description (at least 10 characters)" }, { status: 400 });
   }
 
   // If user is logged in, use their ID; otherwise store email/name in description
@@ -79,16 +79,16 @@ export async function action({ request }: ActionFunctionArgs) {
 
     if (error) {
       console.error("Report error:", error);
-      return json({ error: "Failed to submit report. Please try again." }, { status: 500 });
+      return data({ error: "Failed to submit report. Please try again." }, { status: 500 });
     }
   } else {
     // For non-logged-in users, we still need a reporter_id
     // In a real app, you might want to handle this differently
     // For now, we'll require login
-    return json({ error: "Please log in to submit a report" }, { status: 401 });
+    return data({ error: "Please log in to submit a report" }, { status: 401 });
   }
 
-  return json({ success: true });
+  return data({ success: true });
 }
 
 export default function Contact() {

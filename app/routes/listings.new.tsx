@@ -1,11 +1,7 @@
-import type {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-  MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
-import { useState, useEffect  } from "react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data } from "react-router";
+import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
+import { useState, useEffect } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -52,7 +48,6 @@ export async function action({ request }: ActionFunctionArgs) {
   // Event fields
   const eventId = formData.get("eventId") as string;
   const newEventName = formData.get("newEventName") as string;
-  const newEventLocation = formData.get("newEventLocation") as string;
   const newEventCountry = formData.get("newEventCountry") as string;
   const newEventDate = formData.get("newEventDate") as string;
   
@@ -87,7 +82,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Validation
   if (!listingType) {
-    return json({ error: "Please select a listing type" }, { status: 400 });
+    return data({ error: "Please select a listing type" }, { status: 400 });
   }
 
   // Validate user type limits
@@ -99,7 +94,7 @@ export async function action({ request }: ActionFunctionArgs) {
   );
 
   if (!validation.valid) {
-    return json({ error: validation.error }, { status: 400 });
+    return data({ error: validation.error }, { status: 400 });
   }  
 
   // Handle event - use existing or create new
@@ -110,7 +105,6 @@ export async function action({ request }: ActionFunctionArgs) {
       .from("events")
       .insert({
         name: newEventName,
-        location: newEventLocation || "",
         country: newEventCountry || "",
         event_date: newEventDate,
         created_by: user.id,
@@ -119,14 +113,14 @@ export async function action({ request }: ActionFunctionArgs) {
       .single<{ id: string }>();
 
     if (eventError) {
-      return json({ error: "Failed to create event" }, { status: 400 });
+      return data({ error: "Failed to create event" }, { status: 400 });
     }
 
     finalEventId = newEvent.id;
   }
 
   if (!finalEventId) {
-    return json({ error: "Please select or create an event" }, { status: 400 });
+    return data({ error: "Please select or create an event" }, { status: 400 });
   }
 
   // Get event details for auto-generating title
@@ -150,21 +144,21 @@ export async function action({ request }: ActionFunctionArgs) {
     
     // Validate check-in
     if (checkInDate < minDate || checkInDate > maxDate) {
-      return json({ 
+      return data({ 
         error: "Check-in date must be within 10 days before or after the event date" 
       }, { status: 400 });
     }
     
     // Validate check-out
     if (checkOutDate < minDate || checkOutDate > maxDate) {
-      return json({ 
+      return data({ 
         error: "Check-out date must be within 10 days before or after the event date" 
       }, { status: 400 });
     }
     
     // Validate check-out is after check-in
     if (checkOutDate <= checkInDate) {
-      return json({ 
+      return data({ 
         error: "Check-out date must be after check-in date" 
       }, { status: 400 });
     }
@@ -214,7 +208,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
                 if (hotelError || !newHotel) {
           console.error("Hotel creation error:", hotelError);
-          return json({ error: "Failed to create hotel" }, { status: 400 });
+          return data({ error: "Failed to create hotel" }, { status: 400 });
         }
 
         finalHotelId = (newHotel as any).id;
@@ -273,20 +267,31 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (error) {
     console.error("Listing creation error:", error);
-    return json({ error: "Failed to create listing" }, { status: 400 });
+    return data({ error: "Failed to create listing" }, { status: 400 });
   }
 
-  return redirect(`/listings/${listing.id}`);
+  return data({ success: true, listingId: listing.id });
 }
 
 export default function NewListing() {
   const { user, events, googlePlacesApiKey } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const navigate = useNavigate();
   const [listingType, setListingType] = useState<"room" | "bib" | "room_and_bib">("room");
   const [roomType, setRoomType] = useState<string>("");
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [transferMethod, setTransferMethod] = useState<TransferMethod | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdListingId, setCreatedListingId] = useState<string | null>(null);
+
+  // Show success modal when listing is created
+  useEffect(() => {
+    if (actionData?.success && actionData?.listingId) {
+      setCreatedListingId(actionData.listingId);
+      setShowSuccessModal(true);
+    }
+  }, [actionData]);
 
   // Custom validation message
 useEffect(() => {
@@ -337,17 +342,22 @@ useEffect(() => {
     <div className="min-h-full bg-gray-50">
       <Header user={user} />
 
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-gray-900">
-            Create a Listing
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Share your available rooms or bibs with the community
-          </p>
-        </div>
+      {/* Container con immagine di sfondo ai lati */}
+      <div
+        className="min-h-screen bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/new-listing.jpg')" }}
+      >
+        <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
+            <h1 className="font-display text-3xl font-bold text-gray-900">
+              Create a Listing
+            </h1>
+            <p className="mt-2 text-gray-600">
+              Share your available rooms or bibs with the community
+            </p>
+          </div>
 
-        <div className="card p-6 sm:p-8">
+          <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
           <Form method="post" className="space-y-8" onSubmit={() => setFormSubmitted(true)}>
             {actionData?.error && (
               <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
@@ -359,7 +369,7 @@ useEffect(() => {
             <div>
               <label className="label">What are you offering?</label>
               <div className="mt-2 grid grid-cols-3 gap-3">
-                <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500">
+                <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-blue-300 has-[:checked]:bg-blue-100 has-[:checked]:ring-2 has-[:checked]:ring-blue-500">
                   <input
                     type="radio"
                     name="listingType"
@@ -387,7 +397,7 @@ useEffect(() => {
                     </span>
                   </span>
                 </label>
-                <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500">
+                <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-purple-300 has-[:checked]:bg-purple-100 has-[:checked]:ring-2 has-[:checked]:ring-purple-500">
                   <input
                     type="radio"
                     name="listingType"
@@ -414,7 +424,7 @@ useEffect(() => {
                     </span>
                   </span>
                 </label>
-                <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500">
+                <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-green-300 has-[:checked]:bg-green-100 has-[:checked]:ring-2 has-[:checked]:ring-green-500">
                   <input
                     type="radio"
                     name="listingType"
@@ -447,18 +457,18 @@ useEffect(() => {
 
 
             {/* Event Selection with Modal */}
-
-                        <div>
-             <label className="label">Marathon Event</label>
-                          <EventPicker 
-               events={events as any}
-               onSelectEvent={(eventId: string) => {
-                const event = events.find((e: any) => e.id === eventId);
-                setSelectedEvent(event);
-              }}
-            />
-
-          </div>
+            <div className="space-y-4">
+              <h3 className="font-medium text-gray-900 border-b pb-2">
+                Running Event
+              </h3>
+              <EventPicker
+                events={events as any}
+                onSelectEvent={(eventId: string) => {
+                  const event = events.find((e: any) => e.id === eventId);
+                  setSelectedEvent(event);
+                }}
+              />
+            </div>
 
             {/* Room Details */}
             {(listingType === "room" || listingType === "room_and_bib") && (
@@ -471,7 +481,7 @@ useEffect(() => {
                   <label className="label">Hotel</label>
                                    <HotelAutocomplete
                     apiKey={googlePlacesApiKey}
-                    eventCity={selectedEvent?.location}
+                    eventCity={selectedEvent?.country}
                     eventCountry={selectedEvent?.country}
                     onSelectHotel={(hotel) => {
                       // Hotel data is handled via hidden inputs in component
@@ -491,7 +501,7 @@ useEffect(() => {
                   {user.user_type === "private" ? (
                   <>
                    <div className="flex items-center gap-3 mt-2">
-                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-100 text-brand-700 font-bold text-2xl">
+                   <div className={`flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "room" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
                     1
                     </div>
                     <span className="text-sm text-gray-600">Private users can list 1 room only</span>
@@ -574,8 +584,8 @@ useEffect(() => {
   
   {/* Disclaimer - solo per utenti privati */}
   {user.user_type === "private" && (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-      <p className="text-sm text-blue-800">
+    <div className={`rounded-lg p-4 ${listingType === "bib" ? "bg-purple-50 border border-purple-200" : "bg-green-50 border border-green-200"}`}>
+      <p className={`text-sm ${listingType === "bib" ? "text-purple-800" : "text-green-800"}`}>
         <strong>Important:</strong> RunOot facilitates connections for legitimate
         bib transfers only. Direct sale of bibs may violate event regulations.
       </p>
@@ -592,7 +602,7 @@ useEffect(() => {
   {user.user_type === "private" ? (
     <>
       <div className="flex items-center gap-3 mt-2">
-        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-100 text-brand-700 font-bold text-2xl">
+        <div className={`flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "bib" ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"}`}>
           1
         </div>
         <span className="text-sm text-gray-600">Private users can list 1 bib only</span>
@@ -749,8 +759,88 @@ useEffect(() => {
               </button>
             </div>
           </Form>
+          </div>
+        </main>
+      </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+
+            {/* Modal Content */}
+            <div
+              className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl text-center"
+              style={{ animation: "fade-in-up 0.3s ease-out" }}
+            >
+              {/* Success Animation - colore basato sul listing type */}
+              <div
+                className={`mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full ${
+                  listingType === "room"
+                    ? "bg-blue-100"
+                    : listingType === "bib"
+                    ? "bg-purple-100"
+                    : "bg-green-100"
+                }`}
+                style={{ animation: "scale-in 0.4s ease-out" }}
+              >
+                <svg
+                  className={`h-12 w-12 ${
+                    listingType === "room"
+                      ? "text-blue-600"
+                      : listingType === "bib"
+                      ? "text-purple-600"
+                      : "text-green-600"
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+
+              {/* Title */}
+              <h2 className="font-display text-2xl font-bold text-gray-900 mb-2">
+                Listing Created!
+              </h2>
+
+              {/* Message */}
+              <p className="text-gray-600 mb-8">
+                Your listing has been published successfully and is now visible to other users.
+              </p>
+
+              {/* Buttons */}
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => navigate(`/listings/${createdListingId}`)}
+                  className="btn-primary w-full py-3 rounded-full"
+                >
+                  View Your Listing
+                </button>
+                {user.user_type === "tour_operator" && (
+                  <button
+                    onClick={() => {
+                      setShowSuccessModal(false);
+                      navigate("/dashboard");
+                    }}
+                    className="btn bg-gray-100 text-gray-700 hover:bg-gray-200 w-full py-3 rounded-full"
+                  >
+                    Go to Dashboard
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      </main>
+      )}
     </div>
   );
 }

@@ -1,10 +1,6 @@
-import type {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-  MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { json, redirect } from "react-router";
+import { Form, useActionData, useLoaderData } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabase } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";

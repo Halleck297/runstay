@@ -1,10 +1,6 @@
-import type {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-  MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { Form, Link, useActionData, useSearchParams } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data, redirect } from "react-router";
+import { Form, Link, useActionData, useSearchParams } from "react-router";
 import { supabase } from "~/lib/supabase.server";
 import { createUserSession, getUserId } from "~/lib/session.server";
 
@@ -25,30 +21,30 @@ export async function action({ request }: ActionFunctionArgs) {
   const redirectTo = formData.get("redirectTo") || "/dashboard";
 
   if (typeof email !== "string" || typeof password !== "string") {
-    return json({ error: "Invalid form submission" }, { status: 400 });
+    return data({ error: "Invalid form submission" }, { status: 400 });
   }
 
   if (!email || !password) {
-    return json({ error: "Email and password are required" }, { status: 400 });
+    return data({ error: "Email and password are required" }, { status: 400 });
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
-    return json({ error: error.message }, { status: 400 });
+    return data({ error: error.message }, { status: 400 });
   }
 
-  if (!data.session) {
-    return json({ error: "Login failed" }, { status: 400 });
+  if (!authData.session) {
+    return data({ error: "Login failed" }, { status: 400 });
   }
 
   return createUserSession(
-    data.user.id,
-    data.session.access_token,
-    data.session.refresh_token,
+    authData.user.id,
+    authData.session.access_token,
+    authData.session.refresh_token,
     redirectTo as string
   );
 }

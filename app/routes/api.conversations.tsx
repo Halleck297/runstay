@@ -1,5 +1,5 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "react-router";
+import { data } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -23,7 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   if (error) {
     console.error("Error fetching conversations:", error);
-    return json({ conversations: [] }, { status: 500 });
+    return data({ conversations: [] }, { status: 500 });
   }
 
   // Filter out non-activated conversations for non-owners
@@ -32,5 +32,5 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return conv.listing?.author_id === userId;
   });
 
-  return json({ conversations: conversations || [] });
+  return data({ conversations: conversations || [] });
 }

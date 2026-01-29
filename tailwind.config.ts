@@ -8,18 +8,26 @@ export default {
         sans: ["DM Sans", "system-ui", "sans-serif"],
         display: ["Sora", "system-ui", "sans-serif"],
       },
+      boxShadow: {
+        sm: '0 1px 2px 0 rgba(0, 0, 0, 0.15)',
+        DEFAULT: '0 1px 3px 0 rgba(0, 0, 0, 0.2), 0 1px 2px -1px rgba(0, 0, 0, 0.2)',
+        md: '0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2)',
+        lg: '0 10px 15px -3px rgba(0, 0, 0, 0.25), 0 4px 6px -4px rgba(0, 0, 0, 0.25)',
+        xl: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.25)',
+        '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+      },
       colors: {
         brand: {
-          50: "#E6F0F7",
-          100: "#CCE1EF",
-          200: "#99C3DF",
-          300: "#66A5CF",
-          400: "#3387BF",
-          500: "#0F4C81",  // Main brand color
-          600: "#0C3D67",
-          700: "#092E4D",
-          800: "#061F34",
-          900: "#030F1A",
+          50: "#E8F4FE",
+          100: "#C5E3FD",
+          200: "#8EC8FB",
+          300: "#57ACF9",
+          400: "#2091F6",
+          500: "#0C78F3",  // Main brand color
+          600: "#0A60C2",
+          700: "#074892",
+          800: "#053061",
+          900: "#021831",
         },
         accent: {
           50: "#FFF4ED",

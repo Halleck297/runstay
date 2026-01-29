@@ -1,10 +1,6 @@
-import type {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-  MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data, redirect } from "react-router";
+import { Form, Link, useActionData, useLoaderData } from "react-router";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin  } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -163,11 +159,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .single<{ author_id: string }>();
 
   if (!listing) {
-    return json({ error: "Listing not found" }, { status: 404 });
+    return data({ error: "Listing not found" }, { status: 404 });
   }
 
   if (listing.author_id === user.id) {
-    return json({ error: "You cannot message yourself" }, { status: 400 });
+    return data({ error: "You cannot message yourself" }, { status: 400 });
   }
 
   // Check if conversation already exists
@@ -196,7 +192,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .single<{ id: string }>();
 
   if (error) {
-    return json({ error: "Failed to start conversation" }, { status: 500 });
+    return data({ error: "Failed to start conversation" }, { status: 500 });
   }
 
   return redirect(`/messages/${newConversation.id}`);
@@ -231,9 +227,8 @@ export default function ListingDetail() {
   const isOwner = user?.id === listing.author_id;
 
   return (
-    <div className="min-h-full bg-gray-50">
+    (<div className="min-h-full bg-gray-50">
       <Header user={user} />
-
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Back link */}
         <Link
@@ -632,6 +627,6 @@ export default function ListingDetail() {
           </div>
         </div>
       </main>
-    </div>
+    </div>)
   );
 }

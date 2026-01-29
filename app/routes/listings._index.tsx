@@ -1,5 +1,6 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useLoaderData, useSearchParams, Form } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { useLoaderData, useSearchParams, Form, useNavigate } from "react-router";
+import { useState, useRef, useEffect } from "react";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -25,7 +26,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       `
       *,
       author:profiles(id, full_name, company_name, user_type, is_verified),
-      event:events(id, name, location, event_date)
+      event:events(id, name, slug, country, event_date)
     `
     )
     .eq("status", "active")
@@ -49,7 +50,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     filteredListings = filteredListings.filter(
       (l: any) =>
         l.event?.name?.toLowerCase().includes(searchLower) ||
-        l.event?.location?.toLowerCase().includes(searchLower) ||
+        l.event?.country?.toLowerCase().includes(searchLower) ||
         l.title?.toLowerCase().includes(searchLower)
     );
   }
@@ -66,16 +67,57 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
 
-  return { user, listings: filteredListings, savedListingIds };
+  // Get all events for autocomplete suggestions
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, name, country, event_date")
+    .order("event_date", { ascending: true });
+
+  return { user, listings: filteredListings, savedListingIds, events: events || [] };
 
 }
 
 export default function Listings() {
-  const { user, listings, savedListingIds } = useLoaderData<typeof loader>();
+  const { user, listings, savedListingIds, events } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const currentType = searchParams.get("type") || "all";
   const currentSearch = searchParams.get("search") || "";
+
+  const [searchQuery, setSearchQuery] = useState(currentSearch);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Filter events based on search query (min 2 chars)
+  const filteredEvents = searchQuery.length >= 2
+    ? (events as any[]).filter((event) =>
+        event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.country.toLowerCase().includes(searchQuery.toLowerCase())
+      ).slice(0, 5)
+    : [];
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Handle suggestion click
+  const handleSuggestionClick = (eventName: string) => {
+    setSearchQuery(eventName);
+    setShowSuggestions(false);
+    // Navigate with the selected event name as search
+    const params = new URLSearchParams();
+    if (currentType !== "all") params.set("type", currentType);
+    params.set("search", eventName);
+    navigate(`/listings?${params.toString()}`);
+  };
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -83,7 +125,7 @@ export default function Listings() {
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Page header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="font-display text-3xl font-bold text-gray-900">
             Browse Listings
           </h1>
@@ -92,41 +134,95 @@ export default function Listings() {
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="mb-8 card p-4">
-          <Form method="get" className="flex flex-col gap-4 sm:flex-row">
-            {/* Search */}
-            <div className="flex-1">
+        {/* Search Bar with Autocomplete */}
+        <div className="mb-4">
+          <Form method="get" name="listing-search" className="flex items-center">
+            <input type="hidden" name="type" value={currentType} />
+            <div className="relative flex-1 max-w-xl" ref={searchRef}>
+              <svg
+                className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
               <input
-                type="text"
+                type="search"
+                id="listing-search"
                 name="search"
+                autoComplete="off"
                 placeholder="Search by event name or location..."
-                defaultValue={currentSearch}
-                className="input"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                className="block w-full rounded-lg border-0 pl-12 pr-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 transition-colors"
+                style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)' }}
               />
-            </div>
 
-            {/* Type filter */}
-            <div className="sm:w-48">
-              <select name="type" defaultValue={currentType} className="input">
-                <option value="all">All types</option>
-                <option value="room">Room only</option>
-                <option value="bib">Bib only</option>
-                <option value="room_and_bib">Room + Bib</option>
-              </select>
+              {/* Autocomplete Dropdown */}
+              {showSuggestions && filteredEvents.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
+                  {filteredEvents.map((event: any) => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => handleSuggestionClick(event.name)}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                    >
+                      <p className="font-medium text-gray-900">{event.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {event.country} • {new Date(event.event_date).toLocaleDateString()}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-
-            <button type="submit" className="btn-primary">
+            <button
+              type="submit"
+              className="ml-12 px-8 py-2.5 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30"
+            >
               Search
             </button>
           </Form>
+        </div>
+
+        {/* Category Filter Buttons */}
+        <div className="mb-8 flex flex-wrap gap-2">
+          {[
+            { value: "all", label: "All" },
+            { value: "room", label: "Hotel" },
+            { value: "bib", label: "Bibs" },
+            { value: "room_and_bib", label: "Package" },
+          ].map((category) => (
+            <a
+              key={category.value}
+              href={category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                currentType === category.value
+                  ? "bg-brand-500 text-white"
+                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              {category.label}
+            </a>
+          ))}
         </div>
 
         {/* Results */}
 {listings.length > 0 ? (
   <>
     {/* Desktop: Grid di card */}
-    <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr">
       {listings.map((listing: any) => (
         <ListingCard 
           key={listing.id} 

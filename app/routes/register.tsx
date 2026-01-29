@@ -1,10 +1,6 @@
-import type {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-  MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { Form, Link, useActionData } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data, redirect } from "react-router";
+import { Form, Link, useActionData } from "react-router";
 import { supabase } from "~/lib/supabase.server";
 import type { Database } from "~/lib/database.types";
 import { createUserSession, getUserId } from "~/lib/session.server";
@@ -33,15 +29,15 @@ export async function action({ request }: ActionFunctionArgs) {
     typeof fullName !== "string" ||
     typeof userType !== "string"
   ) {
-    return json({ error: "Invalid form submission" }, { status: 400 });
+    return data({ error: "Invalid form submission" }, { status: 400 });
   }
 
   if (!email || !password || !fullName || !userType) {
-    return json({ error: "All fields are required" }, { status: 400 });
+    return data({ error: "All fields are required" }, { status: 400 });
   }
 
   if (password.length < 8) {
-    return json(
+    return data(
       { error: "Password must be at least 8 characters" },
       { status: 400 }
     );
@@ -61,11 +57,11 @@ export async function action({ request }: ActionFunctionArgs) {
   });
 
   if (authError) {
-    return json({ error: authError.message }, { status: 400 });
+    return data({ error: authError.message }, { status: 400 });
   }
 
   if (!authData.user) {
-    return json(
+    return data(
       { error: "Registration failed. Please try again." },
       { status: 400 }
     );
@@ -74,7 +70,7 @@ export async function action({ request }: ActionFunctionArgs) {
   // Check if email confirmation is required
   if (!authData.session) {
     // Email confirmation is required
-    return json({
+    return data({
       success: true,
       emailConfirmationRequired: true,
       message: "Please check your email to confirm your account before logging in.",

@@ -1,17 +1,6 @@
-import type {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-  MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import {
-  Form,
-  Link,
-  useActionData,
-  useLoaderData,
-  useNavigation,
-  useNavigate,
-} from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data, redirect } from "react-router";
+import { Form, Link, useActionData, useLoaderData, useNavigation, useNavigate } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -116,7 +105,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     (conversation.participant_1 !== userId &&
       conversation.participant_2 !== userId)
   ) {
-    return json({ error: "Unauthorized" }, { status: 403 });
+    return data({ error: "Unauthorized" }, { status: 403 });
   }
 
   const otherUserId = conversation.participant_1 === userId
@@ -133,10 +122,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
     } as any);
 
     if (error && !error.message.includes("duplicate")) {
-      return json({ error: "Failed to block user" }, { status: 500 });
+      return data({ error: "Failed to block user" }, { status: 500 });
     }
 
-    return json({ success: true, action: "blocked" });
+    return data({ success: true, action: "blocked" });
   }
 
   if (intent === "unblock") {
@@ -146,7 +135,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .eq("blocker_id", userId)
       .eq("blocked_id", otherUserId);
 
-    return json({ success: true, action: "unblocked" });
+    return data({ success: true, action: "unblocked" });
   }
 
   if (intent === "delete") {
@@ -164,7 +153,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const content = formData.get("content");
 
   if (typeof content !== "string" || !content.trim()) {
-    return json({ error: "Message cannot be empty" }, { status: 400 });
+    return data({ error: "Message cannot be empty" }, { status: 400 });
   }
 
   const { error } = await supabaseAdmin.from("messages").insert({
@@ -175,7 +164,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   } as any);
 
   if (error) {
-    return json({ error: "Failed to send message" }, { status: 500 });
+    return data({ error: "Failed to send message" }, { status: 500 });
   }
 
   // If the listing owner is replying and conversation is not activated, activate it
@@ -189,7 +178,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .eq("id", id!);
   }
 
-  return json({ success: true });
+  return data({ success: true });
 }
 
 export default function Conversation() {

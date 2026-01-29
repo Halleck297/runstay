@@ -1,10 +1,6 @@
-import type {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-  MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, Link } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data, redirect } from "react-router";
+import { Form, useActionData, useLoaderData, Link } from "react-router";
 import { useState, useEffect } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
@@ -32,7 +28,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .from("listings")
     .select(`
       *,
-      event:events(id, name, location, country, event_date)
+      event:events(id, name, country, event_date)
     `)
     .eq("id", id!)
     .single();
@@ -72,7 +68,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .single();
 
   if (!existingListing || (existingListing as any).author_id !== (user as any).id) {
-    return json({ error: "Unauthorized" }, { status: 403 });
+    return data({ error: "Unauthorized" }, { status: 403 });
   }
 
   const formData = await request.formData();
@@ -83,7 +79,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Event fields
   const eventId = formData.get("eventId") as string;
   const newEventName = formData.get("newEventName") as string;
-  const newEventLocation = formData.get("newEventLocation") as string;
   const newEventCountry = formData.get("newEventCountry") as string;
   const newEventDate = formData.get("newEventDate") as string;
 
@@ -115,7 +110,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   // Validation
   if (!listingType) {
-    return json({ error: "Please select a listing type" }, { status: 400 });
+    return data({ error: "Please select a listing type" }, { status: 400 });
   }
 
   // Validate user type limits
@@ -127,7 +122,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   );
 
   if (!validation.valid) {
-    return json({ error: validation.error }, { status: 400 });
+    return data({ error: validation.error }, { status: 400 });
   }
 
   // Handle event
@@ -138,7 +133,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .from("events")
       .insert({
         name: newEventName,
-        location: newEventLocation || "",
         country: newEventCountry || "",
         event_date: newEventDate,
         created_by: (user as any).id,
@@ -147,14 +141,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .single<{ id: string }>();
 
     if (eventError) {
-      return json({ error: "Failed to create event" }, { status: 400 });
+      return data({ error: "Failed to create event" }, { status: 400 });
     }
 
     finalEventId = newEvent.id;
   }
 
   if (!finalEventId) {
-    return json({ error: "Please select or create an event" }, { status: 400 });
+    return data({ error: "Please select or create an event" }, { status: 400 });
   }
 
   // Get event details for title
@@ -176,19 +170,19 @@ export async function action({ request, params }: ActionFunctionArgs) {
     maxDate.setDate(maxDate.getDate() + 10);
 
     if (checkInDate < minDate || checkInDate > maxDate) {
-      return json({
+      return data({
         error: "Check-in date must be within 10 days before or after the event date"
       }, { status: 400 });
     }
 
     if (checkOutDate < minDate || checkOutDate > maxDate) {
-      return json({
+      return data({
         error: "Check-out date must be within 10 days before or after the event date"
       }, { status: 400 });
     }
 
     if (checkOutDate <= checkInDate) {
-      return json({
+      return data({
         error: "Check-out date must be after check-in date"
       }, { status: 400 });
     }
@@ -233,7 +227,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
         if (hotelError || !newHotel) {
           console.error("Hotel creation error:", hotelError);
-          return json({ error: "Failed to create hotel" }, { status: 400 });
+          return data({ error: "Failed to create hotel" }, { status: 400 });
         }
 
         finalHotelId = (newHotel as any).id;
@@ -280,7 +274,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   if (error) {
     console.error("Listing update error:", error);
-    return json({ error: "Failed to update listing" }, { status: 400 });
+    return data({ error: "Failed to update listing" }, { status: 400 });
   }
 
   return redirect(`/listings/${id}`);
@@ -430,7 +424,7 @@ export default function EditListing() {
 
             {/* Event Selection */}
             <div>
-              <label className="label">Marathon Event</label>
+              <label className="label">Running Event</label>
               <EventPicker
                 events={events as any}
                 defaultEventId={listingData.event?.id}
@@ -450,7 +444,7 @@ export default function EditListing() {
                     <label className="label">Hotel</label>
                     <HotelAutocomplete
                       apiKey={googlePlacesApiKey}
-                      eventCity={selectedEvent?.location}
+                      eventCity={selectedEvent?.country}
                       eventCountry={selectedEvent?.country}
                       defaultHotelName={listingData.hotel_name}
                       onSelectHotel={(hotel) => {}}

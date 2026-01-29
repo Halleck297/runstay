@@ -1,5 +1,5 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "react-router";
+import { data } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -9,7 +9,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const conversationId = params.id;
 
   if (!conversationId) {
-    return json({ messages: [] }, { status: 400 });
+    return data({ messages: [] }, { status: 400 });
   }
 
   // Verify user is participant
@@ -21,7 +21,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (!conversation ||
       (conversation.participant_1 !== userId && conversation.participant_2 !== userId)) {
-    return json({ messages: [] }, { status: 403 });
+    return data({ messages: [] }, { status: 403 });
   }
 
   // Get all messages for this conversation
@@ -33,7 +33,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (error) {
     console.error("Error fetching messages:", error);
-    return json({ messages: [] }, { status: 500 });
+    return data({ messages: [] }, { status: 500 });
   }
 
   // Mark unread messages as read
@@ -56,5 +56,5 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     });
   }
 
-  return json({ messages: messages || [] });
+  return data({ messages: messages || [] });
 }

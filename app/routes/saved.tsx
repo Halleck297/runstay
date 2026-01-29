@@ -1,5 +1,5 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { Link, useLoaderData } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -37,7 +37,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         status,
         created_at,
         author:profiles(id, full_name, company_name, user_type, is_verified),
-        event:events(id, name, location, event_date)
+        event:events(id, name, country, event_date)
       )
     `)
     .eq("user_id", userId)

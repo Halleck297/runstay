@@ -1,4 +1,4 @@
-import { createCookieSessionStorage, redirect } from "@remix-run/node";
+import { createCookieSessionStorage, redirect } from "react-router";
 import { supabase } from "./supabase.server";
 import type { UserType } from "./database.types";
 

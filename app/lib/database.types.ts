@@ -60,24 +60,24 @@ export interface Database {
         Row: {
           id: string;
           name: string;
-          location: string;
+          slug: string | null;
           country: string;
           event_date: string;
-          created_by: string;
+          created_by: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           name: string;
-          location: string;
+          slug?: string | null;
           country: string;
           event_date: string;
-          created_by: string;
+          created_by?: string | null;
           created_at?: string;
         };
         Update: {
           name?: string;
-          location?: string;
+          slug?: string | null;
           country?: string;
           event_date?: string;
         };

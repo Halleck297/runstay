@@ -34,12 +34,17 @@ CREATE TABLE public.profiles (
 CREATE TABLE public.events (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
+  slug TEXT UNIQUE,
   location TEXT NOT NULL,
   country TEXT NOT NULL,
   event_date DATE NOT NULL,
   created_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- MIGRATION: Se la tabella esiste già, esegui:
+-- ALTER TABLE public.events ADD COLUMN slug TEXT UNIQUE;
+-- UPDATE public.events SET slug = LOWER(REGEXP_REPLACE(name, '[^a-zA-Z0-9]+', '-', 'g'));
 -- Hotels
 CREATE TABLE public.hotels (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

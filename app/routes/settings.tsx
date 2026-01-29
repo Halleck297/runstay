@@ -1,6 +1,6 @@
-import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { useLoaderData, useActionData, Form, Link } from "@remix-run/react";
+import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
+import { data } from "react-router";
+import { useLoaderData, useActionData, Form, Link } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -43,10 +43,10 @@ export async function action({ request }: ActionFunctionArgs) {
       .eq("blocker_id", userId)
       .eq("blocked_id", blockedId);
 
-    return json({ success: true, action: "unblocked" });
+    return data({ success: true, action: "unblocked" });
   }
 
-  return json({ error: "Invalid action" }, { status: 400 });
+  return data({ error: "Invalid action" }, { status: 400 });
 }
 
 export default function Settings() {

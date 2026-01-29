@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 
 interface Event {
   id: string;
@@ -23,11 +24,10 @@ export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPick
     }
     return null;
   });
-  const [showNewEventForm, setShowNewEventForm] = useState(false);
 
-  const filteredEvents = events.filter(event => 
+  const filteredEvents = events.filter(event =>
     event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.location.toLowerCase().includes(searchQuery.toLowerCase())
+    event.country.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleSelectEvent = (event: Event) => {
@@ -51,9 +51,9 @@ export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPick
           Choose your event...
         </button>
       ) : (
-        <div className="flex items-center justify-between rounded-lg border border-green-500 bg-green-50 p-4">
+        <div className="flex items-center justify-between rounded-lg border border-accent-500 bg-accent-50 p-4">
           <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-5 w-5 text-accent-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <div>
@@ -61,7 +61,7 @@ export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPick
                 Event: {selectedEvent.name}
               </p>
               <p className="text-xs text-gray-600">
-                {selectedEvent.location} • {new Date(selectedEvent.event_date).getFullYear()}
+                {selectedEvent.country} • {new Date(selectedEvent.event_date).getFullYear()}
               </p>
             </div>
           </div>
@@ -108,7 +108,7 @@ export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPick
                 <div className="mt-4">
                   <input
                     type="text"
-                    placeholder="Search by event name, city..."
+                    placeholder="Search by event name or country..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="input"
@@ -130,7 +130,7 @@ export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPick
                       >
                         <p className="font-medium text-gray-900">{event.name}</p>
                         <p className="text-sm text-gray-600">
-                          {event.location} • {new Date(event.event_date).getFullYear()}
+                          {event.country} • {new Date(event.event_date).getFullYear()}
                         </p>
                       </button>
                     ))}
@@ -154,16 +154,12 @@ export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPick
                     <p className="mt-4 text-sm text-gray-600">
                       Can't find your event?
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowNewEventForm(true);
-                        setIsOpen(false);
-                      }}
-                      className="mt-2 text-sm font-medium text-brand-600 hover:text-brand-700"
+                    <Link
+                      to="/contact"
+                      className="mt-3 inline-block px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
                     >
-                      + Add a new one
-                    </button>
+                      Contact us
+                    </Link>
                   </div>
                 )}
               </div>
@@ -172,68 +168,6 @@ export function EventPicker({ events, onSelectEvent, defaultEventId }: EventPick
         </div>
       )}
 
-      {/* New Event Form (shown when clicking "Add a new one") */}
-      {showNewEventForm && (
-        <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50 p-4">
-          <h3 className="mb-4 font-medium text-gray-900">Create New Event</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="newEventName" className="label">
-                Event name
-              </label>
-              <input
-                type="text"
-                id="newEventName"
-                name="newEventName"
-                placeholder="e.g. Berlin Marathon 2025"
-                className="input"
-              />
-            </div>
-            <div>
-              <label htmlFor="newEventDate" className="label">
-                Event date
-              </label>
-              <input
-                type="date"
-                id="newEventDate"
-                name="newEventDate"
-                className="input"
-              />
-            </div>
-            <div>
-              <label htmlFor="newEventLocation" className="label">
-                City
-              </label>
-              <input
-                type="text"
-                id="newEventLocation"
-                name="newEventLocation"
-                placeholder="e.g. Berlin"
-                className="input"
-              />
-            </div>
-            <div>
-              <label htmlFor="newEventCountry" className="label">
-                Country
-              </label>
-              <input
-                type="text"
-                id="newEventCountry"
-                name="newEventCountry"
-                placeholder="e.g. Germany"
-                className="input"
-              />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowNewEventForm(false)}
-            className="mt-4 text-sm text-gray-600 hover:text-gray-800"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Link, Form, useFetcher } from "@remix-run/react";
+import { Link, Form, useFetcher } from "react-router";
 import { useEffect, useState, useRef } from "react";
 import type { Database } from "~/lib/database.types";
 
@@ -47,12 +47,12 @@ export function Header({ user }: HeaderProps) {
   const unreadCount = fetcher.data?.unreadCount ?? (user as any)?.unreadCount ?? 0;
 
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
+      <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         <div className="flex h-20 items-center justify-between">
           
           {/* Logo */}
-          <Link to="/" className="flex items-center">
+          <Link to="/" className="flex items-center -ml-6">
            <img
              src="/logo.png"
              alt="Runoot"
@@ -84,7 +84,7 @@ export function Header({ user }: HeaderProps) {
   onMouseLeave={() => setIsMenuOpen(false)}
 >
 <button
-  className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-2xl bg-white hover:bg-gray-50 text-gray-900 transition-colors"
+  className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-full bg-white hover:bg-gray-50 text-gray-900 transition-colors"
 >
   {/* Pallino rosso notifiche */}
   {unreadCount > 0 && (
@@ -109,7 +109,7 @@ export function Header({ user }: HeaderProps) {
             
             
             {/* Menu */}
-            <div className="absolute right-0 top-full w-56 rounded-lg bg-white shadow-lg border border-gray-200 py-2 z-20">
+            <div className="absolute right-0 top-full w-56 rounded-2xl bg-white shadow-lg border border-gray-200 py-2 z-20">
 
               {/* Dashboard - solo per Tour Operators */}
 {user.user_type === "tour_operator" && (
@@ -136,11 +136,10 @@ export function Header({ user }: HeaderProps) {
                 Profilo
               </Link>
 
-              {/* My Listings - label condizionale */}
+              {/* My Listings - link condizionale */}
               <Link
-                to="/dashboard"
+                to={user.user_type === "tour_operator" ? "/dashboard" : "/my-listings"}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                
               >
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -210,7 +209,7 @@ export function Header({ user }: HeaderProps) {
       {/* Bottone New Listing */}
       <Link
         to="/listings/new"
-        className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold"
+        className="btn-primary flex items-center gap-2 px-8 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30"
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -222,10 +221,10 @@ export function Header({ user }: HeaderProps) {
   </nav>
 ) : (
   <nav className="flex items-center gap-4">
-    <Link to="/login" className="btn-secondary">
+    <Link to="/login" className="btn-secondary rounded-full">
       Login
     </Link>
-    <Link to="/register" className="btn-primary">
+    <Link to="/register" className="btn-primary rounded-full shadow-lg shadow-accent-500/30">
       Sign up
     </Link>
   </nav>

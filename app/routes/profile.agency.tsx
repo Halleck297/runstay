@@ -1,7 +1,7 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { redirect } from "react-router";
+import { data } from "react-router";
+import { Form, useActionData, useLoaderData } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabase } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -40,11 +40,11 @@ export async function action({ request }: ActionFunctionArgs) {
   const linkedin = formData.get("linkedin");
 
   if (typeof fullName !== "string" || !fullName) {
-    return json({ error: "Full name is required" }, { status: 400 });
+    return data({ error: "Full name is required" }, { status: 400 });
   }
 
   if (typeof companyName !== "string" || !companyName) {
-    return json({ error: "Company name is required" }, { status: 400 });
+    return data({ error: "Company name is required" }, { status: 400 });
   }
 
   const updateData: any = {
@@ -60,10 +60,10 @@ export async function action({ request }: ActionFunctionArgs) {
 
 
   if (error) {
-    return json({ error: error.message }, { status: 400 });
+    return data({ error: error.message }, { status: 400 });
   }
 
-  return json({ success: true, message: "Profile updated successfully!" });
+  return data({ success: true, message: "Profile updated successfully!" });
 }
 
 export default function OperatorProfile() {

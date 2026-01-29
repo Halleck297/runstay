@@ -6,7 +6,7 @@ RunStay Exchange is a marketplace platform for tour operators and runners to exc
 
 ## Tech Stack
 
-- **Framework**: Remix v2 with Vite (NOT Next.js)
+- **Framework**: React Router v7 with Vite (migrated from Remix v2)
 - **Language**: TypeScript
 - **Database**: Supabase (PostgreSQL)
 - **Auth**: Supabase Auth (email/password + Google OAuth)
@@ -15,8 +15,8 @@ RunStay Exchange is a marketplace platform for tour operators and runners to exc
 
 ## Key Architecture Decisions
 
-### Why Remix over Next.js
-The project owner is not a programmer and had frustrating experiences with Next.js App Router (Server Components, "use client" directives, confusing boundaries). Remix was chosen because:
+### Why React Router v7 (formerly Remix)
+The project was originally built with Remix v2. Remix was acquired by Shopify and has been merged into React Router v7 - they are essentially the same framework now. The architecture remains:
 - Clearer mental model: `loader` = server data, `action` = form handling, component = UI
 - No "use client" confusion - boundaries are explicit
 - Easier debugging for non-programmers
@@ -87,38 +87,40 @@ runstay-exchange/
 
 ## Coding Conventions
 
-### Remix Patterns
+### React Router v7 Patterns
 
 Always use this structure for routes:
 
 ```tsx
 // 1. Imports
-import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, Form } from "@remix-run/react";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
+import { data, redirect } from "react-router";
+import { useLoaderData, useActionData, Form } from "react-router";
 
 // 2. Meta export (for page title)
 export const meta: MetaFunction = () => {
-  return [{ title: "Page Title - RunStay Exchange" }];
+  return [{ title: "Page Title - Runoot" }];
 };
 
 // 3. Loader (GET data - runs on server)
 export async function loader({ request, params }: LoaderFunctionArgs) {
   // Fetch data here
-  return { data };
+  return { someData };
 }
 
 // 4. Action (POST/form handling - runs on server)
 export async function action({ request, params }: ActionFunctionArgs) {
   const formData = await request.formData();
-  // Process form, return json() or redirect()
+  // Process form, return data() or redirect()
+  // Note: use data() instead of the old json()
+  return data({ error: "Something went wrong" }, { status: 400 });
 }
 
 // 5. Component (renders in browser)
 export default function PageName() {
-  const data = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
-  
+
   return (
     <div>
       {/* UI here */}
@@ -243,7 +245,7 @@ SESSION_SECRET=random-32-char-string
 
 ## Important Notes for Claude
 
-1. **This is Remix, NOT Next.js** - Don't use Next.js patterns like `"use client"`, `getServerSideProps`, or `app/page.tsx` conventions.
+1. **This is React Router v7, NOT Next.js** - Don't use Next.js patterns like `"use client"`, `getServerSideProps`, or `app/page.tsx` conventions. All imports come from `"react-router"`, not `"@remix-run/*"`.
 
 2. **The owner is not a programmer** - Explain changes clearly, keep code simple and readable, avoid over-engineering.
 

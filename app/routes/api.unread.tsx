@@ -1,5 +1,5 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "react-router";
+import { data } from "react-router";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -7,7 +7,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   
   if (!user) {
-    return json({ unreadCount: 0 });
+    return data({ unreadCount: 0 });
   }
 
   const userId = (user as any).id as string;
@@ -29,5 +29,5 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
   });
 
-  return json({ unreadCount });
+  return data({ unreadCount });
 }

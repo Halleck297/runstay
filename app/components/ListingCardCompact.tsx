@@ -1,4 +1,4 @@
-import { Link, useFetcher } from "@remix-run/react";
+import { Link, useFetcher } from "react-router";
 
 
 interface ListingCardCompactProps {
@@ -23,7 +23,7 @@ interface ListingCardCompactProps {
     event: {
       id: string;
       name: string;
-      location: string;
+      country: string;
       event_date: string;
     };
   };
@@ -188,7 +188,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
             {/* Left: Location + Seller */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <span className="text-xs text-gray-600 truncate">
-                📍 {listing.event.location} • 🗓 Race Day : {eventDateShort}
+                📍 {listing.event.country} • 🗓 Race Day : {eventDateShort}
               </span>
               <span className="text-xs text-gray-400">•</span>
               <div className="flex items-center gap-1 min-w-0">
