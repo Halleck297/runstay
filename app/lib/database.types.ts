@@ -266,6 +266,9 @@ export interface Database {
           content: string;
           read_at: string | null;
           created_at: string;
+          detected_language: string | null;
+          translated_content: string | null;
+          translated_to: string | null;
         };
         Insert: {
           id?: string;
@@ -274,9 +277,15 @@ export interface Database {
           content: string;
           read_at?: string | null;
           created_at?: string;
+          detected_language?: string | null;
+          translated_content?: string | null;
+          translated_to?: string | null;
         };
         Update: {
           read_at?: string | null;
+          detected_language?: string | null;
+          translated_content?: string | null;
+          translated_to?: string | null;
         };
       };
             saved_listings: {

@@ -61,21 +61,26 @@ export function Header({ user }: HeaderProps) {
          </Link>
 
 
-{/* Navigation */}
-{user ? (
-  <nav className="flex items-center justify-end flex-1">
-    <div className="flex items-center gap-6">
+{/* Center Navigation Links */}
+<nav className="hidden md:flex items-center gap-10 flex-1 justify-center">
+  <Link
+    to="/listings"
+    className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
+  >
+    Listings
+  </Link>
+  <Link
+    to="/contact"
+    className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
+  >
+    Contact
+  </Link>
+</nav>
 
-      {/* Search button (Browse Listings) */}
-      <Link
-        to="/listings"
-        className="flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 transition-colors"
-        title="Browse Listings"
-      >
-        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      </Link>
+{/* Right Side Navigation */}
+{user ? (
+  <nav className="flex items-center">
+    <div className="flex items-center gap-6">
 
       {/* User menu dropdown */}
 <div

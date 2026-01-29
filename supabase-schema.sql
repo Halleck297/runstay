@@ -117,7 +117,11 @@ CREATE TABLE public.messages (
   content TEXT NOT NULL,
   message_type TEXT DEFAULT 'user' CHECK (message_type IN ('user', 'system', 'heart')),
   read_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Translation fields (auto-populated by Google Translate API)
+  detected_language TEXT,        -- Language code detected from content (e.g., 'it', 'en', 'de')
+  translated_content TEXT,       -- Translated text in recipient's language
+  translated_to TEXT             -- Target language code of translation
 );
 
 -- ============================================

@@ -39,6 +39,9 @@ type Pages = {
   "/profile/runner": {
     params: {};
   };
+  "/api/translate": {
+    params: {};
+  };
   "/listings/:id": {
     params: {
       "id": string;
@@ -98,7 +101,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/listings/:id/edit" | "/api/conversations" | "/api/messages/:id" | "/listings" | "/profile" | "/profile/agency" | "/profile/runner" | "/listings/:id" | "/listings/:id/backup" | "/listings/new" | "/my-listings" | "/api/unread" | "/api/saved" | "/dashboard" | "/messages" | "/messages/:id" | "/register" | "/settings" | "/contact" | "/logout" | "/report" | "/login" | "/saved";
+    page: "/" | "/listings/:id/edit" | "/api/conversations" | "/api/messages/:id" | "/listings" | "/profile" | "/profile/agency" | "/profile/runner" | "/api/translate" | "/listings/:id" | "/listings/:id/backup" | "/listings/new" | "/my-listings" | "/api/unread" | "/api/saved" | "/dashboard" | "/messages" | "/messages/:id" | "/register" | "/settings" | "/contact" | "/logout" | "/report" | "/login" | "/saved";
   };
   "routes/listings.$id_.edit.tsx": {
     id: "routes/listings.$id_.edit";
@@ -127,6 +130,10 @@ type RouteFiles = {
   "routes/profile.runner.tsx": {
     id: "routes/profile.runner";
     page: "/profile/runner";
+  };
+  "routes/api.translate.tsx": {
+    id: "routes/api.translate";
+    page: "/api/translate";
   };
   "routes/listings.$id.tsx": {
     id: "routes/listings.$id";
@@ -211,6 +218,7 @@ type RouteModules = {
   "routes/profile._index": typeof import("./app/routes/profile._index.tsx");
   "routes/profile.agency": typeof import("./app/routes/profile.agency.tsx");
   "routes/profile.runner": typeof import("./app/routes/profile.runner.tsx");
+  "routes/api.translate": typeof import("./app/routes/api.translate.tsx");
   "routes/listings.$id": typeof import("./app/routes/listings.$id.tsx");
   "routes/listings.$id.backup": typeof import("./app/routes/listings.$id.backup.tsx");
   "routes/listings.new": typeof import("./app/routes/listings.new.tsx");

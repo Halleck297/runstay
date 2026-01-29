@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useRealtimeMessages } from "~/hooks/useRealtimeMessages";
+import { useTranslation } from "~/hooks/useTranslation";
+import { getAvatarClasses } from "~/lib/avatarColors";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Conversation - Runoot" }];
@@ -23,7 +25,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       listing:listings(id, title, listing_type, status),
       participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified),
       participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified),
-      messages(id, content, sender_id, created_at, read_at, message_type)
+      messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
     `
     )
     .eq("id", id!)
@@ -208,6 +210,13 @@ export default function Conversation() {
     currentUserId: userId,
   });
 
+  // Use translation hook for automatic message translation
+  const { getDisplayContent, toggleShowOriginal } = useTranslation({
+    userId,
+    messages: realtimeMessages,
+    enabled: true,
+  });
+
   // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -251,22 +260,15 @@ export default function Conversation() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [realtimeMessages]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      formRef.current?.requestSubmit();
-    }
-  };
-
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-r-lg overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white/95 backdrop-blur-sm rounded-r-lg overflow-hidden">
       {/* Header conversazione */}
-      <div className="flex items-center gap-4 p-4 border-b border-gray-200 bg-white h-[72px]">
+      <div className="flex items-center gap-4 p-4 border-b border-gray-200 h-[72px]">
         {/* Back button (mobile only) */}
         <Link
           to="/messages"
@@ -287,7 +289,7 @@ export default function Conversation() {
           </svg>
         </Link>
 
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-full font-semibold flex-shrink-0 ${getAvatarClasses(otherUser?.id || "", otherUser?.user_type)}`}>
           {otherUser?.company_name?.charAt(0) ||
             otherUser?.full_name?.charAt(0) ||
             "?"}
@@ -328,7 +330,7 @@ export default function Conversation() {
           <button
             type="button"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="p-3 -m-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <svg
               className="h-5 w-5"
@@ -430,6 +432,14 @@ export default function Conversation() {
             const showDateSeparator = !prevDate ||
               messageDate.toDateString() !== prevDate.toDateString();
 
+            // Smart timestamp: show time only if it's the first message or
+            // more than 5 minutes since previous message from same sender
+            const prevMessageFromSameSender = prevMessage?.sender_id === message.sender_id;
+            const timeDiffMinutes = prevDate
+              ? (messageDate.getTime() - prevDate.getTime()) / 60000
+              : Infinity;
+            const showTimestamp = !prevMessageFromSameSender || timeDiffMinutes > 5 || showDateSeparator;
+
             return (
               <div key={message.id}>
                 {/* Date separator */}
@@ -465,46 +475,88 @@ export default function Conversation() {
                     </div>
                   </div>
                 ) : (
-                  <div
-                    className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
-                        isOwnMessage
-                          ? "bg-gray-200 text-gray-900 rounded-br-md"
-                          : "bg-accent-500 text-white rounded-bl-md"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words">
-                        {message.content}
-                      </p>
+                  (() => {
+                    const displayContent = getDisplayContent(message);
+                    return (
                       <div
-                        className={`flex items-center justify-end gap-1.5 text-xs mt-1 ${
-                          isOwnMessage ? "text-gray-500" : "text-accent-100"
-                        }`}
+                        className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
                       >
-                        <span>
-                          {messageDate.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                        {isOwnMessage && (
-                          <span className="flex items-center">
-                            {message.read_at ? (
-                              <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/>
+                        <div
+                          className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
+                            isOwnMessage
+                              ? "bg-accent-100 text-gray-900 rounded-br-md"
+                              : "bg-gray-200 text-gray-900 rounded-bl-md"
+                          }`}
+                        >
+                          {/* Message content */}
+                          <p className="whitespace-pre-wrap break-words">
+                            {displayContent.content}
+                          </p>
+
+                          {/* Translation indicator and toggle */}
+                          {displayContent.isLoading && (
+                            <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400">
+                              <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
                               </svg>
-                            ) : (
-                              <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                              <span>Translating...</span>
+                            </div>
+                          )}
+
+                          {displayContent.canToggle && (
+                            <button
+                              type="button"
+                              onClick={() => toggleShowOriginal(message.id)}
+                              className={`flex items-center gap-1 mt-1.5 text-xs transition-colors ${
+                                isOwnMessage
+                                  ? "text-accent-500 hover:text-accent-700"
+                                  : "text-gray-400 hover:text-gray-600"
+                              }`}
+                            >
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                               </svg>
-                            )}
-                          </span>
-                        )}
+                              <span>
+                                {displayContent.showOriginal ? "Show translation" : "Auto-translated • Show original"}
+                              </span>
+                            </button>
+                          )}
+
+                          {/* Show timestamp only for first message in a group or after 5+ min gap */}
+                          {(showTimestamp || isOwnMessage) && (
+                            <div
+                              className={`flex items-center justify-end gap-1.5 text-xs mt-1 ${
+                                isOwnMessage ? "text-accent-600" : "text-gray-500"
+                              }`}
+                            >
+                              {showTimestamp && (
+                                <span>
+                                  {messageDate.toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              )}
+                              {isOwnMessage && (
+                                <span className="flex items-center">
+                                  {message.read_at ? (
+                                    <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/>
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                    </svg>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()
                 )}
               </div>
             );
@@ -514,7 +566,7 @@ export default function Conversation() {
       </div>
 
       {/* Campo risposta */}
-      <div className="border-t border-gray-200 p-4 bg-white">
+      <div className="border-t border-gray-200 p-4">
         {actionData && "error" in actionData && (
           <p className="text-sm text-red-600 mb-2">{actionData.error}</p>
         )}
@@ -538,13 +590,12 @@ export default function Conversation() {
             <textarea
               ref={textareaRef}
               name="content"
-              placeholder="Type your message... (Shift+Enter for new line)"
+              placeholder="Write a message..."
               autoComplete="off"
               required
               rows={1}
               className="input flex-1 resize-none py-3 min-h-[48px] max-h-[150px] overflow-hidden rounded-2xl"
               disabled={isSubmitting}
-              onKeyDown={handleKeyDown}
               onChange={handleTextareaChange}
             />
             <button

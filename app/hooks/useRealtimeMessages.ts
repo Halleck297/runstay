@@ -20,6 +20,21 @@ interface UseRealtimeMessagesOptions {
 // Polling interval in milliseconds
 const POLL_INTERVAL = 3000;
 
+// Play notification sound
+function playNotificationSound() {
+  if (typeof window === "undefined") return;
+
+  try {
+    const audio = new Audio("/ding-sound.mp3");
+    audio.volume = 0.5;
+    audio.play().catch(() => {
+      // Ignore errors (e.g., user hasn't interacted with page yet)
+    });
+  } catch {
+    // Ignore errors
+  }
+}
+
 export function useRealtimeMessages({
   conversationId,
   initialMessages,
@@ -61,11 +76,17 @@ export function useRealtimeMessages({
         // Notify about new messages from other users
         if (previousMessageCountRef.current < serverMessages.length) {
           const newServerMessages = serverMessages.slice(previousMessageCountRef.current);
+          let hasNewMessageFromOther = false;
           newServerMessages.forEach(msg => {
             if (msg.sender_id !== currentUserId) {
               onNewMessage?.(msg);
+              hasNewMessageFromOther = true;
             }
           });
+          // Play sound once if there are new messages from others
+          if (hasNewMessageFromOther) {
+            playNotificationSound();
+          }
         }
         previousMessageCountRef.current = serverMessages.length;
 

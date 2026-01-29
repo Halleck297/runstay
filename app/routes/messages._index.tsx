@@ -7,7 +7,7 @@ export const meta: MetaFunction = () => {
 
 export default function MessagesIndex() {
   return (
-    <div className="flex-1 flex items-center justify-center bg-white border border-gray-200 rounded-r-lg">
+    <div className="flex-1 flex items-center justify-center bg-white/95 backdrop-blur-sm rounded-r-lg">
       <div className="text-center p-8">
         <svg
           className="mx-auto h-16 w-16 text-gray-300"

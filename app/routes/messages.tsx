@@ -6,6 +6,7 @@ import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { useRealtimeConversations } from "~/hooks/useRealtimeConversations";
+import { getAvatarClasses } from "~/lib/avatarColors";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
@@ -73,12 +74,16 @@ export default function MessagesLayout() {
     <div className="h-screen flex flex-col bg-gray-50">
       <Header user={user} />
 
-      <div className="flex-1 overflow-hidden">
-        <div className="mx-auto max-w-7xl h-full flex px-4 sm:px-6 lg:px-8 py-16">
+      <div
+        className="flex-1 overflow-hidden bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/messages.webp')" }}
+      >
+        <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 py-16">
+          <div className="flex h-full rounded-lg shadow-xl overflow-hidden">
 
         {/* Colonna sinistra: Lista conversazioni */}
         <aside
-          className={`w-full md:w-80 lg:w-96 bg-white border border-gray-200 border-r-0 rounded-l-lg flex flex-col overflow-hidden ${
+          className={`w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-sm rounded-l-lg flex flex-col overflow-hidden border-r border-gray-200 ${
             activeConversationId ? "hidden md:flex" : "flex"
           }`}
         >
@@ -124,8 +129,8 @@ export default function MessagesLayout() {
                       <div
                         className={`flex h-12 w-12 items-center justify-center rounded-full font-semibold flex-shrink-0 ${
                           isActive
-                            ? "bg-gray-600 text-white"
-                            : "bg-brand-100 text-brand-700"
+                            ? "bg-brand-500 text-white"
+                            : getAvatarClasses(otherUser?.id || "", otherUser?.user_type)
                         }`}
                       >
                         {otherUser?.company_name?.charAt(0) ||
@@ -215,8 +220,9 @@ export default function MessagesLayout() {
         >
           <Outlet context={{ user, conversations }} />
         </main>
+          </div>
+        </div>
       </div>
-    </div>
     </div>
   );
 }
