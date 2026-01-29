@@ -21,7 +21,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       listing:listings(id, title, listing_type, author_id),
       participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type),
       participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type),
-      messages(id, content, sender_id, created_at, read_at, message_type)
+      messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
     `
     )
     .or(`participant_1.eq.${userId},participant_2.eq.${userId}`)
@@ -167,12 +167,18 @@ export default function MessagesLayout() {
                               unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"
                             }`}
                           >
-                            {lastMessage.sender_id === (user as any).id && (
-                              <span className="text-gray-400">You: </span>
+                            {lastMessage.sender_id === (user as any).id ? (
+                              <>
+                                <span className="text-gray-400">You: </span>
+                                {lastMessage.message_type === "heart"
+                                  ? "Listing saved"
+                                  : lastMessage.content}
+                              </>
+                            ) : (
+                              lastMessage.message_type === "heart"
+                                ? "Listing saved"
+                                : lastMessage.translated_content || "New message"
                             )}
-                            {lastMessage.message_type === "heart"
-                              ? "Listing saved"
-                              : lastMessage.content}
                           </p>
                         )}
                       </div>
