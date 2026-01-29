@@ -1,11 +1,11 @@
 import { jsx, jsxs, Fragment } from "react/jsx-runtime";
 import { PassThrough } from "node:stream";
 import { createReadableStreamFromReadable } from "@react-router/node";
-import { ServerRouter, createCookieSessionStorage, redirect, UNSAFE_withComponentProps, useLoaderData, Outlet, Meta, Links, ScrollRestoration, Scripts, useFetcher, Link, Form, useActionData, data, useSearchParams, useParams, useNavigation, useNavigate } from "react-router";
+import { ServerRouter, createCookieSessionStorage, redirect, UNSAFE_withComponentProps, useLoaderData, Outlet, Meta, Links, ScrollRestoration, Scripts, useFetcher, Link, Form, useActionData, data, useSearchParams, useNavigate, useParams, useNavigation } from "react-router";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
 import { createClient } from "@supabase/supabase-js";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 const streamTimeout = 5e3;
 function handleRequest(request, responseStatusCode, responseHeaders, routerContext, loadContext) {
   if (request.method.toUpperCase() === "HEAD") {
@@ -251,8 +251,8 @@ function Header({ user }) {
     };
   }, [user, fetcher]);
   const unreadCount = ((_a = fetcher.data) == null ? void 0 : _a.unreadCount) ?? (user == null ? void 0 : user.unreadCount) ?? 0;
-  return /* @__PURE__ */ jsx("header", { className: "bg-white border-b border-gray-200", children: /* @__PURE__ */ jsx("div", { className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "flex h-20 items-center justify-between", children: [
-    /* @__PURE__ */ jsx(Link, { to: "/", className: "flex items-center", children: /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ jsx("header", { className: "sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200", children: /* @__PURE__ */ jsx("div", { className: "mx-auto max-w-7xl px-6 sm:px-8 lg:px-12", children: /* @__PURE__ */ jsxs("div", { className: "flex h-20 items-center justify-between", children: [
+    /* @__PURE__ */ jsx(Link, { to: "/", className: "flex items-center -ml-6", children: /* @__PURE__ */ jsx(
       "img",
       {
         src: "/logo.png",
@@ -260,16 +260,25 @@ function Header({ user }) {
         className: "h-12 w-auto"
       }
     ) }),
-    user ? /* @__PURE__ */ jsx("nav", { className: "flex items-center justify-end flex-1", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-6", children: [
+    /* @__PURE__ */ jsxs("nav", { className: "hidden md:flex items-center gap-10 flex-1 justify-center", children: [
       /* @__PURE__ */ jsx(
         Link,
         {
           to: "/listings",
-          className: "flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 transition-colors",
-          title: "Browse Listings",
-          children: /* @__PURE__ */ jsx("svg", { className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" }) })
+          className: "text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors",
+          children: "Listings"
         }
       ),
+      /* @__PURE__ */ jsx(
+        Link,
+        {
+          to: "/contact",
+          className: "text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors",
+          children: "Contact"
+        }
+      )
+    ] }),
+    user ? /* @__PURE__ */ jsx("nav", { className: "flex items-center", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-6", children: [
       /* @__PURE__ */ jsxs(
         "div",
         {
@@ -280,7 +289,7 @@ function Header({ user }) {
             /* @__PURE__ */ jsxs(
               "button",
               {
-                className: "flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-2xl bg-white hover:bg-gray-50 text-gray-900 transition-colors",
+                className: "flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-full bg-white hover:bg-gray-50 text-gray-900 transition-colors",
                 children: [
                   unreadCount > 0 && /* @__PURE__ */ jsx("span", { className: "h-2.5 w-2.5 rounded-full bg-red-500" }),
                   /* @__PURE__ */ jsx("span", { className: "text-sm font-bold", children: user.full_name || user.email }),
@@ -297,7 +306,7 @@ function Header({ user }) {
                 ]
               }
             ),
-            isMenuOpen && /* @__PURE__ */ jsx(Fragment, { children: /* @__PURE__ */ jsxs("div", { className: "absolute right-0 top-full w-56 rounded-lg bg-white shadow-lg border border-gray-200 py-2 z-20", children: [
+            isMenuOpen && /* @__PURE__ */ jsx(Fragment, { children: /* @__PURE__ */ jsxs("div", { className: "absolute right-0 top-full w-56 rounded-2xl bg-white shadow-lg border border-gray-200 py-2 z-20", children: [
               user.user_type === "tour_operator" && /* @__PURE__ */ jsxs(
                 Link,
                 {
@@ -388,7 +397,7 @@ function Header({ user }) {
         Link,
         {
           to: "/listings/new",
-          className: "btn-primary flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold",
+          className: "btn-primary flex items-center gap-2 px-8 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30",
           children: [
             /* @__PURE__ */ jsx("svg", { className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M12 4v16m8-8H4" }) }),
             /* @__PURE__ */ jsx("span", { className: "hidden sm:inline", children: "New Listing" }),
@@ -397,8 +406,8 @@ function Header({ user }) {
         }
       )
     ] }) }) : /* @__PURE__ */ jsxs("nav", { className: "flex items-center gap-4", children: [
-      /* @__PURE__ */ jsx(Link, { to: "/login", className: "btn-secondary", children: "Login" }),
-      /* @__PURE__ */ jsx(Link, { to: "/register", className: "btn-primary", children: "Sign up" })
+      /* @__PURE__ */ jsx(Link, { to: "/login", className: "btn-secondary rounded-full", children: "Login" }),
+      /* @__PURE__ */ jsx(Link, { to: "/register", className: "btn-primary rounded-full shadow-lg shadow-accent-500/30", children: "Sign up" })
     ] })
   ] }) }) });
 }
@@ -411,9 +420,8 @@ function EventPicker({ events, onSelectEvent, defaultEventId }) {
     }
     return null;
   });
-  const [showNewEventForm, setShowNewEventForm] = useState(false);
   const filteredEvents = events.filter(
-    (event) => event.name.toLowerCase().includes(searchQuery.toLowerCase()) || event.location.toLowerCase().includes(searchQuery.toLowerCase())
+    (event) => event.name.toLowerCase().includes(searchQuery.toLowerCase()) || event.country.toLowerCase().includes(searchQuery.toLowerCase())
   );
   const handleSelectEvent = (event) => {
     setSelectedEvent(event);
@@ -430,16 +438,16 @@ function EventPicker({ events, onSelectEvent, defaultEventId }) {
         className: "input text-left text-gray-500 hover:border-brand-500",
         children: "Choose your event..."
       }
-    ) : /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between rounded-lg border border-green-500 bg-green-50 p-4", children: [
+    ) : /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between rounded-lg border border-accent-500 bg-accent-50 p-4", children: [
       /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
-        /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-green-600", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M5 13l4 4L19 7" }) }),
+        /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-accent-600", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M5 13l4 4L19 7" }) }),
         /* @__PURE__ */ jsxs("div", { children: [
           /* @__PURE__ */ jsxs("p", { className: "text-sm font-medium text-gray-900", children: [
             "Event: ",
             selectedEvent.name
           ] }),
           /* @__PURE__ */ jsxs("p", { className: "text-xs text-gray-600", children: [
-            selectedEvent.location,
+            selectedEvent.country,
             " • ",
             new Date(selectedEvent.event_date).getFullYear()
           ] })
@@ -481,7 +489,7 @@ function EventPicker({ events, onSelectEvent, defaultEventId }) {
             "input",
             {
               type: "text",
-              placeholder: "Search by event name, city...",
+              placeholder: "Search by event name or country...",
               value: searchQuery,
               onChange: (e) => setSearchQuery(e.target.value),
               className: "input",
@@ -498,7 +506,7 @@ function EventPicker({ events, onSelectEvent, defaultEventId }) {
             children: [
               /* @__PURE__ */ jsx("p", { className: "font-medium text-gray-900", children: event.name }),
               /* @__PURE__ */ jsxs("p", { className: "text-sm text-gray-600", children: [
-                event.location,
+                event.country,
                 " • ",
                 new Date(event.event_date).getFullYear()
               ] })
@@ -528,86 +536,17 @@ function EventPicker({ events, onSelectEvent, defaultEventId }) {
             ),
             /* @__PURE__ */ jsx("p", { className: "mt-4 text-sm text-gray-600", children: "Can't find your event?" }),
             /* @__PURE__ */ jsx(
-              "button",
+              Link,
               {
-                type: "button",
-                onClick: () => {
-                  setShowNewEventForm(true);
-                  setIsOpen(false);
-                },
-                className: "mt-2 text-sm font-medium text-brand-600 hover:text-brand-700",
-                children: "+ Add a new one"
+                to: "/contact",
+                className: "mt-3 inline-block px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors",
+                children: "Contact us"
               }
             )
           ] })
         ) })
       ] })
-    ] }) }),
-    showNewEventForm && /* @__PURE__ */ jsxs("div", { className: "mt-4 rounded-lg border border-brand-200 bg-brand-50 p-4", children: [
-      /* @__PURE__ */ jsx("h3", { className: "mb-4 font-medium text-gray-900", children: "Create New Event" }),
-      /* @__PURE__ */ jsxs("div", { className: "grid gap-4 sm:grid-cols-2", children: [
-        /* @__PURE__ */ jsxs("div", { children: [
-          /* @__PURE__ */ jsx("label", { htmlFor: "newEventName", className: "label", children: "Event name" }),
-          /* @__PURE__ */ jsx(
-            "input",
-            {
-              type: "text",
-              id: "newEventName",
-              name: "newEventName",
-              placeholder: "e.g. Berlin Marathon 2025",
-              className: "input"
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxs("div", { children: [
-          /* @__PURE__ */ jsx("label", { htmlFor: "newEventDate", className: "label", children: "Event date" }),
-          /* @__PURE__ */ jsx(
-            "input",
-            {
-              type: "date",
-              id: "newEventDate",
-              name: "newEventDate",
-              className: "input"
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxs("div", { children: [
-          /* @__PURE__ */ jsx("label", { htmlFor: "newEventLocation", className: "label", children: "City" }),
-          /* @__PURE__ */ jsx(
-            "input",
-            {
-              type: "text",
-              id: "newEventLocation",
-              name: "newEventLocation",
-              placeholder: "e.g. Berlin",
-              className: "input"
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxs("div", { children: [
-          /* @__PURE__ */ jsx("label", { htmlFor: "newEventCountry", className: "label", children: "Country" }),
-          /* @__PURE__ */ jsx(
-            "input",
-            {
-              type: "text",
-              id: "newEventCountry",
-              name: "newEventCountry",
-              placeholder: "e.g. Germany",
-              className: "input"
-            }
-          )
-        ] })
-      ] }),
-      /* @__PURE__ */ jsx(
-        "button",
-        {
-          type: "button",
-          onClick: () => setShowNewEventForm(false),
-          className: "mt-4 text-sm text-gray-600 hover:text-gray-800",
-          children: "Cancel"
-        }
-      )
-    ] })
+    ] }) })
   ] });
 }
 function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, defaultHotelName }) {
@@ -729,7 +668,7 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
       {
         type: "button",
         onClick: () => setShowManualForm(!showManualForm),
-        className: "mt-2 inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2",
+        className: "mt-2 inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2",
         children: showManualForm ? /* @__PURE__ */ jsxs(Fragment, { children: [
           /* @__PURE__ */ jsx("svg", { className: "h-4 w-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" }) }),
           "Use autocomplete instead"
@@ -952,7 +891,7 @@ async function loader$m({
     error
   } = await supabase.from("listings").select(`
       *,
-      event:events(id, name, location, country, event_date)
+      event:events(id, name, country, event_date)
     `).eq("id", id).single();
   if (error || !listing) {
     throw new Response("Listing not found", {
@@ -976,7 +915,7 @@ async function loader$m({
     googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || ""
   };
 }
-async function action$d({
+async function action$e({
   request,
   params
 }) {
@@ -999,7 +938,6 @@ async function action$d({
   const description = formData.get("description");
   const eventId = formData.get("eventId");
   const newEventName = formData.get("newEventName");
-  const newEventLocation = formData.get("newEventLocation");
   const newEventCountry = formData.get("newEventCountry");
   const newEventDate = formData.get("newEventDate");
   const hotelPlaceId = formData.get("hotelPlaceId");
@@ -1042,7 +980,6 @@ async function action$d({
       error: eventError
     } = await supabase.from("events").insert({
       name: newEventName,
-      location: newEventLocation || "",
       country: newEventCountry || "",
       event_date: newEventDate,
       created_by: user.id
@@ -1347,7 +1284,7 @@ const listings_$id__edit = UNSAFE_withComponentProps(function EditListing() {
           }), /* @__PURE__ */ jsxs("div", {
             children: [/* @__PURE__ */ jsx("label", {
               className: "label",
-              children: "Marathon Event"
+              children: "Running Event"
             }), /* @__PURE__ */ jsx(EventPicker, {
               events,
               defaultEventId: (_a = listingData.event) == null ? void 0 : _a.id,
@@ -1371,7 +1308,7 @@ const listings_$id__edit = UNSAFE_withComponentProps(function EditListing() {
                   children: "Hotel"
                 }), /* @__PURE__ */ jsx(HotelAutocomplete, {
                   apiKey: googlePlacesApiKey,
-                  eventCity: selectedEvent == null ? void 0 : selectedEvent.location,
+                  eventCity: selectedEvent == null ? void 0 : selectedEvent.country,
                   eventCountry: selectedEvent == null ? void 0 : selectedEvent.country,
                   defaultHotelName: listingData.hotel_name,
                   onSelectHotel: (hotel) => {
@@ -1674,7 +1611,7 @@ const listings_$id__edit = UNSAFE_withComponentProps(function EditListing() {
 });
 const route1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$d,
+  action: action$e,
   default: listings_$id__edit,
   loader: loader$m,
   meta: meta$h
@@ -1795,28 +1732,28 @@ function formatRoomType$1(roomType) {
   };
   return labels[roomType] || roomType;
 }
+function getEventSlug$1(event) {
+  if (event.slug) return event.slug;
+  return event.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }) {
   var _a, _b;
   const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData ? saveFetcher.formData.get("action") === "save" : isSaved;
   const eventDate = new Date(listing.event.event_date).toLocaleDateString("en-GB", {
     day: "numeric",
-    month: "short",
-    year: "numeric"
+    month: "long"
   });
   const mainTitle = listing.event.name;
   const isLM = isLastMinute$1(listing.event.event_date);
   const isTourOperator = listing.author.user_type === "tour_operator";
   const needsNameChange = listing.transfer_type === "official_process";
-  let subtitle = "";
   if (listing.listing_type === "bib") {
-    subtitle = listing.bib_count && listing.bib_count > 1 ? `${listing.bib_count} Bibs Available` : "Bib Available";
+    listing.bib_count && listing.bib_count > 1 ? `${listing.bib_count} Bibs Available` : "Bib Available";
   } else if (listing.listing_type === "room") {
     const roomTypeText = listing.room_type ? formatRoomType$1(listing.room_type) : "Room";
-    subtitle = listing.room_count && listing.room_count > 1 ? `${listing.room_count} ${roomTypeText}s Available` : `${roomTypeText} Available`;
-  } else {
-    subtitle = "Package Available (Room + Bib)";
-  }
+    listing.room_count && listing.room_count > 1 ? `${listing.room_count} ${roomTypeText}s Available` : `${roomTypeText} Available`;
+  } else ;
   let badgeText = "";
   let badgeColor = "";
   if (listing.listing_type === "bib") {
@@ -1829,23 +1766,40 @@ function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }) {
     badgeText = "Package";
     badgeColor = "bg-green-100 text-green-700";
   }
-  const cardClass = isTourOperator ? "card p-5 hover:shadow-lg transition-all border-l-4 border-brand-500 h-full flex flex-col" : "card p-5 hover:shadow-lg transition-all h-full flex flex-col";
+  const cardClass = isTourOperator ? "card overflow-hidden transition-all border-2 border-amber-400 h-full flex flex-col [box-shadow:0_8px_30px_rgba(0,0,0,0.5)]" : "card overflow-hidden transition-all h-full flex flex-col [box-shadow:0_8px_30px_rgba(0,0,0,0.5)]";
   return /* @__PURE__ */ jsxs(
     Link,
     {
       to: isUserLoggedIn ? `/listings/${listing.id}` : "/login",
       className: cardClass,
       children: [
-        /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 mb-3", children: [
-          /* @__PURE__ */ jsx("span", { className: `inline-block px-2.5 py-1 rounded-full text-xs font-medium ${badgeColor}`, children: badgeText }),
-          isLM && /* @__PURE__ */ jsx("span", { className: "inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700", children: "Last Minute" }),
+        /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+          /* @__PURE__ */ jsx(
+            "img",
+            {
+              src: `/events/${getEventSlug$1(listing.event)}.jpg`,
+              alt: listing.event.name,
+              className: "w-full aspect-video object-cover",
+              onError: (e) => {
+                const target = e.target;
+                target.style.display = "none";
+                const fallback = target.nextElementSibling;
+                if (fallback) fallback.style.display = "flex";
+              }
+            }
+          ),
+          /* @__PURE__ */ jsx("div", { className: "w-full aspect-video bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center", style: { display: "none" }, children: /* @__PURE__ */ jsx("svg", { className: "h-12 w-12 text-brand-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 1.5, d: "M13 10V3L4 14h7v7l9-11h-7z" }) }) }),
+          /* @__PURE__ */ jsxs("div", { className: "absolute top-3 left-3 flex gap-2", children: [
+            /* @__PURE__ */ jsx("span", { className: `px-2.5 py-1 rounded-full text-xs font-medium shadow-sm ${badgeColor}`, children: badgeText }),
+            isLM && /* @__PURE__ */ jsx("span", { className: "px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 shadow-sm", children: "Last Minute" })
+          ] }),
           isUserLoggedIn && /* @__PURE__ */ jsxs(
             saveFetcher.Form,
             {
               method: "post",
               action: "/api/saved",
               onClick: (e) => e.stopPropagation(),
-              className: "ml-auto",
+              className: "absolute top-3 right-3",
               children: [
                 /* @__PURE__ */ jsx("input", { type: "hidden", name: "listingId", value: listing.id }),
                 /* @__PURE__ */ jsx("input", { type: "hidden", name: "action", value: isSavedOptimistic ? "unsave" : "save" }),
@@ -1862,12 +1816,12 @@ function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }) {
                         { method: "post", action: "/api/saved" }
                       );
                     },
-                    className: `p-1.5 rounded-full transition-colors ${isSavedOptimistic ? "text-red-500 hover:text-red-600" : "text-gray-400 hover:text-red-500"}`,
+                    className: `p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-sm transition-colors ${isSavedOptimistic ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-red-500"}`,
                     title: isSavedOptimistic ? "Remove from saved" : "Save listing",
                     children: /* @__PURE__ */ jsx(
                       "svg",
                       {
-                        className: "h-7 w-7",
+                        className: "h-5 w-5",
                         fill: isSavedOptimistic ? "currentColor" : "none",
                         viewBox: "0 0 24 24",
                         stroke: "currentColor",
@@ -1888,101 +1842,127 @@ function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }) {
             }
           )
         ] }),
-        /* @__PURE__ */ jsx("h3", { className: "font-display text-xl font-bold text-gray-900 mb-1", children: mainTitle }),
-        /* @__PURE__ */ jsx("p", { className: "text-sm font-medium text-brand-600 mb-3", children: subtitle }),
-        /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between text-sm text-gray-600 mb-3", children: [
-          /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-1.5", children: [
-            /* @__PURE__ */ jsxs("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: [
-              /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" }),
-              /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z" })
-            ] }),
-            /* @__PURE__ */ jsx("span", { className: "font-medium", children: listing.event.location })
+        /* @__PURE__ */ jsxs("div", { className: "p-5 flex-grow flex flex-col", children: [
+          /* @__PURE__ */ jsx("h3", { className: "font-display text-lg font-bold text-gray-900 mb-1.5 text-center min-h-[3.5rem] flex items-start justify-center", children: /* @__PURE__ */ jsx("span", { children: mainTitle }) }),
+          /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-1.5 text-sm text-gray-600 mb-3", children: [
+            /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" }) }),
+            /* @__PURE__ */ jsxs("span", { className: "font-medium", children: [
+              "Race Day: ",
+              eventDate
+            ] })
           ] }),
-          /* @__PURE__ */ jsxs("span", { className: "text-xs font-medium text-gray-500", children: [
-            "🗓 Race Day: ",
-            eventDate
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: "flex-grow", children: [
-          listing.hotel_name && /* @__PURE__ */ jsx("div", { className: "mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100", children: /* @__PURE__ */ jsxs("div", { className: "flex items-start gap-2", children: [
-            /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" }) }),
-            /* @__PURE__ */ jsxs("div", { className: "flex-1 min-w-0", children: [
-              /* @__PURE__ */ jsx("p", { className: "font-semibold text-gray-900 text-sm leading-tight", children: listing.hotel_name }),
-              /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 mt-1", children: [
-                listing.hotel_stars && /* @__PURE__ */ jsx("span", { className: "text-yellow-500 text-sm", children: "★".repeat(listing.hotel_stars) }),
-                listing.hotel_rating && /* @__PURE__ */ jsxs("span", { className: "text-xs text-gray-600", children: [
-                  "⭐ ",
-                  listing.hotel_rating.toFixed(1)
+          /* @__PURE__ */ jsx("div", { className: "flex-grow flex flex-col", children: listing.listing_type === "bib" ? (
+            /* BIB ONLY - Layout centrato e più prominente */
+            /* @__PURE__ */ jsxs("div", { className: "flex-grow flex flex-col items-center justify-center text-center py-4 min-h-[10rem]", children: [
+              /* @__PURE__ */ jsx("div", { className: "w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mb-3", children: /* @__PURE__ */ jsx("svg", { className: "h-8 w-8 text-purple-600", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" }) }) }),
+              /* @__PURE__ */ jsx("p", { className: "text-3xl font-bold text-gray-900 mb-1", children: listing.bib_count || 1 }),
+              /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-600 mb-2", children: listing.bib_count && listing.bib_count > 1 ? "Bibs Available" : "Bib Available" }),
+              needsNameChange && /* @__PURE__ */ jsxs("span", { className: "inline-flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full", children: [
+                /* @__PURE__ */ jsx("svg", { className: "h-3 w-3", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" }) }),
+                "Name change required"
+              ] })
+            ] })
+          ) : listing.listing_type === "room" ? (
+            /* ROOM ONLY - Layout con hotel info prominente e centrato */
+            /* @__PURE__ */ jsxs("div", { className: "flex-grow flex flex-col items-center justify-center text-center min-h-[10rem]", children: [
+              listing.hotel_name && /* @__PURE__ */ jsx("div", { className: "mb-3 p-3 bg-blue-50 rounded-lg border border-blue-100 w-full", children: /* @__PURE__ */ jsxs("div", { className: "flex flex-col items-center", children: [
+                /* @__PURE__ */ jsx("div", { className: "w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center mb-1.5", children: /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-blue-600", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" }) }) }),
+                /* @__PURE__ */ jsx("p", { className: "font-semibold text-gray-900 leading-tight text-sm truncate w-full", children: listing.hotel_name }),
+                /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 mt-0.5", children: [
+                  listing.hotel_stars && /* @__PURE__ */ jsx("span", { className: "text-yellow-500 text-xs", children: "★".repeat(listing.hotel_stars) }),
+                  listing.hotel_rating && /* @__PURE__ */ jsxs("span", { className: "text-xs text-gray-600", children: [
+                    "⭐ ",
+                    listing.hotel_rating.toFixed(1)
+                  ] })
+                ] })
+              ] }) }),
+              isUserLoggedIn && /* @__PURE__ */ jsxs("div", { className: "p-3 bg-gray-50 rounded-lg w-full space-y-2", children: [
+                listing.room_count && /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2 text-sm text-gray-700", children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" }) }),
+                  /* @__PURE__ */ jsxs("span", { children: [
+                    listing.room_type ? formatRoomType$1(listing.room_type) : "Room",
+                    listing.room_count > 1 && ` × ${listing.room_count}`
+                  ] })
+                ] }),
+                listing.check_in && listing.check_out && /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2 text-sm text-gray-700", children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" }) }),
+                  /* @__PURE__ */ jsx("span", { children: new Date(listing.check_in).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) }),
+                  /* @__PURE__ */ jsx("span", { className: "text-gray-400", children: "→" }),
+                  /* @__PURE__ */ jsx("span", { children: new Date(listing.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) })
                 ] })
               ] })
             ] })
-          ] }) }),
-          isUserLoggedIn && /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-            (listing.listing_type === "room" || listing.listing_type === "room_and_bib") && listing.room_count && /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 text-sm text-gray-700", children: [
-              /* @__PURE__ */ jsx("span", { className: "font-medium", children: "Room:" }),
-              /* @__PURE__ */ jsxs("span", { children: [
-                listing.room_type ? formatRoomType$1(listing.room_type) : "Room",
-                listing.room_count > 1 && ` × ${listing.room_count}`
-              ] })
-            ] }),
-            (listing.listing_type === "room" || listing.listing_type === "room_and_bib") && listing.check_in && listing.check_out && /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 text-sm text-gray-700", children: [
-              /* @__PURE__ */ jsx("span", { className: "font-medium", children: "Check-in:" }),
-              /* @__PURE__ */ jsx("span", { children: new Date(listing.check_in).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) }),
-              /* @__PURE__ */ jsx("span", { className: "text-gray-400", children: "→" }),
-              /* @__PURE__ */ jsx("span", { children: new Date(listing.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) })
-            ] }),
-            (listing.listing_type === "bib" || listing.listing_type === "room_and_bib") && listing.bib_count && /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 text-sm text-gray-700", children: [
-              /* @__PURE__ */ jsx("span", { className: "font-medium", children: "Bibs:" }),
-              /* @__PURE__ */ jsxs("span", { children: [
-                listing.bib_count,
-                needsNameChange && /* @__PURE__ */ jsx("span", { className: "text-xs text-orange-600 ml-1", children: "(name change required)" })
-              ] })
-            ] })
-          ] })
-        ] }),
-        /* @__PURE__ */ jsx("div", { className: "mt-auto pt-6 flex items-center justify-between border-t border-gray-100", children: isUserLoggedIn ? /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsx("div", { className: "flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs font-medium", children: ((_a = listing.author.company_name) == null ? void 0 : _a.charAt(0)) || ((_b = listing.author.full_name) == null ? void 0 : _b.charAt(0)) || "?" }),
-            /* @__PURE__ */ jsxs("div", { children: [
-              /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-1", children: [
-                /* @__PURE__ */ jsx("p", { className: "text-sm font-semibold text-gray-900 truncate", children: listing.author.company_name || listing.author.full_name }),
-                listing.author.is_verified && /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-brand-500 flex-shrink-0", fill: "currentColor", viewBox: "0 0 20 20", children: /* @__PURE__ */ jsx(
-                  "path",
-                  {
-                    fillRule: "evenodd",
-                    d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                    clipRule: "evenodd"
-                  }
-                ) })
-              ] }),
-              /* @__PURE__ */ jsxs("p", { className: "text-xs text-gray-500", children: [
-                listing.author.user_type === "tour_operator" ? "Tour Operator" : "Private seller",
-                listing.author.is_verified && " • Verified"
+          ) : (
+            /* PACKAGE (room_and_bib) - Layout centrato con contenuto in basso */
+            /* @__PURE__ */ jsxs("div", { className: "flex-grow flex flex-col items-center justify-end text-center pb-3 min-h-[10rem]", children: [
+              listing.hotel_name && /* @__PURE__ */ jsx("div", { className: "mb-2 p-3 bg-green-50 rounded-lg border border-green-100 w-full", children: /* @__PURE__ */ jsxs("div", { className: "flex flex-col items-center", children: [
+                /* @__PURE__ */ jsx("div", { className: "w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center mb-1.5", children: /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-green-600", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" }) }) }),
+                /* @__PURE__ */ jsx("p", { className: "font-semibold text-gray-900 leading-tight text-sm truncate w-full", children: listing.hotel_name }),
+                /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 mt-0.5", children: [
+                  listing.hotel_stars && /* @__PURE__ */ jsx("span", { className: "text-yellow-500 text-xs", children: "★".repeat(listing.hotel_stars) }),
+                  listing.hotel_rating && /* @__PURE__ */ jsxs("span", { className: "text-xs text-gray-600", children: [
+                    "⭐ ",
+                    listing.hotel_rating.toFixed(1)
+                  ] })
+                ] })
+              ] }) }),
+              isUserLoggedIn && /* @__PURE__ */ jsxs("div", { className: "grid grid-cols-2 gap-3 w-full", children: [
+                /* @__PURE__ */ jsxs("div", { className: "p-2 bg-gray-50 rounded-lg text-center", children: [
+                  /* @__PURE__ */ jsxs("p", { className: "text-sm font-semibold text-gray-900", children: [
+                    listing.room_type ? formatRoomType$1(listing.room_type) : "Room",
+                    listing.room_count && listing.room_count > 1 && ` × ${listing.room_count}`
+                  ] }),
+                  listing.check_in && listing.check_out && /* @__PURE__ */ jsxs("p", { className: "text-xs text-gray-500 mt-1", children: [
+                    new Date(listing.check_in).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+                    " → ",
+                    new Date(listing.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                  ] })
+                ] }),
+                /* @__PURE__ */ jsxs("div", { className: "p-2 bg-gray-50 rounded-lg text-center", children: [
+                  /* @__PURE__ */ jsxs("p", { className: "text-sm font-semibold text-gray-900", children: [
+                    listing.bib_count || 1,
+                    " ",
+                    listing.bib_count && listing.bib_count > 1 ? "Bibs" : "Bib"
+                  ] }),
+                  needsNameChange && /* @__PURE__ */ jsx("p", { className: "text-xs text-orange-600 mt-1", children: "Name change req." })
+                ] })
               ] })
             ] })
-          ] }),
-          /* @__PURE__ */ jsx("div", { className: "text-right", children: listing.listing_type === "bib" && listing.associated_costs ? /* @__PURE__ */ jsxs("p", { className: "text-lg font-bold text-gray-900", children: [
-            "€",
-            listing.associated_costs.toLocaleString()
-          ] }) : listing.price ? /* @__PURE__ */ jsxs(Fragment, { children: [
-            /* @__PURE__ */ jsxs("p", { className: "text-lg font-bold text-gray-900", children: [
+          ) }),
+          /* @__PURE__ */ jsx("div", { className: "mt-auto pt-3 flex items-center justify-between border-t border-gray-300", children: isUserLoggedIn ? /* @__PURE__ */ jsxs(Fragment, { children: [
+            /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsx("div", { className: "flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs font-medium", children: ((_a = listing.author.company_name) == null ? void 0 : _a.charAt(0)) || ((_b = listing.author.full_name) == null ? void 0 : _b.charAt(0)) || "?" }),
+              /* @__PURE__ */ jsxs("div", { children: [
+                /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-1", children: [
+                  /* @__PURE__ */ jsx("p", { className: "text-sm font-semibold text-gray-900 truncate", children: listing.author.company_name || listing.author.full_name }),
+                  listing.author.is_verified && /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-brand-500 flex-shrink-0", fill: "currentColor", viewBox: "0 0 20 20", children: /* @__PURE__ */ jsx(
+                    "path",
+                    {
+                      fillRule: "evenodd",
+                      d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                      clipRule: "evenodd"
+                    }
+                  ) })
+                ] }),
+                /* @__PURE__ */ jsxs("p", { className: "text-xs text-gray-500", children: [
+                  listing.author.user_type === "tour_operator" ? "Tour Operator" : "Private user",
+                  listing.author.is_verified && " • Verified"
+                ] })
+              ] })
+            ] }),
+            /* @__PURE__ */ jsx("div", { className: "text-right", children: listing.listing_type === "bib" && listing.associated_costs ? /* @__PURE__ */ jsxs("p", { className: "text-lg font-bold text-gray-900", children: [
               "€",
-              listing.price.toLocaleString()
-            ] }),
-            listing.price_negotiable && /* @__PURE__ */ jsx("p", { className: "text-xs text-gray-500", children: "Negotiable" })
-          ] }) : /* @__PURE__ */ jsx("p", { className: "text-sm font-medium text-gray-600", children: "Contact for details" }) })
-        ] }) : /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-500 italic w-full text-center", children: "Login to view seller details and pricing" }) }),
-        isUserLoggedIn && /* @__PURE__ */ jsx("div", { className: "mt-4 pt-4 border-t border-gray-100", children: /* @__PURE__ */ jsxs(
-          "button",
-          {
-            className: "w-full btn-primary text-sm py-2.5 flex items-center justify-center gap-2",
-            children: [
-              /* @__PURE__ */ jsx("svg", { className: "h-4 w-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" }) }),
-              "Contact ",
-              (listing.author.company_name || listing.author.full_name || "Seller").split(" ")[0]
-            ]
-          }
-        ) })
+              listing.associated_costs.toLocaleString()
+            ] }) : listing.price ? /* @__PURE__ */ jsxs(Fragment, { children: [
+              /* @__PURE__ */ jsxs("p", { className: "text-lg font-bold text-gray-900", children: [
+                "€",
+                listing.price.toLocaleString()
+              ] }),
+              listing.price_negotiable && /* @__PURE__ */ jsx("p", { className: "text-xs text-gray-500", children: "Negotiable" })
+            ] }) : /* @__PURE__ */ jsx("p", { className: "text-sm font-medium text-gray-600", children: "Contact" }) })
+          ] }) : /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-500 italic w-full text-center", children: "Login to view seller details and pricing" }) }),
+          isUserLoggedIn && /* @__PURE__ */ jsx("div", { className: "mt-3", children: /* @__PURE__ */ jsx("button", { className: "w-full btn-primary text-sm py-2 rounded-full", children: "View Details" }) })
+        ] })
       ]
     }
   );
@@ -2104,7 +2084,7 @@ function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false })
           /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 min-w-0 flex-1", children: [
             /* @__PURE__ */ jsxs("span", { className: "text-xs text-gray-600 truncate", children: [
               "📍 ",
-              listing.event.location,
+              listing.event.country,
               " • 🗓 Race Day : ",
               eventDateShort
             ] }),
@@ -2149,7 +2129,7 @@ async function loader$j({
   let query = supabase.from("listings").select(`
       *,
       author:profiles(id, full_name, company_name, user_type, is_verified),
-      event:events(id, name, location, event_date)
+      event:events(id, name, slug, country, event_date)
     `).eq("status", "active").order("created_at", {
     ascending: false
   });
@@ -2172,7 +2152,7 @@ async function loader$j({
     const searchLower = search.toLowerCase();
     filteredListings = filteredListings.filter((l) => {
       var _a, _b, _c, _d, _e;
-      return ((_b = (_a = l.event) == null ? void 0 : _a.name) == null ? void 0 : _b.toLowerCase().includes(searchLower)) || ((_d = (_c = l.event) == null ? void 0 : _c.location) == null ? void 0 : _d.toLowerCase().includes(searchLower)) || ((_e = l.title) == null ? void 0 : _e.toLowerCase().includes(searchLower));
+      return ((_b = (_a = l.event) == null ? void 0 : _a.name) == null ? void 0 : _b.toLowerCase().includes(searchLower)) || ((_d = (_c = l.event) == null ? void 0 : _c.country) == null ? void 0 : _d.toLowerCase().includes(searchLower)) || ((_e = l.title) == null ? void 0 : _e.toLowerCase().includes(searchLower));
     });
   }
   let savedListingIds = [];
@@ -2182,21 +2162,50 @@ async function loader$j({
     } = await supabaseAdmin.from("saved_listings").select("listing_id").eq("user_id", user.id);
     savedListingIds = (savedListings == null ? void 0 : savedListings.map((s) => s.listing_id)) || [];
   }
+  const {
+    data: events
+  } = await supabase.from("events").select("id, name, country, event_date").order("event_date", {
+    ascending: true
+  });
   return {
     user,
     listings: filteredListings,
-    savedListingIds
+    savedListingIds,
+    events: events || []
   };
 }
 const listings__index = UNSAFE_withComponentProps(function Listings() {
   const {
     user,
     listings,
-    savedListingIds
+    savedListingIds,
+    events
   } = useLoaderData();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const searchRef = useRef(null);
   const currentType = searchParams.get("type") || "all";
   const currentSearch = searchParams.get("search") || "";
+  const [searchQuery, setSearchQuery] = useState(currentSearch);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const filteredEvents = searchQuery.length >= 2 ? events.filter((event) => event.name.toLowerCase().includes(searchQuery.toLowerCase()) || event.country.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5) : [];
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const handleSuggestionClick = (eventName) => {
+    setSearchQuery(eventName);
+    setShowSuggestions(false);
+    const params = new URLSearchParams();
+    if (currentType !== "all") params.set("type", currentType);
+    params.set("search", eventName);
+    navigate(`/listings?${params.toString()}`);
+  };
   return /* @__PURE__ */ jsxs("div", {
     className: "min-h-full bg-gray-50",
     children: [/* @__PURE__ */ jsx(Header, {
@@ -2204,7 +2213,7 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
     }), /* @__PURE__ */ jsxs("main", {
       className: "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8",
       children: [/* @__PURE__ */ jsxs("div", {
-        className: "mb-8",
+        className: "mb-6",
         children: [/* @__PURE__ */ jsx("h1", {
           className: "font-display text-3xl font-bold text-gray-900",
           children: "Browse Listings"
@@ -2213,48 +2222,88 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
           children: "Find available rooms and bibs for upcoming marathons"
         })]
       }), /* @__PURE__ */ jsx("div", {
-        className: "mb-8 card p-4",
+        className: "mb-4",
         children: /* @__PURE__ */ jsxs(Form, {
           method: "get",
-          className: "flex flex-col gap-4 sm:flex-row",
-          children: [/* @__PURE__ */ jsx("div", {
-            className: "flex-1",
-            children: /* @__PURE__ */ jsx("input", {
-              type: "text",
+          name: "listing-search",
+          className: "flex items-center",
+          children: [/* @__PURE__ */ jsx("input", {
+            type: "hidden",
+            name: "type",
+            value: currentType
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "relative flex-1 max-w-xl",
+            ref: searchRef,
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              })
+            }), /* @__PURE__ */ jsx("input", {
+              type: "search",
+              id: "listing-search",
               name: "search",
+              autoComplete: "off",
               placeholder: "Search by event name or location...",
-              defaultValue: currentSearch,
-              className: "input"
-            })
-          }), /* @__PURE__ */ jsx("div", {
-            className: "sm:w-48",
-            children: /* @__PURE__ */ jsxs("select", {
-              name: "type",
-              defaultValue: currentType,
-              className: "input",
-              children: [/* @__PURE__ */ jsx("option", {
-                value: "all",
-                children: "All types"
-              }), /* @__PURE__ */ jsx("option", {
-                value: "room",
-                children: "Room only"
-              }), /* @__PURE__ */ jsx("option", {
-                value: "bib",
-                children: "Bib only"
-              }), /* @__PURE__ */ jsx("option", {
-                value: "room_and_bib",
-                children: "Room + Bib"
-              })]
-            })
+              value: searchQuery,
+              onChange: (e) => {
+                setSearchQuery(e.target.value);
+                setShowSuggestions(true);
+              },
+              onFocus: () => setShowSuggestions(true),
+              className: "block w-full rounded-lg border-0 pl-12 pr-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 transition-colors",
+              style: {
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)"
+              }
+            }), showSuggestions && filteredEvents.length > 0 && /* @__PURE__ */ jsx("div", {
+              className: "absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden",
+              children: filteredEvents.map((event) => /* @__PURE__ */ jsxs("button", {
+                type: "button",
+                onClick: () => handleSuggestionClick(event.name),
+                className: "w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors",
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "font-medium text-gray-900",
+                  children: event.name
+                }), /* @__PURE__ */ jsxs("p", {
+                  className: "text-sm text-gray-500",
+                  children: [event.country, " • ", new Date(event.event_date).toLocaleDateString()]
+                })]
+              }, event.id))
+            })]
           }), /* @__PURE__ */ jsx("button", {
             type: "submit",
-            className: "btn-primary",
+            className: "ml-12 px-8 py-2.5 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30",
             children: "Search"
           })]
         })
+      }), /* @__PURE__ */ jsx("div", {
+        className: "mb-8 flex flex-wrap gap-2",
+        children: [{
+          value: "all",
+          label: "All"
+        }, {
+          value: "room",
+          label: "Hotel"
+        }, {
+          value: "bib",
+          label: "Bibs"
+        }, {
+          value: "room_and_bib",
+          label: "Package"
+        }].map((category) => /* @__PURE__ */ jsx("a", {
+          href: category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`,
+          className: `px-4 py-2 rounded-full text-sm font-medium transition-colors ${currentType === category.value ? "bg-brand-500 text-white" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"}`,
+          children: category.label
+        }, category.value))
       }), listings.length > 0 ? /* @__PURE__ */ jsxs(Fragment, {
         children: [/* @__PURE__ */ jsx("div", {
-          className: "hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3",
+          className: "hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr",
           children: listings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
             listing,
             isUserLoggedIn: !!user,
@@ -2328,7 +2377,7 @@ async function loader$h({
     user
   };
 }
-async function action$c({
+async function action$d({
   request
 }) {
   const user = await requireUser(request);
@@ -2702,7 +2751,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
 });
 const route6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$c,
+  action: action$d,
   default: profile_agency,
   loader: loader$h,
   meta: meta$f
@@ -2723,7 +2772,7 @@ async function loader$g({
     user
   };
 }
-async function action$b({
+async function action$c({
   request
 }) {
   const user = await requireUser(request);
@@ -3026,10 +3075,159 @@ const profile_runner = UNSAFE_withComponentProps(function RunnerProfile() {
 });
 const route7 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$b,
+  action: action$c,
   default: profile_runner,
   loader: loader$g,
   meta: meta$e
+}, Symbol.toStringTag, { value: "Module" }));
+const GOOGLE_TRANSLATE_API_KEY = process.env.GOOGLE_TRANSLATE_API_KEY;
+const TRANSLATE_API_URL = "https://translation.googleapis.com/language/translate/v2";
+async function translateText(text, targetLanguage, sourceLanguage) {
+  if (!GOOGLE_TRANSLATE_API_KEY) {
+    console.error("GOOGLE_TRANSLATE_API_KEY not configured");
+    return null;
+  }
+  if (!text || text.trim().length < 2) {
+    return null;
+  }
+  try {
+    const params = new URLSearchParams({
+      key: GOOGLE_TRANSLATE_API_KEY,
+      q: text,
+      target: targetLanguage,
+      format: "text"
+    });
+    if (sourceLanguage) ;
+    const response = await fetch(`${TRANSLATE_API_URL}?${params}`, {
+      method: "POST"
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      console.error("Google Translate API error:", error);
+      return null;
+    }
+    const data2 = await response.json();
+    const translation = data2.data.translations[0];
+    return {
+      translatedText: translation.translatedText,
+      detectedSourceLanguage: translation.detectedSourceLanguage || sourceLanguage || "unknown"
+    };
+  } catch (error) {
+    console.error("Translation error:", error);
+    return null;
+  }
+}
+function normalizeLanguageCode(browserLanguage) {
+  return browserLanguage.split("-")[0].toLowerCase();
+}
+function isSameLanguage(lang1, lang2) {
+  if (!lang1 || !lang2) return false;
+  return normalizeLanguageCode(lang1) === normalizeLanguageCode(lang2);
+}
+async function action$b({
+  request
+}) {
+  const user = await getUser(request);
+  if (!user) {
+    return data({
+      error: "Unauthorized"
+    }, {
+      status: 401
+    });
+  }
+  if (request.method !== "POST") {
+    return data({
+      error: "Method not allowed"
+    }, {
+      status: 405
+    });
+  }
+  try {
+    const body = await request.json();
+    const {
+      messageId,
+      targetLanguage
+    } = body;
+    if (!messageId || !targetLanguage) {
+      return data({
+        error: "Missing messageId or targetLanguage"
+      }, {
+        status: 400
+      });
+    }
+    const {
+      data: message,
+      error: fetchError
+    } = await supabaseAdmin.from("messages").select("id, content, detected_language, translated_content, translated_to, conversation_id").eq("id", messageId).single();
+    if (fetchError || !message) {
+      return data({
+        error: "Message not found"
+      }, {
+        status: 404
+      });
+    }
+    const {
+      data: conversation
+    } = await supabaseAdmin.from("conversations").select("participant_1, participant_2").eq("id", message.conversation_id).single();
+    if (!conversation || conversation.participant_1 !== user.id && conversation.participant_2 !== user.id) {
+      return data({
+        error: "Unauthorized"
+      }, {
+        status: 403
+      });
+    }
+    if (message.translated_content && message.translated_to === targetLanguage) {
+      return data({
+        translatedContent: message.translated_content,
+        detectedLanguage: message.detected_language,
+        cached: true
+      });
+    }
+    const translation = await translateText(message.content, targetLanguage);
+    if (!translation) {
+      return data({
+        error: "Translation failed"
+      }, {
+        status: 500
+      });
+    }
+    if (isSameLanguage(translation.detectedSourceLanguage, targetLanguage)) {
+      await supabaseAdmin.from("messages").update({
+        detected_language: translation.detectedSourceLanguage
+      }).eq("id", messageId);
+      return data({
+        translatedContent: null,
+        detectedLanguage: translation.detectedSourceLanguage,
+        sameLanguage: true
+      });
+    }
+    const {
+      error: updateError
+    } = await supabaseAdmin.from("messages").update({
+      detected_language: translation.detectedSourceLanguage,
+      translated_content: translation.translatedText,
+      translated_to: targetLanguage
+    }).eq("id", messageId);
+    if (updateError) {
+      console.error("Error saving translation:", updateError);
+    }
+    return data({
+      translatedContent: translation.translatedText,
+      detectedLanguage: translation.detectedSourceLanguage,
+      cached: false
+    });
+  } catch (error) {
+    console.error("Translation API error:", error);
+    return data({
+      error: "Internal server error"
+    }, {
+      status: 500
+    });
+  }
+}
+const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$b
 }, Symbol.toStringTag, { value: "Module" }));
 const meta$d = ({
   data: data2
@@ -3053,7 +3251,7 @@ async function loader$f({
   } = await supabase.from("listings").select(`
       *,
       author:profiles(id, full_name, company_name, user_type, is_verified, email),
-      event:events(id, name, location, country, event_date)
+      event:events(id, name, slug, country, event_date)
     `).eq("id", id).single();
   if (error || !listing) {
     throw new Response("Listing not found", {
@@ -3107,6 +3305,9 @@ async function action$a({
       });
     }
     const {
+      data: userProfile
+    } = await supabaseAdmin.from("profiles").select("user_type").eq("id", userId).single();
+    const {
       error: error2
     } = await supabaseAdmin.from("listings").delete().eq("id", id);
     if (error2) {
@@ -3116,7 +3317,8 @@ async function action$a({
         status: 500
       });
     }
-    return redirect("/dashboard");
+    const redirectPath = (userProfile == null ? void 0 : userProfile.user_type) === "tour_operator" ? "/dashboard" : "/my-listings";
+    return redirect(redirectPath);
   }
   if (listing.author_id === userId) {
     return data({
@@ -3177,6 +3379,10 @@ function getDaysUntilEvent(eventDate) {
   const diffTime = event.getTime() - today.getTime();
   return Math.ceil(diffTime / (1e3 * 60 * 60 * 24));
 }
+function getEventSlug(event) {
+  if (event.slug) return event.slug;
+  return event.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
   var _a, _b;
   const {
@@ -3194,8 +3400,7 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
   const eventDateFormatted = eventDate.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
-    month: "long",
-    year: "numeric"
+    month: "long"
   });
   eventDate.toLocaleDateString("en-GB", {
     day: "numeric",
@@ -3204,15 +3409,12 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
   });
   const isOwner = (userData == null ? void 0 : userData.id) === listingData.author_id;
   const daysUntil = getDaysUntilEvent(listingData.event.event_date);
-  let subtitle = "";
   if (listingData.listing_type === "room") {
     const nights = listingData.check_in && listingData.check_out ? Math.ceil((new Date(listingData.check_out).getTime() - new Date(listingData.check_in).getTime()) / (1e3 * 60 * 60 * 24)) : 0;
-    subtitle = `${formatRoomType(listingData.room_type)} · ${nights > 0 ? `${nights} nights` : "Race weekend"}`;
+    `${formatRoomType(listingData.room_type)} · ${nights > 0 ? `${nights} nights` : "Race weekend"}`;
   } else if (listingData.listing_type === "bib") {
-    subtitle = `${listingData.bib_count || 1} bib${(listingData.bib_count || 1) > 1 ? "s" : ""} available`;
-  } else {
-    subtitle = "Complete race weekend package";
-  }
+    `${listingData.bib_count || 1} bib${(listingData.bib_count || 1) > 1 ? "s" : ""} available`;
+  } else ;
   const priceAnchor = listingData.hotel_stars ? `Comparable ${listingData.hotel_stars}-star hotels from €${Math.round(listingData.hotel_stars * 80 + 100)}` : "Comparable hotels from €200+";
   return /* @__PURE__ */ jsxs("div", {
     className: "min-h-full bg-gray-50",
@@ -3222,7 +3424,7 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
       className: "mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8",
       children: [/* @__PURE__ */ jsxs(Link, {
         to: "/listings",
-        className: "inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-6",
+        className: "inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 mb-6",
         children: [/* @__PURE__ */ jsx("svg", {
           className: "h-4 w-4",
           fill: "none",
@@ -3235,193 +3437,44 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
             d: "M15 19l-7-7 7-7"
           })
         }), "Back to listings"]
-      }), /* @__PURE__ */ jsx("div", {
-        className: "card p-6 mb-6",
-        children: /* @__PURE__ */ jsxs("div", {
-          className: "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "grid gap-6 lg:grid-cols-3",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "lg:col-span-2 space-y-6",
           children: [/* @__PURE__ */ jsxs("div", {
-            className: "flex-1",
-            children: [/* @__PURE__ */ jsx("span", {
-              className: `inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${typeColors$1[listingData.listing_type]}`,
-              children: typeLabels$1[listingData.listing_type]
-            }), /* @__PURE__ */ jsxs("h1", {
-              className: "mt-3 font-display text-2xl sm:text-3xl font-bold text-gray-900 leading-tight",
-              children: [subtitle, " · ", listingData.event.name]
-            }), listingData.hotel_name && /* @__PURE__ */ jsxs("div", {
-              className: "mt-2 flex items-center gap-2 text-gray-700",
-              children: [/* @__PURE__ */ jsx("svg", {
-                className: "h-5 w-5 text-gray-400",
+            className: "relative rounded-xl overflow-hidden shadow-lg",
+            children: [/* @__PURE__ */ jsx("img", {
+              src: `/events/${getEventSlug(listingData.event)}.jpg`,
+              alt: listingData.event.name,
+              className: "w-full aspect-video object-cover",
+              onError: (e) => {
+                const target = e.target;
+                target.style.display = "none";
+                const fallback = target.nextElementSibling;
+                if (fallback) fallback.style.display = "flex";
+              }
+            }), /* @__PURE__ */ jsx("div", {
+              className: "w-full aspect-video bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center",
+              style: {
+                display: "none"
+              },
+              children: /* @__PURE__ */ jsx("svg", {
+                className: "h-16 w-16 text-brand-400",
                 fill: "none",
                 viewBox: "0 0 24 24",
                 stroke: "currentColor",
                 children: /* @__PURE__ */ jsx("path", {
                   strokeLinecap: "round",
                   strokeLinejoin: "round",
-                  strokeWidth: 2,
-                  d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  strokeWidth: 1.5,
+                  d: "M13 10V3L4 14h7v7l9-11h-7z"
                 })
-              }), /* @__PURE__ */ jsx("span", {
-                className: "font-medium",
-                children: listingData.hotel_name
-              }), listingData.hotel_rating && /* @__PURE__ */ jsxs("span", {
-                className: "text-sm",
-                children: ["⭐ ", listingData.hotel_rating.toFixed(1)]
-              }), listingData.hotel_stars && /* @__PURE__ */ jsx("span", {
-                className: "text-yellow-500 text-sm",
-                children: "★".repeat(listingData.hotel_stars)
-              })]
-            }), listingData.check_in && listingData.check_out && /* @__PURE__ */ jsxs("p", {
-              className: "mt-2 text-sm text-gray-600",
-              children: ["🗓 ", new Date(listingData.check_in).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short"
-              }), " → ", new Date(listingData.check_out).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-                year: "numeric"
-              }), /* @__PURE__ */ jsx("span", {
-                className: "ml-2 text-gray-500",
-                children: "· Covers race day"
-              })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "flex items-center gap-3 self-start",
-            children: [user && !isOwner && listingData.status === "active" && /* @__PURE__ */ jsxs(saveFetcher.Form, {
-              method: "post",
-              action: "/api/saved",
-              children: [/* @__PURE__ */ jsx("input", {
-                type: "hidden",
-                name: "listingId",
-                value: listingData.id
-              }), /* @__PURE__ */ jsx("input", {
-                type: "hidden",
-                name: "action",
-                value: isSavedOptimistic ? "unsave" : "save"
-              }), /* @__PURE__ */ jsx("button", {
-                type: "submit",
-                className: `p-2 rounded-full border transition-colors ${isSavedOptimistic ? "bg-red-50 border-red-200 text-red-500 hover:bg-red-100" : "bg-white border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200"}`,
-                title: isSavedOptimistic ? "Remove from saved" : "Save listing",
-                children: /* @__PURE__ */ jsx("svg", {
-                  className: "h-6 w-6",
-                  fill: isSavedOptimistic ? "currentColor" : "none",
-                  viewBox: "0 0 24 24",
-                  stroke: "currentColor",
-                  strokeWidth: 2,
-                  children: /* @__PURE__ */ jsx("path", {
-                    strokeLinecap: "round",
-                    strokeLinejoin: "round",
-                    d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  })
-                })
-              })]
-            }), listingData.status !== "active" && /* @__PURE__ */ jsx("span", {
-              className: "px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600",
-              children: listingData.status === "sold" ? "Sold" : "Expired"
-            })]
-          })]
-        })
-      }), /* @__PURE__ */ jsxs("div", {
-        className: "grid gap-6 lg:grid-cols-3",
-        children: [/* @__PURE__ */ jsxs("div", {
-          className: "lg:col-span-2 space-y-6",
-          children: [/* @__PURE__ */ jsx("div", {
-            className: "card p-6 bg-gradient-to-br from-brand-50 to-blue-50 border-brand-200",
-            children: /* @__PURE__ */ jsxs("div", {
-              className: "flex items-start gap-4",
-              children: [/* @__PURE__ */ jsx("div", {
-                className: "flex h-12 w-12 items-center justify-center rounded-lg bg-brand-500 text-white flex-shrink-0",
-                children: /* @__PURE__ */ jsxs("svg", {
-                  className: "h-6 w-6",
-                  fill: "none",
-                  viewBox: "0 0 24 24",
-                  stroke: "currentColor",
-                  children: [/* @__PURE__ */ jsx("path", {
-                    strokeLinecap: "round",
-                    strokeLinejoin: "round",
-                    strokeWidth: 2,
-                    d: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  }), /* @__PURE__ */ jsx("path", {
-                    strokeLinecap: "round",
-                    strokeLinejoin: "round",
-                    strokeWidth: 2,
-                    d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  })]
-                })
-              }), /* @__PURE__ */ jsxs("div", {
-                className: "flex-1",
-                children: [/* @__PURE__ */ jsx("h2", {
-                  className: "font-display text-lg font-bold text-gray-900",
-                  children: listingData.event.name
-                }), /* @__PURE__ */ jsxs("p", {
-                  className: "text-sm text-gray-700 mt-1",
-                  children: ["📍 ", listingData.event.location, ", ", listingData.event.country]
-                }), /* @__PURE__ */ jsxs("p", {
-                  className: "text-sm text-gray-600 mt-1",
-                  children: ["🏁 Race day: ", eventDateFormatted]
-                }), daysUntil > 0 && daysUntil <= 60 && /* @__PURE__ */ jsxs("p", {
-                  className: "text-sm font-medium text-brand-700 mt-2",
-                  children: ["⏰ ", daysUntil, " days until race"]
-                })]
-              })]
-            })
-          }), (listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && listingData.hotel_name && /* @__PURE__ */ jsxs("div", {
-            className: "card p-6",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4",
-              children: "Why this stay"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "space-y-2.5",
-              children: [listingData.hotel_rating && listingData.hotel_rating >= 4 && /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("svg", {
-                  className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5",
-                  fill: "currentColor",
-                  viewBox: "0 0 20 20",
-                  children: /* @__PURE__ */ jsx("path", {
-                    fillRule: "evenodd",
-                    d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                    clipRule: "evenodd"
-                  })
-                }), /* @__PURE__ */ jsxs("span", {
-                  className: "text-gray-700",
-                  children: ["Top-rated hotel (⭐ ", listingData.hotel_rating.toFixed(1), " on Google)"]
-                })]
-              }), listingData.hotel_city && /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("svg", {
-                  className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5",
-                  fill: "currentColor",
-                  viewBox: "0 0 20 20",
-                  children: /* @__PURE__ */ jsx("path", {
-                    fillRule: "evenodd",
-                    d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                    clipRule: "evenodd"
-                  })
-                }), /* @__PURE__ */ jsx("span", {
-                  className: "text-gray-700",
-                  children: listingData.hotel_city === listingData.event.location ? "Central location near race route" : `Located in ${listingData.hotel_city}`
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("svg", {
-                  className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5",
-                  fill: "currentColor",
-                  viewBox: "0 0 20 20",
-                  children: /* @__PURE__ */ jsx("path", {
-                    fillRule: "evenodd",
-                    d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                    clipRule: "evenodd"
-                  })
-                }), /* @__PURE__ */ jsx("span", {
-                  className: "text-gray-700",
-                  children: "Perfect for race weekend rest & recovery"
-                })]
-              })]
+              })
             })]
           }), (listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
-            className: "card p-6",
+            className: "bg-white rounded-xl shadow-lg p-6",
             children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-100",
+              className: "font-display text-lg font-semibold text-gray-900 mb-4",
               children: "Hotel & Location"
             }), /* @__PURE__ */ jsxs("div", {
               className: "space-y-5",
@@ -3502,48 +3555,107 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
                     children: [listingData.room_count || 1, " ", formatRoomType(listingData.room_type), " room", (listingData.room_count || 1) > 1 ? "s" : ""]
                   })]
                 })]
-              }), listingData.check_in && listingData.check_out && /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("div", {
-                  className: "flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0",
-                  children: /* @__PURE__ */ jsx("svg", {
-                    className: "h-5 w-5",
-                    fill: "none",
-                    viewBox: "0 0 24 24",
-                    stroke: "currentColor",
-                    children: /* @__PURE__ */ jsx("path", {
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      strokeWidth: 2,
-                      d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              }), listingData.check_in && listingData.check_out && (() => {
+                const checkIn = new Date(listingData.check_in);
+                const checkOut = new Date(listingData.check_out);
+                const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1e3 * 60 * 60 * 24));
+                return /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-start gap-3",
+                  children: [/* @__PURE__ */ jsx("div", {
+                    className: "flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0",
+                    children: /* @__PURE__ */ jsx("svg", {
+                      className: "h-5 w-5",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      })
                     })
-                  })
-                }), /* @__PURE__ */ jsxs("div", {
-                  className: "flex-1",
-                  children: [/* @__PURE__ */ jsx("p", {
-                    className: "text-sm text-gray-500 mb-1",
-                    children: "Dates"
-                  }), /* @__PURE__ */ jsxs("p", {
-                    className: "font-semibold text-gray-900",
-                    children: [new Date(listingData.check_in).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short"
-                    }), " → ", new Date(listingData.check_out).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    className: "flex-1",
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-500 mb-1",
+                      children: "Dates"
+                    }), /* @__PURE__ */ jsxs("p", {
+                      className: "font-semibold text-gray-900",
+                      children: [checkIn.toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short"
+                      }), " → ", checkOut.toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric"
+                      })]
+                    }), /* @__PURE__ */ jsxs("p", {
+                      className: "text-sm text-gray-600 mt-0.5",
+                      children: [nights, " night", nights > 1 ? "s" : ""]
                     })]
-                  }), /* @__PURE__ */ jsx("p", {
-                    className: "text-xs text-gray-500 mt-0.5",
-                    children: "Check-out after race day"
                   })]
+                });
+              })()]
+            })]
+          }), (listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && listingData.hotel_name && /* @__PURE__ */ jsxs("div", {
+            className: "bg-white rounded-xl shadow-lg p-6",
+            children: [/* @__PURE__ */ jsx("h3", {
+              className: "font-display text-lg font-semibold text-gray-900 mb-4",
+              children: "Why this stay"
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "space-y-2.5",
+              children: [listingData.hotel_rating && listingData.hotel_rating >= 4 && /* @__PURE__ */ jsxs("div", {
+                className: "flex items-start gap-3",
+                children: [/* @__PURE__ */ jsx("svg", {
+                  className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5",
+                  fill: "currentColor",
+                  viewBox: "0 0 20 20",
+                  children: /* @__PURE__ */ jsx("path", {
+                    fillRule: "evenodd",
+                    d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                    clipRule: "evenodd"
+                  })
+                }), /* @__PURE__ */ jsxs("span", {
+                  className: "text-gray-700",
+                  children: ["Top-rated hotel (⭐ ", listingData.hotel_rating.toFixed(1), " on Google)"]
+                })]
+              }), listingData.hotel_city && /* @__PURE__ */ jsxs("div", {
+                className: "flex items-start gap-3",
+                children: [/* @__PURE__ */ jsx("svg", {
+                  className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5",
+                  fill: "currentColor",
+                  viewBox: "0 0 20 20",
+                  children: /* @__PURE__ */ jsx("path", {
+                    fillRule: "evenodd",
+                    d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                    clipRule: "evenodd"
+                  })
+                }), /* @__PURE__ */ jsxs("span", {
+                  className: "text-gray-700",
+                  children: ["Located in ", listingData.hotel_city]
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "flex items-start gap-3",
+                children: [/* @__PURE__ */ jsx("svg", {
+                  className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5",
+                  fill: "currentColor",
+                  viewBox: "0 0 20 20",
+                  children: /* @__PURE__ */ jsx("path", {
+                    fillRule: "evenodd",
+                    d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                    clipRule: "evenodd"
+                  })
+                }), /* @__PURE__ */ jsx("span", {
+                  className: "text-gray-700",
+                  children: "Perfect for race weekend rest & recovery"
                 })]
               })]
             })]
           }), (listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
-            className: "card p-6",
+            className: "bg-white rounded-xl shadow-lg p-6",
             children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-100",
+              className: "font-display text-lg font-semibold text-gray-900 mb-4",
               children: "Bib Transfer Details"
             }), /* @__PURE__ */ jsxs("div", {
               className: "space-y-4",
@@ -3585,7 +3697,7 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
               })]
             })]
           }), listingData.description && /* @__PURE__ */ jsxs("div", {
-            className: "card p-6",
+            className: "bg-white rounded-xl shadow-lg p-6",
             children: [/* @__PURE__ */ jsx("h3", {
               className: "font-display text-lg font-semibold text-gray-900 mb-3",
               children: "Additional Information"
@@ -3593,129 +3705,435 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
               className: "text-gray-700 whitespace-pre-wrap leading-relaxed",
               children: listingData.description
             })]
-          })]
-        }), /* @__PURE__ */ jsxs("div", {
-          className: "space-y-6",
-          children: [/* @__PURE__ */ jsxs("div", {
-            className: "card p-6 lg:sticky lg:top-6",
-            children: [/* @__PURE__ */ jsx("div", {
-              className: "text-center pb-4 border-b border-gray-100",
-              children: listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib" ? listingData.associated_costs ? /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsx("p", {
-                  className: "text-sm text-gray-500 mb-2",
-                  children: "Associated costs"
-                }), /* @__PURE__ */ jsxs("p", {
-                  className: "text-3xl font-bold text-gray-900",
-                  children: ["€", listingData.associated_costs.toLocaleString()]
-                }), listingData.cost_notes && /* @__PURE__ */ jsx("p", {
-                  className: "mt-2 text-sm text-gray-600",
-                  children: listingData.cost_notes
-                })]
-              }) : /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsx("p", {
-                  className: "text-xl font-semibold text-gray-600 mb-2",
-                  children: "Contact for price"
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "text-xs text-gray-500",
-                  children: "Price details available from seller"
-                })]
-              }) : listingData.price ? /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsxs("p", {
-                  className: "text-3xl font-bold text-gray-900",
-                  children: ["€", listingData.price.toLocaleString()]
-                }), listingData.price_negotiable && /* @__PURE__ */ jsx("p", {
-                  className: "mt-1 text-sm text-green-600 font-medium",
-                  children: "Price negotiable"
-                })]
-              }) : /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsx("p", {
-                  className: "text-xl font-semibold text-gray-600 mb-2",
-                  children: "Contact for price"
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "text-xs text-gray-500",
-                  children: priceAnchor
-                })]
-              })
-            }), (actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsx("div", {
-              className: "mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700",
-              children: actionData.error
-            }), listingData.status === "active" && !isOwner && /* @__PURE__ */ jsx(Form, {
-              method: "post",
-              className: "mt-4",
-              children: /* @__PURE__ */ jsx("button", {
-                type: "submit",
-                className: "btn-primary w-full text-base py-3 font-semibold",
-                children: "Request price & availability"
-              })
-            }), isOwner && /* @__PURE__ */ jsxs("div", {
-              className: "mt-4 space-y-3",
-              children: [/* @__PURE__ */ jsx(Link, {
-                to: `/listings/${listingData.id}/edit`,
-                className: "btn-secondary w-full",
-                children: "Edit Listing"
-              }), /* @__PURE__ */ jsxs(Form, {
-                method: "post",
-                onSubmit: (e) => {
-                  if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) {
-                    e.preventDefault();
-                  }
-                },
-                children: [/* @__PURE__ */ jsx("input", {
-                  type: "hidden",
-                  name: "_action",
-                  value: "delete"
-                }), /* @__PURE__ */ jsx("button", {
-                  type: "submit",
-                  className: "w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors",
-                  children: "Delete Listing"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "bg-white rounded-xl shadow-lg p-6",
+            children: [/* @__PURE__ */ jsx("h3", {
+              className: "font-display text-lg font-semibold text-gray-900 mb-4",
+              children: "How to Complete This Transaction"
+            }), listingData.listing_type === "room" && /* @__PURE__ */ jsxs("div", {
+              className: "space-y-4",
+              children: [/* @__PURE__ */ jsx("p", {
+                className: "text-gray-600",
+                children: "Follow these steps after agreeing with the seller:"
+              }), /* @__PURE__ */ jsxs("ol", {
+                className: "space-y-3",
+                children: [/* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
+                    children: "1"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Confirm booking details"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "Verify check-in/out dates, room type, and hotel name with the seller."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
+                    children: "2"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Arrange name change"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "The seller will contact the hotel to transfer the reservation to your name. Some hotels may charge a fee."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
+                    children: "3"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Get written confirmation"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "Request the updated booking confirmation directly from the hotel with your name."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
+                    children: "4"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Complete payment"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "Pay the seller only after receiving the hotel confirmation. Use PayPal or bank transfer for safety."
+                    })]
+                  })]
                 })]
               })]
-            }), !user && listingData.status === "active" && /* @__PURE__ */ jsx("div", {
-              className: "mt-4",
-              children: /* @__PURE__ */ jsx(Link, {
+            }), listingData.listing_type === "bib" && /* @__PURE__ */ jsxs("div", {
+              className: "space-y-4",
+              children: [/* @__PURE__ */ jsx("p", {
+                className: "text-gray-600",
+                children: "Follow these steps after agreeing with the seller:"
+              }), /* @__PURE__ */ jsxs("ol", {
+                className: "space-y-3",
+                children: [/* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
+                    children: "1"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Check race transfer policy"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "Visit the official race website to verify if bib transfers are allowed and the deadline."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
+                    children: "2"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Initiate official transfer"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "The seller must start the name change process through the race organizer's system. You may need to provide your details."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
+                    children: "3"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Receive confirmation"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "Wait for official confirmation from the race organizer that the bib is now registered in your name."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
+                    children: "4"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Complete payment"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "Pay the seller only after the transfer is confirmed. Use PayPal or bank transfer for safety."
+                    })]
+                  })]
+                })]
+              }), /* @__PURE__ */ jsx("div", {
+                className: "mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg",
+                children: /* @__PURE__ */ jsxs("p", {
+                  className: "text-sm text-amber-800",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "font-medium",
+                    children: "Important:"
+                  }), " Never run with someone else's bib without an official transfer. This violates race rules and insurance coverage."]
+                })
+              })]
+            }), listingData.listing_type === "room_and_bib" && /* @__PURE__ */ jsxs("div", {
+              className: "space-y-4",
+              children: [/* @__PURE__ */ jsx("p", {
+                className: "text-gray-600",
+                children: "This is a complete package. Follow these steps after agreeing with the seller:"
+              }), /* @__PURE__ */ jsxs("ol", {
+                className: "space-y-3",
+                children: [/* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                    children: "1"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Verify package contents"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "Confirm exactly what's included: hotel dates, room type, race bib, and any extras."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                    children: "2"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Start bib transfer first"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "The race bib transfer often has strict deadlines. The seller should initiate this through the official organizer."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                    children: "3"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Transfer hotel booking"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "The seller contacts the hotel to change the reservation name. Request confirmation directly from the hotel."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                    children: "4"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Get all confirmations"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "Collect written confirmation for both the race entry and hotel booking in your name."
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                    children: "5"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: "Complete payment"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-600",
+                      children: "Pay only after receiving all confirmations. Use PayPal or bank transfer for safety."
+                    })]
+                  })]
+                })]
+              }), /* @__PURE__ */ jsx("div", {
+                className: "mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg",
+                children: /* @__PURE__ */ jsxs("p", {
+                  className: "text-sm text-blue-800",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "font-medium",
+                    children: "Tip:"
+                  }), " For packages, consider splitting the payment — partial after bib confirmation, remainder after hotel confirmation."]
+                })
+              })]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          className: "space-y-6 lg:sticky lg:top-6",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "bg-white rounded-xl shadow-lg overflow-hidden",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "px-5 py-4 flex items-center justify-between border-b border-gray-100",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: `inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold border ${typeColors$1[listingData.listing_type]}`,
+                children: typeLabels$1[listingData.listing_type]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center gap-3",
+                children: [user && !isOwner && listingData.status === "active" && /* @__PURE__ */ jsxs(saveFetcher.Form, {
+                  method: "post",
+                  action: "/api/saved",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "listingId",
+                    value: listingData.id
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "action",
+                    value: isSavedOptimistic ? "unsave" : "save"
+                  }), /* @__PURE__ */ jsx("button", {
+                    type: "submit",
+                    className: `p-2 rounded-full transition-colors ${isSavedOptimistic ? "text-red-500 bg-red-50 hover:bg-red-100" : "text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"}`,
+                    title: isSavedOptimistic ? "Remove from saved" : "Save listing",
+                    children: /* @__PURE__ */ jsx("svg", {
+                      className: "h-5 w-5",
+                      fill: isSavedOptimistic ? "currentColor" : "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      strokeWidth: 2,
+                      children: /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      })
+                    })
+                  })]
+                }), listingData.status !== "active" && /* @__PURE__ */ jsx("span", {
+                  className: "px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600",
+                  children: listingData.status === "sold" ? "Sold" : "Expired"
+                })]
+              })]
+            }), /* @__PURE__ */ jsx("div", {
+              className: "p-5 bg-gradient-to-br from-brand-50 to-blue-50",
+              children: /* @__PURE__ */ jsxs("div", {
+                className: "flex items-start gap-3",
+                children: [/* @__PURE__ */ jsx("div", {
+                  className: "flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-white flex-shrink-0",
+                  children: /* @__PURE__ */ jsxs("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: [/* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    }), /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    })]
+                  })
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex-1",
+                  children: [/* @__PURE__ */ jsx("h2", {
+                    className: "font-display text-lg font-bold text-gray-900",
+                    children: listingData.event.name
+                  }), /* @__PURE__ */ jsxs("p", {
+                    className: "text-sm text-gray-600 mt-1",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "font-medium",
+                      children: "Race day:"
+                    }), " ", eventDateFormatted]
+                  }), daysUntil > 0 && daysUntil <= 60 && /* @__PURE__ */ jsxs("span", {
+                    className: "inline-block mt-3 px-2.5 py-1 text-xs font-medium text-accent-600 bg-accent-50 border border-accent-300 rounded-full",
+                    children: [daysUntil, " days until race"]
+                  })]
+                })]
+              })
+            }), /* @__PURE__ */ jsx("div", {
+              className: "px-5 py-4",
+              children: /* @__PURE__ */ jsxs("div", {
+                className: "flex items-start gap-3",
+                children: [/* @__PURE__ */ jsx("div", {
+                  className: "flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0",
+                  children: ((_a = listingData.author.company_name) == null ? void 0 : _a.charAt(0)) || ((_b = listingData.author.full_name) == null ? void 0 : _b.charAt(0)) || "?"
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex-1 min-w-0",
+                  children: [/* @__PURE__ */ jsxs("div", {
+                    className: "flex items-center gap-1.5",
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-semibold text-gray-900 truncate text-sm",
+                      children: listingData.author.company_name || listingData.author.full_name
+                    }), listingData.author.is_verified && /* @__PURE__ */ jsx("svg", {
+                      className: "h-4 w-4 text-brand-500 flex-shrink-0",
+                      fill: "currentColor",
+                      viewBox: "0 0 20 20",
+                      children: /* @__PURE__ */ jsx("path", {
+                        fillRule: "evenodd",
+                        d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                        clipRule: "evenodd"
+                      })
+                    })]
+                  }), /* @__PURE__ */ jsxs("p", {
+                    className: "text-xs text-gray-500",
+                    children: [listingData.author.user_type === "tour_operator" ? "Tour Operator" : "Private Seller", listingData.author.is_verified && " · Verified"]
+                  })]
+                })]
+              })
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "p-5",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "text-center pb-4",
+                children: listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib" ? listingData.associated_costs ? /* @__PURE__ */ jsxs(Fragment, {
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: "text-sm text-gray-500 mb-1",
+                    children: "Associated costs"
+                  }), /* @__PURE__ */ jsxs("p", {
+                    className: "text-3xl font-bold text-gray-900",
+                    children: ["€", listingData.associated_costs.toLocaleString()]
+                  }), listingData.cost_notes && /* @__PURE__ */ jsx("p", {
+                    className: "mt-2 text-sm text-gray-600",
+                    children: listingData.cost_notes
+                  })]
+                }) : /* @__PURE__ */ jsxs(Fragment, {
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: "text-xl font-semibold text-gray-600 mb-1",
+                    children: "Contact for price"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-xs text-gray-500",
+                    children: "Price details available from seller"
+                  })]
+                }) : listingData.price ? /* @__PURE__ */ jsxs(Fragment, {
+                  children: [/* @__PURE__ */ jsxs("p", {
+                    className: "text-3xl font-bold text-gray-900",
+                    children: ["€", listingData.price.toLocaleString()]
+                  }), listingData.price_negotiable && /* @__PURE__ */ jsx("p", {
+                    className: "mt-1 text-sm text-green-600 font-medium",
+                    children: "Price negotiable"
+                  })]
+                }) : /* @__PURE__ */ jsxs(Fragment, {
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: "text-xl font-semibold text-gray-600 mb-1",
+                    children: "Contact for price"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-xs text-gray-500",
+                    children: priceAnchor
+                  })]
+                })
+              }), (actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsx("div", {
+                className: "rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4",
+                children: actionData.error
+              }), listingData.status === "active" && !isOwner && /* @__PURE__ */ jsx(Form, {
+                method: "post",
+                children: /* @__PURE__ */ jsx("button", {
+                  type: "submit",
+                  className: "btn-primary w-full text-base py-3 font-semibold",
+                  children: "Request price & availability"
+                })
+              }), isOwner && /* @__PURE__ */ jsxs("div", {
+                className: "space-y-3",
+                children: [/* @__PURE__ */ jsx(Link, {
+                  to: `/listings/${listingData.id}/edit`,
+                  className: "btn-secondary w-full",
+                  children: "Edit Listing"
+                }), /* @__PURE__ */ jsxs(Form, {
+                  method: "post",
+                  onSubmit: (e) => {
+                    if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) {
+                      e.preventDefault();
+                    }
+                  },
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "_action",
+                    value: "delete"
+                  }), /* @__PURE__ */ jsx("button", {
+                    type: "submit",
+                    className: "w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors",
+                    children: "Delete Listing"
+                  })]
+                })]
+              }), !user && listingData.status === "active" && /* @__PURE__ */ jsx(Link, {
                 to: `/login?redirectTo=/listings/${listingData.id}`,
                 className: "btn-primary w-full",
                 children: "Login to Contact"
-              })
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "card p-6",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-medium text-gray-900 mb-4",
-              children: "Seller"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "flex items-start gap-3",
-              children: [/* @__PURE__ */ jsx("div", {
-                className: "flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold text-lg flex-shrink-0",
-                children: ((_a = listingData.author.company_name) == null ? void 0 : _a.charAt(0)) || ((_b = listingData.author.full_name) == null ? void 0 : _b.charAt(0)) || "?"
-              }), /* @__PURE__ */ jsxs("div", {
-                className: "flex-1 min-w-0",
-                children: [/* @__PURE__ */ jsxs("div", {
-                  className: "flex items-center gap-1.5",
-                  children: [/* @__PURE__ */ jsx("p", {
-                    className: "font-semibold text-gray-900 truncate",
-                    children: listingData.author.company_name || listingData.author.full_name
-                  }), listingData.author.is_verified && /* @__PURE__ */ jsx("svg", {
-                    className: "h-5 w-5 text-brand-500 flex-shrink-0",
-                    fill: "currentColor",
-                    viewBox: "0 0 20 20",
-                    children: /* @__PURE__ */ jsx("path", {
-                      fillRule: "evenodd",
-                      d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                      clipRule: "evenodd"
-                    })
-                  })]
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "text-sm text-gray-600 mt-0.5",
-                  children: listingData.author.user_type === "tour_operator" ? "Tour Operator" : "Private Seller"
-                }), listingData.author.is_verified && /* @__PURE__ */ jsx("p", {
-                  className: "text-xs text-green-600 font-medium mt-1",
-                  children: "✓ Verified seller"
-                })]
               })]
             })]
           }), /* @__PURE__ */ jsxs("div", {
-            className: "card overflow-hidden",
+            className: "bg-white rounded-xl shadow-lg overflow-hidden",
             children: [/* @__PURE__ */ jsxs("button", {
               onClick: () => setShowSafety(!showSafety),
               className: "w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors",
@@ -3749,7 +4167,7 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
                 })
               })]
             }), showSafety && /* @__PURE__ */ jsxs("div", {
-              className: "px-4 pb-4 border-t border-gray-100",
+              className: "px-4 pb-4",
               children: [/* @__PURE__ */ jsxs("ul", {
                 className: "text-sm text-gray-700 space-y-2 mt-3",
                 children: [/* @__PURE__ */ jsxs("li", {
@@ -3807,7 +4225,7 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
     })]
   });
 });
-const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$a,
   default: listings_$id,
@@ -4385,7 +4803,7 @@ const listings_$id_backup = UNSAFE_withComponentProps(function ListingDetail2() 
     })]
   });
 });
-const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$9,
   default: listings_$id_backup,
@@ -4421,7 +4839,6 @@ async function action$8({
   const description = formData.get("description");
   const eventId = formData.get("eventId");
   const newEventName = formData.get("newEventName");
-  const newEventLocation = formData.get("newEventLocation");
   const newEventCountry = formData.get("newEventCountry");
   const newEventDate = formData.get("newEventDate");
   const hotelPlaceId = formData.get("hotelPlaceId");
@@ -4464,7 +4881,6 @@ async function action$8({
       error: eventError
     } = await supabase.from("events").insert({
       name: newEventName,
-      location: newEventLocation || "",
       country: newEventCountry || "",
       event_date: newEventDate,
       created_by: user.id
@@ -4597,7 +5013,10 @@ async function action$8({
       status: 400
     });
   }
-  return redirect(`/listings/${listing.id}`);
+  return data({
+    success: true,
+    listingId: listing.id
+  });
 }
 const listings_new = UNSAFE_withComponentProps(function NewListing() {
   const {
@@ -4606,11 +5025,20 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
     googlePlacesApiKey
   } = useLoaderData();
   const actionData = useActionData();
+  const navigate = useNavigate();
   const [listingType, setListingType] = useState("room");
   const [roomType, setRoomType] = useState("");
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [transferMethod, setTransferMethod] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdListingId, setCreatedListingId] = useState(null);
+  useEffect(() => {
+    if ((actionData == null ? void 0 : actionData.success) && (actionData == null ? void 0 : actionData.listingId)) {
+      setCreatedListingId(actionData.listingId);
+      setShowSuccessModal(true);
+    }
+  }, [actionData]);
   useEffect(() => {
     const textarea = document.getElementById("description");
     if (textarea && roomType === "other") {
@@ -4646,432 +5074,490 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
     className: "min-h-full bg-gray-50",
     children: [/* @__PURE__ */ jsx(Header, {
       user
-    }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8",
-      children: [/* @__PURE__ */ jsxs("div", {
-        className: "mb-8",
-        children: [/* @__PURE__ */ jsx("h1", {
-          className: "font-display text-3xl font-bold text-gray-900",
-          children: "Create a Listing"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-2 text-gray-600",
-          children: "Share your available rooms or bibs with the community"
-        })]
-      }), /* @__PURE__ */ jsx("div", {
-        className: "card p-6 sm:p-8",
-        children: /* @__PURE__ */ jsxs(Form, {
-          method: "post",
-          className: "space-y-8",
-          onSubmit: () => setFormSubmitted(true),
-          children: [(actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsx("div", {
-            className: "rounded-lg bg-red-50 p-4 text-sm text-red-700",
-            children: actionData.error
-          }), /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsx("label", {
-              className: "label",
-              children: "What are you offering?"
+    }), /* @__PURE__ */ jsx("div", {
+      className: "min-h-screen bg-cover bg-center bg-no-repeat",
+      style: {
+        backgroundImage: "url('/new-listing.jpg')"
+      },
+      children: /* @__PURE__ */ jsxs("main", {
+        className: "mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+          children: [/* @__PURE__ */ jsx("h1", {
+            className: "font-display text-3xl font-bold text-gray-900",
+            children: "Create a Listing"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "mt-2 text-gray-600",
+            children: "Share your available rooms or bibs with the community"
+          })]
+        }), /* @__PURE__ */ jsx("div", {
+          className: "rounded-2xl bg-white/70 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+          children: /* @__PURE__ */ jsxs(Form, {
+            method: "post",
+            className: "space-y-8",
+            onSubmit: () => setFormSubmitted(true),
+            children: [(actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsx("div", {
+              className: "rounded-lg bg-red-50 p-4 text-sm text-red-700",
+              children: actionData.error
             }), /* @__PURE__ */ jsxs("div", {
-              className: "mt-2 grid grid-cols-3 gap-3",
-              children: [/* @__PURE__ */ jsxs("label", {
-                className: "relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500",
-                children: [/* @__PURE__ */ jsx("input", {
-                  type: "radio",
-                  name: "listingType",
-                  value: "room",
-                  className: "sr-only",
-                  defaultChecked: true,
-                  onChange: (e) => setListingType(e.target.value)
-                }), /* @__PURE__ */ jsxs("span", {
-                  className: "flex flex-1 flex-col items-center text-center",
-                  children: [/* @__PURE__ */ jsx("svg", {
-                    className: "h-6 w-6 text-gray-600",
-                    fill: "none",
-                    viewBox: "0 0 24 24",
-                    stroke: "currentColor",
-                    children: /* @__PURE__ */ jsx("path", {
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      strokeWidth: 2,
-                      d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                    })
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "mt-2 text-sm font-medium text-gray-900",
-                    children: "Room Only"
+              children: [/* @__PURE__ */ jsx("label", {
+                className: "label",
+                children: "What are you offering?"
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "mt-2 grid grid-cols-3 gap-3",
+                children: [/* @__PURE__ */ jsxs("label", {
+                  className: "relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-blue-300 has-[:checked]:bg-blue-100 has-[:checked]:ring-2 has-[:checked]:ring-blue-500",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "radio",
+                    name: "listingType",
+                    value: "room",
+                    className: "sr-only",
+                    defaultChecked: true,
+                    onChange: (e) => setListingType(e.target.value)
+                  }), /* @__PURE__ */ jsxs("span", {
+                    className: "flex flex-1 flex-col items-center text-center",
+                    children: [/* @__PURE__ */ jsx("svg", {
+                      className: "h-6 w-6 text-gray-600",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      })
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "mt-2 text-sm font-medium text-gray-900",
+                      children: "Room Only"
+                    })]
                   })]
-                })]
-              }), /* @__PURE__ */ jsxs("label", {
-                className: "relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500",
-                children: [/* @__PURE__ */ jsx("input", {
-                  type: "radio",
-                  name: "listingType",
-                  value: "bib",
-                  className: "sr-only",
-                  onChange: (e) => setListingType(e.target.value)
-                }), /* @__PURE__ */ jsxs("span", {
-                  className: "flex flex-1 flex-col items-center text-center",
-                  children: [/* @__PURE__ */ jsx("svg", {
-                    className: "h-6 w-6 text-gray-600",
-                    fill: "none",
-                    viewBox: "0 0 24 24",
-                    stroke: "currentColor",
-                    children: /* @__PURE__ */ jsx("path", {
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      strokeWidth: 2,
-                      d: "M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-                    })
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "mt-2 text-sm font-medium text-gray-900",
-                    children: "Bib Only"
+                }), /* @__PURE__ */ jsxs("label", {
+                  className: "relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-purple-300 has-[:checked]:bg-purple-100 has-[:checked]:ring-2 has-[:checked]:ring-purple-500",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "radio",
+                    name: "listingType",
+                    value: "bib",
+                    className: "sr-only",
+                    onChange: (e) => setListingType(e.target.value)
+                  }), /* @__PURE__ */ jsxs("span", {
+                    className: "flex flex-1 flex-col items-center text-center",
+                    children: [/* @__PURE__ */ jsx("svg", {
+                      className: "h-6 w-6 text-gray-600",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
+                      })
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "mt-2 text-sm font-medium text-gray-900",
+                      children: "Bib Only"
+                    })]
                   })]
-                })]
-              }), /* @__PURE__ */ jsxs("label", {
-                className: "relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500",
-                children: [/* @__PURE__ */ jsx("input", {
-                  type: "radio",
-                  name: "listingType",
-                  value: "room_and_bib",
-                  className: "sr-only",
-                  onChange: (e) => setListingType(e.target.value)
-                }), /* @__PURE__ */ jsxs("span", {
-                  className: "flex flex-1 flex-col items-center text-center",
-                  children: [/* @__PURE__ */ jsx("svg", {
-                    className: "h-6 w-6 text-gray-600",
-                    fill: "none",
-                    viewBox: "0 0 24 24",
-                    stroke: "currentColor",
-                    children: /* @__PURE__ */ jsx("path", {
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      strokeWidth: 2,
-                      d: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-                    })
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "mt-2 text-sm font-medium text-gray-900",
-                    children: "Room + Bib"
+                }), /* @__PURE__ */ jsxs("label", {
+                  className: "relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-green-300 has-[:checked]:bg-green-100 has-[:checked]:ring-2 has-[:checked]:ring-green-500",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "radio",
+                    name: "listingType",
+                    value: "room_and_bib",
+                    className: "sr-only",
+                    onChange: (e) => setListingType(e.target.value)
+                  }), /* @__PURE__ */ jsxs("span", {
+                    className: "flex flex-1 flex-col items-center text-center",
+                    children: [/* @__PURE__ */ jsx("svg", {
+                      className: "h-6 w-6 text-gray-600",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+                      })
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "mt-2 text-sm font-medium text-gray-900",
+                      children: "Room + Bib"
+                    })]
                   })]
                 })]
               })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsx("label", {
-              className: "label",
-              children: "Marathon Event"
-            }), /* @__PURE__ */ jsx(EventPicker, {
-              events,
-              onSelectEvent: (eventId) => {
-                const event = events.find((e) => e.id === eventId);
-                setSelectedEvent(event);
-              }
-            })]
-          }), (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
-            className: "space-y-4",
-            id: "roomFields",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-medium text-gray-900 border-b pb-2",
-              children: "Room Details"
             }), /* @__PURE__ */ jsxs("div", {
-              className: "grid gap-4 sm:grid-cols-2",
-              children: [/* @__PURE__ */ jsxs("div", {
-                className: "sm:col-span-2",
-                children: [/* @__PURE__ */ jsx("label", {
-                  className: "label",
-                  children: "Hotel"
-                }), /* @__PURE__ */ jsx(HotelAutocomplete, {
-                  apiKey: googlePlacesApiKey,
-                  eventCity: selectedEvent == null ? void 0 : selectedEvent.location,
-                  eventCountry: selectedEvent == null ? void 0 : selectedEvent.country,
-                  onSelectHotel: (hotel) => {
-                  }
+              className: "space-y-4",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-medium text-gray-900 border-b pb-2",
+                children: "Running Event"
+              }), /* @__PURE__ */ jsx(EventPicker, {
+                events,
+                onSelectEvent: (eventId) => {
+                  const event = events.find((e) => e.id === eventId);
+                  setSelectedEvent(event);
+                }
+              })]
+            }), (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
+              className: "space-y-4",
+              id: "roomFields",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-medium text-gray-900 border-b pb-2",
+                children: "Room Details"
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "grid gap-4 sm:grid-cols-2",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  className: "sm:col-span-2",
+                  children: [/* @__PURE__ */ jsx("label", {
+                    className: "label",
+                    children: "Hotel"
+                  }), /* @__PURE__ */ jsx(HotelAutocomplete, {
+                    apiKey: googlePlacesApiKey,
+                    eventCity: selectedEvent == null ? void 0 : selectedEvent.country,
+                    eventCountry: selectedEvent == null ? void 0 : selectedEvent.country,
+                    onSelectHotel: (hotel) => {
+                    }
+                  })]
+                }), /* @__PURE__ */ jsx("div", {
+                  children: " "
+                }), /* @__PURE__ */ jsx("div", {
+                  children: " "
+                }), /* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsxs("label", {
+                    htmlFor: "roomCount",
+                    className: "label",
+                    children: ["Number of rooms", maxRooms !== null && user.user_type === "tour_operator" && /* @__PURE__ */ jsxs("span", {
+                      className: "text-xs text-gray-500 ml-2",
+                      children: ["(max ", maxRooms, " for your account)"]
+                    })]
+                  }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
+                    children: [/* @__PURE__ */ jsxs("div", {
+                      className: "flex items-center gap-3 mt-2",
+                      children: [/* @__PURE__ */ jsx("div", {
+                        className: `flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "room" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`,
+                        children: "1"
+                      }), /* @__PURE__ */ jsx("span", {
+                        className: "text-sm text-gray-600",
+                        children: "Private users can list 1 room only"
+                      })]
+                    }), /* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "roomCount",
+                      value: "1"
+                    })]
+                  }) : /* @__PURE__ */ jsx("input", {
+                    type: "number",
+                    id: "roomCount",
+                    name: "roomCount",
+                    min: "1",
+                    max: maxRooms || void 0,
+                    placeholder: "e.g. 2",
+                    className: "input"
+                  })]
+                }), /* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    htmlFor: "roomType",
+                    className: "label",
+                    children: "Room type"
+                  }), /* @__PURE__ */ jsxs("select", {
+                    id: "roomType",
+                    name: "roomType",
+                    className: "input",
+                    onChange: (e) => setRoomType(e.target.value),
+                    children: [/* @__PURE__ */ jsx("option", {
+                      value: "",
+                      children: "Select type"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "single",
+                      children: "Single"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "double",
+                      children: "Double"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "twin",
+                      children: "Twin"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "twin_shared",
+                      children: "Twin Shared"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "double_single_use",
+                      children: "Double Single Use"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "triple",
+                      children: "Triple"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "quadruple",
+                      children: "Quadruple"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "other",
+                      children: "Other * (specify)"
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    htmlFor: "checkIn",
+                    className: "label",
+                    children: "Check-in date"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "date",
+                    id: "checkIn",
+                    name: "checkIn",
+                    placeholder: "dd/mm/yyyy",
+                    min: dateConstraints.min,
+                    max: dateConstraints.max,
+                    className: "input"
+                  }), selectedEvent && /* @__PURE__ */ jsxs("p", {
+                    className: "mt-1 text-xs text-gray-500",
+                    children: ["Event date: ", new Date(selectedEvent.event_date).toLocaleDateString(), " (±7 days)"]
+                  })]
+                }), /* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    htmlFor: "checkOut",
+                    className: "label",
+                    children: "Check-out date"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "date",
+                    id: "checkOut",
+                    name: "checkOut",
+                    placeholder: "dd/mm/yyyy",
+                    min: dateConstraints.min,
+                    max: dateConstraints.max,
+                    className: "input"
+                  })]
                 })]
-              }), /* @__PURE__ */ jsx("div", {
-                children: " "
-              }), /* @__PURE__ */ jsx("div", {
-                children: " "
+              })]
+            }), (listingType === "bib" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
+              className: "space-y-4",
+              id: "bibFields",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-medium text-gray-900 border-b pb-2",
+                children: "Bib Transfer Details"
+              }), user.user_type === "private" && /* @__PURE__ */ jsx("div", {
+                className: `rounded-lg p-4 ${listingType === "bib" ? "bg-purple-50 border border-purple-200" : "bg-green-50 border border-green-200"}`,
+                children: /* @__PURE__ */ jsxs("p", {
+                  className: `text-sm ${listingType === "bib" ? "text-purple-800" : "text-green-800"}`,
+                  children: [/* @__PURE__ */ jsx("strong", {
+                    children: "Important:"
+                  }), " RunOot facilitates connections for legitimate bib transfers only. Direct sale of bibs may violate event regulations."]
+                })
               }), /* @__PURE__ */ jsxs("div", {
                 children: [/* @__PURE__ */ jsxs("label", {
-                  htmlFor: "roomCount",
+                  htmlFor: "bibCount",
                   className: "label",
-                  children: ["Number of rooms", maxRooms !== null && user.user_type === "tour_operator" && /* @__PURE__ */ jsxs("span", {
+                  children: ["Number of bibs", maxBibs !== null && user.user_type === "tour_operator" && /* @__PURE__ */ jsxs("span", {
                     className: "text-xs text-gray-500 ml-2",
-                    children: ["(max ", maxRooms, " for your account)"]
+                    children: ["(max ", maxBibs, " for your account)"]
                   })]
                 }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
                   children: [/* @__PURE__ */ jsxs("div", {
                     className: "flex items-center gap-3 mt-2",
                     children: [/* @__PURE__ */ jsx("div", {
-                      className: "flex h-12 w-12 items-center justify-center rounded-lg bg-brand-100 text-brand-700 font-bold text-2xl",
+                      className: `flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "bib" ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"}`,
                       children: "1"
                     }), /* @__PURE__ */ jsx("span", {
                       className: "text-sm text-gray-600",
-                      children: "Private users can list 1 room only"
+                      children: "Private users can list 1 bib only"
                     })]
                   }), /* @__PURE__ */ jsx("input", {
                     type: "hidden",
-                    name: "roomCount",
+                    name: "bibCount",
                     value: "1"
                   })]
                 }) : /* @__PURE__ */ jsx("input", {
                   type: "number",
-                  id: "roomCount",
-                  name: "roomCount",
-                  min: "1",
-                  max: maxRooms || void 0,
-                  placeholder: "e.g. 2",
-                  className: "input"
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "roomType",
-                  className: "label",
-                  children: "Room type"
-                }), /* @__PURE__ */ jsxs("select", {
-                  id: "roomType",
-                  name: "roomType",
-                  className: "input",
-                  onChange: (e) => setRoomType(e.target.value),
-                  children: [/* @__PURE__ */ jsx("option", {
-                    value: "",
-                    children: "Select type"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "single",
-                    children: "Single"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "double",
-                    children: "Double"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "twin",
-                    children: "Twin"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "twin_shared",
-                    children: "Twin Shared"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "double_single_use",
-                    children: "Double Single Use"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "triple",
-                    children: "Triple"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "quadruple",
-                    children: "Quadruple"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "other",
-                    children: "Other * (specify)"
-                  })]
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "checkIn",
-                  className: "label",
-                  children: "Check-in date"
-                }), /* @__PURE__ */ jsx("input", {
-                  type: "date",
-                  id: "checkIn",
-                  name: "checkIn",
-                  placeholder: "dd/mm/yyyy",
-                  min: dateConstraints.min,
-                  max: dateConstraints.max,
-                  className: "input"
-                }), selectedEvent && /* @__PURE__ */ jsxs("p", {
-                  className: "mt-1 text-xs text-gray-500",
-                  children: ["Event date: ", new Date(selectedEvent.event_date).toLocaleDateString(), " (±7 days)"]
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "checkOut",
-                  className: "label",
-                  children: "Check-out date"
-                }), /* @__PURE__ */ jsx("input", {
-                  type: "date",
-                  id: "checkOut",
-                  name: "checkOut",
-                  placeholder: "dd/mm/yyyy",
-                  min: dateConstraints.min,
-                  max: dateConstraints.max,
-                  className: "input"
-                })]
-              })]
-            })]
-          }), (listingType === "bib" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
-            className: "space-y-4",
-            id: "bibFields",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-medium text-gray-900 border-b pb-2",
-              children: "Bib Transfer Details"
-            }), user.user_type === "private" && /* @__PURE__ */ jsx("div", {
-              className: "bg-blue-50 border border-blue-200 rounded-lg p-4",
-              children: /* @__PURE__ */ jsxs("p", {
-                className: "text-sm text-blue-800",
-                children: [/* @__PURE__ */ jsx("strong", {
-                  children: "Important:"
-                }), " RunOot facilitates connections for legitimate bib transfers only. Direct sale of bibs may violate event regulations."]
-              })
-            }), /* @__PURE__ */ jsxs("div", {
-              children: [/* @__PURE__ */ jsxs("label", {
-                htmlFor: "bibCount",
-                className: "label",
-                children: ["Number of bibs", maxBibs !== null && user.user_type === "tour_operator" && /* @__PURE__ */ jsxs("span", {
-                  className: "text-xs text-gray-500 ml-2",
-                  children: ["(max ", maxBibs, " for your account)"]
-                })]
-              }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsxs("div", {
-                  className: "flex items-center gap-3 mt-2",
-                  children: [/* @__PURE__ */ jsx("div", {
-                    className: "flex h-12 w-12 items-center justify-center rounded-lg bg-brand-100 text-brand-700 font-bold text-2xl",
-                    children: "1"
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "text-sm text-gray-600",
-                    children: "Private users can list 1 bib only"
-                  })]
-                }), /* @__PURE__ */ jsx("input", {
-                  type: "hidden",
+                  id: "bibCount",
                   name: "bibCount",
-                  value: "1"
+                  min: "1",
+                  max: maxBibs || void 0,
+                  placeholder: "e.g. 1",
+                  className: "input w-full sm:w-48"
                 })]
-              }) : /* @__PURE__ */ jsx("input", {
-                type: "number",
-                id: "bibCount",
-                name: "bibCount",
-                min: "1",
-                max: maxBibs || void 0,
-                placeholder: "e.g. 1",
-                className: "input w-full sm:w-48"
-              })]
-            }), /* @__PURE__ */ jsxs("div", {
-              children: [/* @__PURE__ */ jsxs("label", {
-                htmlFor: "transferType",
-                className: "label",
-                children: ["Transfer Method ", /* @__PURE__ */ jsx("span", {
-                  className: "text-red-500",
-                  children: "*"
-                })]
-              }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsx("div", {
-                  className: "mt-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700",
-                  children: "Official Organizer Name Change"
-                }), /* @__PURE__ */ jsx("input", {
-                  type: "hidden",
-                  name: "transferType",
-                  value: "official_process"
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "mt-1 text-xs text-gray-500",
-                  children: "How the bib will be transferred to the new participant"
-                })]
-              }) : /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsxs("select", {
-                  id: "transferType",
-                  name: "transferType",
-                  className: "input",
-                  onChange: (e) => setTransferMethod(e.target.value),
-                  children: [/* @__PURE__ */ jsx("option", {
-                    value: "",
-                    children: "Select transfer method"
-                  }), transferMethodOptions.map((option) => /* @__PURE__ */ jsx("option", {
-                    value: option.value,
-                    children: option.label
-                  }, option.value))]
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "mt-1 text-xs text-gray-500",
-                  children: "How the bib will be transferred to the new participant"
-                })]
-              })]
-            }), visibleFields.showAssociatedCosts && /* @__PURE__ */ jsxs("div", {
-              children: [/* @__PURE__ */ jsxs("label", {
-                htmlFor: "associatedCosts",
-                className: "label",
-                children: ["Associated Costs (€) ", /* @__PURE__ */ jsx("span", {
-                  className: "text-red-500",
-                  children: "*"
-                })]
-              }), /* @__PURE__ */ jsx("input", {
-                type: "number",
-                id: "associatedCosts",
-                name: "associatedCosts",
-                min: "0",
-                step: "0.01",
-                placeholder: "e.g. 50",
-                className: "input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                required: true
-              }), /* @__PURE__ */ jsx("p", {
-                className: "mt-1 text-xs text-gray-500",
-                children: "Official name change fee from the event organizer"
-              })]
-            }), visibleFields.showPackageInfo && /* @__PURE__ */ jsx("div", {
-              className: "bg-green-50 border border-green-200 rounded-lg p-4",
-              children: /* @__PURE__ */ jsxs("p", {
-                className: "text-sm text-green-800",
-                children: [/* @__PURE__ */ jsx("strong", {
-                  children: "Package Transfer:"
-                }), " The bib is included in your travel package. All costs are included in the package price."]
-              })
-            })]
-          }), !(user.user_type === "private" && listingType === "bib") && /* @__PURE__ */ jsxs("div", {
-            className: "space-y-4",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-medium text-gray-900 border-b pb-2",
-              children: "Price"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "grid gap-4 sm:grid-cols-2",
-              children: [/* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "price",
+              }), /* @__PURE__ */ jsxs("div", {
+                children: [/* @__PURE__ */ jsxs("label", {
+                  htmlFor: "transferType",
                   className: "label",
-                  children: "Price (€)"
+                  children: ["Transfer Method ", /* @__PURE__ */ jsx("span", {
+                    className: "text-red-500",
+                    children: "*"
+                  })]
+                }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
+                  children: [/* @__PURE__ */ jsx("div", {
+                    className: "mt-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700",
+                    children: "Official Organizer Name Change"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "transferType",
+                    value: "official_process"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "mt-1 text-xs text-gray-500",
+                    children: "How the bib will be transferred to the new participant"
+                  })]
+                }) : /* @__PURE__ */ jsxs(Fragment, {
+                  children: [/* @__PURE__ */ jsxs("select", {
+                    id: "transferType",
+                    name: "transferType",
+                    className: "input",
+                    onChange: (e) => setTransferMethod(e.target.value),
+                    children: [/* @__PURE__ */ jsx("option", {
+                      value: "",
+                      children: "Select transfer method"
+                    }), transferMethodOptions.map((option) => /* @__PURE__ */ jsx("option", {
+                      value: option.value,
+                      children: option.label
+                    }, option.value))]
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "mt-1 text-xs text-gray-500",
+                    children: "How the bib will be transferred to the new participant"
+                  })]
+                })]
+              }), visibleFields.showAssociatedCosts && /* @__PURE__ */ jsxs("div", {
+                children: [/* @__PURE__ */ jsxs("label", {
+                  htmlFor: "associatedCosts",
+                  className: "label",
+                  children: ["Associated Costs (€) ", /* @__PURE__ */ jsx("span", {
+                    className: "text-red-500",
+                    children: "*"
+                  })]
                 }), /* @__PURE__ */ jsx("input", {
                   type: "number",
-                  id: "price",
-                  name: "price",
+                  id: "associatedCosts",
+                  name: "associatedCosts",
                   min: "0",
                   step: "0.01",
-                  placeholder: "Empty = Contact for price",
-                  className: "input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder: "e.g. 50",
+                  className: "input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                  required: true
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "mt-1 text-xs text-gray-500",
+                  children: "Official name change fee from the event organizer"
                 })]
-              }), (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsx("div", {
-                className: "flex items-end",
-                children: /* @__PURE__ */ jsxs("label", {
-                  className: "flex items-center gap-2 cursor-pointer",
-                  children: [/* @__PURE__ */ jsx("input", {
-                    type: "checkbox",
-                    name: "priceNegotiable",
-                    className: "h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "text-sm text-gray-700",
-                    children: "Price is negotiable"
-                  })]
+              }), visibleFields.showPackageInfo && /* @__PURE__ */ jsx("div", {
+                className: "bg-green-50 border border-green-200 rounded-lg p-4",
+                children: /* @__PURE__ */ jsxs("p", {
+                  className: "text-sm text-green-800",
+                  children: [/* @__PURE__ */ jsx("strong", {
+                    children: "Package Transfer:"
+                  }), " The bib is included in your travel package. All costs are included in the package price."]
                 })
               })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsxs("label", {
-              htmlFor: "description",
-              className: "label",
-              children: [user.user_type === "private" && listingType === "bib" ? "Notes" : "Additional details", " ", /* @__PURE__ */ jsx("span", {
-                className: roomType === "other" ? "text-red-500" : "text-gray-400",
-                children: roomType === "other" ? "(required)" : "(optional)"
+            }), !(user.user_type === "private" && listingType === "bib") && /* @__PURE__ */ jsxs("div", {
+              className: "space-y-4",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-medium text-gray-900 border-b pb-2",
+                children: "Price"
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "grid gap-4 sm:grid-cols-2",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    htmlFor: "price",
+                    className: "label",
+                    children: "Price (€)"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "number",
+                    id: "price",
+                    name: "price",
+                    min: "0",
+                    step: "0.01",
+                    placeholder: "Empty = Contact for price",
+                    className: "input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  })]
+                }), (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsx("div", {
+                  className: "flex items-end",
+                  children: /* @__PURE__ */ jsxs("label", {
+                    className: "flex items-center gap-2 cursor-pointer",
+                    children: [/* @__PURE__ */ jsx("input", {
+                      type: "checkbox",
+                      name: "priceNegotiable",
+                      className: "h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "text-sm text-gray-700",
+                      children: "Price is negotiable"
+                    })]
+                  })
+                })]
               })]
-            }), /* @__PURE__ */ jsx("textarea", {
-              id: "description",
-              name: "description",
-              rows: 4,
-              placeholder: "Any other information runners should know...",
-              className: `input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`,
-              required: roomType === "other"
+            }), /* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsxs("label", {
+                htmlFor: "description",
+                className: "label",
+                children: [user.user_type === "private" && listingType === "bib" ? "Notes" : "Additional details", " ", /* @__PURE__ */ jsx("span", {
+                  className: roomType === "other" ? "text-red-500" : "text-gray-400",
+                  children: roomType === "other" ? "(required)" : "(optional)"
+                })]
+              }), /* @__PURE__ */ jsx("textarea", {
+                id: "description",
+                name: "description",
+                rows: 4,
+                placeholder: "Any other information runners should know...",
+                className: `input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`,
+                required: roomType === "other"
+              })]
+            }), /* @__PURE__ */ jsx("div", {
+              className: "flex gap-4 pt-4",
+              children: /* @__PURE__ */ jsx("button", {
+                type: "submit",
+                className: "btn-primary flex-1",
+                children: "Create Listing"
+              })
             })]
-          }), /* @__PURE__ */ jsx("div", {
-            className: "flex gap-4 pt-4",
-            children: /* @__PURE__ */ jsx("button", {
-              type: "submit",
-              className: "btn-primary flex-1",
-              children: "Create Listing"
+          })
+        })]
+      })
+    }), showSuccessModal && /* @__PURE__ */ jsx("div", {
+      className: "fixed inset-0 z-50 overflow-y-auto",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "flex min-h-screen items-center justify-center p-4",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "fixed inset-0 bg-black/50 backdrop-blur-sm"
+        }), /* @__PURE__ */ jsxs("div", {
+          className: "relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl text-center",
+          style: {
+            animation: "fade-in-up 0.3s ease-out"
+          },
+          children: [/* @__PURE__ */ jsx("div", {
+            className: `mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full ${listingType === "room" ? "bg-blue-100" : listingType === "bib" ? "bg-purple-100" : "bg-green-100"}`,
+            style: {
+              animation: "scale-in 0.4s ease-out"
+            },
+            children: /* @__PURE__ */ jsx("svg", {
+              className: `h-12 w-12 ${listingType === "room" ? "text-blue-600" : listingType === "bib" ? "text-purple-600" : "text-green-600"}`,
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              strokeWidth: 2.5,
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                d: "M5 13l4 4L19 7"
+              })
             })
+          }), /* @__PURE__ */ jsx("h2", {
+            className: "font-display text-2xl font-bold text-gray-900 mb-2",
+            children: "Listing Created!"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-600 mb-8",
+            children: "Your listing has been published successfully and is now visible to other users."
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "flex flex-col gap-3",
+            children: [/* @__PURE__ */ jsx("button", {
+              onClick: () => navigate(`/listings/${createdListingId}`),
+              className: "btn-primary w-full py-3 rounded-full",
+              children: "View Your Listing"
+            }), user.user_type === "tour_operator" && /* @__PURE__ */ jsx("button", {
+              onClick: () => {
+                setShowSuccessModal(false);
+                navigate("/dashboard");
+              },
+              className: "btn bg-gray-100 text-gray-700 hover:bg-gray-200 w-full py-3 rounded-full",
+              children: "Go to Dashboard"
+            })]
           })]
-        })
-      })]
+        })]
+      })
     })]
   });
 });
-const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$8,
   default: listings_new,
@@ -5091,7 +5577,7 @@ async function loader$c({
     data: listings
   } = await supabaseAdmin.from("listings").select(`
       *,
-      event:events(id, name, location, event_date),
+      event:events(id, name, country, event_date),
       author:profiles(id, full_name, company_name, user_type, is_verified)
     `).eq("author_id", user.id).order("created_at", {
     ascending: false
@@ -5203,7 +5689,7 @@ const myListings = UNSAFE_withComponentProps(function MyListings() {
     })]
   });
 });
-const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: myListings,
   loader: loader$c,
@@ -5238,7 +5724,7 @@ async function loader$b({
     unreadCount
   });
 }
-const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   loader: loader$b
 }, Symbol.toStringTag, { value: "Module" }));
@@ -5327,7 +5813,7 @@ async function action$7({
     status: 400
   });
 }
-const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$7
 }, Symbol.toStringTag, { value: "Module" }));
@@ -5344,7 +5830,7 @@ async function loader$a({
     data: listings
   } = await supabaseAdmin.from("listings").select(`
       *,
-      event:events(id, name, location, event_date),
+      event:events(id, name, country, event_date),
       author:profiles(id, full_name, company_name, user_type, is_verified)
     `).eq("author_id", user.id).order("created_at", {
     ascending: false
@@ -5585,7 +6071,7 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
     })]
   });
 });
-const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: dashboard,
   loader: loader$a,
@@ -5623,6 +6109,38 @@ function useRealtimeConversations({
     };
   }, [userId, fetcher]);
   return { conversations, setConversations };
+}
+const AVATAR_COLORS = [
+  { bg: "bg-rose-100", text: "text-rose-700" },
+  { bg: "bg-amber-100", text: "text-amber-700" },
+  { bg: "bg-emerald-100", text: "text-emerald-700" },
+  { bg: "bg-teal-100", text: "text-teal-700" },
+  { bg: "bg-cyan-100", text: "text-cyan-700" },
+  { bg: "bg-blue-100", text: "text-blue-700" },
+  { bg: "bg-indigo-100", text: "text-indigo-700" },
+  { bg: "bg-violet-100", text: "text-violet-700" },
+  { bg: "bg-fuchsia-100", text: "text-fuchsia-700" }
+];
+const TOUR_OPERATOR_COLOR = { bg: "bg-accent-500", text: "text-white" };
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+function getAvatarColor(userId, userType) {
+  if (userType === "tour_operator") {
+    return TOUR_OPERATOR_COLOR;
+  }
+  const index = hashString(userId) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
+}
+function getAvatarClasses(userId, userType) {
+  const colors = getAvatarColor(userId, userType);
+  return `${colors.bg} ${colors.text}`;
 }
 async function loader$9({
   request
@@ -5685,97 +6203,103 @@ const messages = UNSAFE_withComponentProps(function MessagesLayout() {
     children: [/* @__PURE__ */ jsx(Header, {
       user
     }), /* @__PURE__ */ jsx("div", {
-      className: "flex-1 overflow-hidden",
-      children: /* @__PURE__ */ jsxs("div", {
-        className: "mx-auto max-w-7xl h-full flex px-4 sm:px-6 lg:px-8 py-16",
-        children: [/* @__PURE__ */ jsxs("aside", {
-          className: `w-full md:w-80 lg:w-96 bg-white border border-gray-200 border-r-0 rounded-l-lg flex flex-col overflow-hidden ${activeConversationId ? "hidden md:flex" : "flex"}`,
-          children: [/* @__PURE__ */ jsx("div", {
-            className: "p-4 border-b border-gray-200 flex items-center h-[72px]",
-            children: /* @__PURE__ */ jsx("h1", {
-              className: "font-display text-xl font-bold text-gray-900",
-              children: "Messages"
-            })
-          }), /* @__PURE__ */ jsx("div", {
-            className: "flex-1 overflow-y-auto",
-            children: conversations.length > 0 ? /* @__PURE__ */ jsx("div", {
-              className: "divide-y divide-gray-100",
-              children: conversations.map((conv) => {
-                var _a, _b, _c, _d;
-                const otherUser = conv.participant_1 === user.id ? conv.participant2 : conv.participant1;
-                const sortedMessages = [...conv.messages || []].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                const lastMessage = sortedMessages[0];
-                const unreadCount = (_a = conv.messages) == null ? void 0 : _a.filter((m) => m.sender_id !== user.id && !m.read_at).length;
-                const isActive = conv.id === activeConversationId;
-                return /* @__PURE__ */ jsxs(Link, {
-                  to: `/messages/${conv.id}`,
-                  className: `flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors ${isActive ? "bg-gray-100" : ""}`,
-                  children: [/* @__PURE__ */ jsx("div", {
-                    className: `flex h-12 w-12 items-center justify-center rounded-full font-semibold flex-shrink-0 ${isActive ? "bg-gray-600 text-white" : "bg-brand-100 text-brand-700"}`,
-                    children: ((_b = otherUser == null ? void 0 : otherUser.company_name) == null ? void 0 : _b.charAt(0)) || ((_c = otherUser == null ? void 0 : otherUser.full_name) == null ? void 0 : _c.charAt(0)) || "?"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    className: "min-w-0 flex-1",
-                    children: [/* @__PURE__ */ jsxs("div", {
-                      className: "flex items-center justify-between gap-2",
-                      children: [/* @__PURE__ */ jsx("p", {
-                        className: `font-medium truncate text-sm ${unreadCount > 0 ? "text-gray-900" : "text-gray-600"}`,
-                        children: (otherUser == null ? void 0 : otherUser.company_name) || (otherUser == null ? void 0 : otherUser.full_name) || "User"
-                      }), lastMessage && /* @__PURE__ */ jsx("span", {
-                        className: "text-xs text-gray-400 flex-shrink-0",
-                        children: formatTimeAgo(lastMessage.created_at)
-                      })]
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-xs text-gray-500 truncate",
-                      children: ((_d = conv.listing) == null ? void 0 : _d.title) || "Listing"
-                    }), lastMessage && /* @__PURE__ */ jsxs("p", {
-                      className: `text-sm truncate mt-0.5 ${unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"}`,
-                      children: [lastMessage.sender_id === user.id && /* @__PURE__ */ jsx("span", {
-                        className: "text-gray-400",
-                        children: "You: "
-                      }), lastMessage.message_type === "heart" ? "Listing saved" : lastMessage.content]
-                    })]
-                  }), unreadCount > 0 && !isActive && /* @__PURE__ */ jsx("div", {
-                    className: "h-3 w-3 rounded-full bg-red-500 flex-shrink-0"
-                  })]
-                }, conv.id);
+      className: "flex-1 overflow-hidden bg-cover bg-center bg-no-repeat",
+      style: {
+        backgroundImage: "url('/messages.webp')"
+      },
+      children: /* @__PURE__ */ jsx("div", {
+        className: "mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 py-16",
+        children: /* @__PURE__ */ jsxs("div", {
+          className: "flex h-full rounded-lg shadow-xl overflow-hidden",
+          children: [/* @__PURE__ */ jsxs("aside", {
+            className: `w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-sm rounded-l-lg flex flex-col overflow-hidden border-r border-gray-200 ${activeConversationId ? "hidden md:flex" : "flex"}`,
+            children: [/* @__PURE__ */ jsx("div", {
+              className: "p-4 border-b border-gray-200 flex items-center h-[72px]",
+              children: /* @__PURE__ */ jsx("h1", {
+                className: "font-display text-xl font-bold text-gray-900",
+                children: "Messages"
               })
-            }) : /* @__PURE__ */ jsxs("div", {
-              className: "p-8 text-center",
-              children: [/* @__PURE__ */ jsx("svg", {
-                className: "mx-auto h-12 w-12 text-gray-300",
-                fill: "none",
-                viewBox: "0 0 24 24",
-                stroke: "currentColor",
-                children: /* @__PURE__ */ jsx("path", {
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round",
-                  strokeWidth: 1.5,
-                  d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+            }), /* @__PURE__ */ jsx("div", {
+              className: "flex-1 overflow-y-auto",
+              children: conversations.length > 0 ? /* @__PURE__ */ jsx("div", {
+                className: "divide-y divide-gray-100",
+                children: conversations.map((conv) => {
+                  var _a, _b, _c, _d;
+                  const otherUser = conv.participant_1 === user.id ? conv.participant2 : conv.participant1;
+                  const sortedMessages = [...conv.messages || []].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                  const lastMessage = sortedMessages[0];
+                  const unreadCount = (_a = conv.messages) == null ? void 0 : _a.filter((m) => m.sender_id !== user.id && !m.read_at).length;
+                  const isActive = conv.id === activeConversationId;
+                  return /* @__PURE__ */ jsxs(Link, {
+                    to: `/messages/${conv.id}`,
+                    className: `flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors ${isActive ? "bg-gray-100" : ""}`,
+                    children: [/* @__PURE__ */ jsx("div", {
+                      className: `flex h-12 w-12 items-center justify-center rounded-full font-semibold flex-shrink-0 ${isActive ? "bg-brand-500 text-white" : getAvatarClasses((otherUser == null ? void 0 : otherUser.id) || "", otherUser == null ? void 0 : otherUser.user_type)}`,
+                      children: ((_b = otherUser == null ? void 0 : otherUser.company_name) == null ? void 0 : _b.charAt(0)) || ((_c = otherUser == null ? void 0 : otherUser.full_name) == null ? void 0 : _c.charAt(0)) || "?"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      className: "min-w-0 flex-1",
+                      children: [/* @__PURE__ */ jsxs("div", {
+                        className: "flex items-center justify-between gap-2",
+                        children: [/* @__PURE__ */ jsx("p", {
+                          className: `font-medium truncate text-sm ${unreadCount > 0 ? "text-gray-900" : "text-gray-600"}`,
+                          children: (otherUser == null ? void 0 : otherUser.company_name) || (otherUser == null ? void 0 : otherUser.full_name) || "User"
+                        }), lastMessage && /* @__PURE__ */ jsx("span", {
+                          className: "text-xs text-gray-400 flex-shrink-0",
+                          children: formatTimeAgo(lastMessage.created_at)
+                        })]
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-xs text-gray-500 truncate",
+                        children: ((_d = conv.listing) == null ? void 0 : _d.title) || "Listing"
+                      }), lastMessage && /* @__PURE__ */ jsxs("p", {
+                        className: `text-sm truncate mt-0.5 ${unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"}`,
+                        children: [lastMessage.sender_id === user.id && /* @__PURE__ */ jsx("span", {
+                          className: "text-gray-400",
+                          children: "You: "
+                        }), lastMessage.message_type === "heart" ? "Listing saved" : lastMessage.content]
+                      })]
+                    }), unreadCount > 0 && !isActive && /* @__PURE__ */ jsx("div", {
+                      className: "h-3 w-3 rounded-full bg-red-500 flex-shrink-0"
+                    })]
+                  }, conv.id);
                 })
-              }), /* @__PURE__ */ jsx("p", {
-                className: "mt-4 text-sm text-gray-500",
-                children: "No messages yet"
-              }), /* @__PURE__ */ jsx(Link, {
-                to: "/listings",
-                className: "mt-4 btn-primary inline-block text-sm",
-                children: "Browse Listings"
-              })]
+              }) : /* @__PURE__ */ jsxs("div", {
+                className: "p-8 text-center",
+                children: [/* @__PURE__ */ jsx("svg", {
+                  className: "mx-auto h-12 w-12 text-gray-300",
+                  fill: "none",
+                  viewBox: "0 0 24 24",
+                  stroke: "currentColor",
+                  children: /* @__PURE__ */ jsx("path", {
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    strokeWidth: 1.5,
+                    d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  })
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "mt-4 text-sm text-gray-500",
+                  children: "No messages yet"
+                }), /* @__PURE__ */ jsx(Link, {
+                  to: "/listings",
+                  className: "mt-4 btn-primary inline-block text-sm",
+                  children: "Browse Listings"
+                })]
+              })
+            })]
+          }), /* @__PURE__ */ jsx("main", {
+            className: `flex-1 flex flex-col ${activeConversationId ? "flex" : "hidden md:flex"}`,
+            children: /* @__PURE__ */ jsx(Outlet, {
+              context: {
+                user,
+                conversations
+              }
             })
           })]
-        }), /* @__PURE__ */ jsx("main", {
-          className: `flex-1 flex flex-col ${activeConversationId ? "flex" : "hidden md:flex"}`,
-          children: /* @__PURE__ */ jsx(Outlet, {
-            context: {
-              user,
-              conversations
-            }
-          })
-        })]
+        })
       })
     })]
   });
 });
-const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: messages,
   loader: loader$9
@@ -5787,7 +6311,7 @@ const meta$8 = () => {
 };
 const messages__index = UNSAFE_withComponentProps(function MessagesIndex() {
   return /* @__PURE__ */ jsx("div", {
-    className: "flex-1 flex items-center justify-center bg-white border border-gray-200 rounded-r-lg",
+    className: "flex-1 flex items-center justify-center bg-white/95 backdrop-blur-sm rounded-r-lg",
     children: /* @__PURE__ */ jsxs("div", {
       className: "text-center p-8",
       children: [/* @__PURE__ */ jsx("svg", {
@@ -5811,12 +6335,22 @@ const messages__index = UNSAFE_withComponentProps(function MessagesIndex() {
     })
   });
 });
-const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: messages__index,
   meta: meta$8
 }, Symbol.toStringTag, { value: "Module" }));
 const POLL_INTERVAL = 3e3;
+function playNotificationSound() {
+  if (typeof window === "undefined") return;
+  try {
+    const audio = new Audio("/ding-sound.mp3");
+    audio.volume = 0.5;
+    audio.play().catch(() => {
+    });
+  } catch {
+  }
+}
 function useRealtimeMessages({
   conversationId,
   initialMessages,
@@ -5845,11 +6379,16 @@ function useRealtimeMessages({
         });
         if (previousMessageCountRef.current < serverMessages.length) {
           const newServerMessages = serverMessages.slice(previousMessageCountRef.current);
+          let hasNewMessageFromOther = false;
           newServerMessages.forEach((msg) => {
             if (msg.sender_id !== currentUserId) {
               onNewMessage == null ? void 0 : onNewMessage(msg);
+              hasNewMessageFromOther = true;
             }
           });
+          if (hasNewMessageFromOther) {
+            playNotificationSound();
+          }
         }
         previousMessageCountRef.current = serverMessages.length;
         if (unconfirmedTempMessages.length > 0) {
@@ -5881,6 +6420,190 @@ function useRealtimeMessages({
     setMessages
   };
 }
+function useTranslation({ userId, messages: messages2, enabled = true }) {
+  const [translations, setTranslations] = useState({});
+  const [browserLanguage, setBrowserLanguage] = useState("en");
+  const pendingTranslations = useRef(/* @__PURE__ */ new Set());
+  useEffect(() => {
+    var _a;
+    const lang = ((_a = navigator.language) == null ? void 0 : _a.split("-")[0]) || "en";
+    setBrowserLanguage(lang);
+  }, []);
+  const translateMessage = useCallback(
+    async (message) => {
+      const messageId = message.id;
+      if (messageId.startsWith("temp-")) return;
+      if (message.sender_id === userId) return;
+      if (pendingTranslations.current.has(messageId)) return;
+      if (message.translated_content && message.translated_to === browserLanguage) {
+        setTranslations((prev) => ({
+          ...prev,
+          [messageId]: {
+            translatedContent: message.translated_content,
+            detectedLanguage: message.detected_language || null,
+            isLoading: false,
+            error: null,
+            showOriginal: false
+          }
+        }));
+        return;
+      }
+      if (message.detected_language === browserLanguage) {
+        setTranslations((prev) => ({
+          ...prev,
+          [messageId]: {
+            translatedContent: null,
+            detectedLanguage: message.detected_language,
+            isLoading: false,
+            error: null,
+            showOriginal: false
+          }
+        }));
+        return;
+      }
+      pendingTranslations.current.add(messageId);
+      setTranslations((prev) => ({
+        ...prev,
+        [messageId]: {
+          translatedContent: null,
+          detectedLanguage: null,
+          isLoading: true,
+          error: null,
+          showOriginal: false
+        }
+      }));
+      try {
+        const response = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messageId,
+            targetLanguage: browserLanguage
+          })
+        });
+        const data2 = await response.json();
+        if (!response.ok) {
+          throw new Error(data2.error || "Translation failed");
+        }
+        setTranslations((prev) => ({
+          ...prev,
+          [messageId]: {
+            translatedContent: data2.translatedContent,
+            detectedLanguage: data2.detectedLanguage,
+            isLoading: false,
+            error: null,
+            showOriginal: false
+          }
+        }));
+      } catch (error) {
+        console.error("Translation error:", error);
+        setTranslations((prev) => ({
+          ...prev,
+          [messageId]: {
+            translatedContent: null,
+            detectedLanguage: null,
+            isLoading: false,
+            error: error instanceof Error ? error.message : "Translation failed",
+            showOriginal: false
+          }
+        }));
+      } finally {
+        pendingTranslations.current.delete(messageId);
+      }
+    },
+    [userId, browserLanguage]
+  );
+  useEffect(() => {
+    if (!enabled) return;
+    messages2.forEach((message) => {
+      var _a, _b;
+      if (((_a = translations[message.id]) == null ? void 0 : _a.translatedContent) !== void 0) return;
+      if ((_b = translations[message.id]) == null ? void 0 : _b.isLoading) return;
+      translateMessage(message);
+    });
+  }, [messages2, enabled, translateMessage, translations]);
+  const toggleShowOriginal = useCallback((messageId) => {
+    setTranslations((prev) => {
+      var _a;
+      return {
+        ...prev,
+        [messageId]: {
+          ...prev[messageId],
+          showOriginal: !((_a = prev[messageId]) == null ? void 0 : _a.showOriginal)
+        }
+      };
+    });
+  }, []);
+  const getDisplayContent = useCallback(
+    (message) => {
+      const state = translations[message.id];
+      if (message.sender_id === userId) {
+        return {
+          content: message.content,
+          isTranslated: false,
+          isLoading: false,
+          showOriginal: false,
+          canToggle: false
+        };
+      }
+      if (!state) {
+        return {
+          content: message.content,
+          isTranslated: false,
+          isLoading: false,
+          showOriginal: false,
+          canToggle: false
+        };
+      }
+      if (state.isLoading) {
+        return {
+          content: message.content,
+          isTranslated: false,
+          isLoading: true,
+          showOriginal: false,
+          canToggle: false
+        };
+      }
+      if (!state.translatedContent) {
+        return {
+          content: message.content,
+          isTranslated: false,
+          isLoading: false,
+          showOriginal: false,
+          canToggle: false
+        };
+      }
+      if (state.showOriginal) {
+        return {
+          content: message.content,
+          isTranslated: false,
+          isLoading: false,
+          showOriginal: true,
+          canToggle: true,
+          originalContent: message.content,
+          translatedContent: state.translatedContent
+        };
+      }
+      return {
+        content: state.translatedContent,
+        isTranslated: true,
+        isLoading: false,
+        showOriginal: false,
+        canToggle: true,
+        originalContent: message.content,
+        translatedContent: state.translatedContent
+      };
+    },
+    [translations, userId]
+  );
+  return {
+    translations,
+    browserLanguage,
+    translateMessage,
+    toggleShowOriginal,
+    getDisplayContent
+  };
+}
 const meta$7 = () => {
   return [{
     title: "Conversation - Runoot"
@@ -5904,7 +6627,7 @@ async function loader$8({
       listing:listings(id, title, listing_type, status),
       participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified),
       participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified),
-      messages(id, content, sender_id, created_at, read_at, message_type)
+      messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
     `).eq("id", id).single();
   if (error || !conversation) {
     throw new Response("Conversation not found", {
@@ -6071,6 +6794,14 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
     initialMessages: conversation.messages || [],
     currentUserId: userId
   });
+  const {
+    getDisplayContent,
+    toggleShowOriginal
+  } = useTranslation({
+    userId,
+    messages: realtimeMessages,
+    enabled: true
+  });
   useEffect(() => {
     function handleClickOutside(event) {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -6107,21 +6838,14 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
       behavior: "smooth"
     });
   }, [realtimeMessages]);
-  const handleKeyDown = (e) => {
-    var _a2;
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      (_a2 = formRef.current) == null ? void 0 : _a2.requestSubmit();
-    }
-  };
   const handleTextareaChange = (e) => {
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
   };
   return /* @__PURE__ */ jsxs("div", {
-    className: "flex-1 flex flex-col bg-white border border-gray-200 rounded-r-lg overflow-hidden",
+    className: "flex-1 flex flex-col bg-white/95 backdrop-blur-sm rounded-r-lg overflow-hidden",
     children: [/* @__PURE__ */ jsxs("div", {
-      className: "flex items-center gap-4 p-4 border-b border-gray-200 bg-white h-[72px]",
+      className: "flex items-center gap-4 p-4 border-b border-gray-200 h-[72px]",
       children: [/* @__PURE__ */ jsx(Link, {
         to: "/messages",
         className: "md:hidden text-gray-400 hover:text-gray-600 flex-shrink-0",
@@ -6138,7 +6862,7 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
           })
         })
       }), /* @__PURE__ */ jsx("div", {
-        className: "flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0",
+        className: `flex h-10 w-10 items-center justify-center rounded-full font-semibold flex-shrink-0 ${getAvatarClasses((otherUser == null ? void 0 : otherUser.id) || "", otherUser == null ? void 0 : otherUser.user_type)}`,
         children: ((_a = otherUser == null ? void 0 : otherUser.company_name) == null ? void 0 : _a.charAt(0)) || ((_b = otherUser == null ? void 0 : otherUser.full_name) == null ? void 0 : _b.charAt(0)) || "?"
       }), /* @__PURE__ */ jsxs("div", {
         className: "min-w-0 flex-1",
@@ -6168,7 +6892,7 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
         children: [/* @__PURE__ */ jsx("button", {
           type: "button",
           onClick: () => setIsMenuOpen(!isMenuOpen),
-          className: "p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg",
+          className: "p-3 -m-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center",
           children: /* @__PURE__ */ jsx("svg", {
             className: "h-5 w-5",
             fill: "currentColor",
@@ -6283,6 +7007,9 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
           const prevDate = prevMessage ? new Date(prevMessage.created_at) : null;
           const isHeartMessage = message.message_type === "heart";
           const showDateSeparator = !prevDate || messageDate.toDateString() !== prevDate.toDateString();
+          const prevMessageFromSameSender = (prevMessage == null ? void 0 : prevMessage.sender_id) === message.sender_id;
+          const timeDiffMinutes = prevDate ? (messageDate.getTime() - prevDate.getTime()) / 6e4 : Infinity;
+          const showTimestamp = !prevMessageFromSameSender || timeDiffMinutes > 5 || showDateSeparator;
           return /* @__PURE__ */ jsxs("div", {
             children: [showDateSeparator && /* @__PURE__ */ jsxs("div", {
               className: "flex items-center gap-4 my-6",
@@ -6320,48 +7047,90 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
                   children: "This user saved your listing. Start a conversation."
                 })]
               })
-            }) : /* @__PURE__ */ jsx("div", {
-              className: `flex ${isOwnMessage ? "justify-end" : "justify-start"}`,
-              children: /* @__PURE__ */ jsxs("div", {
-                className: `max-w-[70%] rounded-2xl px-4 py-2.5 ${isOwnMessage ? "bg-gray-200 text-gray-900 rounded-br-md" : "bg-accent-500 text-white rounded-bl-md"}`,
-                children: [/* @__PURE__ */ jsx("p", {
-                  className: "whitespace-pre-wrap break-words",
-                  children: message.content
-                }), /* @__PURE__ */ jsxs("div", {
-                  className: `flex items-center justify-end gap-1.5 text-xs mt-1 ${isOwnMessage ? "text-gray-500" : "text-accent-100"}`,
-                  children: [/* @__PURE__ */ jsx("span", {
-                    children: messageDate.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit"
-                    })
-                  }), isOwnMessage && /* @__PURE__ */ jsx("span", {
-                    className: "flex items-center",
-                    children: message.read_at ? /* @__PURE__ */ jsx("svg", {
-                      className: "w-4 h-4 text-blue-500",
-                      fill: "currentColor",
+            }) : (() => {
+              const displayContent = getDisplayContent(message);
+              return /* @__PURE__ */ jsx("div", {
+                className: `flex ${isOwnMessage ? "justify-end" : "justify-start"}`,
+                children: /* @__PURE__ */ jsxs("div", {
+                  className: `max-w-[70%] rounded-2xl px-4 py-2.5 ${isOwnMessage ? "bg-accent-100 text-gray-900 rounded-br-md" : "bg-gray-200 text-gray-900 rounded-bl-md"}`,
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: "whitespace-pre-wrap break-words",
+                    children: displayContent.content
+                  }), displayContent.isLoading && /* @__PURE__ */ jsxs("div", {
+                    className: "flex items-center gap-1.5 mt-1.5 text-xs text-gray-400",
+                    children: [/* @__PURE__ */ jsxs("svg", {
+                      className: "animate-spin h-3 w-3",
+                      fill: "none",
                       viewBox: "0 0 24 24",
-                      children: /* @__PURE__ */ jsx("path", {
-                        d: "M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"
-                      })
-                    }) : /* @__PURE__ */ jsx("svg", {
-                      className: "w-4 h-4 text-gray-400",
-                      fill: "currentColor",
+                      children: [/* @__PURE__ */ jsx("circle", {
+                        className: "opacity-25",
+                        cx: "12",
+                        cy: "12",
+                        r: "10",
+                        stroke: "currentColor",
+                        strokeWidth: "4"
+                      }), /* @__PURE__ */ jsx("path", {
+                        className: "opacity-75",
+                        fill: "currentColor",
+                        d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      })]
+                    }), /* @__PURE__ */ jsx("span", {
+                      children: "Translating..."
+                    })]
+                  }), displayContent.canToggle && /* @__PURE__ */ jsxs("button", {
+                    type: "button",
+                    onClick: () => toggleShowOriginal(message.id),
+                    className: `flex items-center gap-1 mt-1.5 text-xs transition-colors ${isOwnMessage ? "text-accent-500 hover:text-accent-700" : "text-gray-400 hover:text-gray-600"}`,
+                    children: [/* @__PURE__ */ jsx("svg", {
+                      className: "h-3 w-3",
+                      fill: "none",
                       viewBox: "0 0 24 24",
+                      stroke: "currentColor",
                       children: /* @__PURE__ */ jsx("path", {
-                        d: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
                       })
-                    })
+                    }), /* @__PURE__ */ jsx("span", {
+                      children: displayContent.showOriginal ? "Show translation" : "Auto-translated • Show original"
+                    })]
+                  }), (showTimestamp || isOwnMessage) && /* @__PURE__ */ jsxs("div", {
+                    className: `flex items-center justify-end gap-1.5 text-xs mt-1 ${isOwnMessage ? "text-accent-600" : "text-gray-500"}`,
+                    children: [showTimestamp && /* @__PURE__ */ jsx("span", {
+                      children: messageDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })
+                    }), isOwnMessage && /* @__PURE__ */ jsx("span", {
+                      className: "flex items-center",
+                      children: message.read_at ? /* @__PURE__ */ jsx("svg", {
+                        className: "w-4 h-4 text-blue-500",
+                        fill: "currentColor",
+                        viewBox: "0 0 24 24",
+                        children: /* @__PURE__ */ jsx("path", {
+                          d: "M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"
+                        })
+                      }) : /* @__PURE__ */ jsx("svg", {
+                        className: "w-4 h-4 text-gray-400",
+                        fill: "currentColor",
+                        viewBox: "0 0 24 24",
+                        children: /* @__PURE__ */ jsx("path", {
+                          d: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"
+                        })
+                      })
+                    })]
                   })]
-                })]
-              })
-            })]
+                })
+              });
+            })()]
           }, message.id);
         }), /* @__PURE__ */ jsx("div", {
           ref: messagesEndRef
         })]
       })
     }), /* @__PURE__ */ jsxs("div", {
-      className: "border-t border-gray-200 p-4 bg-white",
+      className: "border-t border-gray-200 p-4",
       children: [actionData && "error" in actionData && /* @__PURE__ */ jsx("p", {
         className: "text-sm text-red-600 mb-2",
         children: actionData.error
@@ -6382,13 +7151,12 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
         children: [/* @__PURE__ */ jsx("textarea", {
           ref: textareaRef,
           name: "content",
-          placeholder: "Type your message... (Shift+Enter for new line)",
+          placeholder: "Write a message...",
           autoComplete: "off",
           required: true,
           rows: 1,
           className: "input flex-1 resize-none py-3 min-h-[48px] max-h-[150px] overflow-hidden rounded-2xl",
           disabled: isSubmitting,
-          onKeyDown: handleKeyDown,
           onChange: handleTextareaChange
         }), /* @__PURE__ */ jsx("button", {
           type: "submit",
@@ -6427,7 +7195,7 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
     })]
   });
 });
-const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route18 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$6,
   default: messages_$id,
@@ -6723,7 +7491,7 @@ const register = UNSAFE_withComponentProps(function Register() {
     })]
   });
 });
-const route18 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$5,
   default: register,
@@ -6979,7 +7747,7 @@ const settings = UNSAFE_withComponentProps(function Settings() {
     })]
   });
 });
-const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route20 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$4,
   default: settings,
@@ -7334,7 +8102,7 @@ const contact = UNSAFE_withComponentProps(function Contact() {
     })]
   });
 });
-const route20 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route21 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$3,
   default: contact,
@@ -7358,7 +8126,7 @@ async function loader$4({
   } = await supabase.from("listings").select(`
       *,
       author:profiles(id, full_name, company_name, user_type, is_verified),
-      event:events(id, name, location, event_date)
+      event:events(id, name, slug, country, event_date)
     `).eq("status", "active").order("created_at", {
     ascending: false
   }).limit(3);
@@ -7369,50 +8137,168 @@ async function loader$4({
     } = await supabaseAdmin.from("saved_listings").select("listing_id").eq("user_id", user.id);
     savedListingIds = (savedListings == null ? void 0 : savedListings.map((s) => s.listing_id)) || [];
   }
+  const {
+    data: events
+  } = await supabase.from("events").select("id, name, country, event_date").order("event_date", {
+    ascending: true
+  });
   return {
     user,
     listings: listings || [],
-    savedListingIds
+    savedListingIds,
+    events: events || []
   };
 }
 const _index = UNSAFE_withComponentProps(function Index() {
   const {
     user,
     listings,
-    savedListingIds
+    savedListingIds,
+    events
   } = useLoaderData();
+  const navigate = useNavigate();
+  const searchRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [subjectIndex, setSubjectIndex] = useState(0);
+  const [verbIndex, setVerbIndex] = useState(0);
+  const [subjectAnimating, setSubjectAnimating] = useState(false);
+  const [verbAnimating, setVerbAnimating] = useState(false);
+  const words = [{
+    subject: "Rooms",
+    subjectColor: "text-brand-200",
+    verb: "Empty"
+  }, {
+    subject: "Bibs",
+    subjectColor: "text-purple-300",
+    verb: "Wasted"
+  }];
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSubjectAnimating(true);
+      setTimeout(() => {
+        setSubjectIndex((prev) => (prev + 1) % words.length);
+        setSubjectAnimating(false);
+      }, 600);
+      setTimeout(() => {
+        setVerbAnimating(true);
+        setTimeout(() => {
+          setVerbIndex((prev) => (prev + 1) % words.length);
+          setVerbAnimating(false);
+        }, 600);
+      }, 900);
+    }, 4e3);
+    return () => clearInterval(interval);
+  }, []);
+  const filteredEvents = searchQuery.length >= 2 ? events.filter((event) => event.name.toLowerCase().includes(searchQuery.toLowerCase()) || event.country.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5) : [];
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const handleSuggestionClick = (eventName) => {
+    setSearchQuery(eventName);
+    setShowSuggestions(false);
+    navigate(`/listings?search=${encodeURIComponent(eventName)}`);
+  };
   return /* @__PURE__ */ jsxs("div", {
     className: "min-h-full",
     children: [/* @__PURE__ */ jsx(Header, {
       user
     }), /* @__PURE__ */ jsxs("section", {
-      className: "relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800",
+      className: "relative overflow-hidden",
       children: [/* @__PURE__ */ jsx("div", {
-        className: "absolute inset-0 bg-[url('/grid.svg')] opacity-10"
+        className: "absolute inset-0 bg-[url('/hero.jpg')] bg-cover bg-center"
       }), /* @__PURE__ */ jsx("div", {
-        className: "relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8",
+        className: "absolute inset-0 bg-brand-800/70"
+      }), /* @__PURE__ */ jsx("div", {
+        className: "relative mx-auto max-w-7xl px-4 py-32 sm:py-40 lg:py-48 sm:px-6 lg:px-8",
         children: /* @__PURE__ */ jsxs("div", {
           className: "text-center",
           children: [/* @__PURE__ */ jsxs("h1", {
-            className: "font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl",
-            children: ["Don't Let Rooms", /* @__PURE__ */ jsx("span", {
-              className: "block text-brand-200",
-              children: "Go Empty"
+            className: "font-display text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl [text-shadow:0_4px_20px_rgba(0,0,0,0.7)]",
+            children: ["Don't Let", " ", /* @__PURE__ */ jsx("span", {
+              className: "inline-block w-[140px] sm:w-[175px] lg:w-[210px] text-left",
+              children: /* @__PURE__ */ jsx("span", {
+                className: `inline-block ${words[subjectIndex].subjectColor} transition-all duration-500 ${subjectAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`,
+                children: words[subjectIndex].subject
+              })
+            }), /* @__PURE__ */ jsxs("span", {
+              className: "block",
+              children: ["Go", " ", /* @__PURE__ */ jsx("span", {
+                className: "inline-block w-[145px] sm:w-[185px] lg:w-[225px] text-left",
+                children: /* @__PURE__ */ jsx("span", {
+                  className: `inline-block text-accent-400 transition-all duration-500 ${verbAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`,
+                  children: words[verbIndex].verb
+                })
+              })]
             })]
-          }), /* @__PURE__ */ jsx("p", {
-            className: "mx-auto mt-6 max-w-2xl text-lg text-brand-100",
-            children: "The marketplace for tour operators and runners to exchange unsold hotel rooms and marathon bibs. Turn cancellations into opportunities."
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row",
-            children: [/* @__PURE__ */ jsx(Link, {
-              to: "/listings",
-              className: "btn-primary text-lg px-8 py-3",
-              children: "Browse Listings"
-            }), !user && /* @__PURE__ */ jsx(Link, {
-              to: "/register",
-              className: "btn bg-white/10 text-white border border-white/20 hover:bg-white/20 text-lg px-8 py-3",
-              children: "Create Account"
-            })]
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "mx-auto mt-6 max-w-2xl text-xl sm:text-2xl text-white [text-shadow:0_4px_16px_rgba(0,0,0,0.6)]",
+            children: [/* @__PURE__ */ jsx("span", {
+              className: "font-bold",
+              children: "Your race, your community."
+            }), /* @__PURE__ */ jsx("br", {}), "Exchange rooms and bibs directly with runners like you."]
+          }), /* @__PURE__ */ jsx("div", {
+            className: "mt-10 mx-auto max-w-xl",
+            children: /* @__PURE__ */ jsxs(Form, {
+              method: "get",
+              action: "/listings",
+              className: "flex items-center gap-3",
+              children: [/* @__PURE__ */ jsxs("div", {
+                className: "relative flex-1",
+                ref: searchRef,
+                children: [/* @__PURE__ */ jsx("svg", {
+                  className: "absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10",
+                  fill: "none",
+                  viewBox: "0 0 24 24",
+                  stroke: "currentColor",
+                  children: /* @__PURE__ */ jsx("path", {
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    strokeWidth: 2,
+                    d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  })
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "search",
+                  name: "search",
+                  autoComplete: "off",
+                  placeholder: "Search by event name or location...",
+                  value: searchQuery,
+                  onChange: (e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                  },
+                  onFocus: () => setShowSuggestions(true),
+                  className: "block w-full rounded-full border-0 pl-12 pr-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-colors",
+                  style: {
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)"
+                  }
+                }), showSuggestions && filteredEvents.length > 0 && /* @__PURE__ */ jsx("div", {
+                  className: "absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden",
+                  children: filteredEvents.map((event) => /* @__PURE__ */ jsxs("button", {
+                    type: "button",
+                    onClick: () => handleSuggestionClick(event.name),
+                    className: "w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors",
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-medium text-gray-900",
+                      children: event.name
+                    }), /* @__PURE__ */ jsxs("p", {
+                      className: "text-sm text-gray-500",
+                      children: [event.country, " • ", new Date(event.event_date).toLocaleDateString()]
+                    })]
+                  }, event.id))
+                })]
+              }), /* @__PURE__ */ jsx("button", {
+                type: "submit",
+                className: "px-6 py-3 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30",
+                children: "Search"
+              })]
+            })
           })]
         })
       })]
@@ -7427,8 +8313,8 @@ const _index = UNSAFE_withComponentProps(function Index() {
             children: "Recent Listings"
           }), /* @__PURE__ */ jsx(Link, {
             to: user ? "/listings" : "/login",
-            className: "text-brand-600 hover:text-brand-700 font-medium",
-            children: "View all →"
+            className: "px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30",
+            children: "View all"
           })]
         }), /* @__PURE__ */ jsx("div", {
           className: "mt-8 hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3",
@@ -7481,7 +8367,7 @@ const _index = UNSAFE_withComponentProps(function Index() {
     })]
   });
 });
-const route21 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route22 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: _index,
   loader: loader$4,
@@ -7495,7 +8381,7 @@ async function action$2({
 async function loader$3() {
   return redirect("/");
 }
-const route22 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route23 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$2,
   loader: loader$3
@@ -7848,7 +8734,7 @@ const report = UNSAFE_withComponentProps(function Report() {
     })]
   });
 });
-const route23 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route24 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$1,
   default: report,
@@ -8044,7 +8930,7 @@ const login = UNSAFE_withComponentProps(function Login() {
     })]
   });
 });
-const route24 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route25 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action,
   default: login,
@@ -8086,7 +8972,7 @@ async function loader({
         status,
         created_at,
         author:profiles(id, full_name, company_name, user_type, is_verified),
-        event:events(id, name, location, event_date)
+        event:events(id, name, country, event_date)
       )
     `).eq("user_id", userId).order("created_at", {
     ascending: false
@@ -8159,13 +9045,13 @@ const saved = UNSAFE_withComponentProps(function SavedListings() {
     })]
   });
 });
-const route25 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route26 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: saved,
   loader,
   meta
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-oc1V4gq6.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/root-CvVTDOgD.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js"], "css": ["/assets/root-BvKy-_Mc.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id_.edit": { "id": "routes/listings.$id_.edit", "parentId": "root", "path": "listings/:id/edit", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id_.edit-Lf4nbRG0.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js", "/assets/listing-rules-CF8UguqZ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.conversations": { "id": "routes/api.conversations", "parentId": "root", "path": "api/conversations", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.conversations-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.messages.$id": { "id": "routes/api.messages.$id", "parentId": "root", "path": "api/messages/:id", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.messages._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings._index": { "id": "routes/listings._index", "parentId": "root", "path": "listings", "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._index-DFhD80nk.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js", "/assets/ListingCard-Dcc1fTSH.js", "/assets/ListingCardCompact-DjWnDw6d.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile._index": { "id": "routes/profile._index", "parentId": "root", "path": "profile", "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile._index-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.agency": { "id": "routes/profile.agency", "parentId": "root", "path": "profile/agency", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.agency-Cn0B0JvV.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.runner": { "id": "routes/profile.runner", "parentId": "root", "path": "profile/runner", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.runner-CITX_FKL.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id": { "id": "routes/listings.$id", "parentId": "root", "path": "listings/:id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id-BpFJpcA1.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id.backup": { "id": "routes/listings.$id.backup", "parentId": "routes/listings.$id", "path": "backup", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id.backup-Dyavp41U.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.new": { "id": "routes/listings.new", "parentId": "root", "path": "listings/new", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings.new-DgsuKhmc.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js", "/assets/listing-rules-CF8UguqZ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/my-listings": { "id": "routes/my-listings", "parentId": "root", "path": "my-listings", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/my-listings-BW5VOBTo.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js", "/assets/ListingCard-Dcc1fTSH.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.unread": { "id": "routes/api.unread", "parentId": "root", "path": "api/unread", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.unread-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.saved": { "id": "routes/api.saved", "parentId": "root", "path": "api/saved", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.saved-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/dashboard": { "id": "routes/dashboard", "parentId": "root", "path": "dashboard", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/dashboard-CjM3y9yf.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js", "/assets/ListingCardCompact-DjWnDw6d.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages": { "id": "routes/messages", "parentId": "root", "path": "messages", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages-udm1252x.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages._index": { "id": "routes/messages._index", "parentId": "routes/messages", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._index-Ceqc3rlG.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages.$id": { "id": "routes/messages.$id", "parentId": "routes/messages", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._id-B4xkOB6c.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/register": { "id": "routes/register", "parentId": "root", "path": "register", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/register-CEJroLj3.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/settings": { "id": "routes/settings", "parentId": "root", "path": "settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/settings-BJevAfOq.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/contact": { "id": "routes/contact", "parentId": "root", "path": "contact", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/contact-y2Y8v8BL.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/_index-CSY-wVKb.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js", "/assets/ListingCard-Dcc1fTSH.js", "/assets/ListingCardCompact-DjWnDw6d.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/logout": { "id": "routes/logout", "parentId": "root", "path": "logout", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/logout-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/report": { "id": "routes/report", "parentId": "root", "path": "report", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/report-888tCBZv.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/login": { "id": "routes/login", "parentId": "root", "path": "login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/login-Do_xhnUm.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/saved": { "id": "routes/saved", "parentId": "root", "path": "saved", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/saved-C-URFEuu.js", "imports": ["/assets/chunk-JZWAC4HX-CFbAysJh.js", "/assets/Header-CorC32aj.js", "/assets/ListingCard-Dcc1fTSH.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-4f6617cf.js", "version": "4f6617cf", "sri": void 0 };
+const serverManifest = { "entry": { "module": "/assets/entry.client-Bj2TN-Zi.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/root-s-W88QXJ.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": ["/assets/root-DPsn7tEh.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id_.edit": { "id": "routes/listings.$id_.edit", "parentId": "root", "path": "listings/:id/edit", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id_.edit-Dbvxcncd.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/listing-rules-CouRL6vW.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.conversations": { "id": "routes/api.conversations", "parentId": "root", "path": "api/conversations", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.conversations-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.messages.$id": { "id": "routes/api.messages.$id", "parentId": "root", "path": "api/messages/:id", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.messages._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings._index": { "id": "routes/listings._index", "parentId": "root", "path": "listings", "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._index-DUh5nK6L.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCard-UlCRqv1D.js", "/assets/ListingCardCompact-Bf9JPoRI.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile._index": { "id": "routes/profile._index", "parentId": "root", "path": "profile", "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile._index-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.agency": { "id": "routes/profile.agency", "parentId": "root", "path": "profile/agency", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.agency-fQhOx7kB.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.runner": { "id": "routes/profile.runner", "parentId": "root", "path": "profile/runner", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.runner-5thRFXV3.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.translate": { "id": "routes/api.translate", "parentId": "root", "path": "api/translate", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.translate-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id": { "id": "routes/listings.$id", "parentId": "root", "path": "listings/:id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id-DPbMNEYB.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id.backup": { "id": "routes/listings.$id.backup", "parentId": "routes/listings.$id", "path": "backup", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id.backup-DcgidxCD.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.new": { "id": "routes/listings.new", "parentId": "root", "path": "listings/new", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings.new-CdeuYDid.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/listing-rules-CouRL6vW.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/my-listings": { "id": "routes/my-listings", "parentId": "root", "path": "my-listings", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/my-listings-aNcJmjJx.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCard-UlCRqv1D.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.unread": { "id": "routes/api.unread", "parentId": "root", "path": "api/unread", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.unread-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.saved": { "id": "routes/api.saved", "parentId": "root", "path": "api/saved", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.saved-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/dashboard": { "id": "routes/dashboard", "parentId": "root", "path": "dashboard", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/dashboard-BKMfxwZn.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCardCompact-Bf9JPoRI.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages": { "id": "routes/messages", "parentId": "root", "path": "messages", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages-kiOI1E0s.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages._index": { "id": "routes/messages._index", "parentId": "routes/messages", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._index-DHfLeAla.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages.$id": { "id": "routes/messages.$id", "parentId": "routes/messages", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._id-BknZCwbF.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/register": { "id": "routes/register", "parentId": "root", "path": "register", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/register-DkT2czJd.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/settings": { "id": "routes/settings", "parentId": "root", "path": "settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/settings-xQ-JyM2P.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/contact": { "id": "routes/contact", "parentId": "root", "path": "contact", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/contact-DF8TJiT5.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/_index-CUR7S7Px.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCard-UlCRqv1D.js", "/assets/ListingCardCompact-Bf9JPoRI.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/logout": { "id": "routes/logout", "parentId": "root", "path": "logout", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/logout-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/report": { "id": "routes/report", "parentId": "root", "path": "report", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/report-Dq-9biZi.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/login": { "id": "routes/login", "parentId": "root", "path": "login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/login-Hkz_UgEP.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/saved": { "id": "routes/saved", "parentId": "root", "path": "saved", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/saved-CeKFT0zZ.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCard-UlCRqv1D.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-5f5c23dc.js", "version": "5f5c23dc", "sri": void 0 };
 const assetsBuildDirectory = "build/client";
 const basename = "/";
 const future = { "unstable_optimizeDeps": false, "unstable_subResourceIntegrity": false, "unstable_trailingSlashAwareDataRequests": false, "v8_middleware": false, "v8_splitRouteModules": false, "v8_viteEnvironmentApi": false };
@@ -8240,13 +9126,21 @@ const routes = {
     caseSensitive: void 0,
     module: route7
   },
+  "routes/api.translate": {
+    id: "routes/api.translate",
+    parentId: "root",
+    path: "api/translate",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route8
+  },
   "routes/listings.$id": {
     id: "routes/listings.$id",
     parentId: "root",
     path: "listings/:id",
     index: void 0,
     caseSensitive: void 0,
-    module: route8
+    module: route9
   },
   "routes/listings.$id.backup": {
     id: "routes/listings.$id.backup",
@@ -8254,7 +9148,7 @@ const routes = {
     path: "backup",
     index: void 0,
     caseSensitive: void 0,
-    module: route9
+    module: route10
   },
   "routes/listings.new": {
     id: "routes/listings.new",
@@ -8262,7 +9156,7 @@ const routes = {
     path: "listings/new",
     index: void 0,
     caseSensitive: void 0,
-    module: route10
+    module: route11
   },
   "routes/my-listings": {
     id: "routes/my-listings",
@@ -8270,7 +9164,7 @@ const routes = {
     path: "my-listings",
     index: void 0,
     caseSensitive: void 0,
-    module: route11
+    module: route12
   },
   "routes/api.unread": {
     id: "routes/api.unread",
@@ -8278,7 +9172,7 @@ const routes = {
     path: "api/unread",
     index: void 0,
     caseSensitive: void 0,
-    module: route12
+    module: route13
   },
   "routes/api.saved": {
     id: "routes/api.saved",
@@ -8286,7 +9180,7 @@ const routes = {
     path: "api/saved",
     index: void 0,
     caseSensitive: void 0,
-    module: route13
+    module: route14
   },
   "routes/dashboard": {
     id: "routes/dashboard",
@@ -8294,7 +9188,7 @@ const routes = {
     path: "dashboard",
     index: void 0,
     caseSensitive: void 0,
-    module: route14
+    module: route15
   },
   "routes/messages": {
     id: "routes/messages",
@@ -8302,7 +9196,7 @@ const routes = {
     path: "messages",
     index: void 0,
     caseSensitive: void 0,
-    module: route15
+    module: route16
   },
   "routes/messages._index": {
     id: "routes/messages._index",
@@ -8310,7 +9204,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route16
+    module: route17
   },
   "routes/messages.$id": {
     id: "routes/messages.$id",
@@ -8318,7 +9212,7 @@ const routes = {
     path: ":id",
     index: void 0,
     caseSensitive: void 0,
-    module: route17
+    module: route18
   },
   "routes/register": {
     id: "routes/register",
@@ -8326,7 +9220,7 @@ const routes = {
     path: "register",
     index: void 0,
     caseSensitive: void 0,
-    module: route18
+    module: route19
   },
   "routes/settings": {
     id: "routes/settings",
@@ -8334,7 +9228,7 @@ const routes = {
     path: "settings",
     index: void 0,
     caseSensitive: void 0,
-    module: route19
+    module: route20
   },
   "routes/contact": {
     id: "routes/contact",
@@ -8342,7 +9236,7 @@ const routes = {
     path: "contact",
     index: void 0,
     caseSensitive: void 0,
-    module: route20
+    module: route21
   },
   "routes/_index": {
     id: "routes/_index",
@@ -8350,7 +9244,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route21
+    module: route22
   },
   "routes/logout": {
     id: "routes/logout",
@@ -8358,7 +9252,7 @@ const routes = {
     path: "logout",
     index: void 0,
     caseSensitive: void 0,
-    module: route22
+    module: route23
   },
   "routes/report": {
     id: "routes/report",
@@ -8366,7 +9260,7 @@ const routes = {
     path: "report",
     index: void 0,
     caseSensitive: void 0,
-    module: route23
+    module: route24
   },
   "routes/login": {
     id: "routes/login",
@@ -8374,7 +9268,7 @@ const routes = {
     path: "login",
     index: void 0,
     caseSensitive: void 0,
-    module: route24
+    module: route25
   },
   "routes/saved": {
     id: "routes/saved",
@@ -8382,7 +9276,7 @@ const routes = {
     path: "saved",
     index: void 0,
     caseSensitive: void 0,
-    module: route25
+    module: route26
   }
 };
 const allowedActionOrigins = false;

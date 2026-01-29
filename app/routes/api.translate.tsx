@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { data } from "react-router";
 import { getUser } from "~/lib/session.server";
-import { createClient } from "~/lib/supabase.server";
+import { supabaseAdmin } from "~/lib/supabase.server";
 import { translateText, isSameLanguage } from "~/lib/translate.server";
 
 /**
@@ -39,10 +39,8 @@ export async function action({ request }: ActionFunctionArgs) {
       return data({ error: "Missing messageId or targetLanguage" }, { status: 400 });
     }
 
-    const supabase = createClient(request);
-
     // Recupera il messaggio
-    const { data: message, error: fetchError } = await supabase
+    const { data: message, error: fetchError } = await supabaseAdmin
       .from("messages")
       .select("id, content, detected_language, translated_content, translated_to, conversation_id")
       .eq("id", messageId)
@@ -53,7 +51,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Verifica che l'utente sia partecipante della conversazione
-    const { data: conversation } = await supabase
+    const { data: conversation } = await supabaseAdmin
       .from("conversations")
       .select("participant_1, participant_2")
       .eq("id", message.conversation_id)
@@ -82,7 +80,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // Se la lingua rilevata è uguale a quella target, non serve traduzione
     if (isSameLanguage(translation.detectedSourceLanguage, targetLanguage)) {
       // Salva solo la lingua rilevata, senza traduzione
-      await supabase
+      await supabaseAdmin
         .from("messages")
         .update({ detected_language: translation.detectedSourceLanguage })
         .eq("id", messageId);
@@ -95,7 +93,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Salva la traduzione nel database
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from("messages")
       .update({
         detected_language: translation.detectedSourceLanguage,
