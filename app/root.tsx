@@ -2,6 +2,7 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from "
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { getUser, getAccessToken } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import CookieBanner from "~/components/CookieBanner";
 import "./styles/tailwind.css";
 
 export const links: LinksFunction = () => [
@@ -82,6 +83,7 @@ export default function App() {
         }}
       />
       <Outlet />
+      <CookieBanner />
     </>
   );
 }

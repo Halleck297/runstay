@@ -52,11 +52,11 @@ export function Header({ user }: HeaderProps) {
         <div className="flex h-20 items-center justify-between">
           
           {/* Logo */}
-          <Link to="/" className="flex items-center -ml-6">
+          <Link to="/" className="flex items-center -ml-6 mt-2">
            <img
-             src="/logo.png"
+             src="/logo.svg"
              alt="Runoot"
-             className="h-12 w-auto"
+             className="h-32 w-auto"
            />
          </Link>
 
