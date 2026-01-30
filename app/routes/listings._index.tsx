@@ -173,10 +173,10 @@ export default function Listings() {
 
   return (
     <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
-      <div className="min-h-screen bg-gray-50/85">
+      <div className="min-h-screen bg-gray-50/85 flex flex-col">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 flex-grow w-full">
           {/* Page header with Search and Filters */}
           <div className="relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
             <h1 className="font-display text-3xl font-bold text-gray-900">
@@ -187,9 +187,9 @@ export default function Listings() {
             </p>
 
             {/* Search Bar with Autocomplete */}
-            <Form method="get" name="listing-search" className="flex items-center mb-6">
+            <Form method="get" name="listing-search" className="mb-6">
               <input type="hidden" name="type" value={currentType} />
-              <div className="relative flex-1 max-w-xl" ref={searchRef}>
+              <div className="relative max-w-xl" ref={searchRef}>
                 <svg
                   className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"
                   fill="none"
@@ -208,15 +208,21 @@ export default function Listings() {
                   id="listing-search"
                   name="search"
                   autoComplete="off"
-                  placeholder="Search by event name or location..."
+                  placeholder="Search event name..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setShowSuggestions(true);
                   }}
                   onFocus={() => setShowSuggestions(true)}
-                  className="block w-full rounded-lg border-0 pl-12 pr-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 transition-colors shadow-md ring-1 ring-gray-200"
+                  className="block w-full rounded-full border-0 pl-12 pr-20 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-colors shadow-md ring-1 ring-gray-200"
                 />
+                <button
+                  type="submit"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-5 py-2 bg-accent-500 text-white text-sm font-medium rounded-full hover:bg-accent-600 transition-all"
+                >
+                  Search
+                </button>
 
                 {/* Autocomplete Dropdown */}
                 {showSuggestions && filteredEvents.length > 0 && (
@@ -237,12 +243,6 @@ export default function Listings() {
                   </div>
                 )}
               </div>
-              <button
-                type="submit"
-                className="ml-6 px-8 py-2.5 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30"
-              >
-                Search
-              </button>
             </Form>
 
             {/* Category Filter Buttons + Sort Dropdown */}
@@ -256,7 +256,7 @@ export default function Listings() {
                 <a
                   key={category.value}
                   href={category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${
                     currentType === category.value
                       ? "bg-brand-500 text-white"
                       : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
@@ -266,10 +266,8 @@ export default function Listings() {
                 </a>
               ))}
 
-              {/* Sort Dropdown - pushed to the right */}
-              <div className="ml-auto">
-                <SortDropdown value={sortBy} onChange={setSortBy} />
-              </div>
+              {/* Sort Dropdown */}
+              <SortDropdown value={sortBy} onChange={setSortBy} />
             </div>
           </div>
 

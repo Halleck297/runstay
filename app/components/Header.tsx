@@ -17,6 +17,26 @@ export function Header({ user }: HeaderProps) {
   const fetcher = useFetcher<{ unreadCount: number }>();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isPollingRef = useRef(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Chiudi menu quando si clicca fuori (per mobile)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside as any);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside as any);
+    };
+  }, [isMenuOpen]);
 
   // Polling per il conteggio messaggi non letti
   useEffect(() => {
@@ -48,9 +68,21 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
-      <div className="mx-auto max-w-7xl px-0">
-        <div className="flex h-20 items-center justify-between">
-          
+      <div className="mx-auto max-w-7xl px-4 md:px-0">
+        {/* Mobile Header */}
+        <div className="flex md:hidden h-14 items-center justify-center">
+          <Link to="/" className="flex items-center">
+            <img
+              src="/logo.svg"
+              alt="Runoot"
+              className="h-20 w-auto"
+            />
+          </Link>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden md:flex h-20 items-center justify-between">
+
           {/* Logo */}
           <Link to="/" className="flex items-center mt-2">
            <img
@@ -60,9 +92,8 @@ export function Header({ user }: HeaderProps) {
            />
          </Link>
 
-
 {/* Center Navigation Links */}
-<nav className="hidden md:flex items-center gap-10 flex-1 justify-center">
+<nav className="flex items-center gap-10 flex-1 justify-center">
   <Link
     to="/listings"
     className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
@@ -80,24 +111,26 @@ export function Header({ user }: HeaderProps) {
 {/* Right Side Navigation */}
 {user ? (
   <nav className="flex items-center">
-    <div className="flex items-center gap-6">
+    <div className="hidden md:flex items-center gap-6">
 
-      {/* User menu dropdown */}
+      {/* User menu dropdown - hidden on mobile, shown on desktop */}
 <div
+  ref={menuRef}
   className="relative"
   onMouseEnter={() => setIsMenuOpen(true)}
   onMouseLeave={() => setIsMenuOpen(false)}
 >
 <button
+  onClick={() => setIsMenuOpen(!isMenuOpen)}
   className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-full bg-white hover:bg-gray-50 text-gray-900 transition-colors"
 >
   {/* Pallino rosso notifiche */}
   {unreadCount > 0 && (
     <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
   )}
-  <span className="text-sm font-bold">{user.full_name || user.email}</span>
+  <span className="text-sm font-bold max-w-[150px] truncate">{user.full_name || user.email}</span>
   <svg
-    className={`h-4 w-4 text-gray-500 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
+    className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${isMenuOpen ? 'rotate-180' : ''}`}
     fill="none"
     viewBox="0 0 24 24"
     stroke="currentColor"
@@ -114,7 +147,7 @@ export function Header({ user }: HeaderProps) {
             
             
             {/* Menu */}
-            <div className="absolute right-0 top-full w-56 rounded-2xl bg-white shadow-lg border border-gray-200 py-2 z-20">
+            <div className="absolute right-0 top-full w-48 sm:w-56 rounded-2xl bg-white shadow-lg border border-gray-200 py-2 z-20">
 
               {/* Dashboard - solo per Tour Operators */}
 {user.user_type === "tour_operator" && (
@@ -211,16 +244,15 @@ export function Header({ user }: HeaderProps) {
         )}
       </div>
 
-      {/* Bottone New Listing */}
+      {/* Bottone New Listing - hidden on mobile */}
       <Link
         to="/listings/new"
-        className="btn-primary flex items-center gap-2 px-8 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30 mr-6"
+        className="btn-primary flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30 mr-6"
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
-        <span className="hidden sm:inline">New Listing</span>
-        <span className="sm:hidden">New</span>
+        <span>New Listing</span>
       </Link>
     </div>
   </nav>
@@ -234,8 +266,6 @@ export function Header({ user }: HeaderProps) {
     </Link>
   </nav>
 )}
-
-
 
         </div>
       </div>

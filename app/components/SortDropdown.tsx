@@ -38,7 +38,7 @@ export function SortDropdown({ value, onChange }: SortDropdownProps) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors shadow-md"
+        className="flex items-center gap-1.5 px-3 py-2 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors"
       >
         <svg
           className="h-4 w-4 text-gray-500"
@@ -53,7 +53,6 @@ export function SortDropdown({ value, onChange }: SortDropdownProps) {
             d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
           />
         </svg>
-        <span className="text-sm">{selectedOption.label}</span>
         <svg
           className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
           fill="none"

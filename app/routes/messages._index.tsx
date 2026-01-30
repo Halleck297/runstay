@@ -6,8 +6,10 @@ export const meta: MetaFunction = () => {
 };
 
 export default function MessagesIndex() {
+  // This component is shown only on desktop when no conversation is selected
+  // On mobile, the sidebar (conversation list) is shown instead
   return (
-    <div className="flex-1 flex items-center justify-center bg-white/95 backdrop-blur-sm rounded-r-lg">
+    <div className="hidden md:flex flex-1 items-center justify-center bg-white/95 backdrop-blur-sm rounded-r-lg">
       <div className="text-center p-8">
         <svg
           className="mx-auto h-16 w-16 text-gray-300"

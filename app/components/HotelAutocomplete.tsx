@@ -1,6 +1,6 @@
 /// <reference types="@types/google.maps" />
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface Hotel {
   placeId: string;
@@ -23,6 +23,18 @@ interface HotelAutocompleteProps {
   hasError?: boolean;
 }
 
+// Extend Window to include google maps types
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'gmp-place-autocomplete': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & {
+        placeholder?: string;
+        'country-codes'?: string;
+      }, HTMLElement>;
+    }
+  }
+}
+
 export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, defaultHotelName, hasError }: HotelAutocompleteProps) {
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(() => {
     if (defaultHotelName) {
@@ -37,93 +49,146 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
     return null;
   });
   const [showManualForm, setShowManualForm] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const autocompleteRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    if (!inputRef.current || !apiKey) return;
+  // Memoize the place select handler
+  const handlePlaceSelect = useCallback(async (event: any) => {
+    const place = event.place;
 
-    // Load Google Places API
-    const loadGooglePlaces = async () => {
-      if (!(window as any).google) {
-        const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
+    if (!place) return;
 
-        script.onload = () => {
-          initAutocomplete();
-        };
-      } else {
-        initAutocomplete();
+    // Fetch additional fields
+    await place.fetchFields({
+      fields: ["id", "displayName", "formattedAddress", "addressComponents", "location", "rating", "websiteURI"],
+    });
+
+    // Extract city and country from address components
+    let city = "";
+    let country = "";
+
+    place.addressComponents?.forEach((component: any) => {
+      if (component.types.includes("locality")) {
+        city = component.longText;
       }
+      if (component.types.includes("country")) {
+        country = component.longText;
+      }
+    });
+
+    const hotel: Hotel = {
+      placeId: place.id || "",
+      name: place.displayName || "",
+      city,
+      country,
+      formattedAddress: place.formattedAddress || "",
+      lat: place.location?.lat(),
+      lng: place.location?.lng(),
+      rating: place.rating,
+      website: place.websiteURI,
     };
 
+    setSelectedHotel(hotel);
+    onSelectHotel(hotel);
+  }, [onSelectHotel]);
+
+  useEffect(() => {
+    if (!apiKey) return;
+
+    const SCRIPT_ID = "google-maps-script";
+
     const initAutocomplete = () => {
-      if (!inputRef.current) return;
+      if (!containerRef.current || autocompleteRef.current) return;
 
-      autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
-        types: ["lodging"],
-        fields: ["place_id", "name", "formatted_address", "address_components", "geometry", "rating", "website"],
-      });
+      // Create the gmp-place-autocomplete element
+      const autocomplete = document.createElement("gmp-place-autocomplete");
+      autocomplete.setAttribute("placeholder", "Start typing hotel name or city...");
 
-         // Set location bias if event city is provided
-      if (eventCity && eventCountry) {
+      // Set country restriction if available
+      if (eventCountry) {
         const countryCode = getCountryCode(eventCountry);
         if (countryCode) {
-          autocompleteRef.current.setComponentRestrictions({
-            country: countryCode,
-          });
+          autocomplete.setAttribute("country-codes", countryCode);
         }
       }
-      autocompleteRef.current.addListener("place_changed", () => {
-        const place = autocompleteRef.current?.getPlace();
 
-        if (!place || !place.place_id) return;
+      // Configure for lodging only
+      (autocomplete as any).includedPrimaryTypes = ["lodging"];
 
-        // Extract city and country from address_components
-        let city = "";
-        let country = "";
+      // Add event listener for place selection
+      autocomplete.addEventListener("gmp-placeselect", handlePlaceSelect);
 
-        place.address_components?.forEach((component: google.maps.GeocoderAddressComponent) => {
-          if (component.types.includes("locality")) {
-            city = component.long_name;
+      // Style the container
+      autocomplete.style.width = "100%";
+
+      // Append to container
+      containerRef.current.appendChild(autocomplete);
+      autocompleteRef.current = autocomplete;
+      setIsLoaded(true);
+    };
+
+    const loadGooglePlaces = () => {
+      // Check if Google Maps is already fully loaded
+      if ((window as any).google?.maps?.places?.PlaceAutocompleteElement) {
+        initAutocomplete();
+        return;
+      }
+
+      // Check if script already exists in DOM
+      const existingScript = document.getElementById(SCRIPT_ID);
+
+      if (existingScript) {
+        // Script exists, wait for it to load
+        if ((window as any).google?.maps?.places?.PlaceAutocompleteElement) {
+          initAutocomplete();
+        } else {
+          existingScript.addEventListener("load", initAutocomplete);
+        }
+        return;
+      }
+
+      // Create and add script
+      const script = document.createElement("script");
+      script.id = SCRIPT_ID;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        // Wait a bit for Google Maps to fully initialize
+        const checkReady = setInterval(() => {
+          if ((window as any).google?.maps?.places?.PlaceAutocompleteElement) {
+            clearInterval(checkReady);
+            initAutocomplete();
           }
-          if (component.types.includes("country")) {
-            country = component.long_name;
-          }
-        });
-
-        const hotel: Hotel = {
-          placeId: place.place_id,
-          name: place.name || "",
-          city,
-          country,
-          formattedAddress: place.formatted_address || "",
-          lat: place.geometry?.location?.lat(),
-          lng: place.geometry?.location?.lng(),
-          rating: place.rating,
-          website: place.website, 
-        };
-
-        setSelectedHotel(hotel);
-        onSelectHotel(hotel);
-      });
+        }, 100);
+      };
+      document.head.appendChild(script);
     };
 
     loadGooglePlaces();
-  }, [apiKey, onSelectHotel]);
+
+    // Cleanup
+    return () => {
+      if (autocompleteRef.current) {
+        autocompleteRef.current.removeEventListener("gmp-placeselect", handlePlaceSelect);
+      }
+    };
+  }, [apiKey, eventCountry, handlePlaceSelect]);
 
   const handleChange = () => {
     setSelectedHotel(null);
     onSelectHotel(null);
+    // Reset autocomplete
+    if (autocompleteRef.current) {
+      (autocompleteRef.current as any).value = "";
+    }
   };
 
   const handleManualSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     const manualHotel: Hotel = {
       placeId: "",
       name: formData.get("manualHotelName") as string,
@@ -137,29 +202,33 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
     setShowManualForm(false);
   };
 
-return (
-  <div>
-    {!selectedHotel ? (
-      <div className="space-y-3">
-        {/* Hidden inputs for form submission - SPOSTATI QUI */}
-        <input type="hidden" name="hotelPlaceId" value="" />
-        <input type="hidden" name="hotelName" value="" />
-        <input type="hidden" name="hotelCity" value="" />
-        <input type="hidden" name="hotelCountry" value="" />
-        <input type="hidden" name="hotelLat" value="" />
-        <input type="hidden" name="hotelLng" value="" />
-        <input type="hidden" name="hotelRating" value="" />
-        <input type="hidden" name="hotelWebsite" value="" />
-        
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Start typing hotel name or city..."
-          className={`input ${hasError ? "border-red-500 ring-1 ring-red-500" : ""}`}
-          onChange={handleChange}
-        />
-          
-                    <button
+  return (
+    <div>
+      {!selectedHotel ? (
+        <div className="space-y-3">
+          {/* Hidden inputs for form submission */}
+          <input type="hidden" name="hotelPlaceId" value="" />
+          <input type="hidden" name="hotelName" value="" />
+          <input type="hidden" name="hotelCity" value="" />
+          <input type="hidden" name="hotelCountry" value="" />
+          <input type="hidden" name="hotelLat" value="" />
+          <input type="hidden" name="hotelLng" value="" />
+          <input type="hidden" name="hotelRating" value="" />
+          <input type="hidden" name="hotelWebsite" value="" />
+
+          {/* Google Places Autocomplete Container */}
+          <div
+            ref={containerRef}
+            className={`gmp-autocomplete-container ${hasError ? "has-error" : ""}`}
+          />
+
+          {!isLoaded && (
+            <div className="input text-gray-400 animate-pulse">
+              Loading hotel search...
+            </div>
+          )}
+
+          <button
             type="button"
             onClick={() => setShowManualForm(!showManualForm)}
             className="mt-2 inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors"
@@ -241,16 +310,16 @@ return (
         </div>
       ) : (
         <div className="flex items-center justify-between rounded-lg border border-green-500 bg-green-50 p-4">
-            {/* Hidden inputs quando hotel è selezionato */}
-            <input type="hidden" name="hotelPlaceId" value={selectedHotel?.placeId || ""} />
-            <input type="hidden" name="hotelName" value={selectedHotel?.name || ""} />
-            <input type="hidden" name="hotelCity" value={selectedHotel?.city || ""} />
-            <input type="hidden" name="hotelCountry" value={selectedHotel?.country || ""} />
-            <input type="hidden" name="hotelLat" value={selectedHotel?.lat || ""} />
-            <input type="hidden" name="hotelLng" value={selectedHotel?.lng || ""} />
-            <input type="hidden" name="hotelRating" value={selectedHotel?.rating || ""} />
-            <input type="hidden" name="hotelWebsite" value={selectedHotel?.website || ""} />
-            
+          {/* Hidden inputs quando hotel è selezionato */}
+          <input type="hidden" name="hotelPlaceId" value={selectedHotel?.placeId || ""} />
+          <input type="hidden" name="hotelName" value={selectedHotel?.name || ""} />
+          <input type="hidden" name="hotelCity" value={selectedHotel?.city || ""} />
+          <input type="hidden" name="hotelCountry" value={selectedHotel?.country || ""} />
+          <input type="hidden" name="hotelLat" value={selectedHotel?.lat || ""} />
+          <input type="hidden" name="hotelLng" value={selectedHotel?.lng || ""} />
+          <input type="hidden" name="hotelRating" value={selectedHotel?.rating || ""} />
+          <input type="hidden" name="hotelWebsite" value={selectedHotel?.website || ""} />
+
           <div className="flex items-center gap-2">
             <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -275,9 +344,52 @@ return (
           </button>
         </div>
       )}
+
+      {/* Styles for Google Places Autocomplete */}
+      <style>{`
+        .gmp-autocomplete-container {
+          width: 100%;
+        }
+        .gmp-autocomplete-container gmp-place-autocomplete {
+          width: 100%;
+          --gmp-color-surface: #ffffff;
+          --gmp-color-on-surface: #111827;
+          --gmp-color-on-surface-variant: #6b7280;
+          --gmp-color-primary: #16a34a;
+          --gmp-color-outline: #d1d5db;
+        }
+        .gmp-autocomplete-container gmp-place-autocomplete::part(input) {
+          width: 100%;
+          padding: 0.625rem 0.875rem;
+          border: 1px solid #d1d5db;
+          border-radius: 0.5rem;
+          font-size: 0.875rem;
+          line-height: 1.25rem;
+          background-color: #ffffff;
+          color: #111827;
+          transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        .gmp-autocomplete-container gmp-place-autocomplete::part(input)::placeholder {
+          color: #9ca3af;
+        }
+        .gmp-autocomplete-container gmp-place-autocomplete::part(input):focus {
+          outline: none;
+          border-color: #16a34a;
+          box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+        }
+        .gmp-autocomplete-container.has-error gmp-place-autocomplete::part(input) {
+          border-color: #ef4444;
+          box-shadow: 0 0 0 1px #ef4444;
+        }
+        /* Force light theme on dropdown */
+        gmp-place-autocomplete {
+          color-scheme: light;
+        }
+      `}</style>
     </div>
   );
 }
+
 // Helper to convert country name to ISO code for Google API
 function getCountryCode(countryName: string): string {
   const countryMap: Record<string, string> = {
@@ -291,8 +403,41 @@ function getCountryCode(countryName: string): string {
     "Spain": "ES",
     "Japan": "JP",
     "Netherlands": "NL",
-    // Add more as needed
+    "Greece": "GR",
+    "Portugal": "PT",
+    "Austria": "AT",
+    "Switzerland": "CH",
+    "Belgium": "BE",
+    "Poland": "PL",
+    "Czech Republic": "CZ",
+    "Sweden": "SE",
+    "Norway": "NO",
+    "Denmark": "DK",
+    "Finland": "FI",
+    "Ireland": "IE",
+    "Australia": "AU",
+    "Canada": "CA",
+    "Brazil": "BR",
+    "Argentina": "AR",
+    "Mexico": "MX",
+    "South Africa": "ZA",
+    "Kenya": "KE",
+    "Morocco": "MA",
+    "Egypt": "EG",
+    "China": "CN",
+    "South Korea": "KR",
+    "Singapore": "SG",
+    "Thailand": "TH",
+    "Malaysia": "MY",
+    "Indonesia": "ID",
+    "Vietnam": "VN",
+    "India": "IN",
+    "United Arab Emirates": "AE",
+    "Israel": "IL",
+    "Turkey": "TR",
+    "Russia": "RU",
+    "New Zealand": "NZ",
   };
-  
+
   return countryMap[countryName] || "";
 }

@@ -7,6 +7,18 @@
     @apply scroll-smooth;
   }
 
+  /* Safe area for mobile bottom nav */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* Add padding to body for mobile nav */
+  @media (max-width: 767px) {
+    body {
+      padding-bottom: 4rem; /* h-16 = 4rem */
+    }
+  }
+
   @keyframes scale-in {
     0% {
       transform: scale(0);

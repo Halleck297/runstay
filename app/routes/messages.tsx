@@ -36,8 +36,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return conv.listing?.author_id === userId;
   });
 
-  // Auto-redirect to most recent conversation if on /messages (not /messages/:id)
-  if (url.pathname === "/messages" && conversations && conversations.length > 0) {
+  // Auto-redirect to most recent conversation ONLY on desktop
+  // On mobile, we want to show the conversation list first
+  // We detect mobile via user-agent (not perfect but good enough for initial load)
+  const userAgent = request.headers.get("user-agent") || "";
+  const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+
+  if (url.pathname === "/messages" && conversations && conversations.length > 0 && !isMobile) {
     return redirect(`/messages/${(conversations[0] as any).id}`);
   }
 
@@ -71,7 +76,7 @@ export default function MessagesLayout() {
   });
 
     return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-[calc(100vh-4rem)] md:h-screen flex flex-col bg-gray-50">
       <Header user={user} />
 
       <div
@@ -79,12 +84,14 @@ export default function MessagesLayout() {
         style={{ backgroundImage: "url('/messages.webp')" }}
       >
         <div className="h-full bg-gray-50/70">
-          <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 py-16">
-          <div className="flex h-full rounded-lg shadow-xl overflow-hidden">
+          <div className="mx-auto max-w-7xl h-full px-0 md:px-4 lg:px-8 py-0 md:py-8">
+          <div className="flex h-full md:rounded-lg shadow-xl overflow-hidden">
 
         {/* Colonna sinistra: Lista conversazioni */}
+        {/* Mobile: mostra solo quando NON c'è conversazione attiva */}
+        {/* Desktop: mostra sempre */}
         <aside
-          className={`w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-sm rounded-l-lg flex flex-col overflow-hidden border-r border-gray-200 ${
+          className={`w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-sm md:rounded-l-lg flex flex-col overflow-hidden border-r border-gray-200 ${
             activeConversationId ? "hidden md:flex" : "flex"
           }`}
         >

@@ -136,8 +136,8 @@ export default function Index() {
         <div className="relative mx-auto max-w-7xl px-4 py-32 sm:py-40 lg:py-48 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="font-display text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl [text-shadow:0_4px_20px_rgba(0,0,0,0.7)]">
-              Don't Let{" "}
-              <span className="inline-block w-[140px] sm:w-[175px] lg:w-[210px] text-left">
+              <span className="block">Don't Let</span>
+              <span className="block">
                 <span
                   className={`inline-block ${words[subjectIndex].subjectColor} transition-all duration-500 ${
                     subjectAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
@@ -146,16 +146,14 @@ export default function Index() {
                   {words[subjectIndex].subject}
                 </span>
               </span>
+              <span className="block">Go</span>
               <span className="block">
-                Go{" "}
-                <span className="inline-block w-[145px] sm:w-[185px] lg:w-[225px] text-left">
-                  <span
-                    className={`inline-block text-accent-400 transition-all duration-500 ${
-                      verbAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
-                    }`}
-                  >
-                    {words[verbIndex].verb}
-                  </span>
+                <span
+                  className={`inline-block text-accent-400 transition-all duration-500 ${
+                    verbAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
+                  }`}
+                >
+                  {words[verbIndex].verb}
                 </span>
               </span>
             </h1>
@@ -167,8 +165,8 @@ export default function Index() {
 
             {/* Search Bar */}
             <div className="mt-10 mx-auto max-w-xl">
-              <Form method="get" action="/listings" className="flex items-center gap-3">
-                <div className="relative flex-1" ref={searchRef}>
+              <Form method="get" action="/listings" className="flex flex-col items-center gap-8">
+                <div className="relative w-full" ref={searchRef}>
                   <svg
                     className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"
                     fill="none"
@@ -218,7 +216,7 @@ export default function Index() {
                 </div>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30"
+                  className="px-8 py-3 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30"
                 >
                   Search
                 </button>
@@ -238,9 +236,10 @@ export default function Index() {
         <h2 className="font-display text-3xl font-bold text-gray-900">
           Recent Listings
         </h2>
+        {/* View all - hidden on mobile, shown in header on desktop */}
         <Link
           to={user ? "/listings" : "/login"}
-          className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
+          className="hidden md:inline-block px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
         >
           View all
         </Link>
@@ -258,6 +257,16 @@ export default function Index() {
         {listings.map((listing: any) => (
           <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} />
         ))}
+      </div>
+
+      {/* Mobile: View all button centered below cards */}
+      <div className="mt-6 flex justify-center md:hidden">
+        <Link
+          to={user ? "/listings" : "/login"}
+          className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
+        >
+          View all
+        </Link>
       </div>
     </div>
   </section>

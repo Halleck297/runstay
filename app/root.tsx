@@ -3,6 +3,7 @@ import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { getUser, getAccessToken } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import CookieBanner from "~/components/CookieBanner";
+import { MobileNav } from "~/components/MobileNav";
 import "./styles/tailwind.css";
 
 export const links: LinksFunction = () => [
@@ -73,7 +74,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { ENV } = useLoaderData<typeof loader>();
+  const { user, ENV } = useLoaderData<typeof loader>();
 
   return (
     <>
@@ -84,6 +85,7 @@ export default function App() {
       />
       <Outlet />
       <CookieBanner />
+      <MobileNav user={user} />
     </>
   );
 }
