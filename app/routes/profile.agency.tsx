@@ -51,6 +51,16 @@ export async function action({ request }: ActionFunctionArgs) {
     full_name: fullName,
     company_name: companyName,
     phone: (phone as string) || null,
+    bio: (bio as string) || null,
+    country: (country as string) || null,
+    city: (city as string) || null,
+    website: (website as string) || null,
+    languages: (languages as string) || null,
+    years_experience: yearsExperience ? parseInt(yearsExperience as string) : null,
+    specialties: (specialties as string) || null,
+    instagram: (instagram as string) || null,
+    facebook: (facebook as string) || null,
+    linkedin: (linkedin as string) || null,
   };
 
   const { error } = await (supabase
@@ -239,6 +249,7 @@ export default function OperatorProfile() {
                     name="bio"
                     rows={4}
                     className="input"
+                    defaultValue={user.bio || ""}
                     placeholder="Tell buyers about your company, experience, and services..."
                   />
                   <p className="mt-1 text-xs text-gray-500">
@@ -256,6 +267,7 @@ export default function OperatorProfile() {
                       name="country"
                       type="text"
                       className="input"
+                      defaultValue={user.country || ""}
                       placeholder="Italy"
                     />
                   </div>
@@ -268,6 +280,7 @@ export default function OperatorProfile() {
                       name="city"
                       type="text"
                       className="input"
+                      defaultValue={user.city || ""}
                       placeholder="Milan"
                     />
                   </div>
@@ -282,6 +295,7 @@ export default function OperatorProfile() {
                     name="website"
                     type="url"
                     className="input"
+                    defaultValue={user.website || ""}
                     placeholder="https://www.yourcompany.com"
                   />
                 </div>
@@ -295,6 +309,7 @@ export default function OperatorProfile() {
                     name="languages"
                     type="text"
                     className="input"
+                    defaultValue={user.languages || ""}
                     placeholder="Italian, English, Spanish"
                   />
                   <p className="mt-1 text-xs text-gray-500">
@@ -321,6 +336,7 @@ export default function OperatorProfile() {
                     type="number"
                     min="0"
                     className="input"
+                    defaultValue={user.years_experience || ""}
                     placeholder="5"
                   />
                 </div>
@@ -334,6 +350,7 @@ export default function OperatorProfile() {
                     name="specialties"
                     rows={3}
                     className="input"
+                    defaultValue={user.specialties || ""}
                     placeholder="Marathon packages, accommodation booking, group tours, race registration assistance..."
                   />
                 </div>
@@ -360,6 +377,7 @@ export default function OperatorProfile() {
                       name="instagram"
                       type="text"
                       className="input pl-8"
+                      defaultValue={user.instagram || ""}
                       placeholder="companyname"
                     />
                   </div>
@@ -374,6 +392,7 @@ export default function OperatorProfile() {
                     name="facebook"
                     type="url"
                     className="input"
+                    defaultValue={user.facebook || ""}
                     placeholder="https://facebook.com/yourcompany"
                   />
                 </div>
@@ -387,6 +406,7 @@ export default function OperatorProfile() {
                     name="linkedin"
                     type="url"
                     className="input"
+                    defaultValue={user.linkedin || ""}
                     placeholder="https://linkedin.com/company/yourcompany"
                   />
                 </div>

@@ -58,11 +58,12 @@ export default function MyListings() {
   const totalListings = activeListings.length + endedListings.length;
 
   return (
-    <div className="min-h-full bg-gray-50">
-      <Header user={user} />
+    <div className="min-h-full bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
+      <div className="min-h-full bg-gray-50/85">
+        <Header user={user} />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-center justify-between">
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6 flex items-center justify-between">
           <div>
             <h1 className="font-display text-3xl font-bold text-gray-900">
               My Listings
@@ -73,9 +74,11 @@ export default function MyListings() {
                 : `You have ${totalListings} listing${totalListings > 1 ? "s" : ""}`}
             </p>
           </div>
-          <Link to="/listings/new" className="btn-primary">
-            + New Listing
-          </Link>
+          {activeListings.length > 0 && (
+            <span className="font-display text-xl font-semibold text-gray-900">
+              Active ({activeListings.length})
+            </span>
+          )}
         </div>
 
         {totalListings > 0 ? (
@@ -83,9 +86,6 @@ export default function MyListings() {
             {/* Active Listings */}
             {activeListings.length > 0 && (
               <section>
-                <h2 className="font-display text-xl font-semibold text-gray-900 mb-4">
-                  Active ({activeListings.length})
-                </h2>
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {activeListings.map((listing: any) => (
                     <ListingCard key={listing.id} listing={listing} isUserLoggedIn={true} />
@@ -131,12 +131,13 @@ export default function MyListings() {
             <p className="text-gray-500 mb-6">
               Create your first listing to start exchanging rooms or bibs with other runners.
             </p>
-            <Link to="/listings/new" className="btn-primary">
+            <Link to="/listings/new" className="btn-primary rounded-full">
               Create your first listing
             </Link>
           </div>
         )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

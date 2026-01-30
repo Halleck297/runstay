@@ -5,6 +5,7 @@ import { useState } from "react";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
+import { FooterLight } from "~/components/FooterLight";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: (data as any)?.listing?.title || "Listing - Runoot" }];
@@ -227,49 +228,59 @@ export default function ListingDetail() {
     : "Comparable hotels from €200+";
 
   return (
-    <div className="min-h-full bg-gray-50">
-      <Header user={user} />
+    <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
+      <div className="min-h-screen bg-gray-50/85">
+        <Header user={user} />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* Back link */}
-        <Link
-          to="/listings"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 mb-6"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to listings
-        </Link>
+        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          {/* Back link */}
+          <div className="mb-4">
+            <Link
+              to="/listings"
+              className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 underline"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to listings
+            </Link>
+          </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Main content - 2 colonne */}
-          <div className="lg:col-span-2 space-y-6">
-
-            {/* Event Image */}
-            <div className="relative rounded-xl overflow-hidden shadow-lg">
-              <img
-                src={`/events/${getEventSlug(listingData.event)}.jpg`}
-                alt={listingData.event.name}
-                className="w-full aspect-video object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
+          {/* Event Image Banner */}
+          <div className="rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.15)] mb-6">
+            <img
+              src={`/banners/${getEventSlug(listingData.event)}.jpg`}
+              alt={listingData.event.name}
+              className="w-full aspect-[3/1] object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                // Try fallback to /events/ folder
+                if (!target.dataset.triedFallback) {
+                  target.dataset.triedFallback = "true";
+                  target.src = `/events/${getEventSlug(listingData.event)}.jpg`;
+                } else {
+                  // Show gradient fallback
                   target.style.display = 'none';
                   const fallback = target.nextElementSibling as HTMLElement;
                   if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-              <div className="w-full aspect-video bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center" style={{ display: 'none' }}>
-                <svg className="h-16 w-16 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
+                }
+              }}
+            />
+            <div className="w-full aspect-[3/1] bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center" style={{ display: 'none' }}>
+              <svg className="h-16 w-16 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
             </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+          {/* Main content - 2 colonne */}
+          <div className="lg:col-span-2 space-y-6">
 
             {/* Details - Hotel & Location */}
             {(listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
+              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
+                <h3 className="font-display text-lg font-semibold text-gray-900 pb-3 mb-6 border-b border-gray-200">
                   Hotel & Location
                 </h3>
 
@@ -277,14 +288,13 @@ export default function ListingDetail() {
                   {/* Hotel info block */}
                   {listingData.hotel_name && (
                     <div>
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700 flex-shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm text-gray-500 mb-1">Hotel</p>
                           <p className="font-semibold text-gray-900">
                             {listingData.hotel_website ? (
                               <a
@@ -301,15 +311,15 @@ export default function ListingDetail() {
                             ) : (
                               listingData.hotel_name
                             )}
+                            {listingData.hotel_rating && (
+                              <span className="text-sm text-gray-500 font-normal ml-2">
+                                ⭐ {listingData.hotel_rating.toFixed(1)}
+                              </span>
+                            )}
                           </p>
                           {(listingData.hotel_city || listingData.hotel_country) && (
                             <p className="text-sm text-gray-600 mt-0.5">
                               📍 {listingData.hotel_city || ""}{listingData.hotel_city && listingData.hotel_country ? ", " : ""}{listingData.hotel_country || ""}
-                            </p>
-                          )}
-                          {listingData.hotel_rating && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              ⭐ {listingData.hotel_rating.toFixed(1)} rating
                             </p>
                           )}
                         </div>
@@ -318,14 +328,13 @@ export default function ListingDetail() {
                   )}
 
                   {/* Room details */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0">
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19h16M4 15h16M4 15V9a2 2 0 012-2h2a2 2 0 012 2v0M4 15V9m8-2h6a2 2 0 012 2v6M4 9h4m0 0a2 2 0 012 2v4" />
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-gray-500 mb-1">Accommodation</p>
                       <p className="font-semibold text-gray-900">
                         {listingData.room_count || 1} {formatRoomType(listingData.room_type)} room{(listingData.room_count || 1) > 1 ? "s" : ""}
                       </p>
@@ -338,19 +347,18 @@ export default function ListingDetail() {
                     const checkOut = new Date(listingData.check_out);
                     const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
                     return (
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm text-gray-500 mb-1">Dates</p>
                           <p className="font-semibold text-gray-900">
                             {checkIn.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} → {checkOut.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                          </p>
-                          <p className="text-sm text-gray-600 mt-0.5">
-                            {nights} night{nights > 1 ? "s" : ""}
+                            <span className="text-sm text-gray-500 font-normal ml-2">
+                              ({nights} night{nights > 1 ? "s" : ""})
+                            </span>
                           </p>
                         </div>
                       </div>
@@ -360,48 +368,70 @@ export default function ListingDetail() {
               </div>
             )}
 
-            {/* Why this listing - Value propositions */}
-            {(listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && listingData.hotel_name && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
+            {/* Distance to Finish Line - Separate container */}
+            {listingData.distance_to_finish && (
+              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                  Why this stay
+                  Distance to Finish Line
                 </h3>
-                <div className="space-y-2.5">
-                  {listingData.hotel_rating && listingData.hotel_rating >= 4 && (
-                    <div className="flex items-start gap-3">
-                      <svg className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                <div className="space-y-3">
+                  {/* Distance */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 flex-shrink-0">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <span className="text-gray-700">
-                        Top-rated hotel (⭐ {listingData.hotel_rating.toFixed(1)} on Google)
-                      </span>
                     </div>
-                  )}
-                  {listingData.hotel_city && (
-                    <div className="flex items-start gap-3">
-                      <svg className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-gray-700">
-                        Located in {listingData.hotel_city}
-                      </span>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">
+                        {listingData.distance_to_finish < 1000
+                          ? `${listingData.distance_to_finish}m`
+                          : `${(listingData.distance_to_finish / 1000).toFixed(1)}km`}
+                      </p>
+                      <p className="text-sm text-gray-500">Straight-line distance</p>
                     </div>
-                  )}
-                  <div className="flex items-start gap-3">
-                    <svg className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-gray-700">
-                      Perfect for race weekend rest & recovery
-                    </span>
                   </div>
+
+                  {/* Walking duration */}
+                  {listingData.walking_duration && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 flex-shrink-0">
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="12" cy="4.5" r="2.5"/>
+                          <path d="M10.5 8.5L7 11l1.5 1.5 2.5-2v4l-3 5.5 1.5 1 3-5 3 5 1.5-1-3-5.5v-4l2.5 2L17 11l-3.5-2.5h-3z"/>
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{listingData.walking_duration} min</p>
+                        <p className="text-sm text-gray-500">Walking</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Transit duration - only show if > 1km */}
+                  {listingData.transit_duration && listingData.distance_to_finish > 1000 && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 flex-shrink-0">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v10M16 7v10M6 17h12M6 7h12a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2z" />
+                          <circle cx="8" cy="19" r="1.5" fill="currentColor" />
+                          <circle cx="16" cy="19" r="1.5" fill="currentColor" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{listingData.transit_duration} min</p>
+                        <p className="text-sm text-gray-500">Public transit</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Bib details */}
             {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
                   Bib Transfer Details
                 </h3>
@@ -436,7 +466,7 @@ export default function ListingDetail() {
 
             {/* Description */}
             {listingData.description && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-3">
                   Additional Information
                 </h3>
@@ -447,7 +477,7 @@ export default function ListingDetail() {
             )}
 
             {/* How to Complete Transaction */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
               <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
                 How to Complete This Transaction
               </h3>
@@ -587,15 +617,26 @@ export default function ListingDetail() {
 
           {/* Sidebar - sticky */}
           <div className="space-y-6 lg:sticky lg:top-6">
-            {/* Main sidebar card: Badge + Event + Seller + Price */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              {/* 1. Badge e Save */}
-              <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100">
-                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold border ${typeColors[listingData.listing_type as keyof typeof typeColors]}`}>
-                  {typeLabels[listingData.listing_type as keyof typeof typeLabels]}
-                </span>
+            {/* Main sidebar card: Seller + Price + CTA */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] overflow-hidden">
+              {/* Listing Info Header */}
+              <div className="px-5 py-5 border-b border-gray-100">
+                {/* Badge tipo + Save */}
+                <div className="flex items-center justify-between mb-4">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    listingData.listing_type === "room"
+                      ? "bg-blue-100 text-blue-700"
+                      : listingData.listing_type === "bib"
+                      ? "bg-purple-100 text-purple-700"
+                      : "bg-green-100 text-green-700"
+                  }`}>
+                    {listingData.listing_type === "room"
+                      ? "Room Only"
+                      : listingData.listing_type === "bib"
+                      ? "Bib Only"
+                      : "Room + Bib"}
+                  </span>
 
-                <div className="flex items-center gap-3">
                   {user && !isOwner && listingData.status === "active" && (
                     <saveFetcher.Form method="post" action="/api/saved">
                       <input type="hidden" name="listingId" value={listingData.id} />
@@ -625,8 +666,29 @@ export default function ListingDetail() {
                       </button>
                     </saveFetcher.Form>
                   )}
+                </div>
 
-                  {listingData.status !== "active" && (
+                {/* Titolo - mostra solo il nome evento */}
+                <h1 className="font-display text-xl font-bold text-gray-900 leading-tight">
+                  {listingData.event.name}
+                </h1>
+
+                {/* Data evento */}
+                <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                  <svg className="h-4 w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span>{eventDateShort}</span>
+                </div>
+
+                {/* Status */}
+                <div className="mt-4">
+                  {listingData.status === "active" ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700">
+                      <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                      Active listing
+                    </span>
+                  ) : (
                     <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
                       {listingData.status === "sold" ? "Sold" : "Expired"}
                     </span>
@@ -634,33 +696,8 @@ export default function ListingDetail() {
                 </div>
               </div>
 
-              {/* 2. Event Context */}
-              <div className="p-5 bg-gradient-to-br from-brand-50 to-blue-50">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-white flex-shrink-0">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="font-display text-lg font-bold text-gray-900">
-                      {listingData.event.name}
-                    </h2>
-                    <p className="text-sm text-gray-600 mt-1">
-                      <span className="font-medium">Race day:</span> {eventDateFormatted}
-                    </p>
-                    {daysUntil > 0 && daysUntil <= 60 && (
-                      <span className="inline-block mt-3 px-2.5 py-1 text-xs font-medium text-accent-600 bg-accent-50 border border-accent-300 rounded-full">
-                        {daysUntil} days until race
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Seller */}
-              <div className="px-5 py-4">
+              {/* Seller */}
+              <div className="px-5 py-4 border-b border-gray-100">
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0">
                     {listingData.author.company_name?.charAt(0) ||
@@ -688,9 +725,9 @@ export default function ListingDetail() {
                 </div>
               </div>
 
-              {/* 4. Price */}
+              {/* Price */}
               <div className="p-5">
-                <div className="text-center pb-4">
+                <div className="text-center pb-5 border-b border-gray-100 mb-5">
                   {/* Se è bib o room_and_bib, mostra associated costs */}
                   {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") ? (
                     listingData.associated_costs ? (
@@ -746,7 +783,7 @@ export default function ListingDetail() {
 
                 {listingData.status === "active" && !isOwner && (
                   <Form method="post">
-                    <button type="submit" className="btn-primary w-full text-base py-3 font-semibold">
+                    <button type="submit" className="btn-primary w-full text-base py-3.5 font-semibold shadow-lg shadow-brand-500/25">
                       Request price & availability
                     </button>
                   </Form>
@@ -756,7 +793,7 @@ export default function ListingDetail() {
                   <div className="space-y-3">
                     <Link
                       to={`/listings/${listingData.id}/edit`}
-                      className="btn-secondary w-full"
+                      className="btn-secondary w-full block text-center"
                     >
                       Edit Listing
                     </Link>
@@ -768,7 +805,7 @@ export default function ListingDetail() {
                       <input type="hidden" name="_action" value="delete" />
                       <button
                         type="submit"
-                        className="w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors"
+                        className="w-full px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors"
                       >
                         Delete Listing
                       </button>
@@ -779,7 +816,7 @@ export default function ListingDetail() {
                 {!user && listingData.status === "active" && (
                   <Link
                     to={`/login?redirectTo=/listings/${listingData.id}`}
-                    className="btn-primary w-full"
+                    className="btn-primary w-full block text-center py-3.5 font-semibold shadow-lg shadow-brand-500/25"
                   >
                     Login to Contact
                   </Link>
@@ -788,7 +825,7 @@ export default function ListingDetail() {
             </div>
 
             {/* Safety tips - Accordion */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] overflow-hidden">
               <button
                 onClick={() => setShowSafety(!showSafety)}
                 className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
@@ -843,15 +880,18 @@ export default function ListingDetail() {
 
         {/* Mobile sticky CTA - solo su mobile */}
         {listingData.status === "active" && !isOwner && (
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg lg:hidden z-10">
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] lg:hidden z-10">
             <Form method="post">
-              <button type="submit" className="btn-primary w-full text-base py-3 font-semibold">
+              <button type="submit" className="btn-primary w-full text-base py-3.5 font-semibold shadow-lg shadow-brand-500/25">
                 Request price & availability
               </button>
             </Form>
           </div>
         )}
-      </main>
+        </main>
+
+        <FooterLight />
+      </div>
     </div>
   );
 }

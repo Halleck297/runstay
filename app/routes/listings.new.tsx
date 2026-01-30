@@ -17,6 +17,7 @@ import {
   validateListingLimits
 } from "~/config/listing-rules";
 import type { TransferMethod } from "~/config/listing-rules";
+import { calculateDistanceData } from "~/lib/distance.server";
 
 
 
@@ -108,12 +109,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const finalEventId = eventId;
 
-  // Get event details for auto-generating title
+  // Get event details for auto-generating title and distance calculation
   const { data: eventData } = await supabase
     .from("events")
-    .select("name, event_date")
+    .select("name, event_date, finish_lat, finish_lng")
     .eq("id", finalEventId)
-    .single<{ name: string; event_date: string }>();
+    .single<{ name: string; event_date: string; finish_lat: number | null; finish_lng: number | null }>();
 
       // Validate hotel is required for room listings
   if ((listingType === "room" || listingType === "room_and_bib") && !hotelName) {
@@ -218,7 +219,16 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
 
-    // Create listing (usa supabaseAdmin per bypassare RLS)
+  // Calculate distance to finish line (only for room listings with hotel coordinates)
+  const distanceData = await calculateDistanceData(
+    hotelLat ? parseFloat(hotelLat) : null,
+    hotelLng ? parseFloat(hotelLng) : null,
+    eventData?.finish_lat ?? null,
+    eventData?.finish_lng ?? null,
+    eventData?.event_date // Pass event date for transit departure time (2pm on event day)
+  );
+
+  // Create listing (usa supabaseAdmin per bypassare RLS)
   const { data: listing, error } = await supabaseAdmin
   .from("listings")
   .insert({
@@ -232,30 +242,34 @@ export async function action({ request }: ActionFunctionArgs) {
     hotel_name: hotelName || null,
     hotel_website: hotelWebsite || null,
     hotel_place_id: hotelPlaceId || null,
-    hotel_id: finalHotelId, 
+    hotel_id: finalHotelId,
     hotel_stars: null,
     hotel_lat: hotelLat ? parseFloat(hotelLat) : null,
     hotel_lng: hotelLng ? parseFloat(hotelLng) : null,
-    hotel_rating: hotelRating ? parseFloat(hotelRating) : null,  
-    
+    hotel_rating: hotelRating ? parseFloat(hotelRating) : null,
+
     // Campi room
     room_count: roomCount ? parseInt(roomCount) : null,
     room_type: roomType || null,
     check_in: checkIn || null,
     check_out: checkOut || null,
     bib_count: bibCount ? parseInt(bibCount) : null,
-    
+
     // Price fields
     price: price ? parseFloat(price) : null,
     currency: currency,
     price_negotiable: priceNegotiable,
-    
-    // AGGIUNGERE QUESTE RIGHE:
+
+    // Transfer fields
     transfer_type: transferType || null,
     associated_costs: associatedCosts ? parseFloat(associatedCosts) : null,
     cost_notes: costNotes || null,
-    
-    
+
+    // Distance to finish line
+    distance_to_finish: distanceData.distance_to_finish,
+    walking_duration: distanceData.walking_duration,
+    transit_duration: distanceData.transit_duration,
+
     status: "active",
     }as any)
     .select()
@@ -283,7 +297,7 @@ export default function NewListing() {
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
   const [currency, setCurrency] = useState<string>("EUR");
   const [priceValue, setPriceValue] = useState<string>("");
-  const [priceNegotiable, setPriceNegotiable] = useState<boolean>(false);
+  const [priceNegotiable, setPriceNegotiable] = useState<boolean | null>(null);
 
   // Show success modal when listing is created
   useEffect(() => {
@@ -697,9 +711,9 @@ useEffect(() => {
                       value={priceValue}
                       onChange={(e) => {
                         setPriceValue(e.target.value);
-                        // Reset negotiable to false when price is cleared
+                        // Reset negotiable to null when price is cleared
                         if (!e.target.value) {
-                          setPriceNegotiable(false);
+                          setPriceNegotiable(null);
                         }
                       }}
                     />
@@ -713,27 +727,27 @@ useEffect(() => {
                 {/* Price negotiable - appare solo quando c'è un prezzo */}
                 {priceValue && (listingType === "room" || listingType === "room_and_bib") && (
                   <div className="mt-4">
-                    <input type="hidden" name="priceNegotiable" value={priceNegotiable.toString()} />
+                    <input type="hidden" name="priceNegotiable" value={priceNegotiable === true ? "true" : "false"} />
                     <span className="text-sm text-gray-700">Is the price negotiable?</span>
                     <div className="flex gap-2 mt-2">
                       <button
                         type="button"
-                        onClick={() => setPriceNegotiable(true)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          priceNegotiable
-                            ? "bg-brand-600 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        onClick={() => setPriceNegotiable(priceNegotiable === true ? null : true)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          priceNegotiable === true
+                            ? "bg-green-100 text-green-700 ring-2 ring-green-500 shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+                            : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"
                         }`}
                       >
                         Yes
                       </button>
                       <button
                         type="button"
-                        onClick={() => setPriceNegotiable(false)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          !priceNegotiable
-                            ? "bg-brand-600 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        onClick={() => setPriceNegotiable(priceNegotiable === false ? null : false)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          priceNegotiable === false
+                            ? "bg-green-100 text-green-700 ring-2 ring-green-500 shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+                            : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"
                         }`}
                       >
                         No

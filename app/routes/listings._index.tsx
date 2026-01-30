@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
+import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
+import { SortDropdown } from "~/components/SortDropdown";
 
 
 export const meta: MetaFunction = () => {
@@ -85,9 +87,59 @@ export default function Listings() {
 
   const currentType = searchParams.get("type") || "all";
   const currentSearch = searchParams.get("search") || "";
+  const currentSort = searchParams.get("sort") || "newest";
 
   const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [sortBy, setSortBy] = useState(currentSort);
+
+  // Load More pagination
+  const ITEMS_PER_PAGE = 12;
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [currentType, currentSearch, sortBy]);
+
+  // Sort listings based on selected option
+  const sortedListings = [...(listings as any[])].sort((a, b) => {
+    switch (sortBy) {
+      case "newest":
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case "first_posted":
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case "event_soonest":
+        const dateA = a.event?.event_date ? new Date(a.event.event_date).getTime() : Infinity;
+        const dateB = b.event?.event_date ? new Date(b.event.event_date).getTime() : Infinity;
+        return dateA - dateB;
+      case "price_low":
+        // Exclude "contact for price" (null/undefined price), put them at the end
+        const priceA = a.price != null ? a.price : Infinity;
+        const priceB = b.price != null ? b.price : Infinity;
+        return priceA - priceB;
+      case "price_high":
+        // Exclude "contact for price" (null/undefined price), put them at the end
+        const priceHighA = a.price != null ? a.price : -Infinity;
+        const priceHighB = b.price != null ? b.price : -Infinity;
+        return priceHighB - priceHighA;
+      case "contact_price":
+        // Show only "contact for price" listings, sorted by newest
+        // This is handled by filtering, but we still sort by newest
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      default:
+        return 0;
+    }
+  });
+
+  // Filter for "contact_price" option - show only listings without a price
+  const filteredBySort = sortBy === "contact_price"
+    ? sortedListings.filter((l) => l.price == null)
+    : sortedListings;
+
+  // Pagination
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const visibleListings = filteredBySort.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredBySort.length;
 
   // Filter events based on search query (min 2 chars)
   const filteredEvents = searchQuery.length >= 2
@@ -120,132 +172,145 @@ export default function Listings() {
   };
 
   return (
-    <div className="min-h-full bg-gray-50">
-      <Header user={user} />
+    <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
+      <div className="min-h-screen bg-gray-50/85">
+        <Header user={user} />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Page header */}
-        <div className="mb-6">
-          <h1 className="font-display text-3xl font-bold text-gray-900">
-            Browse Listings
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Find available rooms and bibs for upcoming marathons
-          </p>
-        </div>
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          {/* Page header with Search and Filters */}
+          <div className="relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
+            <h1 className="font-display text-3xl font-bold text-gray-900">
+              Browse Listings
+            </h1>
+            <p className="mt-2 text-gray-600 mb-8">
+              Find available rooms and bibs for upcoming marathons
+            </p>
 
-        {/* Search Bar with Autocomplete */}
-        <div className="mb-4">
-          <Form method="get" name="listing-search" className="flex items-center">
-            <input type="hidden" name="type" value={currentType} />
-            <div className="relative flex-1 max-w-xl" ref={searchRef}>
-              <svg
-                className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            {/* Search Bar with Autocomplete */}
+            <Form method="get" name="listing-search" className="flex items-center mb-6">
+              <input type="hidden" name="type" value={currentType} />
+              <div className="relative flex-1 max-w-xl" ref={searchRef}>
+                <svg
+                  className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <input
+                  type="search"
+                  id="listing-search"
+                  name="search"
+                  autoComplete="off"
+                  placeholder="Search by event name or location..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  className="block w-full rounded-lg border-0 pl-12 pr-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 transition-colors shadow-md ring-1 ring-gray-200"
                 />
-              </svg>
-              <input
-                type="search"
-                id="listing-search"
-                name="search"
-                autoComplete="off"
-                placeholder="Search by event name or location..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => setShowSuggestions(true)}
-                className="block w-full rounded-lg border-0 pl-12 pr-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 transition-colors"
-                style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)' }}
-              />
 
-              {/* Autocomplete Dropdown */}
-              {showSuggestions && filteredEvents.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
-                  {filteredEvents.map((event: any) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => handleSuggestionClick(event.name)}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
-                    >
-                      <p className="font-medium text-gray-900">{event.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {event.country} • {new Date(event.event_date).toLocaleDateString()}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
+                {/* Autocomplete Dropdown */}
+                {showSuggestions && filteredEvents.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
+                    {filteredEvents.map((event: any) => (
+                      <button
+                        key={event.id}
+                        type="button"
+                        onClick={() => handleSuggestionClick(event.name)}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                      >
+                        <p className="font-medium text-gray-900">{event.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {event.country} • {new Date(event.event_date).toLocaleDateString()}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                type="submit"
+                className="ml-6 px-8 py-2.5 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30"
+              >
+                Search
+              </button>
+            </Form>
+
+            {/* Category Filter Buttons + Sort Dropdown */}
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { value: "all", label: "All" },
+                { value: "room", label: "Hotel" },
+                { value: "bib", label: "Bibs" },
+                { value: "room_and_bib", label: "Package" },
+              ].map((category) => (
+                <a
+                  key={category.value}
+                  href={category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    currentType === category.value
+                      ? "bg-brand-500 text-white"
+                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {category.label}
+                </a>
+              ))}
+
+              {/* Sort Dropdown - pushed to the right */}
+              <div className="ml-auto">
+                <SortDropdown value={sortBy} onChange={setSortBy} />
+              </div>
             </div>
-            <button
-              type="submit"
-              className="ml-12 px-8 py-2.5 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30"
-            >
-              Search
-            </button>
-          </Form>
-        </div>
+          </div>
 
-        {/* Category Filter Buttons */}
-        <div className="mb-8 flex flex-wrap gap-2">
-          {[
-            { value: "all", label: "All" },
-            { value: "room", label: "Hotel" },
-            { value: "bib", label: "Bibs" },
-            { value: "room_and_bib", label: "Package" },
-          ].map((category) => (
-            <a
-              key={category.value}
-              href={category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                currentType === category.value
-                  ? "bg-brand-500 text-white"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              {category.label}
-            </a>
-          ))}
-        </div>
-
-        {/* Results */}
-{listings.length > 0 ? (
+          {/* Results */}
+{filteredBySort.length > 0 ? (
   <>
     {/* Desktop: Grid di card */}
     <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr">
-      {listings.map((listing: any) => (
-        <ListingCard 
-          key={listing.id} 
-          listing={listing} 
+      {visibleListings.map((listing: any) => (
+        <ListingCard
+          key={listing.id}
+          listing={listing}
           isUserLoggedIn={!!user}
           isSaved={(savedListingIds || []).includes(listing.id)}
-
         />
       ))}
     </div>
 
     {/* Mobile: Lista verticale compatta */}
     <div className="flex flex-col gap-3 md:hidden">
-      {listings.map((listing: any) => (
-        <ListingCardCompact 
-          key={listing.id} 
-          listing={listing} 
+      {visibleListings.map((listing: any) => (
+        <ListingCardCompact
+          key={listing.id}
+          listing={listing}
           isUserLoggedIn={!!user}
           isSaved={(savedListingIds || []).includes(listing.id)}
-
         />
       ))}
     </div>
+
+    {/* Load More Button */}
+    {hasMore && (
+      <div className="mt-8 text-center">
+        <button
+          onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
+          className="px-8 py-3 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors shadow-md"
+        >
+          Load More ({filteredBySort.length - visibleCount} remaining)
+        </button>
+      </div>
+    )}
   </>
 ) : (
 
@@ -273,7 +338,10 @@ export default function Listings() {
             </p>
           </div>
         )}
-      </main>
+        </main>
+
+        <FooterLight />
+      </div>
     </div>
   );
 }

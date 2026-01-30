@@ -81,13 +81,29 @@ CREATE TABLE public.events (
   location TEXT NOT NULL,
   country TEXT NOT NULL,
   event_date DATE NOT NULL,
+  -- Start/Finish line coordinates (for distance calculations)
+  start_lat DECIMAL(10, 7),
+  start_lng DECIMAL(10, 7),
+  finish_lat DECIMAL(10, 7),
+  finish_lng DECIMAL(10, 7),
   created_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- MIGRATION: Add start/finish coordinates to events
+-- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS start_lat DECIMAL(10, 7);
+-- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS start_lng DECIMAL(10, 7);
+-- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS finish_lat DECIMAL(10, 7);
+-- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS finish_lng DECIMAL(10, 7);
+
 -- MIGRATION: Se la tabella esiste già, esegui:
 -- ALTER TABLE public.events ADD COLUMN slug TEXT UNIQUE;
 -- UPDATE public.events SET slug = LOWER(REGEXP_REPLACE(name, '[^a-zA-Z0-9]+', '-', 'g'));
+
+-- MIGRATION: Add distance fields to listings
+-- ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS distance_to_finish INTEGER;
+-- ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS walking_duration INTEGER;
+-- ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS transit_duration INTEGER;
 -- Hotels
 CREATE TABLE public.hotels (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -135,6 +151,11 @@ CREATE TABLE public.listings (
   transfer_type TEXT CHECK (transfer_type IN ('official_process', 'package', 'contact')),
   associated_costs DECIMAL(10,2),
   cost_notes TEXT,
+
+  -- Distance to finish line (calculated from hotel coordinates)
+  distance_to_finish INTEGER,      -- meters (straight line)
+  walking_duration INTEGER,        -- minutes
+  transit_duration INTEGER,        -- minutes (only if > 1km)
 
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'sold', 'expired')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -192,6 +213,7 @@ CREATE INDEX idx_saved_listings_user ON public.saved_listings(user_id);
 CREATE INDEX idx_saved_listings_listing ON public.saved_listings(listing_id);
 
 CREATE INDEX idx_events_date ON public.events(event_date);
+CREATE INDEX idx_contact_messages_created ON public.contact_messages(created_at DESC);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -204,6 +226,7 @@ ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hotels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
 
 
 -- Profiles: anyone can read, users can update their own
@@ -294,6 +317,13 @@ CREATE POLICY "Users can save listings" ON public.saved_listings
 CREATE POLICY "Users can unsave listings" ON public.saved_listings
   FOR DELETE USING (auth.uid() = user_id);
 
+-- Contact Messages: anyone can submit, only service role can read
+CREATE POLICY "Anyone can submit contact messages" ON public.contact_messages
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Service role can view contact messages" ON public.contact_messages
+  FOR SELECT USING (true);
+
 -- Saved Listings (user favorites)
 CREATE TABLE public.saved_listings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -301,6 +331,16 @@ CREATE TABLE public.saved_listings (
   listing_id UUID NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, listing_id)
+);
+
+-- Contact Messages
+CREATE TABLE public.contact_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================

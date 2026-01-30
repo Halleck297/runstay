@@ -3,6 +3,7 @@ import { Link, useLoaderData } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
+import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
 
 export const meta: MetaFunction = () => {
@@ -29,6 +30,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         room_type,
         bib_count,
         price,
+        currency,
         price_negotiable,
         transfer_type,
         associated_costs,
@@ -60,21 +62,22 @@ export default function SavedListings() {
   const { user, savedListings } = useLoaderData<typeof loader>();
 
   return (
-    <div className="min-h-full bg-gray-50">
-      <Header user={user} />
+    <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
+      <div className="min-h-screen bg-gray-50/85">
+        <Header user={user} />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-gray-900">
-            Saved Listings
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Listings you've saved for later
-          </p>
-        </div>
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
+            <h1 className="font-display text-3xl font-bold text-gray-900">
+              Saved Listings
+            </h1>
+            <p className="mt-2 text-gray-600">
+              Listings you've saved for later
+            </p>
+          </div>
 
         {savedListings.length === 0 ? (
-          <div className="card p-12 text-center">
+          <div className="card p-12 text-center shadow-md">
             <svg
               className="mx-auto h-16 w-16 text-gray-300"
               fill="none"
@@ -94,7 +97,7 @@ export default function SavedListings() {
             <p className="mt-2 text-gray-500">
               When you find a listing you like, click the heart icon to save it here.
             </p>
-            <Link to="/listings" className="btn-primary mt-6 inline-block">
+            <Link to="/listings" className="btn-primary rounded-full mt-6 inline-block">
               Browse Listings
             </Link>
           </div>
@@ -110,7 +113,10 @@ export default function SavedListings() {
             ))}
           </div>
         )}
-      </main>
+        </main>
+
+        <FooterLight />
+      </div>
     </div>
   );
 }

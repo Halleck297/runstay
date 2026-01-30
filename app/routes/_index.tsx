@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
+import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
 
@@ -263,49 +264,7 @@ export default function Index() {
 )}
 
 
-      {/* CTA */}
-      <section className="py-20 bg-gray-900">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="font-display text-3xl font-bold text-white">
-            Ready to get started?
-          </h2>
-          <p className="mt-4 text-lg text-gray-400">
-            Join tour operators and runners already using RunStay Exchange.
-          </p>
-          <div className="mt-8">
-            {user ? (
-              <Link to="/listings/new" className="btn-primary text-lg px-8 py-3">
-                Create a Listing
-              </Link>
-            ) : (
-              <Link to="/register" className="btn-primary text-lg px-8 py-3">
-                Create Free Account
-              </Link>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 border-t border-gray-800">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-gray-500">
-            © {new Date().getFullYear()} Runoot Exchange. Platform for
-            informational purposes only. Transactions are between users.
-          </p>
-          <div className="mt-4 flex justify-center gap-6 text-sm text-gray-500">
-            <Link to="/privacy-policy" className="hover:text-gray-300 transition-colors">
-              Privacy Policy
-            </Link>
-            <Link to="/cookie-policy" className="hover:text-gray-300 transition-colors">
-              Cookie Policy
-            </Link>
-            <Link to="/terms" className="hover:text-gray-300 transition-colors">
-              Terms & Conditions
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <FooterLight />
     </div>
   );
 }

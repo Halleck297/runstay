@@ -75,10 +75,11 @@ export default function MessagesLayout() {
       <Header user={user} />
 
       <div
-        className="flex-1 overflow-hidden bg-cover bg-center bg-no-repeat"
+        className="flex-1 overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
         style={{ backgroundImage: "url('/messages.webp')" }}
       >
-        <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 py-16">
+        <div className="h-full bg-gray-50/70">
+          <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 py-16">
           <div className="flex h-full rounded-lg shadow-xl overflow-hidden">
 
         {/* Colonna sinistra: Lista conversazioni */}
@@ -226,6 +227,7 @@ export default function MessagesLayout() {
         >
           <Outlet context={{ user, conversations }} />
         </main>
+          </div>
           </div>
         </div>
       </div>

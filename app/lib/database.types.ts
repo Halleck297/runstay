@@ -115,6 +115,10 @@ export interface Database {
           slug: string | null;
           country: string;
           event_date: string;
+          start_lat: number | null;
+          start_lng: number | null;
+          finish_lat: number | null;
+          finish_lng: number | null;
           created_by: string | null;
           created_at: string;
         };
@@ -124,6 +128,10 @@ export interface Database {
           slug?: string | null;
           country: string;
           event_date: string;
+          start_lat?: number | null;
+          start_lng?: number | null;
+          finish_lat?: number | null;
+          finish_lng?: number | null;
           created_by?: string | null;
           created_at?: string;
         };
@@ -132,6 +140,10 @@ export interface Database {
           slug?: string | null;
           country?: string;
           event_date?: string;
+          start_lat?: number | null;
+          start_lng?: number | null;
+          finish_lat?: number | null;
+          finish_lng?: number | null;
         };
       };
 
@@ -206,8 +218,12 @@ export interface Database {
     transfer_type: TransferType | null;
     associated_costs: number | null;
     cost_notes: string | null;
-    
-    
+
+    // Distance to finish line
+    distance_to_finish: number | null;
+    walking_duration: number | null;
+    transit_duration: number | null;
+
     status: ListingStatus;
     created_at: string;
     updated_at: string;
@@ -241,8 +257,12 @@ export interface Database {
   transfer_type?: TransferType | null;
   associated_costs?: number | null;
   cost_notes?: string | null;
-  
-  
+
+  // Distance to finish line
+  distance_to_finish?: number | null;
+  walking_duration?: number | null;
+  transit_duration?: number | null;
+
   status?: ListingStatus;
   created_at?: string;
   updated_at?: string;
@@ -273,8 +293,12 @@ export interface Database {
   transfer_type?: TransferType | null;
   associated_costs?: number | null;
   cost_notes?: string | null;
-  
-  
+
+  // Distance to finish line
+  distance_to_finish?: number | null;
+  walking_duration?: number | null;
+  transit_duration?: number | null;
+
   status?: ListingStatus;
   updated_at?: string;
 };
