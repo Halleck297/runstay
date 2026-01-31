@@ -173,10 +173,10 @@ export default function Listings() {
 
   return (
     <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
-      <div className="min-h-screen bg-gray-50/85 flex flex-col">
+      <div className="min-h-screen bg-gray-50/60 md:bg-gray-50/85 flex flex-col">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 flex-grow w-full">
+        <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
           {/* Page header with Search and Filters */}
           <div className="relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
             <h1 className="font-display text-3xl font-bold text-gray-900">

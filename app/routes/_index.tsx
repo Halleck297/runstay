@@ -260,7 +260,7 @@ export default function Index() {
       </div>
 
       {/* Mobile: View all button centered below cards */}
-      <div className="mt-6 flex justify-center md:hidden">
+      <div className="mt-6 mb-16 md:mb-0 flex justify-center md:hidden">
         <Link
           to={user ? "/listings" : "/login"}
           className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"

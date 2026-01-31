@@ -23,6 +23,7 @@ interface ListingCardCompactProps {
     event: {
       id: string;
       name: string;
+      slug: string | null;
       country: string;
       event_date: string;
     };
@@ -43,7 +44,7 @@ function isLastMinute(eventDate: string): boolean {
 // Helper: formatta room type (versione breve)
 function formatRoomTypeShort(roomType: string | null): string {
   if (!roomType) return "Room";
-  
+
   const labels: Record<string, string> = {
     single: "Single",
     double: "Double",
@@ -53,8 +54,17 @@ function formatRoomTypeShort(roomType: string | null): string {
     triple: "Triple",
     quadruple: "Quad"
   };
-  
+
   return labels[roomType] || roomType;
+}
+
+// Helper: genera slug dal nome evento (fallback se slug è null)
+function getEventSlug(event: { name: string; slug: string | null }): string {
+  if (event.slug) return event.slug;
+  return event.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false }: ListingCardCompactProps) {
@@ -105,88 +115,115 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
   const sellerName = listing.author.company_name || listing.author.full_name || "Seller";
   const sellerNameShort = sellerName.split(' ')[0];
 
+  // Event logo path
+  const eventSlug = getEventSlug(listing.event);
+  const logoPath = `/logos/${eventSlug}.png`;
+
   return (
     <Link
       to={isUserLoggedIn ? `/listings/${listing.id}` : "/login"}
       className={cardClass}
     >
-            {/* Header row: Badges + Data + Save */}
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`}>
-            {listing.listing_type === "bib" ? "Bib" : listing.listing_type === "room" ? "Hotel" : "Package"}
-          </span>
-          {isLM && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-accent-100 text-accent-700">
-              LM
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          
-          {isUserLoggedIn && (
-            <saveFetcher.Form 
-              method="post" 
-              action="/api/saved"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <input type="hidden" name="listingId" value={listing.id} />
-              <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
-              <button
-                type="submit"
-                onClick={(e) => e.preventDefault()}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  saveFetcher.submit(
-                    { listingId: listing.id, action: isSavedOptimistic ? "unsave" : "save" },
-                    { method: "post", action: "/api/saved" }
-                  );
-                }}
-                className={`p-1 rounded-full transition-colors ${
-                  isSavedOptimistic
-                    ? "text-red-500"
-                    : "text-gray-400 hover:text-red-500"
-                }`}
-                title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill={isSavedOptimistic ? "currentColor" : "none"}
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+      {/* Main content wrapper with logo on right */}
+      <div className="flex gap-3">
+        {/* Left content */}
+        <div className="flex-1 min-w-0">
+          {/* Header row: Badges + Save */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`}>
+                {listing.listing_type === "bib" ? "Bib" : listing.listing_type === "room" ? "Hotel" : "Package"}
+              </span>
+              {isLM && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-accent-100 text-accent-700">
+                  LM
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {isUserLoggedIn && (
+                <saveFetcher.Form
+                  method="post"
+                  action="/api/saved"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  />
-                </svg>
-              </button>
-            </saveFetcher.Form>
+                  <input type="hidden" name="listingId" value={listing.id} />
+                  <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
+                  <button
+                    type="submit"
+                    onClick={(e) => e.preventDefault()}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      saveFetcher.submit(
+                        { listingId: listing.id, action: isSavedOptimistic ? "unsave" : "save" },
+                        { method: "post", action: "/api/saved" }
+                      );
+                    }}
+                    className={`p-1 rounded-full transition-colors ${
+                      isSavedOptimistic
+                        ? "text-red-500"
+                        : "text-gray-400 hover:text-red-500"
+                    }`}
+                    title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill={isSavedOptimistic ? "currentColor" : "none"}
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                  </button>
+                </saveFetcher.Form>
+              )}
+            </div>
+          </div>
+
+          {/* Titolo evento */}
+          <h3 className="font-display text-base font-bold text-gray-900 leading-tight mb-0.5 line-clamp-1">
+            {listing.event.name}
+          </h3>
+
+          {/* Sottotitolo: cosa offre */}
+          <p className="text-sm font-medium text-brand-600">
+            {subtitle}
+          </p>
+          {listing.hotel_name && (
+            <p className="text-sm text-gray-600 mb-2 truncate">
+              {listing.hotel_name}
+            </p>
           )}
+          {!listing.hotel_name && <div className="mb-2" />}
+
+          {/* Race Day */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-2">
+            <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="font-medium">Race Day: {eventDateShort}</span>
+          </div>
         </div>
-      </div>
 
-
-      {/* Titolo evento */}
-      <h3 className="font-display text-base font-bold text-gray-900 leading-tight mb-0.5 line-clamp-1">
-        {listing.event.name}
-      </h3>
-
-      {/* Sottotitolo: cosa offre */}
-      <p className="text-sm font-medium text-brand-600 mb-2">
-        {subtitle}
-        {listing.hotel_name && ` • ${listing.hotel_name}`}
-      </p>
-
-      {/* Race Day */}
-      <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-2">
-        <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-        <span className="font-medium">Race Day: {eventDateShort}</span>
+        {/* Right: Event logo */}
+        <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center self-center">
+          <img
+            src={logoPath}
+            alt={`${listing.event.name} logo`}
+            className="w-full h-full object-contain p-1"
+            onError={(e) => {
+              // Hide if logo doesn't exist
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+        </div>
       </div>
 
       {/* Footer: Seller + Prezzo */}

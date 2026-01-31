@@ -66,7 +66,7 @@ export default function SavedListings() {
       <div className="min-h-screen bg-gray-50/85">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
           <div className="mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
             <h1 className="font-display text-3xl font-bold text-gray-900">
               Saved Listings

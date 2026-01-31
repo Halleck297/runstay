@@ -232,7 +232,7 @@ export default function ListingDetail() {
       <div className="min-h-screen bg-gray-50/85">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-7xl px-4 py-6 pb-24 md:pb-6 sm:px-6 lg:px-8">
           {/* Back link */}
           <div className="mb-4">
             <Link
@@ -781,10 +781,11 @@ export default function ListingDetail() {
                   </div>
                 )}
 
+                {/* Desktop only - su mobile usiamo il pulsante sticky in fondo */}
                 {listingData.status === "active" && !isOwner && (
-                  <Form method="post">
-                    <button type="submit" className="btn-primary w-full text-base py-3.5 font-semibold shadow-lg shadow-brand-500/25">
-                      Request price & availability
+                  <Form method="post" className="hidden md:block">
+                    <button type="submit" className="btn-primary w-full text-base py-3.5 font-semibold rounded-full shadow-lg shadow-brand-500/25">
+                      Contact {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || 'Seller'}
                     </button>
                   </Form>
                 )}
@@ -878,12 +879,12 @@ export default function ListingDetail() {
           </div>
         </div>
 
-        {/* Mobile sticky CTA - solo su mobile */}
+        {/* Mobile sticky CTA - solo su mobile, sopra la MobileNav */}
         {listingData.status === "active" && !isOwner && (
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] lg:hidden z-10">
+          <div className="fixed bottom-16 left-0 right-0 px-8 py-2.5 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] md:hidden z-30">
             <Form method="post">
-              <button type="submit" className="btn-primary w-full text-base py-3.5 font-semibold shadow-lg shadow-brand-500/25">
-                Request price & availability
+              <button type="submit" className="btn-primary w-full text-sm py-2.5 font-semibold rounded-full shadow-lg shadow-brand-500/25">
+                Contact {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || 'Seller'}
               </button>
             </Form>
           </div>

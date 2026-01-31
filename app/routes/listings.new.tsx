@@ -361,12 +361,12 @@ useEffect(() => {
         className="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed"
         style={{ backgroundImage: "url('/new-listing.jpg')" }}
       >
-        <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
-            <h1 className="font-display text-3xl font-bold text-gray-900">
+        <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
+          <div className="mb-6 md:mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-3 md:p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
+            <h1 className="font-display text-xl md:text-3xl font-bold text-gray-900">
               Create a Listing
             </h1>
-            <p className="mt-2 text-gray-600">
+            <p className="mt-1 md:mt-2 text-sm md:text-base text-gray-600">
               Share your available rooms or bibs with the community
             </p>
           </div>

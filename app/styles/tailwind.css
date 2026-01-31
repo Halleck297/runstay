@@ -12,10 +12,15 @@
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
-  /* Add padding to body for mobile nav */
+  /* Mobile bottom nav height: 4rem (h-16) + safe area */
+  :root {
+    --mobile-nav-height: calc(4rem + env(safe-area-inset-bottom, 0));
+  }
+
+  /* Add padding to body for mobile nav - ensures content doesn't get hidden behind navbar */
   @media (max-width: 767px) {
     body {
-      padding-bottom: 4rem; /* h-16 = 4rem */
+      padding-bottom: var(--mobile-nav-height);
     }
   }
 

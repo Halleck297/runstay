@@ -24,7 +24,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select(
       `
       *,
-      event:events(id, name, country, event_date),
+      event:events(id, name, slug, country, event_date),
       author:profiles(id, full_name, company_name, user_type, is_verified)
     `
     )
@@ -80,7 +80,7 @@ export default function Dashboard() {
     <div className="min-h-full bg-gray-50">
       <Header user={user} />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
         {/* Welcome */}
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold text-gray-900">

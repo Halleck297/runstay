@@ -84,7 +84,7 @@ export default function ProfileIndex() {
     <div className="min-h-screen bg-gray-50">
       <Header user={user} />
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row gap-8">
 
           {/* Sidebar */}

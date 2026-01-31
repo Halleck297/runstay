@@ -353,7 +353,7 @@ export default function EditListing() {
         className="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed"
         style={{ backgroundImage: "url('/new-listing.jpg')" }}
       >
-        <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
           <div className="mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-4 shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
             <Link
               to={`/listings/${listingData.id}`}

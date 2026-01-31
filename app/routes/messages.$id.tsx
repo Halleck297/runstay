@@ -440,6 +440,14 @@ export default function Conversation() {
               : Infinity;
             const showTimestamp = !prevMessageFromSameSender || timeDiffMinutes > 5 || showDateSeparator;
 
+            // Show translation indicator only once per group of consecutive translated messages from same sender
+            const currentDisplayContent = getDisplayContent(message);
+            const prevDisplayContent = prevMessage ? getDisplayContent(prevMessage) : null;
+            const prevWasTranslatedFromSameSender = prevMessageFromSameSender &&
+              prevDisplayContent?.canToggle &&
+              !showTimestamp; // Reset on new timestamp group
+            const showTranslationIndicator = currentDisplayContent.canToggle && !prevWasTranslatedFromSameSender;
+
             return (
               <div key={message.id}>
                 {/* Date separator */}
@@ -476,11 +484,9 @@ export default function Conversation() {
                   </div>
                 ) : (
                   (() => {
-                    const displayContent = getDisplayContent(message);
                     return (
-                      <div
-                        className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
-                      >
+                      <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"}`}>
+                        {/* Message bubble */}
                         <div
                           className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-2.5 ${
                             isOwnMessage
@@ -490,11 +496,11 @@ export default function Conversation() {
                         >
                           {/* Message content */}
                           <p className="whitespace-pre-wrap break-words">
-                            {displayContent.content}
+                            {currentDisplayContent.content}
                           </p>
 
-                          {/* Translation indicator and toggle */}
-                          {displayContent.isLoading && (
+                          {/* Translation loading indicator inside bubble */}
+                          {currentDisplayContent.isLoading && (
                             <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400">
                               <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -503,57 +509,60 @@ export default function Conversation() {
                               <span>Translating...</span>
                             </div>
                           )}
-
-                          {displayContent.canToggle && (
-                            <button
-                              type="button"
-                              onClick={() => toggleShowOriginal(message.id)}
-                              className={`flex items-center gap-1 mt-1.5 text-xs transition-colors ${
-                                isOwnMessage
-                                  ? "text-accent-500 hover:text-accent-700"
-                                  : "text-gray-400 hover:text-gray-600"
-                              }`}
-                            >
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                              </svg>
-                              <span>
-                                {displayContent.showOriginal ? "Show translation" : "Auto-translated • Show original"}
-                              </span>
-                            </button>
-                          )}
-
-                          {/* Show timestamp only for first message in a group or after 5+ min gap */}
-                          {(showTimestamp || isOwnMessage) && (
-                            <div
-                              className={`flex items-center justify-end gap-1.5 text-xs mt-1 ${
-                                isOwnMessage ? "text-accent-600" : "text-gray-500"
-                              }`}
-                            >
-                              {showTimestamp && (
-                                <span>
-                                  {messageDate.toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </span>
-                              )}
-                              {isOwnMessage && (
-                                <span className="flex items-center">
-                                  {message.read_at ? (
-                                    <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/>
-                                    </svg>
-                                  ) : (
-                                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                                    </svg>
-                                  )}
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </div>
+
+                        {/* Timestamp and translation toggle - outside bubble */}
+                        {(showTimestamp || isOwnMessage || showTranslationIndicator) && (
+                          <div
+                            className={`flex items-center gap-2 text-xs mt-1 px-1 ${
+                              isOwnMessage ? "flex-row-reverse" : "flex-row"
+                            }`}
+                          >
+                            {/* Timestamp */}
+                            {showTimestamp && (
+                              <span className={isOwnMessage ? "text-accent-600" : "text-gray-500"}>
+                                {messageDate.toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            )}
+
+                            {/* Read receipt for own messages */}
+                            {isOwnMessage && (
+                              <span className="flex items-center">
+                                {message.read_at ? (
+                                  <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/>
+                                  </svg>
+                                ) : (
+                                  <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                  </svg>
+                                )}
+                              </span>
+                            )}
+
+                            {/* Translation toggle */}
+                            {showTranslationIndicator && (
+                              <button
+                                type="button"
+                                onClick={() => toggleShowOriginal(message.id)}
+                                className="flex items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                                </svg>
+                                <span>
+                                  {currentDisplayContent.showOriginal
+                                    ? "Show translation"
+                                    : "Auto-translated • Show original"
+                                  }
+                                </span>
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })()
