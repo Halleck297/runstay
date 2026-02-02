@@ -5,6 +5,7 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
+import { ListingCardCompact } from "~/components/ListingCardCompact";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Saved Listings - Runoot" }];
@@ -63,15 +64,15 @@ export default function SavedListings() {
 
   return (
     <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
-      <div className="min-h-screen bg-gray-50/85">
+      <div className="min-h-screen bg-gray-50/60 md:bg-gray-50/85 flex flex-col">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
-          <div className="mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
-            <h1 className="font-display text-3xl font-bold text-gray-900">
+        <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
+          <div className="mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md px-3 py-4 sm:p-6">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left">
               Saved Listings
             </h1>
-            <p className="mt-2 text-gray-600">
+            <p className="hidden sm:block mt-2 text-gray-600">
               Listings you've saved for later
             </p>
           </div>
@@ -102,16 +103,31 @@ export default function SavedListings() {
             </Link>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {savedListings.map((listing: any) => (
-              <ListingCard
-                key={listing.id}
-                listing={listing}
-                isUserLoggedIn={true}
-                isSaved={true}
-              />
-            ))}
-          </div>
+          <>
+            {/* Desktop: Grid di card */}
+            <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {savedListings.map((listing: any) => (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  isUserLoggedIn={true}
+                  isSaved={true}
+                />
+              ))}
+            </div>
+
+            {/* Mobile: Lista verticale compatta */}
+            <div className="flex flex-col gap-3 md:hidden">
+              {savedListings.map((listing: any) => (
+                <ListingCardCompact
+                  key={listing.id}
+                  listing={listing}
+                  isUserLoggedIn={true}
+                  isSaved={true}
+                />
+              ))}
+            </div>
+          </>
         )}
         </main>
 

@@ -86,6 +86,18 @@ export default function Contact() {
         <Header user={user} />
 
         <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
+          {/* Back button */}
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+
           <div className="mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
             <h1 className="font-display text-3xl font-bold text-gray-900">
               Contact Us

@@ -12,6 +12,16 @@ export const meta: MetaFunction = () => {
   return [{ title: "Conversation - Runoot" }];
 };
 
+// Helper: genera slug dal nome evento (fallback se slug è null)
+function getEventSlug(event: { name: string; slug: string | null } | null): string {
+  if (!event) return "";
+  if (event.slug) return event.slug;
+  return event.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const userId = (user as any).id as string;
@@ -22,7 +32,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .select(
       `
       *,
-      listing:listings(id, title, listing_type, status),
+      listing:listings(id, title, listing_type, status, event:events(id, name, slug)),
       participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified),
       participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified),
       messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
@@ -203,6 +213,11 @@ export default function Conversation() {
       ? conversation.participant2
       : conversation.participant1;
 
+  // Event logo path - try multiple formats
+  const eventSlug = getEventSlug(conversation.listing?.event);
+  const [logoFormat, setLogoFormat] = useState<'png' | 'jpg' | 'webp' | null>('png');
+  const logoPath = logoFormat ? `/logos/${eventSlug}.${logoFormat}` : null;
+
   // Use realtime messages hook - pass messages directly, hook handles deduplication
   const { messages: realtimeMessages, setMessages } = useRealtimeMessages({
     conversationId: conversation.id,
@@ -289,10 +304,25 @@ export default function Conversation() {
           </svg>
         </Link>
 
-        <div className={`flex h-10 w-10 items-center justify-center rounded-full font-semibold flex-shrink-0 ${getAvatarClasses(otherUser?.id || "", otherUser?.user_type)}`}>
-          {otherUser?.company_name?.charAt(0) ||
-            otherUser?.full_name?.charAt(0) ||
-            "?"}
+        {/* Event logo */}
+        <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+          {logoPath ? (
+            <img
+              src={logoPath}
+              alt={`${conversation.listing?.event?.name || 'Event'} logo`}
+              className="w-full h-full object-contain p-0.5"
+              onError={() => {
+                // Try next format: png -> jpg -> webp -> null
+                if (logoFormat === 'png') setLogoFormat('jpg');
+                else if (logoFormat === 'jpg') setLogoFormat('webp');
+                else setLogoFormat(null);
+              }}
+            />
+          ) : (
+            <span className="text-xs font-semibold text-gray-400">
+              {conversation.listing?.event?.name?.substring(0, 2).toUpperCase() || '?'}
+            </span>
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -419,7 +449,7 @@ export default function Conversation() {
       )}
 
       {/* Area messaggi scrollabile */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-4">
         <div className="space-y-3">
           {realtimeMessages?.map((message: any, index: number) => {
             const isOwnMessage = message.sender_id === userId;
@@ -485,15 +515,25 @@ export default function Conversation() {
                 ) : (
                   (() => {
                     return (
-                      <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"}`}>
-                        {/* Message bubble */}
-                        <div
-                          className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-2.5 ${
-                            isOwnMessage
-                              ? "bg-accent-100 text-gray-900 rounded-br-md"
-                              : "bg-gray-200 text-gray-900 rounded-bl-md"
-                          }`}
-                        >
+                      <div className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}>
+                        {/* Avatar for received messages */}
+                        {!isOwnMessage && (
+                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold mr-2 ${getAvatarClasses(otherUser?.id || "", otherUser?.user_type)}`}>
+                            {otherUser?.company_name?.charAt(0) ||
+                              otherUser?.full_name?.charAt(0) ||
+                              "?"}
+                          </div>
+                        )}
+
+                        <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[85%] md:max-w-[70%]`}>
+                          {/* Message bubble */}
+                          <div
+                            className={`rounded-2xl px-4 py-2.5 ${
+                              isOwnMessage
+                                ? "bg-accent-100 text-gray-900 rounded-br-md"
+                                : "bg-gray-200 text-gray-900 rounded-bl-md"
+                            }`}
+                          >
                           {/* Message content */}
                           <p className="whitespace-pre-wrap break-words">
                             {currentDisplayContent.content}
@@ -563,6 +603,7 @@ export default function Conversation() {
                             )}
                           </div>
                         )}
+                        </div>
                       </div>
                     );
                   })()
@@ -575,7 +616,7 @@ export default function Conversation() {
       </div>
 
       {/* Campo risposta */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-200 px-2 pt-4 pb-3 md:p-4 bg-white">
         {actionData && "error" in actionData && (
           <p className="text-sm text-red-600 mb-2">{actionData.error}</p>
         )}
@@ -587,7 +628,7 @@ export default function Conversation() {
           <Form
             ref={formRef}
             method="post"
-            className="flex gap-3 items-end"
+            className="flex gap-2 md:gap-3 items-end"
             onSubmit={() => {
               // Add message immediately (optimistic update)
               const content = textareaRef.current?.value;
@@ -603,14 +644,14 @@ export default function Conversation() {
               autoComplete="off"
               required
               rows={1}
-              className="input flex-1 resize-none py-3 min-h-[48px] max-h-[150px] overflow-hidden rounded-2xl"
+              className="input flex-1 resize-none py-2 md:py-3 px-3 md:px-4 min-h-[40px] md:min-h-[48px] max-h-[150px] overflow-hidden rounded-2xl"
               disabled={isSubmitting}
               onChange={handleTextareaChange}
             />
             <button
               type="submit"
               disabled={isSubmitting}
-              className="btn-primary px-4 h-12 flex items-center justify-center rounded-2xl"
+              className="btn-primary px-2 md:px-4 h-10 md:h-12 flex items-center justify-center rounded-2xl"
             >
               {isSubmitting ? (
                 <svg

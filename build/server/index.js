@@ -1,11 +1,11 @@
 import { jsx, jsxs, Fragment } from "react/jsx-runtime";
 import { PassThrough } from "node:stream";
 import { createReadableStreamFromReadable } from "@react-router/node";
-import { ServerRouter, createCookieSessionStorage, redirect, UNSAFE_withComponentProps, useLoaderData, Outlet, Meta, Links, ScrollRestoration, Scripts, useFetcher, Link, Form, useActionData, data, useSearchParams, useNavigate, useParams, useNavigation } from "react-router";
+import { ServerRouter, createCookieSessionStorage, redirect, useLocation, useFetcher, Link, Form, UNSAFE_withComponentProps, useLoaderData, Outlet, Meta, Links, ScrollRestoration, Scripts, useActionData, useNavigation, data, useNavigate, useSearchParams, useParams } from "react-router";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
 import { createClient } from "@supabase/supabase-js";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef } from "react";
 const streamTimeout = 5e3;
 function handleRequest(request, responseStatusCode, responseHeaders, routerContext, loadContext) {
   if (request.method.toUpperCase() === "HEAD") {
@@ -142,6 +142,413 @@ async function logout(request) {
     }
   });
 }
+function CookieBanner({
+  onAcceptAll,
+  onRejectAll,
+  onSavePreferences
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [preferences, setPreferences] = useState({
+    necessary: true,
+    // Always enabled
+    analytics: true,
+    // Pre-selected, user can deselect
+    marketing: true
+    // Pre-selected, user can deselect
+  });
+  useEffect(() => {
+    const consent = localStorage.getItem("cookie_consent");
+    if (!consent) {
+      setIsVisible(true);
+    }
+  }, []);
+  const saveConsent = (type) => {
+    const consentData = {
+      type,
+      preferences: type === "all" ? { necessary: true, analytics: true, marketing: true } : type === "necessary" ? { necessary: true, analytics: false, marketing: false } : preferences,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      version: "1.0"
+    };
+    localStorage.setItem("cookie_consent", JSON.stringify(consentData));
+    const expires = /* @__PURE__ */ new Date();
+    expires.setFullYear(expires.getFullYear() + 1);
+    document.cookie = `cookie_consent=${type};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+    setIsVisible(false);
+  };
+  const handleAcceptAll = () => {
+    saveConsent("all");
+    onAcceptAll == null ? void 0 : onAcceptAll();
+  };
+  const handleRejectAll = () => {
+    saveConsent("necessary");
+    onRejectAll == null ? void 0 : onRejectAll();
+  };
+  const handleSavePreferences = () => {
+    saveConsent("custom");
+    onSavePreferences == null ? void 0 : onSavePreferences(preferences);
+  };
+  if (!isVisible) return null;
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsx("div", { className: "fixed inset-0 bg-black/50 z-40", "aria-hidden": "true" }),
+    /* @__PURE__ */ jsx(
+      "div",
+      {
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-labelledby": "cookie-banner-title",
+        className: "fixed bottom-0 left-0 right-0 z-50 bg-white shadow-2xl border-t border-gray-200",
+        children: /* @__PURE__ */ jsx("div", { className: "max-w-6xl mx-auto p-4 sm:p-6", children: !showDetails ? (
+          /* Simple View */
+          /* @__PURE__ */ jsxs("div", { className: "flex flex-col lg:flex-row lg:items-center gap-4", children: [
+            /* @__PURE__ */ jsxs("div", { className: "flex-1", children: [
+              /* @__PURE__ */ jsx("h2", { id: "cookie-banner-title", className: "text-lg font-semibold text-gray-900", children: "We use cookies" }),
+              /* @__PURE__ */ jsxs("p", { className: "mt-1 text-sm text-gray-600", children: [
+                "We use essential cookies to make our site work. With your consent, we may also use analytics cookies to improve your experience. You can accept all cookies or customize your preferences.",
+                " ",
+                /* @__PURE__ */ jsx("a", { href: "/cookie-policy", className: "text-brand-600 hover:underline", children: "Learn more" })
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxs("div", { className: "flex flex-col sm:flex-row gap-2 sm:gap-3 flex-shrink-0", children: [
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  onClick: () => setShowDetails(true),
+                  className: "px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors",
+                  children: "Customize"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  onClick: handleAcceptAll,
+                  className: "px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors",
+                  children: "Accept All"
+                }
+              )
+            ] })
+          ] })
+        ) : (
+          /* Detailed View */
+          /* @__PURE__ */ jsxs("div", { className: "space-y-4", children: [
+            /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between", children: [
+              /* @__PURE__ */ jsx("h2", { id: "cookie-banner-title", className: "text-lg font-semibold text-gray-900", children: "Cookie Preferences" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  onClick: () => setShowDetails(false),
+                  className: "text-gray-400 hover:text-gray-600",
+                  "aria-label": "Close details",
+                  children: /* @__PURE__ */ jsx("svg", { className: "w-5 h-5", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M6 18L18 6M6 6l12 12" }) })
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-600", children: "Select which cookie categories you want to enable. Essential cookies cannot be disabled as they are required for the site to function properly." }),
+            /* @__PURE__ */ jsxs("div", { className: "space-y-3", children: [
+              /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between p-4 bg-gray-50 rounded-lg", children: [
+                /* @__PURE__ */ jsxs("div", { className: "flex-1", children: [
+                  /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsx("h3", { className: "font-medium text-gray-900", children: "Essential Cookies" }),
+                    /* @__PURE__ */ jsx("span", { className: "px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full", children: "Always active" })
+                  ] }),
+                  /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-600 mt-1", children: "Required for basic site functionality, including authentication and session management." })
+                ] }),
+                /* @__PURE__ */ jsx("div", { className: "ml-4", children: /* @__PURE__ */ jsx(
+                  "input",
+                  {
+                    type: "checkbox",
+                    checked: true,
+                    disabled: true,
+                    className: "w-5 h-5 rounded border-gray-300 text-brand-600 cursor-not-allowed",
+                    "aria-label": "Essential cookies (always active)"
+                  }
+                ) })
+              ] }),
+              /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between p-4 bg-gray-50 rounded-lg", children: [
+                /* @__PURE__ */ jsxs("div", { className: "flex-1", children: [
+                  /* @__PURE__ */ jsx("h3", { className: "font-medium text-gray-900", children: "Analytics Cookies" }),
+                  /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-600 mt-1", children: "Help us understand how visitors interact with the site by collecting anonymous and aggregated information." })
+                ] }),
+                /* @__PURE__ */ jsx("div", { className: "ml-4", children: /* @__PURE__ */ jsx(
+                  "input",
+                  {
+                    type: "checkbox",
+                    checked: preferences.analytics,
+                    onChange: (e) => setPreferences({ ...preferences, analytics: e.target.checked }),
+                    className: "w-5 h-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer",
+                    "aria-label": "Enable analytics cookies"
+                  }
+                ) })
+              ] }),
+              /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between p-4 bg-gray-50 rounded-lg", children: [
+                /* @__PURE__ */ jsxs("div", { className: "flex-1", children: [
+                  /* @__PURE__ */ jsx("h3", { className: "font-medium text-gray-900", children: "Marketing Cookies" }),
+                  /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-600 mt-1", children: "Used to show you relevant ads and measure the effectiveness of advertising campaigns." })
+                ] }),
+                /* @__PURE__ */ jsx("div", { className: "ml-4", children: /* @__PURE__ */ jsx(
+                  "input",
+                  {
+                    type: "checkbox",
+                    checked: preferences.marketing,
+                    onChange: (e) => setPreferences({ ...preferences, marketing: e.target.checked }),
+                    className: "w-5 h-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer",
+                    "aria-label": "Enable marketing cookies"
+                  }
+                ) })
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxs("div", { className: "flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2", children: [
+              /* @__PURE__ */ jsx(
+                "a",
+                {
+                  href: "/cookie-policy",
+                  className: "px-4 py-2 text-sm font-medium text-gray-700 hover:text-brand-600 text-center",
+                  children: "Read full Cookie Policy"
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: "flex-1" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  onClick: handleRejectAll,
+                  className: "px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors",
+                  children: "Only Essential"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  onClick: handleSavePreferences,
+                  className: "px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors",
+                  children: "Save Preferences"
+                }
+              )
+            ] })
+          ] })
+        ) })
+      }
+    )
+  ] });
+}
+const UNREAD_POLL_INTERVAL$1 = 5e3;
+function MobileNav({ user }) {
+  var _a, _b, _c, _d;
+  const location = useLocation();
+  const fetcher = useFetcher();
+  const isPollingRef = useRef(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  useEffect(() => {
+    if (!user || typeof window === "undefined") return;
+    if (fetcher.state === "idle" && !fetcher.data) {
+      fetcher.load("/api/unread");
+    }
+    const poll = () => {
+      if (isPollingRef.current) return;
+      if (fetcher.state !== "idle") return;
+      isPollingRef.current = true;
+      fetcher.load("/api/unread");
+      isPollingRef.current = false;
+    };
+    const intervalId = setInterval(poll, UNREAD_POLL_INTERVAL$1);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user, fetcher]);
+  const unreadCount = ((_a = fetcher.data) == null ? void 0 : _a.unreadCount) ?? 0;
+  if (location.pathname === "/login" || location.pathname === "/register") {
+    return null;
+  }
+  const isActive = (path) => {
+    if (path === "/") return location.pathname === "/";
+    return location.pathname.startsWith(path);
+  };
+  const myListingPath = (user == null ? void 0 : user.user_type) === "tour_operator" ? "/dashboard" : "/my-listings";
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [location.pathname]);
+  const firstName = ((_b = user == null ? void 0 : user.full_name) == null ? void 0 : _b.split(" ")[0]) || "Menu";
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    isSidebarOpen && /* @__PURE__ */ jsx(
+      "div",
+      {
+        className: "md:hidden fixed inset-0 bg-black/50 z-50",
+        onClick: () => setIsSidebarOpen(false)
+      }
+    ),
+    /* @__PURE__ */ jsxs(
+      "div",
+      {
+        className: `md:hidden fixed top-16 right-2 w-56 bg-white rounded-2xl shadow-xl z-50 transform transition-all duration-200 ease-out ${isSidebarOpen ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`,
+        children: [
+          /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-3 p-3 border-b border-gray-100", children: [
+            /* @__PURE__ */ jsx("div", { className: "flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-600 font-semibold text-sm", children: ((_c = user == null ? void 0 : user.full_name) == null ? void 0 : _c.charAt(0)) || ((_d = user == null ? void 0 : user.email) == null ? void 0 : _d.charAt(0)) || "?" }),
+            /* @__PURE__ */ jsxs("div", { className: "min-w-0 flex-1", children: [
+              /* @__PURE__ */ jsx("p", { className: "font-semibold text-gray-900 text-sm truncate", children: (user == null ? void 0 : user.full_name) || "User" }),
+              /* @__PURE__ */ jsx("p", { className: "text-[10px] text-gray-500", children: (user == null ? void 0 : user.user_type) === "tour_operator" ? "Tour Operator" : "Private" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "py-1", children: [
+            (user == null ? void 0 : user.user_type) === "tour_operator" && /* @__PURE__ */ jsxs(
+              Link,
+              {
+                to: "/dashboard",
+                onClick: () => setIsSidebarOpen(false),
+                className: "flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50",
+                children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" }) }),
+                  "Dashboard"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxs(
+              Link,
+              {
+                to: "/profile",
+                onClick: () => setIsSidebarOpen(false),
+                className: "flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50",
+                children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" }) }),
+                  "Profile"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxs(
+              Link,
+              {
+                to: myListingPath,
+                onClick: () => setIsSidebarOpen(false),
+                className: "flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50",
+                children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" }) }),
+                  (user == null ? void 0 : user.user_type) === "tour_operator" ? "My Listings" : "My Listing"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxs(
+              Link,
+              {
+                to: "/saved",
+                onClick: () => setIsSidebarOpen(false),
+                className: "flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50",
+                children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" }) }),
+                  "Saved"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsx("div", { className: "my-1 border-t border-gray-100" }),
+            /* @__PURE__ */ jsxs(
+              Link,
+              {
+                to: "/settings",
+                onClick: () => setIsSidebarOpen(false),
+                className: "flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50",
+                children: [
+                  /* @__PURE__ */ jsxs("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: [
+                    /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" }),
+                    /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z" })
+                  ] }),
+                  "Settings"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsx(Form, { method: "post", action: "/logout", children: /* @__PURE__ */ jsxs(
+              "button",
+              {
+                type: "submit",
+                className: "flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50",
+                children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-red-500", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" }) }),
+                  "Logout"
+                ]
+              }
+            ) })
+          ] })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsx("nav", { className: "md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 safe-area-top", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-around h-16 px-2", children: [
+      /* @__PURE__ */ jsxs(
+        Link,
+        {
+          to: "/",
+          className: `flex flex-col items-center justify-center flex-1 py-2 ${isActive("/") && !isActive("/listings") && !isActive("/messages") && !isActive("/profile") && !isActive("/my-listings") && !isActive("/dashboard") ? "text-brand-600" : "text-gray-500"}`,
+          children: [
+            /* @__PURE__ */ jsx("svg", { className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: isActive("/") && !isActive("/listings") ? 2.5 : 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" }) }),
+            /* @__PURE__ */ jsx("span", { className: "text-[10px] mt-0.5 font-medium", children: "Home" })
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxs(
+        Link,
+        {
+          to: "/listings",
+          className: `flex flex-col items-center justify-center flex-1 py-2 ${isActive("/listings") && !location.pathname.includes("/new") ? "text-brand-600" : "text-gray-500"}`,
+          children: [
+            /* @__PURE__ */ jsx("svg", { className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: isActive("/listings") && !location.pathname.includes("/new") ? 2.5 : 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" }) }),
+            /* @__PURE__ */ jsx("span", { className: "text-[10px] mt-0.5 font-medium", children: "Search" })
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxs(
+        Link,
+        {
+          to: user ? "/listings/new" : "/login",
+          className: `flex flex-col items-center justify-center flex-1 py-2 ${location.pathname === "/listings/new" ? "text-accent-600" : "text-gray-500"}`,
+          children: [
+            /* @__PURE__ */ jsx("svg", { className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: location.pathname === "/listings/new" ? 2.5 : 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 4v16m8-8H4" }) }),
+            /* @__PURE__ */ jsx("span", { className: "text-[10px] mt-0.5 font-medium", children: "New" })
+          ]
+        }
+      ),
+      user ? /* @__PURE__ */ jsxs(
+        Link,
+        {
+          to: "/messages",
+          className: `flex flex-col items-center justify-center flex-1 py-2 relative ${isActive("/messages") ? "text-brand-600" : "text-gray-500"}`,
+          children: [
+            /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+              /* @__PURE__ */ jsx("svg", { className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: isActive("/messages") ? 2.5 : 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" }) }),
+              unreadCount > 0 && /* @__PURE__ */ jsx("span", { className: "absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white", children: unreadCount > 9 ? "9+" : unreadCount })
+            ] }),
+            /* @__PURE__ */ jsx("span", { className: "text-[10px] mt-0.5 font-medium", children: "Messages" })
+          ]
+        }
+      ) : /* @__PURE__ */ jsxs(
+        Link,
+        {
+          to: "/login",
+          className: "flex flex-col items-center justify-center flex-1 py-2 text-gray-500",
+          children: [
+            /* @__PURE__ */ jsx("svg", { className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" }) }),
+            /* @__PURE__ */ jsx("span", { className: "text-[10px] mt-0.5 font-medium", children: "Messages" })
+          ]
+        }
+      ),
+      user ? /* @__PURE__ */ jsxs(
+        "button",
+        {
+          onClick: () => setIsSidebarOpen(true),
+          className: `flex flex-col items-center justify-center flex-1 py-2 ${isActive("/profile") || isActive("/settings") || isActive("/saved") || isActive(myListingPath) ? "text-brand-600" : "text-gray-500"}`,
+          children: [
+            /* @__PURE__ */ jsx("svg", { className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: isActive("/profile") || isActive("/settings") || isActive("/saved") ? 2.5 : 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" }) }),
+            /* @__PURE__ */ jsx("span", { className: "text-[10px] mt-0.5 font-medium truncate max-w-[60px]", children: firstName })
+          ]
+        }
+      ) : /* @__PURE__ */ jsxs(
+        Link,
+        {
+          to: "/login",
+          className: "flex flex-col items-center justify-center flex-1 py-2 text-gray-500",
+          children: [
+            /* @__PURE__ */ jsx("svg", { className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" }) }),
+            /* @__PURE__ */ jsx("span", { className: "text-[10px] mt-0.5 font-medium", children: "Login" })
+          ]
+        }
+      )
+    ] }) })
+  ] });
+}
 const links = () => [{
   rel: "preconnect",
   href: "https://fonts.googleapis.com"
@@ -153,7 +560,7 @@ const links = () => [{
   rel: "stylesheet",
   href: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap"
 }];
-async function loader$n({
+async function loader$q({
   request
 }) {
   const user = await getUser(request);
@@ -210,6 +617,7 @@ function Layout({
 }
 const root = UNSAFE_withComponentProps(function App() {
   const {
+    user,
     ENV
   } = useLoaderData();
   return /* @__PURE__ */ jsxs(Fragment, {
@@ -217,7 +625,9 @@ const root = UNSAFE_withComponentProps(function App() {
       dangerouslySetInnerHTML: {
         __html: `window.ENV = ${JSON.stringify(ENV)}`
       }
-    }), /* @__PURE__ */ jsx(Outlet, {})]
+    }), /* @__PURE__ */ jsx(Outlet, {}), /* @__PURE__ */ jsx(CookieBanner, {}), /* @__PURE__ */ jsx(MobileNav, {
+      user
+    })]
   });
 });
 const route0 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
@@ -225,7 +635,328 @@ const route0 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
   Layout,
   default: root,
   links,
-  loader: loader$n
+  loader: loader$q
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$o = ({
+  data: data2
+}) => {
+  var _a, _b;
+  return [{
+    title: `Contact Seller - ${((_b = (_a = data2 == null ? void 0 : data2.listing) == null ? void 0 : _a.event) == null ? void 0 : _b.name) || "Runoot"}`
+  }];
+};
+async function loader$p({
+  request,
+  params
+}) {
+  const user = await requireUser(request);
+  const userId = user.id;
+  const {
+    id
+  } = params;
+  const {
+    data: listing,
+    error
+  } = await supabase.from("listings").select(`
+      *,
+      author:profiles(id, full_name, company_name, user_type, is_verified),
+      event:events(id, name, slug, country, event_date)
+    `).eq("id", id).single();
+  if (error || !listing) {
+    throw new Response("Listing not found", {
+      status: 404
+    });
+  }
+  const listingData = listing;
+  if (listingData.author_id === userId) {
+    return redirect(`/listings/${id}`);
+  }
+  const url = new URL(request.url);
+  const sent = url.searchParams.get("sent");
+  if (!sent) {
+    const {
+      data: existingConversation
+    } = await supabaseAdmin.from("conversations").select("id").eq("listing_id", id).or(`and(participant_1.eq.${userId},participant_2.eq.${listingData.author_id}),and(participant_1.eq.${listingData.author_id},participant_2.eq.${userId})`).single();
+    if (existingConversation) {
+      return redirect(`/messages/${existingConversation.id}`);
+    }
+  }
+  const {
+    data: userProfile
+  } = await supabase.from("profiles").select("full_name, company_name").eq("id", userId).single();
+  return {
+    user,
+    listing: listingData,
+    userProfile,
+    sent: !!sent
+  };
+}
+async function action$i({
+  request,
+  params
+}) {
+  const user = await requireUser(request);
+  const userId = user.id;
+  const {
+    id
+  } = params;
+  const formData = await request.formData();
+  const message = formData.get("message");
+  if (typeof message !== "string" || !message.trim()) {
+    return data({
+      error: "Message cannot be empty"
+    }, {
+      status: 400
+    });
+  }
+  const {
+    data: listing
+  } = await supabaseAdmin.from("listings").select("author_id").eq("id", id).single();
+  if (!listing) {
+    return data({
+      error: "Listing not found"
+    }, {
+      status: 404
+    });
+  }
+  if (listing.author_id === userId) {
+    return data({
+      error: "You cannot message yourself"
+    }, {
+      status: 400
+    });
+  }
+  const {
+    data: existingConversation
+  } = await supabaseAdmin.from("conversations").select("id").eq("listing_id", id).or(`and(participant_1.eq.${userId},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${userId})`).single();
+  if (existingConversation) {
+    await supabaseAdmin.from("messages").insert({
+      conversation_id: existingConversation.id,
+      sender_id: userId,
+      content: message.trim(),
+      message_type: "user"
+    });
+    await supabaseAdmin.from("conversations").update({
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    }).eq("id", existingConversation.id);
+    return redirect(`/listings/${id}/contact?sent=true`);
+  }
+  const {
+    data: newConversation,
+    error: convError
+  } = await supabaseAdmin.from("conversations").insert({
+    listing_id: id,
+    participant_1: userId,
+    participant_2: listing.author_id
+  }).select().single();
+  if (convError || !newConversation) {
+    return data({
+      error: "Failed to start conversation"
+    }, {
+      status: 500
+    });
+  }
+  const {
+    error: msgError
+  } = await supabaseAdmin.from("messages").insert({
+    conversation_id: newConversation.id,
+    sender_id: userId,
+    content: message.trim(),
+    message_type: "user"
+  });
+  if (msgError) {
+    return data({
+      error: "Failed to send message"
+    }, {
+      status: 500
+    });
+  }
+  return redirect(`/listings/${id}/contact?sent=true`);
+}
+const listings_$id__contact = UNSAFE_withComponentProps(function ContactSeller() {
+  var _a, _b, _c;
+  const {
+    listing,
+    userProfile,
+    sent
+  } = useLoaderData();
+  const actionData = useActionData();
+  const navigation = useNavigation();
+  const textareaRef = useRef(null);
+  const isSubmitting = navigation.state === "submitting";
+  const showSuccess = sent;
+  const sellerName = listing.author.company_name || ((_a = listing.author.full_name) == null ? void 0 : _a.split(" ")[0]) || "there";
+  const eventName = listing.event.name;
+  const defaultMessage = `Hello ${sellerName}, I'm writing to you about the listing for ${eventName}. `;
+  const handleTextareaChange = (e) => {
+    e.target.style.height = "auto";
+    e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+  };
+  useEffect(() => {
+    if (textareaRef.current && !showSuccess) {
+      textareaRef.current.focus();
+      textareaRef.current.selectionStart = textareaRef.current.value.length;
+      textareaRef.current.selectionEnd = textareaRef.current.value.length;
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+    }
+  }, [showSuccess]);
+  return /* @__PURE__ */ jsxs("div", {
+    className: "min-h-screen bg-gray-50",
+    children: [showSuccess && /* @__PURE__ */ jsx("div", {
+      className: "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-2xl max-w-sm w-full p-6 text-center",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4",
+          children: /* @__PURE__ */ jsx("svg", {
+            className: "w-8 h-8 text-green-600",
+            fill: "none",
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M5 13l4 4L19 7"
+            })
+          })
+        }), /* @__PURE__ */ jsx("h3", {
+          className: "text-xl font-semibold text-gray-900 mb-2",
+          children: "Message Sent!"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-gray-600 mb-6",
+          children: "The seller will be notified and can reply to your message."
+        }), /* @__PURE__ */ jsx(Link, {
+          to: "/listings",
+          className: "btn-primary w-full py-3 text-base font-semibold rounded-full block text-center",
+          children: "Back to Listings"
+        })]
+      })
+    }), /* @__PURE__ */ jsx("div", {
+      className: "bg-white border-b border-gray-200 sticky top-0 z-10",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "max-w-2xl mx-auto px-4 py-4 flex items-center gap-4",
+        children: [/* @__PURE__ */ jsx(Link, {
+          to: `/listings/${listing.id}`,
+          className: "text-gray-400 hover:text-gray-600",
+          children: /* @__PURE__ */ jsx("svg", {
+            className: "h-6 w-6",
+            fill: "none",
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M15 19l-7-7 7-7"
+            })
+          })
+        }), /* @__PURE__ */ jsx("h1", {
+          className: "font-display text-lg font-semibold text-gray-900",
+          children: "New Message"
+        })]
+      })
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "max-w-2xl mx-auto px-4 py-6",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "flex items-center gap-3",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0",
+            children: ((_b = listing.author.company_name) == null ? void 0 : _b.charAt(0)) || ((_c = listing.author.full_name) == null ? void 0 : _c.charAt(0)) || "?"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "flex-1 min-w-0",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-1.5",
+              children: [/* @__PURE__ */ jsx("p", {
+                className: "font-semibold text-gray-900 truncate",
+                children: listing.author.company_name || listing.author.full_name
+              }), listing.author.is_verified && /* @__PURE__ */ jsx("svg", {
+                className: "h-4 w-4 text-brand-500 flex-shrink-0",
+                fill: "currentColor",
+                viewBox: "0 0 20 20",
+                children: /* @__PURE__ */ jsx("path", {
+                  fillRule: "evenodd",
+                  d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                  clipRule: "evenodd"
+                })
+              })]
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-sm text-gray-500",
+              children: listing.author.user_type === "tour_operator" ? "Tour Operator" : "Private Seller"
+            })]
+          })]
+        }), /* @__PURE__ */ jsx("div", {
+          className: "mt-3 pt-3 border-t border-gray-100",
+          children: /* @__PURE__ */ jsxs("p", {
+            className: "text-sm text-gray-500",
+            children: ["Regarding: ", /* @__PURE__ */ jsx("span", {
+              className: "text-gray-700 font-medium",
+              children: listing.event.name
+            })]
+          })
+        })]
+      }), /* @__PURE__ */ jsxs(Form, {
+        method: "post",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden",
+          children: /* @__PURE__ */ jsx("textarea", {
+            ref: textareaRef,
+            name: "message",
+            defaultValue: defaultMessage,
+            placeholder: "Write your message...",
+            required: true,
+            rows: 4,
+            className: "w-full px-4 py-4 text-gray-900 placeholder-gray-400 resize-none focus:outline-none min-h-[120px]",
+            disabled: isSubmitting || showSuccess,
+            onChange: handleTextareaChange
+          })
+        }), actionData && "error" in actionData && actionData.error && /* @__PURE__ */ jsx("div", {
+          className: "mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700",
+          children: actionData.error
+        }), /* @__PURE__ */ jsx("div", {
+          className: "mt-4",
+          children: /* @__PURE__ */ jsx("button", {
+            type: "submit",
+            disabled: isSubmitting || showSuccess,
+            className: "btn-primary w-full py-3.5 text-base font-semibold rounded-full shadow-lg shadow-brand-500/25 disabled:opacity-50",
+            children: isSubmitting ? /* @__PURE__ */ jsxs("span", {
+              className: "flex items-center justify-center gap-2",
+              children: [/* @__PURE__ */ jsxs("svg", {
+                className: "animate-spin h-5 w-5",
+                fill: "none",
+                viewBox: "0 0 24 24",
+                children: [/* @__PURE__ */ jsx("circle", {
+                  className: "opacity-25",
+                  cx: "12",
+                  cy: "12",
+                  r: "10",
+                  stroke: "currentColor",
+                  strokeWidth: "4"
+                }), /* @__PURE__ */ jsx("path", {
+                  className: "opacity-75",
+                  fill: "currentColor",
+                  d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                })]
+              }), "Sending..."]
+            }) : "Send Message"
+          })
+        })]
+      }), /* @__PURE__ */ jsx("p", {
+        className: "mt-4 text-center text-xs text-gray-500",
+        children: "Be clear about what you're looking for. Include any questions about availability or details."
+      })]
+    })]
+  });
+});
+const route1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$i,
+  default: listings_$id__contact,
+  loader: loader$p,
+  meta: meta$o
 }, Symbol.toStringTag, { value: "Module" }));
 const UNREAD_POLL_INTERVAL = 5e3;
 function Header({ user }) {
@@ -233,6 +964,22 @@ function Header({ user }) {
   const fetcher = useFetcher();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isPollingRef = useRef(false);
+  const menuRef = useRef(null);
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [isMenuOpen]);
   useEffect(() => {
     if (!user || typeof window === "undefined") return;
     if (fetcher.state === "idle" && !fetcher.data) {
@@ -251,16 +998,16 @@ function Header({ user }) {
     };
   }, [user, fetcher]);
   const unreadCount = ((_a = fetcher.data) == null ? void 0 : _a.unreadCount) ?? (user == null ? void 0 : user.unreadCount) ?? 0;
-  return /* @__PURE__ */ jsx("header", { className: "sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200", children: /* @__PURE__ */ jsx("div", { className: "mx-auto max-w-7xl px-6 sm:px-8 lg:px-12", children: /* @__PURE__ */ jsxs("div", { className: "flex h-20 items-center justify-between", children: [
-    /* @__PURE__ */ jsx(Link, { to: "/", className: "flex items-center -ml-6", children: /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ jsx(Fragment, { children: /* @__PURE__ */ jsx("header", { className: "hidden md:block sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200", children: /* @__PURE__ */ jsx("div", { className: "mx-auto max-w-7xl px-4 md:px-0", children: /* @__PURE__ */ jsxs("div", { className: "hidden md:flex h-20 items-center justify-between", children: [
+    /* @__PURE__ */ jsx(Link, { to: "/", className: "flex items-center mt-2", children: /* @__PURE__ */ jsx(
       "img",
       {
-        src: "/logo.png",
+        src: "/logo.svg",
         alt: "Runoot",
-        className: "h-12 w-auto"
+        className: "h-32 w-auto"
       }
     ) }),
-    /* @__PURE__ */ jsxs("nav", { className: "hidden md:flex items-center gap-10 flex-1 justify-center", children: [
+    /* @__PURE__ */ jsxs("nav", { className: "flex items-center gap-10 flex-1 justify-center", children: [
       /* @__PURE__ */ jsx(
         Link,
         {
@@ -278,10 +1025,11 @@ function Header({ user }) {
         }
       )
     ] }),
-    user ? /* @__PURE__ */ jsx("nav", { className: "flex items-center", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-6", children: [
+    user ? /* @__PURE__ */ jsx("nav", { className: "flex items-center", children: /* @__PURE__ */ jsxs("div", { className: "hidden md:flex items-center gap-6", children: [
       /* @__PURE__ */ jsxs(
         "div",
         {
+          ref: menuRef,
           className: "relative",
           onMouseEnter: () => setIsMenuOpen(true),
           onMouseLeave: () => setIsMenuOpen(false),
@@ -289,14 +1037,15 @@ function Header({ user }) {
             /* @__PURE__ */ jsxs(
               "button",
               {
+                onClick: () => setIsMenuOpen(!isMenuOpen),
                 className: "flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-full bg-white hover:bg-gray-50 text-gray-900 transition-colors",
                 children: [
                   unreadCount > 0 && /* @__PURE__ */ jsx("span", { className: "h-2.5 w-2.5 rounded-full bg-red-500" }),
-                  /* @__PURE__ */ jsx("span", { className: "text-sm font-bold", children: user.full_name || user.email }),
+                  /* @__PURE__ */ jsx("span", { className: "text-sm font-bold max-w-[150px] truncate", children: user.full_name || user.email }),
                   /* @__PURE__ */ jsx(
                     "svg",
                     {
-                      className: `h-4 w-4 text-gray-500 transition-transform ${isMenuOpen ? "rotate-180" : ""}`,
+                      className: `h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${isMenuOpen ? "rotate-180" : ""}`,
                       fill: "none",
                       viewBox: "0 0 24 24",
                       stroke: "currentColor",
@@ -306,7 +1055,7 @@ function Header({ user }) {
                 ]
               }
             ),
-            isMenuOpen && /* @__PURE__ */ jsx(Fragment, { children: /* @__PURE__ */ jsxs("div", { className: "absolute right-0 top-full w-56 rounded-2xl bg-white shadow-lg border border-gray-200 py-2 z-20", children: [
+            isMenuOpen && /* @__PURE__ */ jsx(Fragment, { children: /* @__PURE__ */ jsxs("div", { className: "absolute right-0 top-full w-48 sm:w-56 rounded-2xl bg-white shadow-lg border border-gray-200 py-2 z-20", children: [
               user.user_type === "tour_operator" && /* @__PURE__ */ jsxs(
                 Link,
                 {
@@ -325,7 +1074,7 @@ function Header({ user }) {
                   className: "flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50",
                   children: [
                     /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" }) }),
-                    "Profilo"
+                    "Profile"
                   ]
                 }
               ),
@@ -397,11 +1146,10 @@ function Header({ user }) {
         Link,
         {
           to: "/listings/new",
-          className: "btn-primary flex items-center gap-2 px-8 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30",
+          className: "btn-primary flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30 mr-6",
           children: [
             /* @__PURE__ */ jsx("svg", { className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M12 4v16m8-8H4" }) }),
-            /* @__PURE__ */ jsx("span", { className: "hidden sm:inline", children: "New Listing" }),
-            /* @__PURE__ */ jsx("span", { className: "sm:hidden", children: "New" })
+            /* @__PURE__ */ jsx("span", { children: "New Listing" })
           ]
         }
       )
@@ -409,9 +1157,9 @@ function Header({ user }) {
       /* @__PURE__ */ jsx(Link, { to: "/login", className: "btn-secondary rounded-full", children: "Login" }),
       /* @__PURE__ */ jsx(Link, { to: "/register", className: "btn-primary rounded-full shadow-lg shadow-accent-500/30", children: "Sign up" })
     ] })
-  ] }) }) });
+  ] }) }) }) });
 }
-function EventPicker({ events, onSelectEvent, defaultEventId }) {
+function EventPicker({ events, onSelectEvent, defaultEventId, hasError }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvent, setSelectedEvent] = useState(() => {
@@ -435,12 +1183,12 @@ function EventPicker({ events, onSelectEvent, defaultEventId }) {
       {
         type: "button",
         onClick: () => setIsOpen(true),
-        className: "input text-left text-gray-500 hover:border-brand-500",
+        className: `input text-left text-gray-500 hover:border-brand-500 ${hasError ? "border-red-500 ring-1 ring-red-500" : ""}`,
         children: "Choose your event..."
       }
-    ) : /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between rounded-lg border border-accent-500 bg-accent-50 p-4", children: [
+    ) : /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between rounded-lg border border-green-500 bg-green-50 p-4", children: [
       /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
-        /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-accent-600", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M5 13l4 4L19 7" }) }),
+        /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-green-600", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M5 13l4 4L19 7" }) }),
         /* @__PURE__ */ jsxs("div", { children: [
           /* @__PURE__ */ jsxs("p", { className: "text-sm font-medium text-gray-900", children: [
             "Event: ",
@@ -529,18 +1277,22 @@ function EventPicker({ events, onSelectEvent, defaultEventId }) {
                     strokeLinecap: "round",
                     strokeLinejoin: "round",
                     strokeWidth: 2,
-                    d: "M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                   }
                 )
               }
             ),
-            /* @__PURE__ */ jsx("p", { className: "mt-4 text-sm text-gray-600", children: "Can't find your event?" }),
-            /* @__PURE__ */ jsx(
+            /* @__PURE__ */ jsx("p", { className: "mt-4 text-sm font-medium text-gray-900", children: "Can't find your event?" }),
+            /* @__PURE__ */ jsx("p", { className: "mt-2 text-sm text-gray-600", children: "Contact us and we'll add it for you" }),
+            /* @__PURE__ */ jsxs(
               Link,
               {
                 to: "/contact",
-                className: "mt-3 inline-block px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors",
-                children: "Contact us"
+                className: "mt-4 inline-flex items-center gap-2 rounded-full bg-accent-500 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-accent-500/30 hover:bg-accent-600 transition-colors",
+                children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" }) }),
+                  "Contact Us"
+                ]
               }
             )
           ] })
@@ -549,7 +1301,7 @@ function EventPicker({ events, onSelectEvent, defaultEventId }) {
     ] }) })
   ] });
 }
-function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, defaultHotelName }) {
+function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, defaultHotelName, hasError }) {
   const [selectedHotel, setSelectedHotel] = useState(() => {
     if (defaultHotelName) {
       return {
@@ -562,73 +1314,164 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
     }
     return null;
   });
+  const [inputValue, setInputValue] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const inputRef = useRef(null);
-  const autocompleteRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const debounceTimerRef = useRef(null);
+  const sessionTokenRef = useRef(generateSessionToken());
   useEffect(() => {
-    if (!inputRef.current || !apiKey) return;
-    const loadGooglePlaces = async () => {
-      if (!window.google) {
-        const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-        script.onload = () => {
-          initAutocomplete();
-        };
-      } else {
-        initAutocomplete();
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
       }
     };
-    const initAutocomplete = () => {
-      if (!inputRef.current) return;
-      autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
-        types: ["lodging"],
-        fields: ["place_id", "name", "formatted_address", "address_components", "geometry", "rating", "website"]
-      });
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const fetchSuggestions = useCallback(async (query) => {
+    if (!apiKey || !query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const requestBody = {
+        input: query,
+        includedPrimaryTypes: ["lodging"],
+        sessionToken: sessionTokenRef.current
+      };
       if (eventCity && eventCountry) {
-        const countryCode = getCountryCode(eventCountry);
-        if (countryCode) {
-          autocompleteRef.current.setComponentRestrictions({
-            country: countryCode
-          });
-        }
+        requestBody.includedRegionCodes = [getCountryCode(eventCountry)].filter(Boolean);
+      } else if (eventCountry) {
+        requestBody.includedRegionCodes = [getCountryCode(eventCountry)].filter(Boolean);
       }
-      autocompleteRef.current.addListener("place_changed", () => {
-        var _a, _b, _c, _d, _e, _f;
-        const place = (_a = autocompleteRef.current) == null ? void 0 : _a.getPlace();
-        if (!place || !place.place_id) return;
-        let city = "";
-        let country = "";
-        (_b = place.address_components) == null ? void 0 : _b.forEach((component) => {
-          if (component.types.includes("locality")) {
-            city = component.long_name;
-          }
-          if (component.types.includes("country")) {
-            country = component.long_name;
-          }
+      const response = await fetch(
+        `https://places.googleapis.com/v1/places:autocomplete`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch suggestions");
+      }
+      const data2 = await response.json();
+      if (data2.suggestions) {
+        const mappedSuggestions = data2.suggestions.filter((s) => s.placePrediction).map((s) => {
+          var _a, _b, _c, _d, _e, _f;
+          return {
+            placeId: s.placePrediction.placeId,
+            mainText: ((_b = (_a = s.placePrediction.structuredFormat) == null ? void 0 : _a.mainText) == null ? void 0 : _b.text) || ((_c = s.placePrediction.text) == null ? void 0 : _c.text) || "",
+            secondaryText: ((_e = (_d = s.placePrediction.structuredFormat) == null ? void 0 : _d.secondaryText) == null ? void 0 : _e.text) || "",
+            fullText: ((_f = s.placePrediction.text) == null ? void 0 : _f.text) || ""
+          };
         });
-        const hotel = {
-          placeId: place.place_id,
-          name: place.name || "",
-          city,
-          country,
-          formattedAddress: place.formatted_address || "",
-          lat: (_d = (_c = place.geometry) == null ? void 0 : _c.location) == null ? void 0 : _d.lat(),
-          lng: (_f = (_e = place.geometry) == null ? void 0 : _e.location) == null ? void 0 : _f.lng(),
-          rating: place.rating,
-          website: place.website
-        };
-        setSelectedHotel(hotel);
-        onSelectHotel(hotel);
+        const sortedSuggestions = [...mappedSuggestions].sort((a, b) => {
+          if (eventCity) {
+            const aInCity = a.secondaryText.toLowerCase().includes(eventCity.toLowerCase());
+            const bInCity = b.secondaryText.toLowerCase().includes(eventCity.toLowerCase());
+            if (aInCity && !bInCity) return -1;
+            if (!aInCity && bInCity) return 1;
+          }
+          return 0;
+        });
+        setSuggestions(sortedSuggestions);
+      } else {
+        setSuggestions([]);
+      }
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+      setSuggestions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiKey, eventCity, eventCountry]);
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setInputValue(value);
+    setIsOpen(true);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      fetchSuggestions(value);
+    }, 300);
+  };
+  const handleSelectSuggestion = async (suggestion) => {
+    var _a, _b, _c, _d;
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `https://places.googleapis.com/v1/places/${suggestion.placeId}?fields=id,displayName,formattedAddress,addressComponents,location,rating,websiteUri&sessionToken=${sessionTokenRef.current}`,
+        {
+          headers: {
+            "X-Goog-Api-Key": apiKey
+          }
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch place details");
+      }
+      const place = await response.json();
+      let city = "";
+      let country = "";
+      (_a = place.addressComponents) == null ? void 0 : _a.forEach((component) => {
+        var _a2, _b2;
+        if ((_a2 = component.types) == null ? void 0 : _a2.includes("locality")) {
+          city = component.longText || "";
+        }
+        if ((_b2 = component.types) == null ? void 0 : _b2.includes("country")) {
+          country = component.longText || "";
+        }
       });
-    };
-    loadGooglePlaces();
-  }, [apiKey, onSelectHotel]);
+      const hotel = {
+        placeId: place.id || suggestion.placeId,
+        name: ((_b = place.displayName) == null ? void 0 : _b.text) || suggestion.mainText,
+        city,
+        country,
+        formattedAddress: place.formattedAddress || "",
+        lat: (_c = place.location) == null ? void 0 : _c.latitude,
+        lng: (_d = place.location) == null ? void 0 : _d.longitude,
+        rating: place.rating,
+        website: place.websiteUri
+      };
+      setSelectedHotel(hotel);
+      onSelectHotel(hotel);
+      setInputValue("");
+      setSuggestions([]);
+      setIsOpen(false);
+      sessionTokenRef.current = generateSessionToken();
+    } catch (error) {
+      console.error("Error fetching place details:", error);
+      const hotel = {
+        placeId: suggestion.placeId,
+        name: suggestion.mainText,
+        city: "",
+        country: "",
+        formattedAddress: suggestion.fullText
+      };
+      setSelectedHotel(hotel);
+      onSelectHotel(hotel);
+      setInputValue("");
+      setSuggestions([]);
+      setIsOpen(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const handleChange = () => {
     setSelectedHotel(null);
     onSelectHotel(null);
+    setInputValue("");
+    setSuggestions([]);
   };
   const handleManualSubmit = (e) => {
     e.preventDefault();
@@ -644,6 +1487,10 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
     onSelectHotel(manualHotel);
     setShowManualForm(false);
   };
+  const isInEventCity = (suggestion) => {
+    if (!eventCity) return false;
+    return suggestion.secondaryText.toLowerCase().includes(eventCity.toLowerCase());
+  };
   return /* @__PURE__ */ jsx("div", { children: !selectedHotel ? /* @__PURE__ */ jsxs("div", { className: "space-y-3", children: [
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelPlaceId", value: "" }),
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelName", value: "" }),
@@ -653,32 +1500,92 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelLng", value: "" }),
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelRating", value: "" }),
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelWebsite", value: "" }),
-    /* @__PURE__ */ jsx(
-      "input",
-      {
-        ref: inputRef,
-        type: "text",
-        placeholder: "Start typing hotel name or city...",
-        className: "input",
-        onChange: handleChange
-      }
-    ),
+    /* @__PURE__ */ jsxs("div", { ref: dropdownRef, className: "relative", children: [
+      /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+        /* @__PURE__ */ jsx(
+          "svg",
+          {
+            className: "absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none",
+            fill: "none",
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" })
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          "input",
+          {
+            ref: inputRef,
+            type: "text",
+            value: inputValue,
+            onChange: handleInputChange,
+            onFocus: () => inputValue && setIsOpen(true),
+            placeholder: eventCity ? `Search hotels in ${eventCity}...` : "Search hotel name or city...",
+            className: `w-full pl-10 pr-4 py-3 border rounded-xl text-base bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors ${hasError ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"}`,
+            autoComplete: "off"
+          }
+        ),
+        isLoading && /* @__PURE__ */ jsx("div", { className: "absolute right-3 top-1/2 -translate-y-1/2", children: /* @__PURE__ */ jsxs("svg", { className: "animate-spin h-5 w-5 text-gray-400", fill: "none", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsx("circle", { className: "opacity-25", cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "4" }),
+          /* @__PURE__ */ jsx("path", { className: "opacity-75", fill: "currentColor", d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" })
+        ] }) })
+      ] }),
+      isOpen && suggestions.length > 0 && /* @__PURE__ */ jsxs("div", { className: "absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-[60vh] md:max-h-80 overflow-y-auto", children: [
+        eventCity && suggestions.some((s) => isInEventCity(s)) && /* @__PURE__ */ jsx("div", { className: "px-3 py-2 bg-brand-50 border-b border-brand-100", children: /* @__PURE__ */ jsxs("p", { className: "text-xs font-medium text-brand-700", children: [
+          "Hotels in ",
+          eventCity
+        ] }) }),
+        suggestions.map((suggestion, index) => {
+          const inCity = isInEventCity(suggestion);
+          const showSeparator = eventCity && index > 0 && isInEventCity(suggestions[index - 1]) && !inCity;
+          return /* @__PURE__ */ jsxs("div", { children: [
+            showSeparator && /* @__PURE__ */ jsx("div", { className: "px-3 py-2 bg-gray-50 border-t border-b border-gray-100", children: /* @__PURE__ */ jsx("p", { className: "text-xs font-medium text-gray-500", children: "Other locations" }) }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => handleSelectSuggestion(suggestion),
+                className: `w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${inCity ? "bg-brand-50/50" : ""}`,
+                children: /* @__PURE__ */ jsxs("div", { className: "flex items-start gap-3", children: [
+                  /* @__PURE__ */ jsx(
+                    "svg",
+                    {
+                      className: `h-5 w-5 mt-0.5 flex-shrink-0 ${inCity ? "text-brand-500" : "text-gray-400"}`,
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" })
+                    }
+                  ),
+                  /* @__PURE__ */ jsxs("div", { className: "min-w-0 flex-1", children: [
+                    /* @__PURE__ */ jsx("p", { className: `font-medium truncate ${inCity ? "text-brand-900" : "text-gray-900"}`, children: suggestion.mainText }),
+                    /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-500 truncate", children: suggestion.secondaryText })
+                  ] }),
+                  inCity && /* @__PURE__ */ jsx("span", { className: "flex-shrink-0 px-2 py-0.5 bg-brand-100 text-brand-700 text-xs font-medium rounded-full", children: "Event city" })
+                ] })
+              }
+            )
+          ] }, suggestion.placeId);
+        })
+      ] }),
+      isOpen && inputValue && suggestions.length === 0 && !isLoading && /* @__PURE__ */ jsx("div", { className: "absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-4", children: /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-500 text-center", children: "No hotels found. Try a different search or add manually." }) })
+    ] }),
     /* @__PURE__ */ jsx(
       "button",
       {
         type: "button",
         onClick: () => setShowManualForm(!showManualForm),
-        className: "mt-2 inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2",
+        className: "inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors",
         children: showManualForm ? /* @__PURE__ */ jsxs(Fragment, { children: [
           /* @__PURE__ */ jsx("svg", { className: "h-4 w-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" }) }),
-          "Use autocomplete instead"
+          "Use search instead"
         ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
           /* @__PURE__ */ jsx("svg", { className: "h-4 w-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M12 4v16m8-8H4" }) }),
-          "Add hotel manually"
+          "Can't find your hotel? Add manually"
         ] })
       }
     ),
-    showManualForm && /* @__PURE__ */ jsxs("form", { onSubmit: handleManualSubmit, className: "mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4", children: [
+    showManualForm && /* @__PURE__ */ jsxs("form", { onSubmit: handleManualSubmit, className: "mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4", children: [
       /* @__PURE__ */ jsxs("div", { children: [
         /* @__PURE__ */ jsx("label", { htmlFor: "manualHotelName", className: "label text-sm", children: "Hotel name *" }),
         /* @__PURE__ */ jsx(
@@ -704,7 +1611,8 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
               name: "manualCity",
               required: true,
               className: "input",
-              placeholder: "e.g. Rome"
+              placeholder: "e.g. Rome",
+              defaultValue: eventCity
             }
           )
         ] }),
@@ -718,13 +1626,14 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
               name: "manualCountry",
               required: true,
               className: "input",
-              placeholder: "e.g. Italy"
+              placeholder: "e.g. Italy",
+              defaultValue: eventCountry
             }
           )
         ] })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: "flex gap-2", children: [
-        /* @__PURE__ */ jsx("button", { type: "submit", className: "btn-primary text-sm", children: "Save hotel" }),
+        /* @__PURE__ */ jsx("button", { type: "submit", className: "rounded-full bg-accent-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-accent-500/30 hover:bg-accent-600 transition-colors", children: "Save hotel" }),
         /* @__PURE__ */ jsx(
           "button",
           {
@@ -736,7 +1645,7 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
         )
       ] })
     ] })
-  ] }) : /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between rounded-lg border border-green-500 bg-green-50 p-4", children: [
+  ] }) : /* @__PURE__ */ jsxs("div", { className: "flex items-start sm:items-center justify-between gap-3 rounded-xl border border-green-500 bg-green-50 p-4", children: [
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelPlaceId", value: (selectedHotel == null ? void 0 : selectedHotel.placeId) || "" }),
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelName", value: (selectedHotel == null ? void 0 : selectedHotel.name) || "" }),
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelCity", value: (selectedHotel == null ? void 0 : selectedHotel.city) || "" }),
@@ -745,18 +1654,14 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelLng", value: (selectedHotel == null ? void 0 : selectedHotel.lng) || "" }),
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelRating", value: (selectedHotel == null ? void 0 : selectedHotel.rating) || "" }),
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelWebsite", value: (selectedHotel == null ? void 0 : selectedHotel.website) || "" }),
-    /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
-      /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-green-600", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M5 13l4 4L19 7" }) }),
-      /* @__PURE__ */ jsxs("div", { children: [
-        /* @__PURE__ */ jsxs("p", { className: "text-sm font-medium text-gray-900", children: [
-          "Hotel: ",
-          selectedHotel.name
-        ] }),
-        /* @__PURE__ */ jsxs("p", { className: "text-xs text-gray-600", children: [
+    /* @__PURE__ */ jsxs("div", { className: "flex items-start gap-3 min-w-0", children: [
+      /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M5 13l4 4L19 7" }) }),
+      /* @__PURE__ */ jsxs("div", { className: "min-w-0", children: [
+        /* @__PURE__ */ jsx("p", { className: "text-sm font-medium text-gray-900 break-words", children: selectedHotel.name }),
+        /* @__PURE__ */ jsxs("p", { className: "text-xs text-gray-600 mt-0.5", children: [
           selectedHotel.city,
           selectedHotel.country ? `, ${selectedHotel.country}` : "",
-          selectedHotel.rating && ` • ⭐ ${selectedHotel.rating}`,
-          selectedHotel.website && ` • 🌐 Website available`
+          selectedHotel.rating && ` • ⭐ ${selectedHotel.rating}`
         ] })
       ] })
     ] }),
@@ -765,27 +1670,307 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
       {
         type: "button",
         onClick: handleChange,
-        className: "text-sm text-brand-600 hover:text-brand-700 font-medium",
+        className: "text-sm text-brand-600 hover:text-brand-700 font-medium flex-shrink-0",
         children: "Change"
       }
     )
   ] }) });
 }
+function generateSessionToken() {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+}
 function getCountryCode(countryName) {
   const countryMap = {
-    "Italy": "IT",
-    "Germany": "DE",
-    "USA": "US",
-    "United States": "US",
-    "UK": "GB",
-    "United Kingdom": "GB",
-    "France": "FR",
-    "Spain": "ES",
-    "Japan": "JP",
-    "Netherlands": "NL"
-    // Add more as needed
+    "Italy": "it",
+    "Germany": "de",
+    "USA": "us",
+    "United States": "us",
+    "UK": "gb",
+    "United Kingdom": "gb",
+    "France": "fr",
+    "Spain": "es",
+    "Japan": "jp",
+    "Netherlands": "nl",
+    "Greece": "gr",
+    "Portugal": "pt",
+    "Austria": "at",
+    "Switzerland": "ch",
+    "Belgium": "be",
+    "Poland": "pl",
+    "Czech Republic": "cz",
+    "Sweden": "se",
+    "Norway": "no",
+    "Denmark": "dk",
+    "Finland": "fi",
+    "Ireland": "ie",
+    "Australia": "au",
+    "Canada": "ca",
+    "Brazil": "br",
+    "Argentina": "ar",
+    "Mexico": "mx",
+    "South Africa": "za",
+    "Kenya": "ke",
+    "Morocco": "ma",
+    "Egypt": "eg",
+    "China": "cn",
+    "South Korea": "kr",
+    "Singapore": "sg",
+    "Thailand": "th",
+    "Malaysia": "my",
+    "Indonesia": "id",
+    "Vietnam": "vn",
+    "India": "in",
+    "United Arab Emirates": "ae",
+    "Israel": "il",
+    "Turkey": "tr",
+    "Russia": "ru",
+    "New Zealand": "nz"
   };
   return countryMap[countryName] || "";
+}
+function DatePicker({
+  name,
+  id,
+  placeholder = "dd/mm/yyyy",
+  minDate,
+  maxDate,
+  defaultValue,
+  onChange
+}) {
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (defaultValue) {
+      return new Date(defaultValue);
+    }
+    return null;
+  });
+  const [ReactDatePicker, setReactDatePicker] = useState(null);
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+    import("react-datepicker").then((mod) => {
+      setReactDatePicker(() => mod.default);
+    });
+    Promise.resolve({                            });
+  }, []);
+  const handleChange = (date) => {
+    setSelectedDate(date);
+    onChange == null ? void 0 : onChange(date);
+  };
+  const formattedDate = selectedDate ? selectedDate.toISOString().split("T")[0] : "";
+  const displayValue = selectedDate ? `${String(selectedDate.getDate()).padStart(2, "0")}/${String(selectedDate.getMonth() + 1).padStart(2, "0")}/${selectedDate.getFullYear()}` : "";
+  const CustomInput = forwardRef(({ onClick, placeholder: inputPlaceholder }, ref) => {
+    return /* @__PURE__ */ jsxs("div", { className: "relative w-40", children: [
+      /* @__PURE__ */ jsx(
+        "input",
+        {
+          type: "text",
+          className: "input w-full pr-10 cursor-pointer",
+          value: displayValue,
+          onClick,
+          readOnly: true,
+          placeholder: inputPlaceholder,
+          ref
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        "svg",
+        {
+          className: "absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none",
+          fill: "none",
+          viewBox: "0 0 24 24",
+          stroke: "currentColor",
+          children: /* @__PURE__ */ jsx(
+            "path",
+            {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            }
+          )
+        }
+      )
+    ] });
+  });
+  CustomInput.displayName = "CustomInput";
+  if (!isClient || !ReactDatePicker) {
+    return /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+      /* @__PURE__ */ jsx("input", { type: "hidden", name, value: formattedDate }),
+      /* @__PURE__ */ jsxs("div", { className: "relative w-40", children: [
+        /* @__PURE__ */ jsx(
+          "input",
+          {
+            type: "text",
+            className: "input w-full pr-10 cursor-pointer",
+            value: displayValue,
+            readOnly: true,
+            placeholder
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          "svg",
+          {
+            className: "absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none",
+            fill: "none",
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            children: /* @__PURE__ */ jsx(
+              "path",
+              {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              }
+            )
+          }
+        )
+      ] })
+    ] });
+  }
+  return /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+    /* @__PURE__ */ jsx("input", { type: "hidden", name, value: formattedDate }),
+    /* @__PURE__ */ jsx(
+      ReactDatePicker,
+      {
+        id,
+        selected: selectedDate,
+        onChange: handleChange,
+        minDate,
+        maxDate,
+        dateFormat: "dd/MM/yyyy",
+        placeholderText: placeholder,
+        customInput: /* @__PURE__ */ jsx(CustomInput, {}),
+        calendarClassName: "custom-datepicker",
+        popperClassName: "datepicker-popper",
+        showPopperArrow: false,
+        closeOnScroll: true
+      }
+    )
+  ] });
+}
+const ROOM_TYPES = [
+  { value: "single", label: "Single" },
+  { value: "double", label: "Double" },
+  { value: "twin", label: "Twin" },
+  { value: "twin_shared", label: "Twin Shared" },
+  { value: "double_single_use", label: "Double Single Use" },
+  { value: "triple", label: "Triple" },
+  { value: "quadruple", label: "Quadruple" },
+  { value: "other", label: "Other * (specify)" }
+];
+function RoomTypeDropdown({ value, onChange, hasError }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const selectedOption = ROOM_TYPES.find((opt) => opt.value === value);
+  return /* @__PURE__ */ jsxs("div", { ref: dropdownRef, className: "relative", children: [
+    /* @__PURE__ */ jsx("label", { className: "label mb-3", children: "Room type" }),
+    /* @__PURE__ */ jsx("input", { type: "hidden", name: "roomType", value }),
+    /* @__PURE__ */ jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: () => setIsOpen(!isOpen),
+        className: `input w-fit min-w-[180px] text-left flex items-center justify-between gap-3 ${hasError ? "ring-1 ring-red-500" : ""} ${!value ? "text-gray-400" : "text-gray-900"}`,
+        children: [
+          /* @__PURE__ */ jsx("span", { children: (selectedOption == null ? void 0 : selectedOption.label) || "Select type" }),
+          /* @__PURE__ */ jsx(
+            "svg",
+            {
+              className: `h-5 w-5 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`,
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 9l-7 7-7-7" })
+            }
+          )
+        ]
+      }
+    ),
+    isOpen && /* @__PURE__ */ jsx("div", { className: "absolute z-50 mt-1 w-fit min-w-[180px] rounded-lg bg-white shadow-[0_4px_16px_rgba(0,0,0,0.15)] border border-gray-100 py-1 max-h-60 overflow-auto", children: ROOM_TYPES.map((option) => /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        onClick: () => {
+          onChange(option.value);
+          setIsOpen(false);
+        },
+        className: `w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${value === option.value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700"}`,
+        children: option.label
+      },
+      option.value
+    )) })
+  ] });
+}
+const CURRENCIES = [
+  { value: "EUR", symbol: "€", label: "Euro" },
+  { value: "USD", symbol: "$", label: "US Dollar" },
+  { value: "GBP", symbol: "£", label: "British Pound" },
+  { value: "JPY", symbol: "¥", label: "Japanese Yen" }
+];
+function CurrencyPicker({ value, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const selectedCurrency = CURRENCIES.find((c) => c.value === value) || CURRENCIES[0];
+  return /* @__PURE__ */ jsxs("div", { ref: dropdownRef, className: "relative", children: [
+    /* @__PURE__ */ jsx("input", { type: "hidden", name: "currency", value }),
+    /* @__PURE__ */ jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: () => setIsOpen(!isOpen),
+        className: "input w-fit flex items-center gap-2 text-gray-900",
+        children: [
+          /* @__PURE__ */ jsx("span", { className: "font-medium", children: selectedCurrency.symbol }),
+          /* @__PURE__ */ jsx("span", { children: selectedCurrency.value }),
+          /* @__PURE__ */ jsx(
+            "svg",
+            {
+              className: `h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`,
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 9l-7 7-7-7" })
+            }
+          )
+        ]
+      }
+    ),
+    isOpen && /* @__PURE__ */ jsx("div", { className: "absolute right-0 z-50 mt-1 w-full rounded-lg bg-white shadow-[0_4px_16px_rgba(0,0,0,0.15)] border border-gray-100 py-1", children: CURRENCIES.map((currency) => /* @__PURE__ */ jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: () => {
+          onChange(currency.value);
+          setIsOpen(false);
+        },
+        className: `w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors flex items-center gap-2 ${value === currency.value ? "text-gray-900 font-medium" : "text-gray-700"}`,
+        children: [
+          /* @__PURE__ */ jsx("span", { className: "w-4 font-medium", children: currency.symbol }),
+          /* @__PURE__ */ jsx("span", { children: currency.value })
+        ]
+      },
+      currency.value
+    )) })
+  ] });
 }
 const LISTING_RULES = {
   private: {
@@ -873,12 +2058,12 @@ function validateListingLimits(userType, roomCount, bibCount, transferMethod) {
   }
   return { valid: true };
 }
-const meta$h = () => {
+const meta$n = () => {
   return [{
     title: "Edit Listing - Runoot"
   }];
 };
-async function loader$m({
+async function loader$o({
   request,
   params
 }) {
@@ -915,7 +2100,7 @@ async function loader$m({
     googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || ""
   };
 }
-async function action$e({
+async function action$h({
   request,
   params
 }) {
@@ -957,7 +2142,7 @@ async function action$e({
   const associatedCosts = formData.get("associatedCosts");
   const costNotes = formData.get("costNotes");
   const price = formData.get("price");
-  const priceNegotiable = formData.get("priceNegotiable") === "on";
+  const priceNegotiable = formData.get("priceNegotiable") === "true";
   if (!listingType) {
     return data({
       error: "Please select a listing type"
@@ -1110,7 +2295,7 @@ async function action$e({
   return redirect(`/listings/${id}`);
 }
 const listings_$id__edit = UNSAFE_withComponentProps(function EditListing() {
-  var _a, _b, _c;
+  var _a, _b;
   const {
     user,
     listing,
@@ -1118,11 +2303,16 @@ const listings_$id__edit = UNSAFE_withComponentProps(function EditListing() {
     googlePlacesApiKey
   } = useLoaderData();
   const actionData = useActionData();
+  useNavigate();
   const listingData = listing;
   const [listingType, setListingType] = useState(listingData.listing_type);
   const [roomType, setRoomType] = useState(listingData.room_type || "");
   const [selectedEvent, setSelectedEvent] = useState(listingData.event);
   const [transferMethod, setTransferMethod] = useState(listingData.transfer_type);
+  const [checkInDate, setCheckInDate] = useState(listingData.check_in ? new Date(listingData.check_in) : null);
+  const [currency, setCurrency] = useState(listingData.currency || "EUR");
+  const [priceValue, setPriceValue] = useState(((_a = listingData.price) == null ? void 0 : _a.toString()) || "");
+  const [priceNegotiable, setPriceNegotiable] = useState(listingData.price_negotiable === true ? true : listingData.price_negotiable === false ? false : null);
   useEffect(() => {
     const textarea = document.getElementById("description");
     if (textarea && roomType === "other") {
@@ -1158,465 +2348,793 @@ const listings_$id__edit = UNSAFE_withComponentProps(function EditListing() {
     className: "min-h-full bg-gray-50",
     children: [/* @__PURE__ */ jsx(Header, {
       user
-    }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8",
-      children: [/* @__PURE__ */ jsxs("div", {
-        className: "mb-8",
-        children: [/* @__PURE__ */ jsxs(Link, {
-          to: `/listings/${listingData.id}`,
-          className: "inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4",
-          children: [/* @__PURE__ */ jsx("svg", {
-            className: "h-4 w-4",
-            fill: "none",
-            viewBox: "0 0 24 24",
-            stroke: "currentColor",
-            children: /* @__PURE__ */ jsx("path", {
-              strokeLinecap: "round",
-              strokeLinejoin: "round",
-              strokeWidth: 2,
-              d: "M15 19l-7-7 7-7"
-            })
-          }), "Back to listing"]
-        }), /* @__PURE__ */ jsx("h1", {
-          className: "font-display text-3xl font-bold text-gray-900",
-          children: "Edit Listing"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-2 text-gray-600",
-          children: "Update your listing details"
-        })]
-      }), /* @__PURE__ */ jsx("div", {
-        className: "card p-6 sm:p-8",
-        children: /* @__PURE__ */ jsxs(Form, {
-          method: "post",
-          className: "space-y-8",
-          children: [(actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsx("div", {
-            className: "rounded-lg bg-red-50 p-4 text-sm text-red-700",
-            children: actionData.error
-          }), /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsx("label", {
-              className: "label",
-              children: "What are you offering?"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "mt-2 grid grid-cols-3 gap-3",
-              children: [/* @__PURE__ */ jsxs("label", {
-                className: "relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500",
-                children: [/* @__PURE__ */ jsx("input", {
-                  type: "radio",
-                  name: "listingType",
-                  value: "room",
-                  className: "sr-only",
-                  defaultChecked: listingType === "room",
-                  onChange: (e) => setListingType(e.target.value)
-                }), /* @__PURE__ */ jsxs("span", {
-                  className: "flex flex-1 flex-col items-center text-center",
-                  children: [/* @__PURE__ */ jsx("svg", {
-                    className: "h-6 w-6 text-gray-600",
-                    fill: "none",
-                    viewBox: "0 0 24 24",
-                    stroke: "currentColor",
-                    children: /* @__PURE__ */ jsx("path", {
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      strokeWidth: 2,
-                      d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                    })
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "mt-2 text-sm font-medium text-gray-900",
-                    children: "Room Only"
+    }), /* @__PURE__ */ jsx("div", {
+      className: "min-h-screen bg-cover bg-center bg-no-repeat bg-fixed",
+      style: {
+        backgroundImage: "url('/new-listing.jpg')"
+      },
+      children: /* @__PURE__ */ jsxs("main", {
+        className: "mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-4 shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+          children: [/* @__PURE__ */ jsxs(Link, {
+            to: `/listings/${listingData.id}`,
+            className: "inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 underline",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "h-4 w-4",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M15 19l-7-7 7-7"
+              })
+            }), "Back to listing"]
+          }), /* @__PURE__ */ jsx("h1", {
+            className: "font-display text-3xl font-bold text-gray-900",
+            children: "Edit Listing"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "mt-2 text-gray-600",
+            children: "Update your listing details"
+          })]
+        }), /* @__PURE__ */ jsx("div", {
+          className: "rounded-2xl bg-white/90 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+          children: /* @__PURE__ */ jsxs(Form, {
+            method: "post",
+            className: "space-y-8",
+            children: [/* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("label", {
+                className: "label",
+                children: "What are you offering?"
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "mt-2 grid grid-cols-3 gap-3",
+                children: [/* @__PURE__ */ jsxs("label", {
+                  className: "relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-blue-300 has-[:checked]:bg-blue-100 has-[:checked]:ring-2 has-[:checked]:ring-blue-500",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "radio",
+                    name: "listingType",
+                    value: "room",
+                    className: "sr-only",
+                    defaultChecked: listingType === "room",
+                    onChange: (e) => setListingType(e.target.value)
+                  }), /* @__PURE__ */ jsxs("span", {
+                    className: "flex flex-1 flex-col items-center text-center",
+                    children: [/* @__PURE__ */ jsx("svg", {
+                      className: "h-6 w-6 text-gray-600",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      })
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "mt-2 text-sm font-medium text-gray-900",
+                      children: "Room Only"
+                    })]
                   })]
-                })]
-              }), /* @__PURE__ */ jsxs("label", {
-                className: "relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500",
-                children: [/* @__PURE__ */ jsx("input", {
-                  type: "radio",
-                  name: "listingType",
-                  value: "bib",
-                  className: "sr-only",
-                  defaultChecked: listingType === "bib",
-                  onChange: (e) => setListingType(e.target.value)
-                }), /* @__PURE__ */ jsxs("span", {
-                  className: "flex flex-1 flex-col items-center text-center",
-                  children: [/* @__PURE__ */ jsx("svg", {
-                    className: "h-6 w-6 text-gray-600",
-                    fill: "none",
-                    viewBox: "0 0 24 24",
-                    stroke: "currentColor",
-                    children: /* @__PURE__ */ jsx("path", {
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      strokeWidth: 2,
-                      d: "M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-                    })
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "mt-2 text-sm font-medium text-gray-900",
-                    children: "Bib Only"
+                }), /* @__PURE__ */ jsxs("label", {
+                  className: "relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-purple-300 has-[:checked]:bg-purple-100 has-[:checked]:ring-2 has-[:checked]:ring-purple-500",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "radio",
+                    name: "listingType",
+                    value: "bib",
+                    className: "sr-only",
+                    defaultChecked: listingType === "bib",
+                    onChange: (e) => setListingType(e.target.value)
+                  }), /* @__PURE__ */ jsxs("span", {
+                    className: "flex flex-1 flex-col items-center text-center",
+                    children: [/* @__PURE__ */ jsx("svg", {
+                      className: "h-6 w-6 text-gray-600",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
+                      })
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "mt-2 text-sm font-medium text-gray-900",
+                      children: "Bib Only"
+                    })]
                   })]
-                })]
-              }), /* @__PURE__ */ jsxs("label", {
-                className: "relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500",
-                children: [/* @__PURE__ */ jsx("input", {
-                  type: "radio",
-                  name: "listingType",
-                  value: "room_and_bib",
-                  className: "sr-only",
-                  defaultChecked: listingType === "room_and_bib",
-                  onChange: (e) => setListingType(e.target.value)
-                }), /* @__PURE__ */ jsxs("span", {
-                  className: "flex flex-1 flex-col items-center text-center",
-                  children: [/* @__PURE__ */ jsx("svg", {
-                    className: "h-6 w-6 text-gray-600",
-                    fill: "none",
-                    viewBox: "0 0 24 24",
-                    stroke: "currentColor",
-                    children: /* @__PURE__ */ jsx("path", {
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      strokeWidth: 2,
-                      d: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-                    })
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "mt-2 text-sm font-medium text-gray-900",
-                    children: "Room + Bib"
+                }), /* @__PURE__ */ jsxs("label", {
+                  className: "relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-green-300 has-[:checked]:bg-green-100 has-[:checked]:ring-2 has-[:checked]:ring-green-500",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "radio",
+                    name: "listingType",
+                    value: "room_and_bib",
+                    className: "sr-only",
+                    defaultChecked: listingType === "room_and_bib",
+                    onChange: (e) => setListingType(e.target.value)
+                  }), /* @__PURE__ */ jsxs("span", {
+                    className: "flex flex-1 flex-col items-center text-center",
+                    children: [/* @__PURE__ */ jsx("svg", {
+                      className: "h-6 w-6 text-gray-600",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+                      })
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "mt-2 text-sm font-medium text-gray-900",
+                      children: "Room + Bib"
+                    })]
                   })]
                 })]
               })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsx("label", {
-              className: "label",
-              children: "Running Event"
-            }), /* @__PURE__ */ jsx(EventPicker, {
-              events,
-              defaultEventId: (_a = listingData.event) == null ? void 0 : _a.id,
-              onSelectEvent: (eventId) => {
-                const event = events.find((e) => e.id === eventId);
-                setSelectedEvent(event);
-              }
-            })]
-          }), (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
-            className: "space-y-4",
-            id: "roomFields",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-medium text-gray-900 border-b pb-2",
-              children: "Room Details"
             }), /* @__PURE__ */ jsxs("div", {
-              className: "grid gap-4 sm:grid-cols-2",
-              children: [/* @__PURE__ */ jsxs("div", {
-                className: "sm:col-span-2",
-                children: [/* @__PURE__ */ jsx("label", {
-                  className: "label",
-                  children: "Hotel"
-                }), /* @__PURE__ */ jsx(HotelAutocomplete, {
-                  apiKey: googlePlacesApiKey,
-                  eventCity: selectedEvent == null ? void 0 : selectedEvent.country,
-                  eventCountry: selectedEvent == null ? void 0 : selectedEvent.country,
-                  defaultHotelName: listingData.hotel_name,
-                  onSelectHotel: (hotel) => {
-                  }
+              children: [/* @__PURE__ */ jsx("label", {
+                className: "label",
+                children: "Running Event"
+              }), /* @__PURE__ */ jsx(EventPicker, {
+                events,
+                defaultEventId: (_b = listingData.event) == null ? void 0 : _b.id,
+                onSelectEvent: (eventId) => {
+                  const event = events.find((e) => e.id === eventId);
+                  setSelectedEvent(event);
+                }
+              })]
+            }), (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
+              className: "space-y-4",
+              id: "roomFields",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-medium text-gray-900 border-b pb-2",
+                children: "Room Details"
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "grid gap-4 sm:grid-cols-2",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  className: "sm:col-span-2",
+                  children: [/* @__PURE__ */ jsx("label", {
+                    className: "label",
+                    children: "Hotel"
+                  }), /* @__PURE__ */ jsx(HotelAutocomplete, {
+                    apiKey: googlePlacesApiKey,
+                    eventCity: selectedEvent == null ? void 0 : selectedEvent.country,
+                    eventCountry: selectedEvent == null ? void 0 : selectedEvent.country,
+                    defaultHotelName: listingData.hotel_name,
+                    onSelectHotel: (hotel) => {
+                    }
+                  })]
+                }), /* @__PURE__ */ jsx("div", {}), /* @__PURE__ */ jsx("div", {}), /* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsxs("label", {
+                    htmlFor: "roomCount",
+                    className: "label",
+                    children: ["Number of rooms", maxRooms !== null && user.user_type === "tour_operator" && /* @__PURE__ */ jsxs("span", {
+                      className: "text-xs text-gray-500 ml-2",
+                      children: ["(max ", maxRooms, " for your account)"]
+                    })]
+                  }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
+                    children: [/* @__PURE__ */ jsxs("div", {
+                      className: "flex items-center gap-3 mt-2",
+                      children: [/* @__PURE__ */ jsx("div", {
+                        className: `flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "room" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`,
+                        children: "1"
+                      }), /* @__PURE__ */ jsxs("span", {
+                        className: "text-sm text-gray-600",
+                        children: ["Private users can list", /* @__PURE__ */ jsx("br", {}), "1 room only"]
+                      })]
+                    }), /* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "roomCount",
+                      value: "1"
+                    })]
+                  }) : /* @__PURE__ */ jsx("input", {
+                    type: "number",
+                    id: "roomCount",
+                    name: "roomCount",
+                    min: "1",
+                    max: maxRooms || void 0,
+                    defaultValue: listingData.room_count || "",
+                    placeholder: "e.g. 2",
+                    className: "input"
+                  })]
+                }), /* @__PURE__ */ jsx(RoomTypeDropdown, {
+                  value: roomType,
+                  onChange: setRoomType,
+                  hasError: (actionData == null ? void 0 : actionData.field) === "roomType"
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "mt-4",
+                  children: [/* @__PURE__ */ jsx("label", {
+                    htmlFor: "checkIn",
+                    className: "label mb-3",
+                    children: "Check-in"
+                  }), /* @__PURE__ */ jsx(DatePicker, {
+                    id: "checkIn",
+                    name: "checkIn",
+                    placeholder: "dd/mm/yyyy",
+                    defaultValue: listingData.check_in || void 0,
+                    minDate: dateConstraints.min ? new Date(dateConstraints.min) : void 0,
+                    maxDate: dateConstraints.max ? new Date(dateConstraints.max) : void 0,
+                    onChange: (date) => setCheckInDate(date)
+                  }), selectedEvent && /* @__PURE__ */ jsxs("p", {
+                    className: "mt-1 text-xs text-gray-500",
+                    children: ["Event date: ", new Date(selectedEvent.event_date).toLocaleDateString(), " (±7 days)"]
+                  })]
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "mt-4",
+                  children: [/* @__PURE__ */ jsx("label", {
+                    htmlFor: "checkOut",
+                    className: "label mb-3",
+                    children: "Check-out"
+                  }), /* @__PURE__ */ jsx(DatePicker, {
+                    id: "checkOut",
+                    name: "checkOut",
+                    placeholder: "dd/mm/yyyy",
+                    defaultValue: listingData.check_out || void 0,
+                    minDate: checkInDate || (dateConstraints.min ? new Date(dateConstraints.min) : void 0),
+                    maxDate: dateConstraints.max ? new Date(dateConstraints.max) : void 0
+                  })]
                 })]
-              }), /* @__PURE__ */ jsx("div", {}), /* @__PURE__ */ jsx("div", {}), /* @__PURE__ */ jsxs("div", {
+              })]
+            }), (listingType === "bib" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
+              className: "space-y-4",
+              id: "bibFields",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-medium text-gray-900 border-b pb-2",
+                children: "Bib Transfer Details"
+              }), user.user_type === "private" && /* @__PURE__ */ jsx("div", {
+                className: `rounded-lg p-4 ${listingType === "bib" ? "bg-purple-50 border border-purple-200" : "bg-green-50 border border-green-200"}`,
+                children: /* @__PURE__ */ jsxs("p", {
+                  className: `text-sm ${listingType === "bib" ? "text-purple-800" : "text-green-800"}`,
+                  children: [/* @__PURE__ */ jsx("strong", {
+                    children: "Important:"
+                  }), " runoot facilitates connections for legitimate bib transfers only. Direct sale of bibs may violate event regulations."]
+                })
+              }), /* @__PURE__ */ jsxs("div", {
                 children: [/* @__PURE__ */ jsxs("label", {
-                  htmlFor: "roomCount",
+                  htmlFor: "bibCount",
                   className: "label",
-                  children: ["Number of rooms", maxRooms !== null && user.user_type === "tour_operator" && /* @__PURE__ */ jsxs("span", {
+                  children: ["Number of bibs", maxBibs !== null && user.user_type === "tour_operator" && /* @__PURE__ */ jsxs("span", {
                     className: "text-xs text-gray-500 ml-2",
-                    children: ["(max ", maxRooms, " for your account)"]
+                    children: ["(max ", maxBibs, " for your account)"]
                   })]
                 }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
                   children: [/* @__PURE__ */ jsxs("div", {
                     className: "flex items-center gap-3 mt-2",
                     children: [/* @__PURE__ */ jsx("div", {
-                      className: "flex h-12 w-12 items-center justify-center rounded-lg bg-brand-100 text-brand-700 font-bold text-2xl",
+                      className: `flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "bib" ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"}`,
                       children: "1"
                     }), /* @__PURE__ */ jsx("span", {
                       className: "text-sm text-gray-600",
-                      children: "Private users can list 1 room only"
+                      children: "Private users can list 1 bib only"
                     })]
                   }), /* @__PURE__ */ jsx("input", {
                     type: "hidden",
-                    name: "roomCount",
+                    name: "bibCount",
                     value: "1"
                   })]
                 }) : /* @__PURE__ */ jsx("input", {
                   type: "number",
-                  id: "roomCount",
-                  name: "roomCount",
-                  min: "1",
-                  max: maxRooms || void 0,
-                  defaultValue: listingData.room_count || "",
-                  placeholder: "e.g. 2",
-                  className: "input"
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "roomType",
-                  className: "label",
-                  children: "Room type"
-                }), /* @__PURE__ */ jsxs("select", {
-                  id: "roomType",
-                  name: "roomType",
-                  className: "input",
-                  defaultValue: listingData.room_type || "",
-                  onChange: (e) => setRoomType(e.target.value),
-                  children: [/* @__PURE__ */ jsx("option", {
-                    value: "",
-                    children: "Select type"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "single",
-                    children: "Single"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "double",
-                    children: "Double"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "twin",
-                    children: "Twin"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "twin_shared",
-                    children: "Twin Shared"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "double_single_use",
-                    children: "Double Single Use"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "triple",
-                    children: "Triple"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "quadruple",
-                    children: "Quadruple"
-                  }), /* @__PURE__ */ jsx("option", {
-                    value: "other",
-                    children: "Other * (specify)"
-                  })]
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "checkIn",
-                  className: "label",
-                  children: "Check-in date"
-                }), /* @__PURE__ */ jsx("input", {
-                  type: "date",
-                  id: "checkIn",
-                  name: "checkIn",
-                  defaultValue: ((_b = listingData.check_in) == null ? void 0 : _b.split("T")[0]) || "",
-                  min: dateConstraints.min,
-                  max: dateConstraints.max,
-                  className: "input"
-                }), selectedEvent && /* @__PURE__ */ jsxs("p", {
-                  className: "mt-1 text-xs text-gray-500",
-                  children: ["Event date: ", new Date(selectedEvent.event_date).toLocaleDateString(), " (+/-7 days)"]
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "checkOut",
-                  className: "label",
-                  children: "Check-out date"
-                }), /* @__PURE__ */ jsx("input", {
-                  type: "date",
-                  id: "checkOut",
-                  name: "checkOut",
-                  defaultValue: ((_c = listingData.check_out) == null ? void 0 : _c.split("T")[0]) || "",
-                  min: dateConstraints.min,
-                  max: dateConstraints.max,
-                  className: "input"
-                })]
-              })]
-            })]
-          }), (listingType === "bib" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
-            className: "space-y-4",
-            id: "bibFields",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-medium text-gray-900 border-b pb-2",
-              children: "Bib Transfer Details"
-            }), user.user_type === "private" && /* @__PURE__ */ jsx("div", {
-              className: "bg-blue-50 border border-blue-200 rounded-lg p-4",
-              children: /* @__PURE__ */ jsxs("p", {
-                className: "text-sm text-blue-800",
-                children: [/* @__PURE__ */ jsx("strong", {
-                  children: "Important:"
-                }), " Runoot facilitates connections for legitimate bib transfers only. Direct sale of bibs may violate event regulations."]
-              })
-            }), /* @__PURE__ */ jsxs("div", {
-              children: [/* @__PURE__ */ jsxs("label", {
-                htmlFor: "bibCount",
-                className: "label",
-                children: ["Number of bibs", maxBibs !== null && user.user_type === "tour_operator" && /* @__PURE__ */ jsxs("span", {
-                  className: "text-xs text-gray-500 ml-2",
-                  children: ["(max ", maxBibs, " for your account)"]
-                })]
-              }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsxs("div", {
-                  className: "flex items-center gap-3 mt-2",
-                  children: [/* @__PURE__ */ jsx("div", {
-                    className: "flex h-12 w-12 items-center justify-center rounded-lg bg-brand-100 text-brand-700 font-bold text-2xl",
-                    children: "1"
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "text-sm text-gray-600",
-                    children: "Private users can list 1 bib only"
-                  })]
-                }), /* @__PURE__ */ jsx("input", {
-                  type: "hidden",
+                  id: "bibCount",
                   name: "bibCount",
-                  value: "1"
+                  min: "1",
+                  max: maxBibs || void 0,
+                  defaultValue: listingData.bib_count || "",
+                  placeholder: "e.g. 1",
+                  className: "input w-full sm:w-48"
                 })]
-              }) : /* @__PURE__ */ jsx("input", {
-                type: "number",
-                id: "bibCount",
-                name: "bibCount",
-                min: "1",
-                max: maxBibs || void 0,
-                defaultValue: listingData.bib_count || "",
-                placeholder: "e.g. 1",
-                className: "input w-full sm:w-48"
-              })]
-            }), /* @__PURE__ */ jsxs("div", {
-              children: [/* @__PURE__ */ jsxs("label", {
-                htmlFor: "transferType",
-                className: "label",
-                children: ["Transfer Method ", /* @__PURE__ */ jsx("span", {
-                  className: "text-red-500",
-                  children: "*"
-                })]
-              }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsx("div", {
-                  className: "mt-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700",
-                  children: "Official Organizer Name Change"
-                }), /* @__PURE__ */ jsx("input", {
-                  type: "hidden",
-                  name: "transferType",
-                  value: "official_process"
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "mt-1 text-xs text-gray-500",
-                  children: "How the bib will be transferred to the new participant"
-                })]
-              }) : /* @__PURE__ */ jsxs(Fragment, {
-                children: [/* @__PURE__ */ jsxs("select", {
-                  id: "transferType",
-                  name: "transferType",
-                  className: "input",
-                  defaultValue: listingData.transfer_type || "",
-                  onChange: (e) => setTransferMethod(e.target.value),
-                  children: [/* @__PURE__ */ jsx("option", {
-                    value: "",
-                    children: "Select transfer method"
-                  }), transferMethodOptions.map((option) => /* @__PURE__ */ jsx("option", {
-                    value: option.value,
-                    children: option.label
-                  }, option.value))]
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "mt-1 text-xs text-gray-500",
-                  children: "How the bib will be transferred to the new participant"
-                })]
-              })]
-            }), visibleFields.showAssociatedCosts && /* @__PURE__ */ jsxs("div", {
-              children: [/* @__PURE__ */ jsxs("label", {
-                htmlFor: "associatedCosts",
-                className: "label",
-                children: ["Associated Costs (EUR) ", /* @__PURE__ */ jsx("span", {
-                  className: "text-red-500",
-                  children: "*"
-                })]
-              }), /* @__PURE__ */ jsx("input", {
-                type: "number",
-                id: "associatedCosts",
-                name: "associatedCosts",
-                min: "0",
-                step: "0.01",
-                defaultValue: listingData.associated_costs || "",
-                placeholder: "e.g. 50",
-                className: "input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                required: true
-              }), /* @__PURE__ */ jsx("p", {
-                className: "mt-1 text-xs text-gray-500",
-                children: "Official name change fee from the event organizer"
-              })]
-            }), visibleFields.showPackageInfo && /* @__PURE__ */ jsx("div", {
-              className: "bg-green-50 border border-green-200 rounded-lg p-4",
-              children: /* @__PURE__ */ jsxs("p", {
-                className: "text-sm text-green-800",
-                children: [/* @__PURE__ */ jsx("strong", {
-                  children: "Package Transfer:"
-                }), " The bib is included in your travel package. All costs are included in the package price."]
-              })
-            })]
-          }), !(user.user_type === "private" && listingType === "bib") && /* @__PURE__ */ jsxs("div", {
-            className: "space-y-4",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-medium text-gray-900 border-b pb-2",
-              children: "Price"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "grid gap-4 sm:grid-cols-2",
-              children: [/* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "price",
+              }), /* @__PURE__ */ jsxs("div", {
+                children: [/* @__PURE__ */ jsxs("label", {
+                  htmlFor: "transferType",
                   className: "label",
-                  children: "Price (EUR)"
-                }), /* @__PURE__ */ jsx("input", {
-                  type: "number",
-                  id: "price",
-                  name: "price",
-                  min: "0",
-                  step: "0.01",
-                  defaultValue: listingData.price || "",
-                  placeholder: "Empty = Contact for price",
-                  className: "input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                })]
-              }), (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsx("div", {
-                className: "flex items-end",
-                children: /* @__PURE__ */ jsxs("label", {
-                  className: "flex items-center gap-2 cursor-pointer",
-                  children: [/* @__PURE__ */ jsx("input", {
-                    type: "checkbox",
-                    name: "priceNegotiable",
-                    defaultChecked: listingData.price_negotiable,
-                    className: "h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                  }), /* @__PURE__ */ jsx("span", {
-                    className: "text-sm text-gray-700",
-                    children: "Price is negotiable"
+                  children: ["Transfer Method ", /* @__PURE__ */ jsx("span", {
+                    className: "text-red-500",
+                    children: "*"
                   })]
+                }), user.user_type === "private" ? /* @__PURE__ */ jsxs(Fragment, {
+                  children: [/* @__PURE__ */ jsx("div", {
+                    className: "mt-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700",
+                    children: "Official Organizer Name Change"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "transferType",
+                    value: "official_process"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "mt-1 text-xs text-gray-500",
+                    children: "How the bib will be transferred to the new participant"
+                  })]
+                }) : /* @__PURE__ */ jsxs(Fragment, {
+                  children: [/* @__PURE__ */ jsxs("select", {
+                    id: "transferType",
+                    name: "transferType",
+                    className: "input",
+                    defaultValue: listingData.transfer_type || "",
+                    onChange: (e) => setTransferMethod(e.target.value),
+                    children: [/* @__PURE__ */ jsx("option", {
+                      value: "",
+                      children: "Select transfer method"
+                    }), transferMethodOptions.map((option) => /* @__PURE__ */ jsx("option", {
+                      value: option.value,
+                      children: option.label
+                    }, option.value))]
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "mt-1 text-xs text-gray-500",
+                    children: "How the bib will be transferred to the new participant"
+                  })]
+                })]
+              }), visibleFields.showPackageInfo && /* @__PURE__ */ jsx("div", {
+                className: "bg-green-50 border border-green-200 rounded-lg p-4",
+                children: /* @__PURE__ */ jsxs("p", {
+                  className: "text-sm text-green-800",
+                  children: [/* @__PURE__ */ jsx("strong", {
+                    children: "Package Transfer:"
+                  }), " The bib is included in your travel package. All costs are included in the package price."]
                 })
               })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsxs("label", {
-              htmlFor: "description",
-              className: "label",
-              children: [user.user_type === "private" && listingType === "bib" ? "Notes" : "Additional details", " ", /* @__PURE__ */ jsx("span", {
-                className: roomType === "other" ? "text-red-500" : "text-gray-400",
-                children: roomType === "other" ? "(required)" : "(optional)"
+            }), !(user.user_type === "private" && listingType === "bib") && /* @__PURE__ */ jsxs("div", {
+              className: "space-y-4",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-medium text-gray-900 border-b pb-2",
+                children: "Price"
+              }), /* @__PURE__ */ jsxs("div", {
+                children: [/* @__PURE__ */ jsx("label", {
+                  htmlFor: "price",
+                  className: "label mb-3",
+                  children: "Amount"
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex gap-2",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "number",
+                    id: "price",
+                    name: "price",
+                    min: "0",
+                    step: "0.01",
+                    placeholder: "Empty = Contact for price",
+                    className: "input w-[205px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-sm placeholder:font-sans",
+                    value: priceValue,
+                    onChange: (e) => {
+                      setPriceValue(e.target.value);
+                      if (!e.target.value) {
+                        setPriceNegotiable(null);
+                      }
+                    }
+                  }), /* @__PURE__ */ jsx(CurrencyPicker, {
+                    value: currency,
+                    onChange: setCurrency
+                  })]
+                })]
+              }), priceValue && (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
+                className: "mt-4",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "priceNegotiable",
+                  value: priceNegotiable === true ? "true" : "false"
+                }), /* @__PURE__ */ jsx("span", {
+                  className: "text-sm text-gray-700",
+                  children: "Is the price negotiable?"
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex gap-2 mt-2",
+                  children: [/* @__PURE__ */ jsx("button", {
+                    type: "button",
+                    onClick: () => setPriceNegotiable(priceNegotiable === true ? null : true),
+                    className: `px-4 py-2 rounded-lg text-sm font-medium transition-all ${priceNegotiable === true ? "bg-green-100 text-green-700 ring-2 ring-green-500 shadow-[0_2px_8px_rgba(0,0,0,0.15)]" : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"}`,
+                    children: "Yes"
+                  }), /* @__PURE__ */ jsx("button", {
+                    type: "button",
+                    onClick: () => setPriceNegotiable(priceNegotiable === false ? null : false),
+                    className: `px-4 py-2 rounded-lg text-sm font-medium transition-all ${priceNegotiable === false ? "bg-green-100 text-green-700 ring-2 ring-green-500 shadow-[0_2px_8px_rgba(0,0,0,0.15)]" : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"}`,
+                    children: "No"
+                  })]
+                })]
               })]
-            }), /* @__PURE__ */ jsx("textarea", {
-              id: "description",
-              name: "description",
-              rows: 4,
-              defaultValue: listingData.description || "",
-              placeholder: "Any other information runners should know...",
-              className: `input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`,
-              required: roomType === "other"
+            }), /* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsxs("label", {
+                htmlFor: "description",
+                className: "label",
+                children: [user.user_type === "private" && listingType === "bib" ? "Notes" : "Additional details", " ", /* @__PURE__ */ jsx("span", {
+                  className: roomType === "other" ? "text-red-500" : "text-gray-400",
+                  children: roomType === "other" ? "(required)" : "(optional)"
+                })]
+              }), /* @__PURE__ */ jsx("textarea", {
+                id: "description",
+                name: "description",
+                rows: 4,
+                defaultValue: listingData.description || "",
+                placeholder: "Any other information runners should know...",
+                className: `input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`,
+                required: roomType === "other"
+              })]
+            }), (actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsxs("div", {
+              className: "rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700 flex items-center gap-2",
+              children: [/* @__PURE__ */ jsx("svg", {
+                className: "h-5 w-5 text-red-500 flex-shrink-0",
+                fill: "none",
+                viewBox: "0 0 24 24",
+                stroke: "currentColor",
+                children: /* @__PURE__ */ jsx("path", {
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                  strokeWidth: 2,
+                  d: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                })
+              }), actionData.error]
+            }), /* @__PURE__ */ jsx("div", {
+              className: "pt-4",
+              children: /* @__PURE__ */ jsx("button", {
+                type: "submit",
+                className: "btn-primary w-full rounded-full",
+                children: "Save Changes"
+              })
             })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "flex gap-4 pt-4",
-            children: [/* @__PURE__ */ jsx(Link, {
-              to: `/listings/${listingData.id}`,
-              className: "btn-secondary flex-1 text-center",
-              children: "Cancel"
-            }), /* @__PURE__ */ jsx("button", {
-              type: "submit",
-              className: "btn-primary flex-1",
-              children: "Save Changes"
-            })]
-          })]
-        })
-      })]
+          })
+        })]
+      })
     })]
   });
 });
-const route1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$e,
+  action: action$h,
   default: listings_$id__edit,
-  loader: loader$m,
-  meta: meta$h
+  loader: loader$o,
+  meta: meta$n
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$l({
+const meta$m = () => {
+  return [{
+    title: "Running Experience - runoot"
+  }];
+};
+async function loader$n({
+  request
+}) {
+  const user = await requireUser(request);
+  if (user.user_type === "tour_operator") {
+    return redirect("/profile/agency");
+  }
+  return {
+    user
+  };
+}
+async function action$g({
+  request
+}) {
+  const user = await requireUser(request);
+  const formData = await request.formData();
+  const marathonsCompleted = formData.get("marathonsCompleted");
+  const marathonPB = formData.get("marathonPB");
+  const marathonPBLocation = formData.get("marathonPBLocation");
+  const halfMarathonsCompleted = formData.get("halfMarathonsCompleted");
+  const halfMarathonPB = formData.get("halfMarathonPB");
+  const halfMarathonPBLocation = formData.get("halfMarathonPBLocation");
+  const favoriteRaces = formData.get("favoriteRaces");
+  const runningGoals = formData.get("runningGoals");
+  const updateData = {
+    marathons_completed: marathonsCompleted ? parseInt(marathonsCompleted) : null,
+    marathon_pb: marathonPB || null,
+    marathon_pb_location: marathonPBLocation || null,
+    half_marathons_completed: halfMarathonsCompleted ? parseInt(halfMarathonsCompleted) : null,
+    half_marathon_pb: halfMarathonPB || null,
+    half_marathon_pb_location: halfMarathonPBLocation || null,
+    favorite_races: favoriteRaces || null,
+    running_goals: runningGoals || null
+  };
+  const {
+    error
+  } = await supabaseAdmin.from("profiles").update(updateData).eq("id", user.id);
+  if (error) {
+    return data({
+      error: error.message
+    }, {
+      status: 400
+    });
+  }
+  return data({
+    success: true,
+    message: "Running experience updated successfully!"
+  });
+}
+const sidebarNavItems$3 = [{
+  name: "Personal information",
+  href: "/profile",
+  icon: "user"
+}, {
+  name: "Running Experience",
+  href: "/profile/experience",
+  icon: "running"
+}, {
+  name: "Social Media",
+  href: "/profile/social",
+  icon: "share"
+}, {
+  name: "Settings",
+  href: "/profile/settings",
+  icon: "settings"
+}];
+const profile_experience = UNSAFE_withComponentProps(function RunningExperience() {
+  const {
+    user
+  } = useLoaderData();
+  const actionData = useActionData();
+  const location = useLocation();
+  const getInitials = (name) => {
+    if (!name) return "?";
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+  return /* @__PURE__ */ jsxs("div", {
+    className: "min-h-screen bg-gray-50",
+    children: [/* @__PURE__ */ jsx(Header, {
+      user
+    }), /* @__PURE__ */ jsx("div", {
+      className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "flex flex-col lg:flex-row gap-8",
+        children: [/* @__PURE__ */ jsx("aside", {
+          className: "lg:w-64 flex-shrink-0",
+          children: /* @__PURE__ */ jsxs("div", {
+            className: "bg-white rounded-2xl border border-gray-200 p-6",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex flex-col items-center text-center mb-6",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "h-20 w-20 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-2xl font-bold mb-4",
+                children: user.avatar_url ? /* @__PURE__ */ jsx("img", {
+                  src: user.avatar_url,
+                  alt: user.full_name || "User",
+                  className: "h-20 w-20 rounded-full object-cover"
+                }) : getInitials(user.full_name)
+              }), /* @__PURE__ */ jsx("h2", {
+                className: "font-display font-semibold text-gray-900 text-lg",
+                children: user.full_name || "Your Name"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-sm text-gray-500 mt-1",
+                children: user.email
+              }), /* @__PURE__ */ jsx("span", {
+                className: "mt-2 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700",
+                children: "Private Runner"
+              })]
+            }), /* @__PURE__ */ jsx("nav", {
+              className: "space-y-1",
+              children: sidebarNavItems$3.map((item) => {
+                const isActive = location.pathname === item.href;
+                return /* @__PURE__ */ jsxs(Link, {
+                  to: item.href,
+                  className: `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${isActive ? "bg-brand-50 text-brand-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`,
+                  children: [item.icon === "user" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    })
+                  }), item.icon === "running" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M13 10V3L4 14h7v7l9-11h-7z"
+                    })
+                  }), item.icon === "share" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                    })
+                  }), item.icon === "settings" && /* @__PURE__ */ jsxs("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: [/* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    }), /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    })]
+                  }), item.name]
+                }, item.name);
+              })
+            })]
+          })
+        }), /* @__PURE__ */ jsxs("main", {
+          className: "flex-1 min-w-0",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "mb-6",
+            children: [/* @__PURE__ */ jsx("h1", {
+              className: "font-display text-2xl font-bold text-gray-900",
+              children: "Running Experience"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-1 text-gray-500",
+              children: "Share your running journey and achievements with the community"
+            })]
+          }), actionData && "success" in actionData && actionData.success && /* @__PURE__ */ jsxs("div", {
+            className: "mb-6 rounded-xl bg-success-50 p-4 text-sm text-success-700 flex items-center gap-2",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "h-5 w-5",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M5 13l4 4L19 7"
+              })
+            }), "message" in actionData ? actionData.message : ""]
+          }), actionData && "error" in actionData && actionData.error && /* @__PURE__ */ jsxs("div", {
+            className: "mb-6 rounded-xl bg-alert-50 p-4 text-sm text-alert-700 flex items-center gap-2",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "h-5 w-5",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              })
+            }), actionData.error]
+          }), /* @__PURE__ */ jsxs(Form, {
+            method: "post",
+            children: [/* @__PURE__ */ jsx("h3", {
+              className: "font-display font-semibold text-gray-900 text-lg mb-3",
+              children: "Marathons"
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6",
+              children: [/* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "Completed"
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "marathonsCompleted",
+                  type: "number",
+                  min: "0",
+                  defaultValue: user.marathons_completed || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                  placeholder: "0"
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "Personal best"
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "marathonPB",
+                  type: "text",
+                  defaultValue: user.marathon_pb || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
+                  placeholder: "3:45:00"
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "PB Location"
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "marathonPBLocation",
+                  type: "text",
+                  defaultValue: user.marathon_pb_location || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
+                  placeholder: "Berlin 2023"
+                })]
+              })]
+            }), /* @__PURE__ */ jsx("h3", {
+              className: "font-display font-semibold text-gray-900 text-lg mb-3",
+              children: "Half Marathons"
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6",
+              children: [/* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "Completed"
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "halfMarathonsCompleted",
+                  type: "number",
+                  min: "0",
+                  defaultValue: user.half_marathons_completed || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                  placeholder: "0"
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "Personal best"
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "halfMarathonPB",
+                  type: "text",
+                  defaultValue: user.half_marathon_pb || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
+                  placeholder: "1:45:00"
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "PB Location"
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "halfMarathonPBLocation",
+                  type: "text",
+                  defaultValue: user.half_marathon_pb_location || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
+                  placeholder: "Valencia 2024"
+                })]
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "grid grid-cols-1 md:grid-cols-2 gap-4",
+              children: [/* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors md:col-span-2",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "Favorite races"
+                }), /* @__PURE__ */ jsx("textarea", {
+                  name: "favoriteRaces",
+                  rows: 3,
+                  defaultValue: user.favorite_races || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none resize-none",
+                  placeholder: "Berlin Marathon, New York Marathon, Tokyo Marathon..."
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "mt-2 text-xs text-gray-400",
+                  children: "List the races you've enjoyed the most"
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors md:col-span-2",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "Running goals"
+                }), /* @__PURE__ */ jsx("textarea", {
+                  name: "runningGoals",
+                  rows: 3,
+                  defaultValue: user.running_goals || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none resize-none",
+                  placeholder: "Complete all 6 World Marathon Majors, qualify for Boston..."
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "mt-2 text-xs text-gray-400",
+                  children: "What are you training for?"
+                })]
+              })]
+            }), /* @__PURE__ */ jsx("div", {
+              className: "mt-6",
+              children: /* @__PURE__ */ jsx("button", {
+                type: "submit",
+                className: "btn-primary px-8",
+                children: "Save Changes"
+              })
+            })]
+          })]
+        })]
+      })
+    })]
+  });
+});
+const route3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$g,
+  default: profile_experience,
+  loader: loader$n,
+  meta: meta$m
+}, Symbol.toStringTag, { value: "Module" }));
+async function loader$m({
   request
 }) {
   const user = await requireUser(request);
@@ -1650,11 +3168,11 @@ async function loader$l({
     conversations: conversations || []
   });
 }
-const route2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route4 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  loader: loader$l
+  loader: loader$m
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$k({
+async function loader$l({
   request,
   params
 }) {
@@ -1708,10 +3226,447 @@ async function loader$k({
     messages: messages2 || []
   });
 }
-const route3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  loader: loader$k
+  loader: loader$l
 }, Symbol.toStringTag, { value: "Module" }));
+const meta$l = () => {
+  return [{
+    title: "Settings - runoot"
+  }];
+};
+async function loader$k({
+  request
+}) {
+  const user = await requireUser(request);
+  if (user.user_type === "tour_operator") {
+    return redirect("/profile/agency");
+  }
+  const userId = user.id;
+  const {
+    data: blockedUsers
+  } = await supabaseAdmin.from("blocked_users").select(`
+      id,
+      blocked_id,
+      created_at,
+      blocked:profiles!blocked_users_blocked_id_fkey(id, full_name, company_name, email)
+    `).eq("blocker_id", userId).order("created_at", {
+    ascending: false
+  });
+  return {
+    user,
+    blockedUsers: blockedUsers || []
+  };
+}
+async function action$f({
+  request
+}) {
+  const user = await requireUser(request);
+  const userId = user.id;
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+  const blockedId = formData.get("blocked_id");
+  if (intent === "unblock" && typeof blockedId === "string") {
+    await supabaseAdmin.from("blocked_users").delete().eq("blocker_id", userId).eq("blocked_id", blockedId);
+    return data({
+      success: true,
+      action: "unblocked"
+    });
+  }
+  return data({
+    error: "Invalid action"
+  }, {
+    status: 400
+  });
+}
+const sidebarNavItems$2 = [{
+  name: "Personal information",
+  href: "/profile",
+  icon: "user"
+}, {
+  name: "Running Experience",
+  href: "/profile/experience",
+  icon: "running"
+}, {
+  name: "Social Media",
+  href: "/profile/social",
+  icon: "share"
+}, {
+  name: "Settings",
+  href: "/profile/settings",
+  icon: "settings"
+}];
+const profile_settings = UNSAFE_withComponentProps(function Settings() {
+  const {
+    user,
+    blockedUsers
+  } = useLoaderData();
+  const actionData = useActionData();
+  const location = useLocation();
+  const getInitials = (name) => {
+    if (!name) return "?";
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+  return /* @__PURE__ */ jsxs("div", {
+    className: "min-h-screen bg-gray-50",
+    children: [/* @__PURE__ */ jsx(Header, {
+      user
+    }), /* @__PURE__ */ jsx("div", {
+      className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "flex flex-col lg:flex-row gap-8",
+        children: [/* @__PURE__ */ jsx("aside", {
+          className: "lg:w-64 flex-shrink-0",
+          children: /* @__PURE__ */ jsxs("div", {
+            className: "bg-white rounded-2xl border border-gray-200 p-6",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex flex-col items-center text-center mb-6",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "h-20 w-20 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-2xl font-bold mb-4",
+                children: user.avatar_url ? /* @__PURE__ */ jsx("img", {
+                  src: user.avatar_url,
+                  alt: user.full_name || "User",
+                  className: "h-20 w-20 rounded-full object-cover"
+                }) : getInitials(user.full_name)
+              }), /* @__PURE__ */ jsx("h2", {
+                className: "font-display font-semibold text-gray-900 text-lg",
+                children: user.full_name || "Your Name"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-sm text-gray-500 mt-1",
+                children: user.email
+              }), /* @__PURE__ */ jsx("span", {
+                className: "mt-2 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700",
+                children: "Private Runner"
+              })]
+            }), /* @__PURE__ */ jsx("nav", {
+              className: "space-y-1",
+              children: sidebarNavItems$2.map((item) => {
+                const isActive = location.pathname === item.href;
+                return /* @__PURE__ */ jsxs(Link, {
+                  to: item.href,
+                  className: `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${isActive ? "bg-brand-50 text-brand-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`,
+                  children: [item.icon === "user" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    })
+                  }), item.icon === "running" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M13 10V3L4 14h7v7l9-11h-7z"
+                    })
+                  }), item.icon === "share" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                    })
+                  }), item.icon === "settings" && /* @__PURE__ */ jsxs("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: [/* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    }), /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    })]
+                  }), item.name]
+                }, item.name);
+              })
+            })]
+          })
+        }), /* @__PURE__ */ jsxs("main", {
+          className: "flex-1 min-w-0",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "mb-6",
+            children: [/* @__PURE__ */ jsx("h1", {
+              className: "font-display text-2xl font-bold text-gray-900",
+              children: "Settings"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-1 text-gray-500",
+              children: "Manage your account preferences and privacy"
+            })]
+          }), actionData && "success" in actionData && actionData.success && /* @__PURE__ */ jsxs("div", {
+            className: "mb-6 rounded-xl bg-success-50 p-4 text-sm text-success-700 flex items-center gap-2",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "h-5 w-5",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M5 13l4 4L19 7"
+              })
+            }), "User has been unblocked successfully."]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "font-display font-semibold text-gray-900 text-lg mb-3",
+            children: "Account"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "grid grid-cols-1 gap-4 mb-6",
+            children: [/* @__PURE__ */ jsx("div", {
+              className: "bg-white rounded-2xl border border-gray-200 p-5",
+              children: /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center justify-between",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    className: "text-sm font-medium text-gray-500",
+                    children: "Email"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "mt-1 text-gray-900 font-medium",
+                    children: user.email
+                  })]
+                }), /* @__PURE__ */ jsx("svg", {
+                  className: "h-5 w-5 text-gray-300",
+                  fill: "none",
+                  viewBox: "0 0 24 24",
+                  stroke: "currentColor",
+                  children: /* @__PURE__ */ jsx("path", {
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    strokeWidth: 2,
+                    d: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  })
+                })]
+              })
+            }), /* @__PURE__ */ jsx("div", {
+              className: "bg-white rounded-2xl border border-gray-200 p-5",
+              children: /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center justify-between",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    className: "text-sm font-medium text-gray-900",
+                    children: "Change password"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-sm text-gray-500 mt-1",
+                    children: "Update your account password"
+                  })]
+                }), /* @__PURE__ */ jsx("span", {
+                  className: "text-sm text-gray-400",
+                  children: "Coming soon"
+                })]
+              })
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "font-display font-semibold text-gray-900 text-lg mb-3",
+            children: "Blocked Users"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "bg-white rounded-2xl border border-gray-200 p-5 mb-6",
+            children: blockedUsers.length > 0 ? /* @__PURE__ */ jsx("div", {
+              className: "divide-y divide-gray-100",
+              children: blockedUsers.map((block) => {
+                var _a, _b, _c, _d, _e, _f;
+                return /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center justify-between py-3 first:pt-0 last:pb-0",
+                  children: [/* @__PURE__ */ jsxs("div", {
+                    className: "flex items-center gap-3",
+                    children: [/* @__PURE__ */ jsx("div", {
+                      className: "flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600 font-semibold",
+                      children: ((_b = (_a = block.blocked) == null ? void 0 : _a.company_name) == null ? void 0 : _b.charAt(0)) || ((_d = (_c = block.blocked) == null ? void 0 : _c.full_name) == null ? void 0 : _d.charAt(0)) || "?"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: ((_e = block.blocked) == null ? void 0 : _e.company_name) || ((_f = block.blocked) == null ? void 0 : _f.full_name) || "Unknown user"
+                      }), /* @__PURE__ */ jsxs("p", {
+                        className: "text-sm text-gray-500",
+                        children: ["Blocked on ", new Date(block.created_at).toLocaleDateString()]
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs(Form, {
+                    method: "post",
+                    children: [/* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "intent",
+                      value: "unblock"
+                    }), /* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "blocked_id",
+                      value: block.blocked_id
+                    }), /* @__PURE__ */ jsx("button", {
+                      type: "submit",
+                      className: "text-sm text-brand-600 hover:text-brand-700 font-medium",
+                      children: "Unblock"
+                    })]
+                  })]
+                }, block.id);
+              })
+            }) : /* @__PURE__ */ jsx("p", {
+              className: "text-gray-500 text-sm",
+              children: "You haven't blocked any users."
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "font-display font-semibold text-gray-900 text-lg mb-3",
+            children: "Notifications"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "grid grid-cols-1 gap-4 mb-6",
+            children: /* @__PURE__ */ jsx("div", {
+              className: "bg-white rounded-2xl border border-gray-200 p-5",
+              children: /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center justify-between",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    className: "text-sm font-medium text-gray-900",
+                    children: "Email notifications"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-sm text-gray-500 mt-1",
+                    children: "Receive emails for new messages"
+                  })]
+                }), /* @__PURE__ */ jsx("span", {
+                  className: "text-sm text-gray-400",
+                  children: "Coming soon"
+                })]
+              })
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "font-display font-semibold text-gray-900 text-lg mb-3",
+            children: "Support"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "grid grid-cols-1 gap-4 mb-6",
+            children: [/* @__PURE__ */ jsx("div", {
+              className: "bg-white rounded-2xl border border-gray-200 p-5",
+              children: /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center justify-between",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    className: "text-sm font-medium text-gray-900",
+                    children: "Contact us"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-sm text-gray-500 mt-1",
+                    children: "Report a problem or send feedback"
+                  })]
+                }), /* @__PURE__ */ jsx(Link, {
+                  to: "/contact",
+                  className: "text-sm text-brand-600 hover:text-brand-700 font-medium",
+                  children: "Contact"
+                })]
+              })
+            }), /* @__PURE__ */ jsx("div", {
+              className: "bg-white rounded-2xl border border-gray-200 p-5",
+              children: /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center justify-between",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    className: "text-sm font-medium text-gray-900",
+                    children: "Terms & Privacy"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-sm text-gray-500 mt-1",
+                    children: "Read our terms and privacy policy"
+                  })]
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex gap-3",
+                  children: [/* @__PURE__ */ jsx(Link, {
+                    to: "/terms",
+                    className: "text-sm text-brand-600 hover:text-brand-700 font-medium",
+                    children: "Terms"
+                  }), /* @__PURE__ */ jsx(Link, {
+                    to: "/privacy-policy",
+                    className: "text-sm text-brand-600 hover:text-brand-700 font-medium",
+                    children: "Privacy"
+                  })]
+                })]
+              })
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "font-display font-semibold text-alert-600 text-lg mb-3",
+            children: "Danger Zone"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "grid grid-cols-1 gap-4",
+            children: /* @__PURE__ */ jsx("div", {
+              className: "bg-white rounded-2xl border border-alert-200 p-5",
+              children: /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center justify-between",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("label", {
+                    className: "text-sm font-medium text-gray-900",
+                    children: "Delete account"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-sm text-gray-500 mt-1",
+                    children: "Permanently delete your account and all data"
+                  })]
+                }), /* @__PURE__ */ jsx("span", {
+                  className: "text-sm text-gray-400",
+                  children: "Coming soon"
+                })]
+              })
+            })
+          })]
+        })]
+      })
+    })]
+  });
+});
+const route6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$f,
+  default: profile_settings,
+  loader: loader$k,
+  meta: meta$l
+}, Symbol.toStringTag, { value: "Module" }));
+function FooterLight() {
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsx("footer", { className: "md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200", children: /* @__PURE__ */ jsxs("div", { className: "flex flex-col items-center", children: [
+      /* @__PURE__ */ jsx(Link, { to: "/", className: "flex items-center -my-1", children: /* @__PURE__ */ jsx(
+        "img",
+        {
+          src: "/logo.svg",
+          alt: "Runoot",
+          className: "h-14 w-auto"
+        }
+      ) }),
+      /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-1.5 text-[10px] text-gray-400 -mt-1 pb-1", children: [
+        /* @__PURE__ */ jsxs("span", { children: [
+          "© ",
+          (/* @__PURE__ */ new Date()).getFullYear()
+        ] }),
+        /* @__PURE__ */ jsx("span", { children: "·" }),
+        /* @__PURE__ */ jsx(Link, { to: "/privacy-policy", className: "hover:text-gray-600 transition-colors", children: "Privacy" }),
+        /* @__PURE__ */ jsx("span", { children: "·" }),
+        /* @__PURE__ */ jsx(Link, { to: "/cookie-policy", className: "hover:text-gray-600 transition-colors", children: "Cookies" }),
+        /* @__PURE__ */ jsx("span", { children: "·" }),
+        /* @__PURE__ */ jsx(Link, { to: "/terms", className: "hover:text-gray-600 transition-colors", children: "Terms" })
+      ] })
+    ] }) }),
+    /* @__PURE__ */ jsx("footer", { className: "hidden md:block bg-white border-t border-gray-200", children: /* @__PURE__ */ jsx("div", { className: "mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-gray-500", children: [
+      /* @__PURE__ */ jsxs("span", { className: "text-sm", children: [
+        "© ",
+        (/* @__PURE__ */ new Date()).getFullYear(),
+        " Runoot Exchange. All rights reserved."
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-4 text-sm", children: [
+        /* @__PURE__ */ jsx(Link, { to: "/privacy-policy", className: "hover:text-gray-700 transition-colors", children: "Privacy Policy" }),
+        /* @__PURE__ */ jsx("span", { className: "text-gray-300", children: "|" }),
+        /* @__PURE__ */ jsx(Link, { to: "/cookie-policy", className: "hover:text-gray-700 transition-colors", children: "Cookie Policy" }),
+        /* @__PURE__ */ jsx("span", { className: "text-gray-300", children: "|" }),
+        /* @__PURE__ */ jsx(Link, { to: "/terms", className: "hover:text-gray-700 transition-colors", children: "Terms & Conditions" })
+      ] })
+    ] }) }) })
+  ] });
+}
 function isLastMinute$1(eventDate) {
   const today = /* @__PURE__ */ new Date();
   const event = new Date(eventDate);
@@ -1732,7 +3687,7 @@ function formatRoomType$1(roomType) {
   };
   return labels[roomType] || roomType;
 }
-function getEventSlug$1(event) {
+function getEventSlug$3(event) {
   if (event.slug) return event.slug;
   return event.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -1777,7 +3732,7 @@ function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }) {
           /* @__PURE__ */ jsx(
             "img",
             {
-              src: `/events/${getEventSlug$1(listing.event)}.jpg`,
+              src: `/events/${getEventSlug$3(listing.event)}.jpg`,
               alt: listing.event.name,
               className: "w-full aspect-video object-cover",
               onError: (e) => {
@@ -1987,7 +3942,12 @@ function formatRoomTypeShort(roomType) {
   };
   return labels[roomType] || roomType;
 }
+function getEventSlug$2(event) {
+  if (event.slug) return event.slug;
+  return event.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false }) {
+  var _a, _b;
   const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData ? saveFetcher.formData.get("action") === "save" : isSaved;
   const eventDateShort = new Date(listing.event.event_date).toLocaleDateString("en-GB", {
@@ -2016,93 +3976,112 @@ function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false })
   const cardClass = isTourOperator ? "block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-brand-300 transition-all border-l-4 border-l-brand-500" : "block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-brand-300 transition-all";
   const sellerName = listing.author.company_name || listing.author.full_name || "Seller";
   const sellerNameShort = sellerName.split(" ")[0];
+  const eventSlug = getEventSlug$2(listing.event);
+  const logoPath = `/logos/${eventSlug}.png`;
   return /* @__PURE__ */ jsxs(
     Link,
     {
       to: isUserLoggedIn ? `/listings/${listing.id}` : "/login",
-      className: cardClass,
+      className: `${cardClass} relative`,
       children: [
-        /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between gap-2 mb-2", children: [
-          /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsx("span", { className: `inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`, children: listing.listing_type === "bib" ? "Bib" : listing.listing_type === "room" ? "Hotel" : "Package" }),
-            isLM && /* @__PURE__ */ jsx("span", { className: "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-accent-100 text-accent-700", children: "LM" })
+        isUserLoggedIn && /* @__PURE__ */ jsx("div", { className: "absolute top-3 right-3 z-10", children: /* @__PURE__ */ jsxs(
+          saveFetcher.Form,
+          {
+            method: "post",
+            action: "/api/saved",
+            onClick: (e) => e.stopPropagation(),
+            children: [
+              /* @__PURE__ */ jsx("input", { type: "hidden", name: "listingId", value: listing.id }),
+              /* @__PURE__ */ jsx("input", { type: "hidden", name: "action", value: isSavedOptimistic ? "unsave" : "save" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "submit",
+                  onClick: (e) => e.preventDefault(),
+                  onMouseDown: (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    saveFetcher.submit(
+                      { listingId: listing.id, action: isSavedOptimistic ? "unsave" : "save" },
+                      { method: "post", action: "/api/saved" }
+                    );
+                  },
+                  className: `p-1 rounded-full transition-colors ${isSavedOptimistic ? "text-red-500" : "text-gray-400 hover:text-red-500"}`,
+                  title: isSavedOptimistic ? "Remove from saved" : "Save listing",
+                  children: /* @__PURE__ */ jsx(
+                    "svg",
+                    {
+                      className: "h-5 w-5",
+                      fill: isSavedOptimistic ? "currentColor" : "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      strokeWidth: 2,
+                      children: /* @__PURE__ */ jsx(
+                        "path",
+                        {
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        }
+                      )
+                    }
+                  )
+                }
+              )
+            ]
+          }
+        ) }),
+        /* @__PURE__ */ jsxs("div", { className: "flex gap-3", children: [
+          /* @__PURE__ */ jsxs("div", { className: "flex-1 min-w-0", children: [
+            /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 mb-2", children: [
+              /* @__PURE__ */ jsx("span", { className: `inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`, children: listing.listing_type === "bib" ? "Bib" : listing.listing_type === "room" ? "Hotel" : "Package" }),
+              isLM && /* @__PURE__ */ jsx("span", { className: "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-accent-100 text-accent-700", children: "LM" })
+            ] }),
+            /* @__PURE__ */ jsx("h3", { className: "font-display text-base font-bold text-gray-900 leading-tight mb-0.5 line-clamp-1", children: listing.event.name }),
+            /* @__PURE__ */ jsx("p", { className: "text-sm font-medium text-brand-600", children: subtitle }),
+            listing.hotel_name && /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-600 mb-2 truncate", children: listing.hotel_name }),
+            !listing.hotel_name && /* @__PURE__ */ jsx("div", { className: "mb-2" }),
+            /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-1.5 text-xs text-gray-600 mb-2", children: [
+              /* @__PURE__ */ jsx("svg", { className: "h-3.5 w-3.5 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" }) }),
+              /* @__PURE__ */ jsxs("span", { className: "font-medium", children: [
+                "Race Day: ",
+                eventDateShort
+              ] })
+            ] })
           ] }),
-          /* @__PURE__ */ jsx("div", { className: "flex items-center gap-2", children: isUserLoggedIn && /* @__PURE__ */ jsxs(
-            saveFetcher.Form,
+          /* @__PURE__ */ jsx("div", { className: "flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center self-center", children: /* @__PURE__ */ jsx(
+            "img",
             {
-              method: "post",
-              action: "/api/saved",
-              onClick: (e) => e.stopPropagation(),
-              children: [
-                /* @__PURE__ */ jsx("input", { type: "hidden", name: "listingId", value: listing.id }),
-                /* @__PURE__ */ jsx("input", { type: "hidden", name: "action", value: isSavedOptimistic ? "unsave" : "save" }),
-                /* @__PURE__ */ jsx(
-                  "button",
-                  {
-                    type: "submit",
-                    onClick: (e) => e.preventDefault(),
-                    onMouseDown: (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      saveFetcher.submit(
-                        { listingId: listing.id, action: isSavedOptimistic ? "unsave" : "save" },
-                        { method: "post", action: "/api/saved" }
-                      );
-                    },
-                    className: `p-1 rounded-full transition-colors ${isSavedOptimistic ? "text-red-500" : "text-gray-400 hover:text-red-500"}`,
-                    title: isSavedOptimistic ? "Remove from saved" : "Save listing",
-                    children: /* @__PURE__ */ jsx(
-                      "svg",
-                      {
-                        className: "h-5 w-5",
-                        fill: isSavedOptimistic ? "currentColor" : "none",
-                        viewBox: "0 0 24 24",
-                        stroke: "currentColor",
-                        strokeWidth: 2,
-                        children: /* @__PURE__ */ jsx(
-                          "path",
-                          {
-                            strokeLinecap: "round",
-                            strokeLinejoin: "round",
-                            d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                          }
-                        )
-                      }
-                    )
-                  }
-                )
-              ]
+              src: logoPath,
+              alt: `${listing.event.name} logo`,
+              className: "w-full h-full object-contain p-1",
+              onError: (e) => {
+                const target = e.target;
+                target.style.display = "none";
+              }
             }
           ) })
         ] }),
-        /* @__PURE__ */ jsx("h3", { className: "font-display text-base font-bold text-gray-900 leading-tight mb-0.5 line-clamp-1", children: listing.event.name }),
-        /* @__PURE__ */ jsxs("p", { className: "text-sm font-medium text-brand-600 mb-2", children: [
-          subtitle,
-          listing.hotel_name && ` • ${listing.hotel_name}`
-        ] }),
-        /* @__PURE__ */ jsx("div", { className: "flex items-center justify-between gap-3 pt-2 border-t border-gray-100", children: isUserLoggedIn ? /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsx("div", { className: "flex items-center pt-2 border-t border-gray-100", children: isUserLoggedIn ? /* @__PURE__ */ jsxs(Fragment, { children: [
           /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2 min-w-0 flex-1", children: [
-            /* @__PURE__ */ jsxs("span", { className: "text-xs text-gray-600 truncate", children: [
-              "📍 ",
-              listing.event.country,
-              " • 🗓 Race Day : ",
-              eventDateShort
-            ] }),
-            /* @__PURE__ */ jsx("span", { className: "text-xs text-gray-400", children: "•" }),
-            /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-1 min-w-0", children: [
-              /* @__PURE__ */ jsx("span", { className: "text-xs font-medium text-gray-700 truncate", children: sellerNameShort }),
-              listing.author.user_type === "tour_operator" && /* @__PURE__ */ jsx("span", { className: "text-xs text-gray-500", children: "(TO)" }),
-              listing.author.is_verified && /* @__PURE__ */ jsx("svg", { className: "h-3 w-3 text-brand-500 flex-shrink-0", fill: "currentColor", viewBox: "0 0 20 20", children: /* @__PURE__ */ jsx(
-                "path",
-                {
-                  fillRule: "evenodd",
-                  d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                  clipRule: "evenodd"
-                }
-              ) })
+            /* @__PURE__ */ jsx("div", { className: "flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs font-medium flex-shrink-0", children: ((_a = listing.author.company_name) == null ? void 0 : _a.charAt(0)) || ((_b = listing.author.full_name) == null ? void 0 : _b.charAt(0)) || "?" }),
+            /* @__PURE__ */ jsxs("div", { className: "min-w-0", children: [
+              /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-1", children: [
+                /* @__PURE__ */ jsx("span", { className: "text-xs font-semibold text-gray-900 truncate", children: sellerNameShort }),
+                listing.author.is_verified && /* @__PURE__ */ jsx("svg", { className: "h-3.5 w-3.5 text-brand-500 flex-shrink-0", fill: "currentColor", viewBox: "0 0 20 20", children: /* @__PURE__ */ jsx(
+                  "path",
+                  {
+                    fillRule: "evenodd",
+                    d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                    clipRule: "evenodd"
+                  }
+                ) })
+              ] }),
+              /* @__PURE__ */ jsx("p", { className: "text-[10px] text-gray-500", children: listing.author.user_type === "tour_operator" ? "Tour Operator" : "Private" })
             ] })
           ] }),
-          /* @__PURE__ */ jsx("div", { className: "text-right flex-shrink-0", children: listing.listing_type === "bib" && listing.associated_costs ? /* @__PURE__ */ jsxs("p", { className: "text-base font-bold text-gray-900", children: [
+          /* @__PURE__ */ jsx("div", { className: "flex-1 flex justify-center", children: /* @__PURE__ */ jsx("span", { className: "bg-accent-500 text-white text-[10px] font-medium px-3 py-1 rounded-full", children: "View" }) }),
+          /* @__PURE__ */ jsx("div", { className: "text-right flex-1 flex justify-end", children: listing.listing_type === "bib" && listing.associated_costs ? /* @__PURE__ */ jsxs("p", { className: "text-base font-bold text-gray-900", children: [
             "€",
             listing.associated_costs.toLocaleString()
           ] }) : listing.price ? /* @__PURE__ */ jsxs("p", { className: "text-base font-bold text-gray-900", children: [
@@ -2114,7 +4093,82 @@ function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false })
     }
   );
 }
-const meta$g = () => {
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "first_posted", label: "First posted" },
+  { value: "event_soonest", label: "Event date (soonest)" },
+  { value: "price_low", label: "Price: Low to High" },
+  { value: "price_high", label: "Price: High to Low" },
+  { value: "contact_price", label: "Contact for price" }
+];
+function SortDropdown({ value, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  SORT_OPTIONS.find((opt) => opt.value === value) || SORT_OPTIONS[0];
+  return /* @__PURE__ */ jsxs("div", { ref: dropdownRef, className: "relative", children: [
+    /* @__PURE__ */ jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: () => setIsOpen(!isOpen),
+        className: "flex items-center gap-1.5 px-3 py-2 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors",
+        children: [
+          /* @__PURE__ */ jsx(
+            "svg",
+            {
+              className: "h-4 w-4 text-gray-500",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx(
+                "path",
+                {
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                  strokeWidth: 2,
+                  d: "M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                }
+              )
+            }
+          ),
+          /* @__PURE__ */ jsx(
+            "svg",
+            {
+              className: `h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`,
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 9l-7 7-7-7" })
+            }
+          )
+        ]
+      }
+    ),
+    isOpen && /* @__PURE__ */ jsx("div", { className: "absolute right-0 z-[100] mt-1 w-48 rounded-lg bg-white shadow-xl border border-gray-200 py-1 overflow-hidden", children: SORT_OPTIONS.map((option) => /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        onClick: () => {
+          onChange(option.value);
+          setIsOpen(false);
+        },
+        className: `w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors ${value === option.value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700"}`,
+        children: option.label
+      },
+      option.value
+    )) })
+  ] });
+}
+const meta$k = () => {
   return [{
     title: "Browse Listings - Runoot"
   }];
@@ -2186,8 +4240,43 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
   const searchRef = useRef(null);
   const currentType = searchParams.get("type") || "all";
   const currentSearch = searchParams.get("search") || "";
+  const currentSort = searchParams.get("sort") || "newest";
   const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [sortBy, setSortBy] = useState(currentSort);
+  const ITEMS_PER_PAGE = 12;
+  useEffect(() => {
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [currentType, currentSearch, sortBy]);
+  const sortedListings = [...listings].sort((a, b) => {
+    var _a, _b;
+    switch (sortBy) {
+      case "newest":
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case "first_posted":
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case "event_soonest":
+        const dateA = ((_a = a.event) == null ? void 0 : _a.event_date) ? new Date(a.event.event_date).getTime() : Infinity;
+        const dateB = ((_b = b.event) == null ? void 0 : _b.event_date) ? new Date(b.event.event_date).getTime() : Infinity;
+        return dateA - dateB;
+      case "price_low":
+        const priceA = a.price != null ? a.price : Infinity;
+        const priceB = b.price != null ? b.price : Infinity;
+        return priceA - priceB;
+      case "price_high":
+        const priceHighA = a.price != null ? a.price : -Infinity;
+        const priceHighB = b.price != null ? b.price : -Infinity;
+        return priceHighB - priceHighA;
+      case "contact_price":
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      default:
+        return 0;
+    }
+  });
+  const filteredBySort = sortBy === "contact_price" ? sortedListings.filter((l) => l.price == null) : sortedListings;
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const visibleListings = filteredBySort.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredBySort.length;
   const filteredEvents = searchQuery.length >= 2 ? events.filter((event) => event.name.toLowerCase().includes(searchQuery.toLowerCase()) || event.country.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5) : [];
   useEffect(() => {
     function handleClickOutside(event) {
@@ -2206,36 +4295,1133 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
     params.set("search", eventName);
     navigate(`/listings?${params.toString()}`);
   };
+  return /* @__PURE__ */ jsx("div", {
+    className: "min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed",
+    children: /* @__PURE__ */ jsxs("div", {
+      className: "min-h-screen bg-gray-50/60 md:bg-gray-50/85 flex flex-col",
+      children: [/* @__PURE__ */ jsx(Header, {
+        user
+      }), /* @__PURE__ */ jsxs("main", {
+        className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6",
+          children: [/* @__PURE__ */ jsx("h1", {
+            className: "font-display text-3xl font-bold text-gray-900",
+            children: "Browse Listings"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "mt-2 text-gray-600 mb-8",
+            children: "Find available rooms and bibs for upcoming marathons"
+          }), /* @__PURE__ */ jsxs(Form, {
+            method: "get",
+            name: "listing-search",
+            className: "mb-6",
+            children: [/* @__PURE__ */ jsx("input", {
+              type: "hidden",
+              name: "type",
+              value: currentType
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "relative max-w-xl",
+              ref: searchRef,
+              children: [/* @__PURE__ */ jsx("svg", {
+                className: "absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10",
+                fill: "none",
+                viewBox: "0 0 24 24",
+                stroke: "currentColor",
+                children: /* @__PURE__ */ jsx("path", {
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                  strokeWidth: 2,
+                  d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                })
+              }), /* @__PURE__ */ jsx("input", {
+                type: "search",
+                id: "listing-search",
+                name: "search",
+                autoComplete: "off",
+                placeholder: "Search event name...",
+                value: searchQuery,
+                onChange: (e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSuggestions(true);
+                },
+                onFocus: () => setShowSuggestions(true),
+                className: "block w-full rounded-full border-0 pl-12 pr-20 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-colors shadow-md ring-1 ring-gray-200"
+              }), /* @__PURE__ */ jsx("button", {
+                type: "submit",
+                className: "absolute right-1.5 top-1/2 -translate-y-1/2 px-5 py-2 bg-accent-500 text-white text-sm font-medium rounded-full hover:bg-accent-600 transition-all",
+                children: "Search"
+              }), showSuggestions && filteredEvents.length > 0 && /* @__PURE__ */ jsx("div", {
+                className: "absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden",
+                children: filteredEvents.map((event) => /* @__PURE__ */ jsxs("button", {
+                  type: "button",
+                  onClick: () => handleSuggestionClick(event.name),
+                  className: "w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors",
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: "font-medium text-gray-900",
+                    children: event.name
+                  }), /* @__PURE__ */ jsxs("p", {
+                    className: "text-sm text-gray-500",
+                    children: [event.country, " • ", new Date(event.event_date).toLocaleDateString()]
+                  })]
+                }, event.id))
+              })]
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "flex flex-wrap items-center gap-2",
+            children: [[{
+              value: "all",
+              label: "All"
+            }, {
+              value: "room",
+              label: "Hotel"
+            }, {
+              value: "bib",
+              label: "Bibs"
+            }, {
+              value: "room_and_bib",
+              label: "Package"
+            }].map((category) => /* @__PURE__ */ jsx("a", {
+              href: category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`,
+              className: `px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${currentType === category.value ? "bg-brand-500 text-white" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"}`,
+              children: category.label
+            }, category.value)), /* @__PURE__ */ jsx(SortDropdown, {
+              value: sortBy,
+              onChange: setSortBy
+            })]
+          })]
+        }), filteredBySort.length > 0 ? /* @__PURE__ */ jsxs(Fragment, {
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr",
+            children: visibleListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
+              listing,
+              isUserLoggedIn: !!user,
+              isSaved: (savedListingIds || []).includes(listing.id)
+            }, listing.id))
+          }), /* @__PURE__ */ jsx("div", {
+            className: "flex flex-col gap-3 md:hidden",
+            children: visibleListings.map((listing) => /* @__PURE__ */ jsx(ListingCardCompact, {
+              listing,
+              isUserLoggedIn: !!user,
+              isSaved: (savedListingIds || []).includes(listing.id)
+            }, listing.id))
+          }), hasMore && /* @__PURE__ */ jsx("div", {
+            className: "mt-8 text-center",
+            children: /* @__PURE__ */ jsxs("button", {
+              onClick: () => setVisibleCount((prev) => prev + ITEMS_PER_PAGE),
+              className: "px-8 py-3 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors shadow-md",
+              children: ["Load More (", filteredBySort.length - visibleCount, " remaining)"]
+            })
+          })]
+        }) : /* @__PURE__ */ jsxs("div", {
+          className: "text-center py-12",
+          children: [/* @__PURE__ */ jsx("svg", {
+            className: "mx-auto h-12 w-12 text-gray-400",
+            fill: "none",
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 1.5,
+              d: "M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "mt-4 text-lg font-medium text-gray-900",
+            children: "No listings found"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "mt-2 text-gray-600",
+            children: currentSearch || currentType !== "all" ? "Try adjusting your filters" : "Be the first to create a listing!"
+          })]
+        })]
+      }), /* @__PURE__ */ jsx(FooterLight, {})]
+    })
+  });
+});
+const route7 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  default: listings__index,
+  loader: loader$j,
+  meta: meta$k
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$j = () => {
+  return [{
+    title: "Privacy Policy | Runoot"
+  }, {
+    name: "description",
+    content: "Informativa sulla privacy di Runoot - Scopri come raccogliamo, utilizziamo e proteggiamo i tuoi dati personali."
+  }];
+};
+const privacyPolicy = UNSAFE_withComponentProps(function PrivacyPolicy() {
+  const lastUpdated = "29 Gennaio 2025";
+  const companyEmail = "privacy@runoot.com";
   return /* @__PURE__ */ jsxs("div", {
-    className: "min-h-full bg-gray-50",
+    className: "min-h-screen bg-gray-50",
+    children: [/* @__PURE__ */ jsx("header", {
+      className: "bg-white shadow-sm",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "max-w-4xl mx-auto px-4 py-6",
+        children: [/* @__PURE__ */ jsx("a", {
+          href: "/",
+          className: "text-brand-600 hover:text-brand-700 text-sm",
+          children: "← Torna alla Home"
+        }), /* @__PURE__ */ jsx("h1", {
+          className: "text-3xl font-bold text-gray-900 mt-4",
+          children: "Privacy Policy"
+        }), /* @__PURE__ */ jsxs("p", {
+          className: "text-gray-500 mt-2",
+          children: ["Ultimo aggiornamento: ", lastUpdated]
+        })]
+      })
+    }), /* @__PURE__ */ jsxs("main", {
+      className: "max-w-4xl mx-auto px-4 py-8",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-lg shadow-sm p-8 space-y-8",
+        children: [/* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "1. Introduzione"
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: [`La presente Privacy Policy descrive le modalità di raccolta, utilizzo e protezione dei dati personali degli utenti che accedono e utilizzano la piattaforma Runoot (di seguito "Piattaforma" o "Servizio"), accessibile all'indirizzo`, " ", /* @__PURE__ */ jsx("a", {
+              href: "https://runoot.com",
+              className: "text-brand-600 hover:underline",
+              children: "runoot.com"
+            }), "."]
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: "Runoot è un marketplace che consente a tour operator e runner privati di scambiare stanze d'hotel e pettorali (bibs) per eventi podistici. La Piattaforma funge esclusivamente da intermediario tecnologico e non partecipa in alcun modo alle transazioni tra utenti."
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: "Utilizzando la Piattaforma, l'utente dichiara di aver letto, compreso e accettato integralmente la presente Privacy Policy."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "2. Titolare del Trattamento"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "bg-gray-50 rounded-lg p-4",
+            children: /* @__PURE__ */ jsxs("p", {
+              className: "text-gray-700",
+              children: [/* @__PURE__ */ jsx("strong", {
+                children: "Denominazione:"
+              }), " [INSERIRE RAGIONE SOCIALE / NOME]", /* @__PURE__ */ jsx("br", {}), /* @__PURE__ */ jsx("strong", {
+                children: "Sede legale:"
+              }), " [INSERIRE INDIRIZZO COMPLETO]", /* @__PURE__ */ jsx("br", {}), /* @__PURE__ */ jsx("strong", {
+                children: "P.IVA / C.F.:"
+              }), " [INSERIRE P.IVA O CODICE FISCALE]", /* @__PURE__ */ jsx("br", {}), /* @__PURE__ */ jsx("strong", {
+                children: "Email di contatto:"
+              }), " ", /* @__PURE__ */ jsx("a", {
+                href: `mailto:${companyEmail}`,
+                className: "text-brand-600 hover:underline",
+                children: companyEmail
+              })]
+            })
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "3. Dati Personali Raccolti"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-4",
+            children: "La Piattaforma raccoglie i seguenti dati personali:"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "space-y-6",
+            children: [/* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "text-lg font-medium text-gray-900 mb-2",
+                children: "3.1 Dati forniti volontariamente dall'utente"
+              }), /* @__PURE__ */ jsxs("ul", {
+                className: "space-y-2 text-gray-700",
+                children: [/* @__PURE__ */ jsxs("li", {
+                  className: "flex items-start",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-brand-600 mr-2",
+                    children: "•"
+                  }), "Nome completo"]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex items-start",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-brand-600 mr-2",
+                    children: "•"
+                  }), "Indirizzo email"]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex items-start",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-brand-600 mr-2",
+                    children: "•"
+                  }), "Password (conservata in forma crittografata)"]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex items-start",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-brand-600 mr-2",
+                    children: "•"
+                  }), "Tipologia di utente (Tour Operator o Private Runner)"]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex items-start",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-brand-600 mr-2",
+                    children: "•"
+                  }), "Nome azienda (solo per Tour Operator)"]
+                })]
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "text-lg font-medium text-gray-900 mb-2",
+                children: "3.2 Dati raccolti automaticamente"
+              }), /* @__PURE__ */ jsxs("ul", {
+                className: "space-y-2 text-gray-700",
+                children: [/* @__PURE__ */ jsxs("li", {
+                  className: "flex items-start",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-brand-600 mr-2",
+                    children: "•"
+                  }), "Indirizzo IP"]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex items-start",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-brand-600 mr-2",
+                    children: "•"
+                  }), "Tipo di browser e dispositivo"]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex items-start",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-brand-600 mr-2",
+                    children: "•"
+                  }), "Dati di navigazione e interazione con la Piattaforma"]
+                }), /* @__PURE__ */ jsxs("li", {
+                  className: "flex items-start",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-brand-600 mr-2",
+                    children: "•"
+                  }), "Data e ora di accesso"]
+                })]
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "text-lg font-medium text-gray-900 mb-2",
+                children: "3.3 Dati da servizi di terze parti"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 leading-relaxed",
+                children: "In caso di registrazione tramite Google OAuth, la Piattaforma riceve: nome, indirizzo email e immagine del profilo associati all'account Google dell'utente."
+              })]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "4. Finalità del Trattamento"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-4",
+            children: "I dati personali sono trattati per le seguenti finalità:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-3 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-medium",
+                children: "a)"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Erogazione del Servizio:"
+                }), " creazione e gestione dell'account utente, pubblicazione e visualizzazione degli annunci, facilitazione del contatto tra utenti."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-medium",
+                children: "b)"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Comunicazioni di servizio:"
+                }), " invio di notifiche tecniche, aggiornamenti sulla Piattaforma, comunicazioni relative all'account."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-medium",
+                children: "c)"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Sicurezza:"
+                }), " prevenzione di frodi, abusi e attività illecite."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-medium",
+                children: "d)"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Adempimenti legali:"
+                }), " ottemperanza a obblighi di legge o richieste delle autorità competenti."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-medium",
+                children: "e)"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Analisi statistica:"
+                }), " miglioramento della Piattaforma attraverso analisi aggregate e anonimizzate."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-medium",
+                children: "f)"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Marketing (previo consenso):"
+                }), " invio di newsletter e comunicazioni promozionali, solo se l'utente ha espresso il proprio consenso esplicito."]
+              })]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "5. Base Giuridica del Trattamento"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-4",
+            children: "Il trattamento dei dati personali si fonda sulle seguenti basi giuridiche ai sensi dell'art. 6 del GDPR:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Esecuzione del contratto:"
+                }), " il trattamento è necessario per fornire il Servizio richiesto dall'utente."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Consenso:"
+                }), " per l'invio di comunicazioni di marketing e l'utilizzo di cookie non essenziali."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Obbligo legale:"
+                }), " per adempiere a obblighi previsti dalla normativa vigente."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Legittimo interesse:"
+                }), " per garantire la sicurezza della Piattaforma e prevenire frodi."]
+              })]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "6. Cookie e Tecnologie di Tracciamento"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "space-y-4",
+            children: [/* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "text-lg font-medium text-gray-900 mb-2",
+                children: "6.1 Cookie tecnici (essenziali)"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 leading-relaxed",
+                children: "La Piattaforma utilizza cookie tecnici strettamente necessari per il funzionamento del Servizio. Questi cookie non richiedono il consenso dell'utente e includono: cookie di sessione, cookie di autenticazione, cookie per le preferenze di navigazione (es. lingua, tema)."
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "text-lg font-medium text-gray-900 mb-2",
+                children: "6.2 Cookie analitici (previo consenso)"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 leading-relaxed",
+                children: "La Piattaforma potrà utilizzare Google Analytics per analizzare l'utilizzo del Servizio in forma aggregata. Tali cookie saranno installati solo previo consenso esplicito dell'utente tramite il banner cookie. L'utente può modificare le proprie preferenze in qualsiasi momento."
+              }), /* @__PURE__ */ jsxs("p", {
+                className: "text-gray-700 leading-relaxed mt-2",
+                children: ["Per maggiori informazioni su Google Analytics, si rimanda alla", " ", /* @__PURE__ */ jsx("a", {
+                  href: "https://policies.google.com/privacy",
+                  target: "_blank",
+                  rel: "noopener noreferrer",
+                  className: "text-brand-600 hover:underline",
+                  children: "privacy policy di Google"
+                }), "."]
+              })]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "7. Condivisione dei Dati con Terze Parti"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-4",
+            children: "I dati personali possono essere comunicati a:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-3 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Supabase Inc.:"
+                }), " fornitore dei servizi di database e autenticazione. I server possono essere ubicati negli Stati Uniti. Supabase aderisce ai meccanismi di trasferimento dati previsti dal GDPR."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Vercel Inc.:"
+                }), " fornitore dei servizi di hosting. I server possono essere ubicati negli Stati Uniti e in altre giurisdizioni. Vercel aderisce ai meccanismi di trasferimento dati previsti dal GDPR."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Google LLC:"
+                }), " per il servizio di autenticazione OAuth e, previo consenso, per Google Analytics."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Autorità competenti:"
+                }), " quando richiesto dalla legge o per tutelare i diritti del Titolare."]
+              })]
+            })]
+          }), /* @__PURE__ */ jsx("div", {
+            className: "mt-4 p-4 bg-brand-50 rounded-lg border border-brand-200",
+            children: /* @__PURE__ */ jsx("p", {
+              className: "text-gray-700 font-medium",
+              children: "I dati personali non saranno mai venduti a terzi."
+            })
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "8. Trasferimento dei Dati Extra-UE"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-4",
+            children: "Alcuni dei fornitori di servizi indicati al punto 7 hanno sede al di fuori dell'Unione Europea, in particolare negli Stati Uniti. Il trasferimento dei dati avviene in conformità al GDPR mediante:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Decisioni di adeguatezza della Commissione Europea (es. EU-US Data Privacy Framework)"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Clausole Contrattuali Standard (SCC) approvate dalla Commissione Europea"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Altre garanzie appropriate previste dall'art. 46 del GDPR"]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "9. Periodo di Conservazione dei Dati"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-4",
+            children: "I dati personali sono conservati per il tempo strettamente necessario al perseguimento delle finalità indicate:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Dati dell'account:"
+                }), " fino alla cancellazione dell'account da parte dell'utente o fino a 2 anni di inattività."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Dati di navigazione:"
+                }), " massimo 12 mesi."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Dati per obblighi legali:"
+                }), " per il periodo previsto dalla normativa applicabile."]
+              })]
+            })]
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-4",
+            children: "Al termine del periodo di conservazione, i dati saranno cancellati o resi anonimi in modo irreversibile."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "10. Diritti dell'Interessato"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-4",
+            children: "Ai sensi degli artt. 15-22 del GDPR, l'utente ha il diritto di:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Accesso:"
+                }), " ottenere conferma dell'esistenza di un trattamento e accedere ai propri dati."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Rettifica:"
+                }), " ottenere la correzione di dati inesatti o l'integrazione di dati incompleti."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Cancellazione:"
+                }), " ottenere la cancellazione dei propri dati nei casi previsti dalla legge."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Limitazione:"
+                }), " ottenere la limitazione del trattamento nei casi previsti dalla legge."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Portabilità:"
+                }), " ricevere i propri dati in un formato strutturato e trasferirli a un altro titolare."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Opposizione:"
+                }), " opporsi al trattamento per motivi legittimi."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: "Revoca del consenso:"
+                }), " revocare in qualsiasi momento il consenso prestato, senza pregiudicare la liceità del trattamento effettuato prima della revoca."]
+              })]
+            })]
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-4",
+            children: "Per esercitare tali diritti, l'utente può contattare il Titolare all'indirizzo email indicato al punto 2."
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: ["L'utente ha inoltre il diritto di proporre reclamo all'Autorità Garante per la Protezione dei Dati Personali:", " ", /* @__PURE__ */ jsx("a", {
+              href: "https://www.garanteprivacy.it",
+              target: "_blank",
+              rel: "noopener noreferrer",
+              className: "text-brand-600 hover:underline",
+              children: "www.garanteprivacy.it"
+            }), "."]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "11. Età Minima"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "bg-yellow-50 border border-yellow-200 rounded-lg p-4",
+            children: [/* @__PURE__ */ jsxs("p", {
+              className: "text-gray-700 leading-relaxed",
+              children: [/* @__PURE__ */ jsx("strong", {
+                children: "La Piattaforma è destinata esclusivamente a utenti che abbiano compiuto 18 anni di età."
+              }), " ", "Registrandosi, l'utente dichiara e garantisce di avere almeno 18 anni."]
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-gray-700 leading-relaxed mt-3",
+              children: "Il Titolare non raccoglie consapevolmente dati personali di minori. Qualora venisse a conoscenza di una registrazione effettuata da un minore, il Titolare provvederà tempestivamente alla cancellazione dei relativi dati."
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "12. Ruolo della Piattaforma e Limitazione di Responsabilità"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "bg-red-50 border border-red-200 rounded-lg p-4 mb-4",
+            children: /* @__PURE__ */ jsx("p", {
+              className: "text-gray-700 leading-relaxed font-medium",
+              children: "IMPORTANTE: Runoot opera esclusivamente come piattaforma tecnologica di intermediazione che consente agli utenti di pubblicare annunci e mettersi in contatto tra loro."
+            })
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-4 font-medium",
+            children: "La Piattaforma NON:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700 mb-6",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Partecipa, media o garantisce le transazioni tra utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Gestisce pagamenti o trasferimenti di denaro tra utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Verifica l'identità, l'affidabilità o la solvibilità degli utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Garantisce la disponibilità, qualità o legittimità degli annunci pubblicati"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Verifica la conformità del trasferimento di pettorali ai regolamenti delle singole gare"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Fornisce servizi di prenotazione alberghiera o organizzazione di viaggi"]
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "bg-gray-50 rounded-lg p-4",
+            children: [/* @__PURE__ */ jsxs("p", {
+              className: "text-gray-700 leading-relaxed",
+              children: [/* @__PURE__ */ jsx("strong", {
+                children: "Le transazioni avvengono direttamente tra utenti, con metodi di pagamento scelti autonomamente dalle parti coinvolte."
+              }), " Il Titolare declina ogni responsabilità per:"]
+            }), /* @__PURE__ */ jsxs("ul", {
+              className: "space-y-2 text-gray-700 mt-4",
+              children: [/* @__PURE__ */ jsxs("li", {
+                className: "flex items-start",
+                children: [/* @__PURE__ */ jsx("span", {
+                  className: "text-gray-400 mr-2",
+                  children: "•"
+                }), "Eventuali controversie, inadempimenti o danni derivanti dalle transazioni tra utenti"]
+              }), /* @__PURE__ */ jsxs("li", {
+                className: "flex items-start",
+                children: [/* @__PURE__ */ jsx("span", {
+                  className: "text-gray-400 mr-2",
+                  children: "•"
+                }), "La veridicità, completezza o accuratezza delle informazioni fornite dagli utenti"]
+              }), /* @__PURE__ */ jsxs("li", {
+                className: "flex items-start",
+                children: [/* @__PURE__ */ jsx("span", {
+                  className: "text-gray-400 mr-2",
+                  children: "•"
+                }), "Perdite economiche derivanti da transazioni non andate a buon fine"]
+              }), /* @__PURE__ */ jsxs("li", {
+                className: "flex items-start",
+                children: [/* @__PURE__ */ jsx("span", {
+                  className: "text-gray-400 mr-2",
+                  children: "•"
+                }), "Violazioni dei regolamenti delle gare podistiche da parte degli utenti"]
+              }), /* @__PURE__ */ jsxs("li", {
+                className: "flex items-start",
+                children: [/* @__PURE__ */ jsx("span", {
+                  className: "text-gray-400 mr-2",
+                  children: "•"
+                }), "Eventuali frodi, truffe o comportamenti illeciti perpetrati da utenti della Piattaforma"]
+              })]
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-gray-700 leading-relaxed mt-4 italic",
+              children: "Gli utenti riconoscono e accettano che ogni transazione effettuata attraverso contatti ottenuti tramite la Piattaforma è di loro esclusiva responsabilità. Si raccomanda agli utenti di adottare tutte le precauzioni necessarie prima di effettuare pagamenti o scambi."
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "13. Newsletter e Comunicazioni di Marketing"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "L'utente può acconsentire a ricevere comunicazioni di marketing e newsletter da parte del Titolare. Tale consenso è facoltativo e può essere revocato in qualsiasi momento tramite:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700 mt-4",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Il link di disiscrizione presente in ogni comunicazione"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Le impostazioni del proprio account"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Contattando il Titolare all'indirizzo email indicato al punto 2"]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "14. Misure di Sicurezza"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-4",
+            children: "Il Titolare adotta misure tecniche e organizzative appropriate per proteggere i dati personali da accessi non autorizzati, perdita, distruzione o alterazione, tra cui:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Crittografia delle password"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Connessioni HTTPS protette"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Controlli di accesso ai sistemi"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Backup periodici dei dati"]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "15. Modifiche alla Privacy Policy"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Il Titolare si riserva il diritto di modificare la presente Privacy Policy in qualsiasi momento. Le modifiche saranno comunicate agli utenti tramite pubblicazione sulla Piattaforma e, per modifiche sostanziali, tramite email."
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: "L'uso continuato della Piattaforma dopo la pubblicazione delle modifiche costituisce accettazione delle stesse."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "16. Contatti"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Per qualsiasi domanda, richiesta o comunicazione relativa alla presente Privacy Policy o al trattamento dei dati personali, l'utente può contattare il Titolare all'indirizzo email:"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "mt-4 bg-brand-50 rounded-lg p-4 border border-brand-200",
+            children: /* @__PURE__ */ jsxs("p", {
+              className: "text-gray-700",
+              children: ["Email: ", /* @__PURE__ */ jsx("a", {
+                href: `mailto:${companyEmail}`,
+                className: "text-brand-600 hover:underline font-medium",
+                children: companyEmail
+              })]
+            })
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "17. Legge Applicabile e Foro Competente"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "La presente Privacy Policy è regolata dalla legge italiana e dal Regolamento (UE) 2016/679 (GDPR). Per qualsiasi controversia sarà competente il Foro di [INSERIRE CITTÀ], salvo diversa disposizione inderogabile di legge."
+          })]
+        }), /* @__PURE__ */ jsx("div", {
+          className: "pt-6 border-t border-gray-200",
+          children: /* @__PURE__ */ jsx("p", {
+            className: "text-gray-500 text-sm italic text-center",
+            children: "Documento redatto in conformità al Regolamento (UE) 2016/679 (GDPR)"
+          })
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "mt-8 text-center text-sm text-gray-500",
+        children: [/* @__PURE__ */ jsx("a", {
+          href: "/cookie-policy",
+          className: "hover:text-brand-600",
+          children: "Cookie Policy"
+        }), /* @__PURE__ */ jsx("span", {
+          className: "mx-2",
+          children: "•"
+        }), /* @__PURE__ */ jsx("a", {
+          href: "/terms",
+          className: "hover:text-brand-600",
+          children: "Termini di Servizio"
+        }), /* @__PURE__ */ jsx("span", {
+          className: "mx-2",
+          children: "•"
+        }), /* @__PURE__ */ jsx("a", {
+          href: "/",
+          className: "hover:text-brand-600",
+          children: "Torna alla Home"
+        })]
+      })]
+    })]
+  });
+});
+const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  default: privacyPolicy,
+  meta: meta$j
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$i = () => {
+  return [{
+    title: "My Profile - runoot"
+  }];
+};
+async function loader$i({
+  request
+}) {
+  const user = await requireUser(request);
+  if (user.user_type === "tour_operator") {
+    return redirect("/profile/agency");
+  }
+  return {
+    user
+  };
+}
+async function action$e({
+  request
+}) {
+  const user = await requireUser(request);
+  const formData = await request.formData();
+  const fullName = formData.get("fullName");
+  const country = formData.get("country");
+  const city = formData.get("city");
+  const bio = formData.get("bio");
+  if (typeof fullName !== "string" || !fullName) {
+    return data({
+      error: "Full name is required"
+    }, {
+      status: 400
+    });
+  }
+  const updateData = {
+    full_name: fullName,
+    country: country || null,
+    city: city || null,
+    bio: bio || null
+  };
+  const {
+    error
+  } = await supabaseAdmin.from("profiles").update(updateData).eq("id", user.id);
+  if (error) {
+    return data({
+      error: error.message
+    }, {
+      status: 400
+    });
+  }
+  return data({
+    success: true,
+    message: "Profile updated successfully!"
+  });
+}
+const sidebarNavItems$1 = [{
+  name: "Personal information",
+  href: "/profile",
+  icon: "user"
+}, {
+  name: "Running Experience",
+  href: "/profile/experience",
+  icon: "running"
+}, {
+  name: "Social Media",
+  href: "/profile/social",
+  icon: "share"
+}, {
+  name: "Settings",
+  href: "/profile/settings",
+  icon: "settings"
+}];
+const profile__index = UNSAFE_withComponentProps(function ProfileIndex() {
+  const {
+    user
+  } = useLoaderData();
+  const actionData = useActionData();
+  const location = useLocation();
+  const getInitials = (name) => {
+    if (!name) return "?";
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+  return /* @__PURE__ */ jsxs("div", {
+    className: "min-h-screen bg-gray-50",
     children: [/* @__PURE__ */ jsx(Header, {
       user
-    }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8",
-      children: [/* @__PURE__ */ jsxs("div", {
-        className: "mb-6",
-        children: [/* @__PURE__ */ jsx("h1", {
-          className: "font-display text-3xl font-bold text-gray-900",
-          children: "Browse Listings"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-2 text-gray-600",
-          children: "Find available rooms and bibs for upcoming marathons"
-        })]
-      }), /* @__PURE__ */ jsx("div", {
-        className: "mb-4",
-        children: /* @__PURE__ */ jsxs(Form, {
-          method: "get",
-          name: "listing-search",
-          className: "flex items-center",
-          children: [/* @__PURE__ */ jsx("input", {
-            type: "hidden",
-            name: "type",
-            value: currentType
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "relative flex-1 max-w-xl",
-            ref: searchRef,
+    }), /* @__PURE__ */ jsx("div", {
+      className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "flex flex-col lg:flex-row gap-8",
+        children: [/* @__PURE__ */ jsx("aside", {
+          className: "lg:w-64 flex-shrink-0",
+          children: /* @__PURE__ */ jsxs("div", {
+            className: "bg-white rounded-2xl border border-gray-200 p-6",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex flex-col items-center text-center mb-6",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "h-20 w-20 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-2xl font-bold mb-4",
+                children: user.avatar_url ? /* @__PURE__ */ jsx("img", {
+                  src: user.avatar_url,
+                  alt: user.full_name || "User",
+                  className: "h-20 w-20 rounded-full object-cover"
+                }) : getInitials(user.full_name)
+              }), /* @__PURE__ */ jsx("h2", {
+                className: "font-display font-semibold text-gray-900 text-lg",
+                children: user.full_name || "Your Name"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-sm text-gray-500 mt-1",
+                children: user.email
+              }), /* @__PURE__ */ jsx("span", {
+                className: "mt-2 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700",
+                children: "Private Runner"
+              })]
+            }), /* @__PURE__ */ jsx("nav", {
+              className: "space-y-1",
+              children: sidebarNavItems$1.map((item) => {
+                const isActive = location.pathname === item.href;
+                return /* @__PURE__ */ jsxs(Link, {
+                  to: item.href,
+                  className: `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${isActive ? "bg-brand-50 text-brand-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`,
+                  children: [item.icon === "user" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    })
+                  }), item.icon === "running" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M13 10V3L4 14h7v7l9-11h-7z"
+                    })
+                  }), item.icon === "share" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                    })
+                  }), item.icon === "settings" && /* @__PURE__ */ jsxs("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: [/* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    }), /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    })]
+                  }), item.name]
+                }, item.name);
+              })
+            })]
+          })
+        }), /* @__PURE__ */ jsxs("main", {
+          className: "flex-1 min-w-0",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "mb-6",
+            children: [/* @__PURE__ */ jsx("h1", {
+              className: "font-display text-2xl font-bold text-gray-900",
+              children: "Personal information"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-1 text-gray-500",
+              children: "Manage your personal details and how others see you on runoot"
+            })]
+          }), actionData && "success" in actionData && actionData.success && /* @__PURE__ */ jsxs("div", {
+            className: "mb-6 rounded-xl bg-success-50 p-4 text-sm text-success-700 flex items-center gap-2",
             children: [/* @__PURE__ */ jsx("svg", {
-              className: "absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10",
+              className: "h-5 w-5",
               fill: "none",
               viewBox: "0 0 24 24",
               stroke: "currentColor",
@@ -2243,125 +5429,183 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
                 strokeLinecap: "round",
                 strokeLinejoin: "round",
                 strokeWidth: 2,
-                d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                d: "M5 13l4 4L19 7"
               })
-            }), /* @__PURE__ */ jsx("input", {
-              type: "search",
-              id: "listing-search",
-              name: "search",
-              autoComplete: "off",
-              placeholder: "Search by event name or location...",
-              value: searchQuery,
-              onChange: (e) => {
-                setSearchQuery(e.target.value);
-                setShowSuggestions(true);
-              },
-              onFocus: () => setShowSuggestions(true),
-              className: "block w-full rounded-lg border-0 pl-12 pr-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500/20 transition-colors",
-              style: {
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)"
-              }
-            }), showSuggestions && filteredEvents.length > 0 && /* @__PURE__ */ jsx("div", {
-              className: "absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden",
-              children: filteredEvents.map((event) => /* @__PURE__ */ jsxs("button", {
-                type: "button",
-                onClick: () => handleSuggestionClick(event.name),
-                className: "w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors",
-                children: [/* @__PURE__ */ jsx("p", {
-                  className: "font-medium text-gray-900",
-                  children: event.name
-                }), /* @__PURE__ */ jsxs("p", {
-                  className: "text-sm text-gray-500",
-                  children: [event.country, " • ", new Date(event.event_date).toLocaleDateString()]
+            }), "message" in actionData ? actionData.message : ""]
+          }), actionData && "error" in actionData && actionData.error && /* @__PURE__ */ jsxs("div", {
+            className: "mb-6 rounded-xl bg-alert-50 p-4 text-sm text-alert-700 flex items-center gap-2",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "h-5 w-5",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              })
+            }), actionData.error]
+          }), /* @__PURE__ */ jsxs(Form, {
+            method: "post",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "grid grid-cols-1 md:grid-cols-2 gap-4",
+              children: [/* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "Full name"
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "fullName",
+                  type: "text",
+                  defaultValue: user.full_name || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
+                  placeholder: "Enter your name",
+                  required: true
                 })]
-              }, event.id))
+              }), /* @__PURE__ */ jsx("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5",
+                children: /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-start justify-between",
+                  children: [/* @__PURE__ */ jsxs("div", {
+                    className: "flex-1",
+                    children: [/* @__PURE__ */ jsx("label", {
+                      className: "text-sm font-medium text-gray-500",
+                      children: "Email address"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "mt-1 text-gray-900 font-medium",
+                      children: user.email
+                    })]
+                  }), /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5 text-gray-300",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    })
+                  })]
+                })
+              }), /* @__PURE__ */ jsx("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5",
+                children: /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-start justify-between",
+                  children: [/* @__PURE__ */ jsxs("div", {
+                    className: "flex-1",
+                    children: [/* @__PURE__ */ jsxs("label", {
+                      className: "text-sm font-medium text-gray-500",
+                      children: ["Phone number ", /* @__PURE__ */ jsx("span", {
+                        className: "text-gray-400",
+                        children: "(not visible)"
+                      })]
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "mt-1 text-gray-900 font-medium",
+                      children: user.phone || "Not set"
+                    })]
+                  }), /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5 text-gray-300",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    })
+                  })]
+                })
+              }), /* @__PURE__ */ jsx("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5",
+                children: /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-start justify-between",
+                  children: [/* @__PURE__ */ jsxs("div", {
+                    className: "flex-1",
+                    children: [/* @__PURE__ */ jsx("label", {
+                      className: "text-sm font-medium text-gray-500",
+                      children: "Account type"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "mt-1 text-gray-900 font-medium",
+                      children: "Private Runner"
+                    })]
+                  }), /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5 text-gray-300",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    })
+                  })]
+                })
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "Country"
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "country",
+                  type: "text",
+                  defaultValue: user.country || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
+                  placeholder: "Italy"
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "City"
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "city",
+                  type: "text",
+                  defaultValue: user.city || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
+                  placeholder: "Milan"
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors md:col-span-2",
+                children: [/* @__PURE__ */ jsx("label", {
+                  className: "text-sm font-medium text-gray-500",
+                  children: "About me"
+                }), /* @__PURE__ */ jsx("textarea", {
+                  name: "bio",
+                  rows: 3,
+                  defaultValue: user.bio || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none resize-none",
+                  placeholder: "Tell others about yourself and your running journey..."
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "mt-2 text-xs text-gray-400",
+                  children: "Brief description visible to other users"
+                })]
+              })]
+            }), /* @__PURE__ */ jsx("div", {
+              className: "mt-6",
+              children: /* @__PURE__ */ jsx("button", {
+                type: "submit",
+                className: "btn-primary px-8",
+                children: "Save Changes"
+              })
             })]
-          }), /* @__PURE__ */ jsx("button", {
-            type: "submit",
-            className: "ml-12 px-8 py-2.5 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30",
-            children: "Search"
           })]
-        })
-      }), /* @__PURE__ */ jsx("div", {
-        className: "mb-8 flex flex-wrap gap-2",
-        children: [{
-          value: "all",
-          label: "All"
-        }, {
-          value: "room",
-          label: "Hotel"
-        }, {
-          value: "bib",
-          label: "Bibs"
-        }, {
-          value: "room_and_bib",
-          label: "Package"
-        }].map((category) => /* @__PURE__ */ jsx("a", {
-          href: category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`,
-          className: `px-4 py-2 rounded-full text-sm font-medium transition-colors ${currentType === category.value ? "bg-brand-500 text-white" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"}`,
-          children: category.label
-        }, category.value))
-      }), listings.length > 0 ? /* @__PURE__ */ jsxs(Fragment, {
-        children: [/* @__PURE__ */ jsx("div", {
-          className: "hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr",
-          children: listings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
-            listing,
-            isUserLoggedIn: !!user,
-            isSaved: (savedListingIds || []).includes(listing.id)
-          }, listing.id))
-        }), /* @__PURE__ */ jsx("div", {
-          className: "flex flex-col gap-3 md:hidden",
-          children: listings.map((listing) => /* @__PURE__ */ jsx(ListingCardCompact, {
-            listing,
-            isUserLoggedIn: !!user,
-            isSaved: (savedListingIds || []).includes(listing.id)
-          }, listing.id))
         })]
-      }) : /* @__PURE__ */ jsxs("div", {
-        className: "text-center py-12",
-        children: [/* @__PURE__ */ jsx("svg", {
-          className: "mx-auto h-12 w-12 text-gray-400",
-          fill: "none",
-          viewBox: "0 0 24 24",
-          stroke: "currentColor",
-          children: /* @__PURE__ */ jsx("path", {
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            strokeWidth: 1.5,
-            d: "M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          })
-        }), /* @__PURE__ */ jsx("h3", {
-          className: "mt-4 text-lg font-medium text-gray-900",
-          children: "No listings found"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-2 text-gray-600",
-          children: currentSearch || currentType !== "all" ? "Try adjusting your filters" : "Be the first to create a listing!"
-        })]
-      })]
+      })
     })]
   });
 });
-const route4 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  default: listings__index,
-  loader: loader$j,
-  meta: meta$g
+  action: action$e,
+  default: profile__index,
+  loader: loader$i,
+  meta: meta$i
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$i({
-  request
-}) {
-  const user = await requireUser(request);
-  if (user.user_type === "tour_operator") {
-    return redirect("/profile/agency");
-  } else {
-    return redirect("/profile/runner");
-  }
-}
-const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-  __proto__: null,
-  loader: loader$i
-}, Symbol.toStringTag, { value: "Module" }));
-const meta$f = () => {
+const meta$h = () => {
   return [{
     title: "Company Profile - runoot"
   }];
@@ -2385,16 +5629,16 @@ async function action$d({
   const fullName = formData.get("fullName");
   const companyName = formData.get("companyName");
   const phone = formData.get("phone");
-  formData.get("bio");
-  formData.get("country");
-  formData.get("city");
-  formData.get("website");
-  formData.get("languages");
-  formData.get("yearsExperience");
-  formData.get("specialties");
-  formData.get("instagram");
-  formData.get("facebook");
-  formData.get("linkedin");
+  const bio = formData.get("bio");
+  const country = formData.get("country");
+  const city = formData.get("city");
+  const website = formData.get("website");
+  const languages = formData.get("languages");
+  const yearsExperience = formData.get("yearsExperience");
+  const specialties = formData.get("specialties");
+  const instagram = formData.get("instagram");
+  const facebook = formData.get("facebook");
+  const linkedin = formData.get("linkedin");
   if (typeof fullName !== "string" || !fullName) {
     return data({
       error: "Full name is required"
@@ -2412,7 +5656,17 @@ async function action$d({
   const updateData = {
     full_name: fullName,
     company_name: companyName,
-    phone: phone || null
+    phone: phone || null,
+    bio: bio || null,
+    country: country || null,
+    city: city || null,
+    website: website || null,
+    languages: languages || null,
+    years_experience: yearsExperience ? parseInt(yearsExperience) : null,
+    specialties: specialties || null,
+    instagram: instagram || null,
+    facebook: facebook || null,
+    linkedin: linkedin || null
   };
   const {
     error
@@ -2439,8 +5693,26 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
     children: [/* @__PURE__ */ jsx(Header, {
       user
     }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8",
-      children: [/* @__PURE__ */ jsxs("div", {
+      className: "mx-auto max-w-3xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+      children: [/* @__PURE__ */ jsxs("button", {
+        onClick: () => window.history.back(),
+        className: "mb-4 inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors",
+        children: [/* @__PURE__ */ jsx("svg", {
+          className: "w-5 h-5",
+          fill: "none",
+          stroke: "currentColor",
+          viewBox: "0 0 24 24",
+          children: /* @__PURE__ */ jsx("path", {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            strokeWidth: 2,
+            d: "M15 19l-7-7 7-7"
+          })
+        }), /* @__PURE__ */ jsx("span", {
+          className: "text-sm font-medium",
+          children: "Back"
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
         className: "mb-8",
         children: [/* @__PURE__ */ jsx("h1", {
           className: "font-display text-3xl font-bold text-gray-900",
@@ -2586,6 +5858,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                   name: "bio",
                   rows: 4,
                   className: "input",
+                  defaultValue: user.bio || "",
                   placeholder: "Tell buyers about your company, experience, and services..."
                 }), /* @__PURE__ */ jsx("p", {
                   className: "mt-1 text-xs text-gray-500",
@@ -2603,6 +5876,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                     name: "country",
                     type: "text",
                     className: "input",
+                    defaultValue: user.country || "",
                     placeholder: "Italy"
                   })]
                 }), /* @__PURE__ */ jsxs("div", {
@@ -2615,6 +5889,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                     name: "city",
                     type: "text",
                     className: "input",
+                    defaultValue: user.city || "",
                     placeholder: "Milan"
                   })]
                 })]
@@ -2628,6 +5903,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                   name: "website",
                   type: "url",
                   className: "input",
+                  defaultValue: user.website || "",
                   placeholder: "https://www.yourcompany.com"
                 })]
               }), /* @__PURE__ */ jsxs("div", {
@@ -2640,6 +5916,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                   name: "languages",
                   type: "text",
                   className: "input",
+                  defaultValue: user.languages || "",
                   placeholder: "Italian, English, Spanish"
                 }), /* @__PURE__ */ jsx("p", {
                   className: "mt-1 text-xs text-gray-500",
@@ -2665,6 +5942,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                   type: "number",
                   min: "0",
                   className: "input",
+                  defaultValue: user.years_experience || "",
                   placeholder: "5"
                 })]
               }), /* @__PURE__ */ jsxs("div", {
@@ -2677,6 +5955,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                   name: "specialties",
                   rows: 3,
                   className: "input",
+                  defaultValue: user.specialties || "",
                   placeholder: "Marathon packages, accommodation booking, group tours, race registration assistance..."
                 })]
               })]
@@ -2703,6 +5982,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                     name: "instagram",
                     type: "text",
                     className: "input pl-8",
+                    defaultValue: user.instagram || "",
                     placeholder: "companyname"
                   })]
                 })]
@@ -2716,6 +5996,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                   name: "facebook",
                   type: "url",
                   className: "input",
+                  defaultValue: user.facebook || "",
                   placeholder: "https://facebook.com/yourcompany"
                 })]
               }), /* @__PURE__ */ jsxs("div", {
@@ -2728,6 +6009,7 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
                   name: "linkedin",
                   type: "url",
                   className: "input",
+                  defaultValue: user.linkedin || "",
                   placeholder: "https://linkedin.com/company/yourcompany"
                 })]
               })]
@@ -2749,16 +6031,16 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
     })]
   });
 });
-const route6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$d,
   default: profile_agency,
   loader: loader$h,
-  meta: meta$f
+  meta: meta$h
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$e = () => {
+const meta$g = () => {
   return [{
-    title: "My Profile - runoot"
+    title: "Social Media - runoot"
   }];
 };
 async function loader$g({
@@ -2777,34 +6059,21 @@ async function action$c({
 }) {
   const user = await requireUser(request);
   const formData = await request.formData();
-  const fullName = formData.get("fullName");
-  const phone = formData.get("phone");
-  formData.get("bio");
-  formData.get("country");
-  formData.get("city");
-  formData.get("website");
-  formData.get("languages");
-  formData.get("marathonsCompleted");
-  formData.get("favoriteRaces");
-  formData.get("instagram");
-  formData.get("facebook");
-  formData.get("linkedin");
-  if (typeof fullName !== "string" || !fullName) {
-    return data({
-      error: "Full name is required"
-    }, {
-      status: 400
-    });
-  }
+  const instagram = formData.get("instagram");
+  const strava = formData.get("strava");
+  const facebook = formData.get("facebook");
+  const linkedin = formData.get("linkedin");
+  const website = formData.get("website");
   const updateData = {
-    full_name: fullName,
-    phone: phone || null
-    // Questi campi dovranno essere aggiunti al database
-    // Per ora li ignoriamo finché non aggiungiamo le colonne
+    instagram: instagram || null,
+    strava: strava || null,
+    facebook: facebook || null,
+    linkedin: linkedin || null,
+    website: website || null
   };
   const {
     error
-  } = await supabase.from("profiles").update(updateData).eq("id", user.id);
+  } = await supabaseAdmin.from("profiles").update(updateData).eq("id", user.id);
   if (error) {
     return data({
       error: error.message
@@ -2814,271 +6083,297 @@ async function action$c({
   }
   return data({
     success: true,
-    message: "Profile updated successfully!"
+    message: "Social media links updated successfully!"
   });
 }
-const profile_runner = UNSAFE_withComponentProps(function RunnerProfile() {
+const sidebarNavItems = [{
+  name: "Personal information",
+  href: "/profile",
+  icon: "user"
+}, {
+  name: "Running Experience",
+  href: "/profile/experience",
+  icon: "running"
+}, {
+  name: "Social Media",
+  href: "/profile/social",
+  icon: "share"
+}, {
+  name: "Settings",
+  href: "/profile/settings",
+  icon: "settings"
+}];
+const profile_social = UNSAFE_withComponentProps(function SocialMedia() {
   const {
     user
   } = useLoaderData();
   const actionData = useActionData();
+  const location = useLocation();
+  const getInitials = (name) => {
+    if (!name) return "?";
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
   return /* @__PURE__ */ jsxs("div", {
-    className: "min-h-full bg-gray-50",
+    className: "min-h-screen bg-gray-50",
     children: [/* @__PURE__ */ jsx(Header, {
       user
-    }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8",
-      children: [/* @__PURE__ */ jsxs("div", {
-        className: "mb-8",
-        children: [/* @__PURE__ */ jsx("h1", {
-          className: "font-display text-3xl font-bold text-gray-900",
-          children: "Runner Profile"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-2 text-gray-600",
-          children: "Manage your personal information and running experience"
-        })]
-      }), /* @__PURE__ */ jsx("div", {
-        className: "card p-6",
-        children: /* @__PURE__ */ jsxs(Form, {
-          method: "post",
-          className: "space-y-6",
-          children: [actionData && "success" in actionData && actionData.success && /* @__PURE__ */ jsx("div", {
-            className: "rounded-lg bg-success-50 p-4 text-sm text-success-700",
-            children: "message" in actionData ? actionData.message : ""
-          }), actionData && "error" in actionData && actionData.error && /* @__PURE__ */ jsx("div", {
-            className: "rounded-lg bg-alert-50 p-4 text-sm text-alert-700",
-            children: actionData.error
-          }), /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsx("h2", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4",
-              children: "Account Information"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "space-y-4",
-              children: [/* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "email",
-                  className: "label",
-                  children: "Email address"
-                }), /* @__PURE__ */ jsx("input", {
-                  id: "email",
-                  type: "email",
-                  value: user.email,
-                  disabled: true,
-                  className: "input bg-gray-50 cursor-not-allowed"
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "mt-1 text-xs text-gray-500",
-                  children: "Email cannot be changed"
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  className: "label",
-                  children: "Account type"
-                }), /* @__PURE__ */ jsx("div", {
-                  className: "input bg-gray-50 cursor-not-allowed",
-                  children: "Private Runner"
-                })]
+    }), /* @__PURE__ */ jsx("div", {
+      className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "flex flex-col lg:flex-row gap-8",
+        children: [/* @__PURE__ */ jsx("aside", {
+          className: "lg:w-64 flex-shrink-0",
+          children: /* @__PURE__ */ jsxs("div", {
+            className: "bg-white rounded-2xl border border-gray-200 p-6",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex flex-col items-center text-center mb-6",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "h-20 w-20 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-2xl font-bold mb-4",
+                children: user.avatar_url ? /* @__PURE__ */ jsx("img", {
+                  src: user.avatar_url,
+                  alt: user.full_name || "User",
+                  className: "h-20 w-20 rounded-full object-cover"
+                }) : getInitials(user.full_name)
+              }), /* @__PURE__ */ jsx("h2", {
+                className: "font-display font-semibold text-gray-900 text-lg",
+                children: user.full_name || "Your Name"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-sm text-gray-500 mt-1",
+                children: user.email
+              }), /* @__PURE__ */ jsx("span", {
+                className: "mt-2 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700",
+                children: "Private Runner"
               })]
+            }), /* @__PURE__ */ jsx("nav", {
+              className: "space-y-1",
+              children: sidebarNavItems.map((item) => {
+                const isActive = location.pathname === item.href;
+                return /* @__PURE__ */ jsxs(Link, {
+                  to: item.href,
+                  className: `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${isActive ? "bg-brand-50 text-brand-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`,
+                  children: [item.icon === "user" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    })
+                  }), item.icon === "running" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M13 10V3L4 14h7v7l9-11h-7z"
+                    })
+                  }), item.icon === "share" && /* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                    })
+                  }), item.icon === "settings" && /* @__PURE__ */ jsxs("svg", {
+                    className: "h-5 w-5",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: [/* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    }), /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    })]
+                  }), item.name]
+                }, item.name);
+              })
             })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "pt-6 border-t border-gray-200",
-            children: [/* @__PURE__ */ jsx("h2", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4",
-              children: "Personal Information"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "space-y-4",
-              children: [/* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "fullName",
-                  className: "label",
-                  children: "Full name *"
-                }), /* @__PURE__ */ jsx("input", {
-                  id: "fullName",
-                  name: "fullName",
-                  type: "text",
-                  defaultValue: user.full_name || "",
-                  className: "input",
-                  required: true
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "phone",
-                  className: "label",
-                  children: "Phone number"
-                }), /* @__PURE__ */ jsx("input", {
-                  id: "phone",
-                  name: "phone",
-                  type: "tel",
-                  defaultValue: user.phone || "",
-                  className: "input",
-                  placeholder: "+39 123 456 7890"
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "bio",
-                  className: "label",
-                  children: "About me"
-                }), /* @__PURE__ */ jsx("textarea", {
-                  id: "bio",
-                  name: "bio",
-                  rows: 4,
-                  className: "input",
-                  placeholder: "Tell others about yourself and your running journey..."
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "mt-1 text-xs text-gray-500",
-                  children: "Brief description visible to other users"
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                className: "grid grid-cols-1 sm:grid-cols-2 gap-4",
-                children: [/* @__PURE__ */ jsxs("div", {
-                  children: [/* @__PURE__ */ jsx("label", {
-                    htmlFor: "country",
-                    className: "label",
-                    children: "Country"
-                  }), /* @__PURE__ */ jsx("input", {
-                    id: "country",
-                    name: "country",
-                    type: "text",
-                    className: "input",
-                    placeholder: "Italy"
-                  })]
-                }), /* @__PURE__ */ jsxs("div", {
-                  children: [/* @__PURE__ */ jsx("label", {
-                    htmlFor: "city",
-                    className: "label",
-                    children: "City"
-                  }), /* @__PURE__ */ jsx("input", {
-                    id: "city",
-                    name: "city",
-                    type: "text",
-                    className: "input",
-                    placeholder: "Milan"
-                  })]
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "languages",
-                  className: "label",
-                  children: "Languages spoken"
-                }), /* @__PURE__ */ jsx("input", {
-                  id: "languages",
-                  name: "languages",
-                  type: "text",
-                  className: "input",
-                  placeholder: "Italian, English, Spanish"
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "mt-1 text-xs text-gray-500",
-                  children: "Separate with commas"
-                })]
-              })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "pt-6 border-t border-gray-200",
-            children: [/* @__PURE__ */ jsx("h2", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4",
-              children: "Running Experience"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "space-y-4",
-              children: [/* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "marathonsCompleted",
-                  className: "label",
-                  children: "Marathons completed"
-                }), /* @__PURE__ */ jsx("input", {
-                  id: "marathonsCompleted",
-                  name: "marathonsCompleted",
-                  type: "number",
-                  min: "0",
-                  className: "input",
-                  placeholder: "3"
-                })]
-              }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "favoriteRaces",
-                  className: "label",
-                  children: "Favorite races"
-                }), /* @__PURE__ */ jsx("textarea", {
-                  id: "favoriteRaces",
-                  name: "favoriteRaces",
-                  rows: 2,
-                  className: "input",
-                  placeholder: "Berlin Marathon, New York Marathon..."
-                })]
-              })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "pt-6 border-t border-gray-200",
-            children: [/* @__PURE__ */ jsx("h2", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4",
+          })
+        }), /* @__PURE__ */ jsxs("main", {
+          className: "flex-1 min-w-0",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "mb-6",
+            children: [/* @__PURE__ */ jsx("h1", {
+              className: "font-display text-2xl font-bold text-gray-900",
               children: "Social Media"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "space-y-4",
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-1 text-gray-500",
+              children: "Connect your social profiles to help others find you"
+            })]
+          }), actionData && "success" in actionData && actionData.success && /* @__PURE__ */ jsxs("div", {
+            className: "mb-6 rounded-xl bg-success-50 p-4 text-sm text-success-700 flex items-center gap-2",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "h-5 w-5",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M5 13l4 4L19 7"
+              })
+            }), "message" in actionData ? actionData.message : ""]
+          }), actionData && "error" in actionData && actionData.error && /* @__PURE__ */ jsxs("div", {
+            className: "mb-6 rounded-xl bg-alert-50 p-4 text-sm text-alert-700 flex items-center gap-2",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "h-5 w-5",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              })
+            }), actionData.error]
+          }), /* @__PURE__ */ jsxs(Form, {
+            method: "post",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "grid grid-cols-1 md:grid-cols-2 gap-4",
               children: [/* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "instagram",
-                  className: "label",
-                  children: "Instagram"
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsxs("label", {
+                  className: "text-sm font-medium text-gray-500 flex items-center gap-2",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "h-4 w-4",
+                    viewBox: "0 0 24 24",
+                    fill: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      d: "M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"
+                    })
+                  }), "Instagram"]
                 }), /* @__PURE__ */ jsxs("div", {
-                  className: "relative",
+                  className: "mt-1 flex items-center",
                   children: [/* @__PURE__ */ jsx("span", {
-                    className: "absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500",
+                    className: "text-gray-400 mr-1",
                     children: "@"
                   }), /* @__PURE__ */ jsx("input", {
-                    id: "instagram",
                     name: "instagram",
                     type: "text",
-                    className: "input pl-8",
+                    defaultValue: user.instagram || "",
+                    className: "block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
                     placeholder: "username"
                   })]
                 })]
               }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "facebook",
-                  className: "label",
-                  children: "Facebook"
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsxs("label", {
+                  className: "text-sm font-medium text-gray-500 flex items-center gap-2",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "h-4 w-4",
+                    viewBox: "0 0 24 24",
+                    fill: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      d: "M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"
+                    })
+                  }), "Strava"]
                 }), /* @__PURE__ */ jsx("input", {
-                  id: "facebook",
+                  name: "strava",
+                  type: "url",
+                  defaultValue: user.strava || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
+                  placeholder: "https://strava.com/athletes/..."
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsxs("label", {
+                  className: "text-sm font-medium text-gray-500 flex items-center gap-2",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "h-4 w-4",
+                    viewBox: "0 0 24 24",
+                    fill: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      d: "M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+                    })
+                  }), "Facebook"]
+                }), /* @__PURE__ */ jsx("input", {
                   name: "facebook",
                   type: "url",
-                  className: "input",
+                  defaultValue: user.facebook || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
                   placeholder: "https://facebook.com/yourprofile"
                 })]
               }), /* @__PURE__ */ jsxs("div", {
-                children: [/* @__PURE__ */ jsx("label", {
-                  htmlFor: "linkedin",
-                  className: "label",
-                  children: "LinkedIn"
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors",
+                children: [/* @__PURE__ */ jsxs("label", {
+                  className: "text-sm font-medium text-gray-500 flex items-center gap-2",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "h-4 w-4",
+                    viewBox: "0 0 24 24",
+                    fill: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      d: "M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"
+                    })
+                  }), "LinkedIn"]
                 }), /* @__PURE__ */ jsx("input", {
-                  id: "linkedin",
                   name: "linkedin",
                   type: "url",
-                  className: "input",
+                  defaultValue: user.linkedin || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
                   placeholder: "https://linkedin.com/in/yourprofile"
                 })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors md:col-span-2",
+                children: [/* @__PURE__ */ jsxs("label", {
+                  className: "text-sm font-medium text-gray-500 flex items-center gap-2",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "h-4 w-4",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                    })
+                  }), "Personal website"]
+                }), /* @__PURE__ */ jsx("input", {
+                  name: "website",
+                  type: "url",
+                  defaultValue: user.website || "",
+                  className: "mt-1 block w-full text-gray-900 font-medium bg-transparent border-0 p-0 focus:ring-0 focus:outline-none",
+                  placeholder: "https://yourwebsite.com"
+                })]
               })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "flex gap-4 pt-4 border-t border-gray-200",
-            children: [/* @__PURE__ */ jsx("button", {
-              type: "submit",
-              className: "btn-primary",
-              children: "Save Changes"
-            }), /* @__PURE__ */ jsx("a", {
-              href: "/dashboard",
-              className: "btn-secondary",
-              children: "Cancel"
+            }), /* @__PURE__ */ jsx("div", {
+              className: "mt-6",
+              children: /* @__PURE__ */ jsx("button", {
+                type: "submit",
+                className: "btn-primary px-8",
+                children: "Save Changes"
+              })
             })]
           })]
-        })
-      })]
+        })]
+      })
     })]
   });
 });
-const route7 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$c,
-  default: profile_runner,
+  default: profile_social,
   loader: loader$g,
-  meta: meta$e
+  meta: meta$g
 }, Symbol.toStringTag, { value: "Module" }));
 const GOOGLE_TRANSLATE_API_KEY = process.env.GOOGLE_TRANSLATE_API_KEY;
 const TRANSLATE_API_URL = "https://translation.googleapis.com/language/translate/v2";
@@ -3225,11 +6520,588 @@ async function action$b({
     });
   }
 }
-const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$b
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$d = ({
+const meta$f = () => {
+  return [{
+    title: "Cookie Policy | Runoot"
+  }, {
+    name: "description",
+    content: "Informativa sui cookie di Runoot - Scopri come utilizziamo i cookie e come gestire le tue preferenze."
+  }];
+};
+const cookiePolicy = UNSAFE_withComponentProps(function CookiePolicy() {
+  const lastUpdated = "29 Gennaio 2025";
+  const websiteUrl = "https://runstay.vercel.app";
+  const companyEmail = "privacy@runoot.com";
+  return /* @__PURE__ */ jsxs("div", {
+    className: "min-h-screen bg-gray-50",
+    children: [/* @__PURE__ */ jsx("header", {
+      className: "bg-white shadow-sm",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "max-w-4xl mx-auto px-4 py-6",
+        children: [/* @__PURE__ */ jsx("a", {
+          href: "/",
+          className: "text-brand-600 hover:text-brand-700 text-sm",
+          children: "← Torna alla Home"
+        }), /* @__PURE__ */ jsx("h1", {
+          className: "text-3xl font-bold text-gray-900 mt-4",
+          children: "Cookie Policy"
+        }), /* @__PURE__ */ jsxs("p", {
+          className: "text-gray-500 mt-2",
+          children: ["Ultimo aggiornamento: ", lastUpdated]
+        })]
+      })
+    }), /* @__PURE__ */ jsxs("main", {
+      className: "max-w-4xl mx-auto px-4 py-8",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-lg shadow-sm p-8 space-y-8",
+        children: [/* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "1. Introduzione"
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: ["La presente Cookie Policy descrive come ", /* @__PURE__ */ jsx("strong", {
+              children: "Runoot"
+            }), ` (di seguito "noi", "nostro" o "Sito") utilizza i cookie e tecnologie simili quando visiti il nostro sito web disponibile all'indirizzo`, " ", /* @__PURE__ */ jsx("a", {
+              href: websiteUrl,
+              className: "text-brand-600 hover:underline",
+              children: websiteUrl
+            }), "."]
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: "Questa policy è conforme al Regolamento (UE) 2016/679 (GDPR), alla Direttiva ePrivacy 2002/58/CE e successive modifiche, nonché alle Linee Guida del Garante Privacy italiano sui cookie."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "2. Cosa sono i Cookie"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "I cookie sono piccoli file di testo che vengono memorizzati sul tuo dispositivo (computer, tablet o smartphone) quando visiti un sito web. I cookie permettono al sito di riconoscerti e ricordare le tue preferenze (come la lingua, le dimensioni dei caratteri e altre impostazioni di visualizzazione) per un determinato periodo di tempo."
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: 'I cookie possono essere "di sessione" (temporanei, eliminati alla chiusura del browser) o "persistenti" (rimangono sul dispositivo per un periodo definito o fino alla loro cancellazione manuale).'
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "3. Tipologie di Cookie Utilizzati"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "mt-6",
+            children: [/* @__PURE__ */ jsx("h3", {
+              className: "text-lg font-medium text-gray-900 mb-3",
+              children: "3.1 Cookie Tecnici Necessari"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-gray-700 leading-relaxed mb-4",
+              children: "Questi cookie sono essenziali per il funzionamento del Sito e non possono essere disattivati. Vengono impostati in risposta ad azioni da te effettuate, come l'impostazione delle preferenze sulla privacy, l'accesso o la compilazione di moduli."
+            }), /* @__PURE__ */ jsx("div", {
+              className: "overflow-x-auto",
+              children: /* @__PURE__ */ jsxs("table", {
+                className: "w-full border-collapse border border-gray-200 text-sm",
+                children: [/* @__PURE__ */ jsx("thead", {
+                  className: "bg-gray-50",
+                  children: /* @__PURE__ */ jsxs("tr", {
+                    children: [/* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Nome Cookie"
+                    }), /* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Fornitore"
+                    }), /* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Scopo"
+                    }), /* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Durata"
+                    })]
+                  })
+                }), /* @__PURE__ */ jsxs("tbody", {
+                  children: [/* @__PURE__ */ jsxs("tr", {
+                    children: [/* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "sb-*-auth-token"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Supabase"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Gestione dell'autenticazione e della sessione utente. Necessario per mantenere l'utente connesso e garantire la sicurezza dell'account."
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Sessione / 1 anno"
+                    })]
+                  }), /* @__PURE__ */ jsxs("tr", {
+                    className: "bg-gray-50",
+                    children: [/* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "sb-*-auth-token-code-verifier"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Supabase"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Verifica del codice durante il flusso di autenticazione OAuth (PKCE)."
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Sessione"
+                    })]
+                  }), /* @__PURE__ */ jsxs("tr", {
+                    children: [/* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "__session"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Runoot"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Cookie di sessione per memorizzare le informazioni dell'utente durante la navigazione."
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Sessione"
+                    })]
+                  }), /* @__PURE__ */ jsxs("tr", {
+                    className: "bg-gray-50",
+                    children: [/* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "cookie_consent"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Runoot"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Memorizza le tue preferenze sui cookie per non mostrare nuovamente il banner."
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "12 mesi"
+                    })]
+                  })]
+                })]
+              })
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-gray-600 text-sm mt-3 italic",
+              children: "Base giuridica: Art. 6(1)(f) GDPR - Legittimo interesse per il funzionamento del servizio."
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "mt-8",
+            children: [/* @__PURE__ */ jsx("h3", {
+              className: "text-lg font-medium text-gray-900 mb-3",
+              children: "3.2 Cookie di Terze Parti per l'Autenticazione"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-gray-700 leading-relaxed mb-4",
+              children: "Se scegli di accedere tramite Google, verranno utilizzati cookie di terze parti necessari per completare il processo di autenticazione OAuth."
+            }), /* @__PURE__ */ jsx("div", {
+              className: "overflow-x-auto",
+              children: /* @__PURE__ */ jsxs("table", {
+                className: "w-full border-collapse border border-gray-200 text-sm",
+                children: [/* @__PURE__ */ jsx("thead", {
+                  className: "bg-gray-50",
+                  children: /* @__PURE__ */ jsxs("tr", {
+                    children: [/* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Nome Cookie"
+                    }), /* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Fornitore"
+                    }), /* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Scopo"
+                    }), /* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Privacy Policy"
+                    })]
+                  })
+                }), /* @__PURE__ */ jsx("tbody", {
+                  children: /* @__PURE__ */ jsxs("tr", {
+                    children: [/* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Vari cookie Google"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Google Ireland Ltd"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Autenticazione tramite Google OAuth 2.0. Utilizzati solo se scegli di accedere con Google."
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3",
+                      children: /* @__PURE__ */ jsx("a", {
+                        href: "https://policies.google.com/privacy",
+                        target: "_blank",
+                        rel: "noopener noreferrer",
+                        className: "text-brand-600 hover:underline",
+                        children: "Privacy Policy Google"
+                      })
+                    })]
+                  })
+                })]
+              })
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-gray-600 text-sm mt-3 italic",
+              children: "Base giuridica: Art. 6(1)(a) GDPR - Consenso esplicito (attivato dalla scelta dell'utente di accedere con Google)."
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "mt-8",
+            children: [/* @__PURE__ */ jsx("h3", {
+              className: "text-lg font-medium text-gray-900 mb-3",
+              children: "3.3 Cookie Analitici (Opzionali)"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-gray-700 leading-relaxed mb-4",
+              children: "Potremmo utilizzare cookie analitici per comprendere come i visitatori interagiscono con il Sito. Questi cookie raccolgono informazioni in forma aggregata e anonima."
+            }), /* @__PURE__ */ jsx("div", {
+              className: "overflow-x-auto",
+              children: /* @__PURE__ */ jsxs("table", {
+                className: "w-full border-collapse border border-gray-200 text-sm",
+                children: [/* @__PURE__ */ jsx("thead", {
+                  className: "bg-gray-50",
+                  children: /* @__PURE__ */ jsxs("tr", {
+                    children: [/* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Nome Cookie"
+                    }), /* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Fornitore"
+                    }), /* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Scopo"
+                    }), /* @__PURE__ */ jsx("th", {
+                      className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                      children: "Durata"
+                    })]
+                  })
+                }), /* @__PURE__ */ jsx("tbody", {
+                  children: /* @__PURE__ */ jsxs("tr", {
+                    children: [/* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "_vercel_*"
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Vercel Inc."
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Analytics di base per monitorare le prestazioni del sito (se Vercel Analytics è attivo)."
+                    }), /* @__PURE__ */ jsx("td", {
+                      className: "border border-gray-200 px-4 py-3 text-gray-700",
+                      children: "Sessione"
+                    })]
+                  })
+                })]
+              })
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-gray-600 text-sm mt-3 italic",
+              children: "Base giuridica: Art. 6(1)(a) GDPR - Consenso. Questi cookie vengono installati solo previo tuo consenso."
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "4. Come Gestire i Cookie"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "space-y-4",
+            children: [/* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "text-lg font-medium text-gray-900 mb-2",
+                children: "4.1 Banner dei Cookie"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 leading-relaxed",
+                children: 'Al primo accesso al Sito, ti verrà mostrato un banner che ti permette di accettare o rifiutare i cookie non necessari. Puoi modificare le tue preferenze in qualsiasi momento cliccando sul link "Gestisci Cookie" presente nel footer del sito.'
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "text-lg font-medium text-gray-900 mb-2",
+                children: "4.2 Impostazioni del Browser"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 leading-relaxed",
+                children: "Puoi anche gestire i cookie attraverso le impostazioni del tuo browser. Di seguito i link alle istruzioni dei principali browser:"
+              }), /* @__PURE__ */ jsxs("ul", {
+                className: "mt-3 space-y-2",
+                children: [/* @__PURE__ */ jsx("li", {
+                  children: /* @__PURE__ */ jsx("a", {
+                    href: "https://support.google.com/chrome/answer/95647",
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    className: "text-brand-600 hover:underline",
+                    children: "→ Google Chrome"
+                  })
+                }), /* @__PURE__ */ jsx("li", {
+                  children: /* @__PURE__ */ jsx("a", {
+                    href: "https://support.mozilla.org/it/kb/protezione-antitracciamento-avanzata-firefox-desktop",
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    className: "text-brand-600 hover:underline",
+                    children: "→ Mozilla Firefox"
+                  })
+                }), /* @__PURE__ */ jsx("li", {
+                  children: /* @__PURE__ */ jsx("a", {
+                    href: "https://support.apple.com/it-it/guide/safari/sfri11471/mac",
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    className: "text-brand-600 hover:underline",
+                    children: "→ Safari"
+                  })
+                }), /* @__PURE__ */ jsx("li", {
+                  children: /* @__PURE__ */ jsx("a", {
+                    href: "https://support.microsoft.com/it-it/microsoft-edge/eliminare-i-cookie-in-microsoft-edge-63947406-40ac-c3b8-57b9-2a946a29ae09",
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    className: "text-brand-600 hover:underline",
+                    children: "→ Microsoft Edge"
+                  })
+                })]
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-600 text-sm mt-4 italic",
+                children: "Nota: La disabilitazione dei cookie tecnici necessari potrebbe compromettere il funzionamento di alcune parti del Sito."
+              })]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "5. Trasferimento dei Dati"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Alcuni dei nostri fornitori di servizi potrebbero essere situati al di fuori dell'Unione Europea. In tali casi, ci assicuriamo che il trasferimento dei dati avvenga in conformità con il GDPR, attraverso:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "mt-3 space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Clausole contrattuali standard approvate dalla Commissione Europea"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Decisioni di adeguatezza della Commissione Europea"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "EU-US Data Privacy Framework (per fornitori statunitensi certificati)"]
+            })]
+          }), /* @__PURE__ */ jsx("div", {
+            className: "mt-4 overflow-x-auto",
+            children: /* @__PURE__ */ jsxs("table", {
+              className: "w-full border-collapse border border-gray-200 text-sm",
+              children: [/* @__PURE__ */ jsx("thead", {
+                className: "bg-gray-50",
+                children: /* @__PURE__ */ jsxs("tr", {
+                  children: [/* @__PURE__ */ jsx("th", {
+                    className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                    children: "Fornitore"
+                  }), /* @__PURE__ */ jsx("th", {
+                    className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                    children: "Sede"
+                  }), /* @__PURE__ */ jsx("th", {
+                    className: "border border-gray-200 px-4 py-3 text-left font-medium text-gray-900",
+                    children: "Meccanismo di Trasferimento"
+                  })]
+                })
+              }), /* @__PURE__ */ jsxs("tbody", {
+                children: [/* @__PURE__ */ jsxs("tr", {
+                  children: [/* @__PURE__ */ jsx("td", {
+                    className: "border border-gray-200 px-4 py-3 text-gray-700",
+                    children: "Supabase Inc."
+                  }), /* @__PURE__ */ jsx("td", {
+                    className: "border border-gray-200 px-4 py-3 text-gray-700",
+                    children: "USA"
+                  }), /* @__PURE__ */ jsx("td", {
+                    className: "border border-gray-200 px-4 py-3 text-gray-700",
+                    children: "EU-US Data Privacy Framework / SCCs"
+                  })]
+                }), /* @__PURE__ */ jsxs("tr", {
+                  className: "bg-gray-50",
+                  children: [/* @__PURE__ */ jsx("td", {
+                    className: "border border-gray-200 px-4 py-3 text-gray-700",
+                    children: "Vercel Inc."
+                  }), /* @__PURE__ */ jsx("td", {
+                    className: "border border-gray-200 px-4 py-3 text-gray-700",
+                    children: "USA"
+                  }), /* @__PURE__ */ jsx("td", {
+                    className: "border border-gray-200 px-4 py-3 text-gray-700",
+                    children: "EU-US Data Privacy Framework / SCCs"
+                  })]
+                }), /* @__PURE__ */ jsxs("tr", {
+                  children: [/* @__PURE__ */ jsx("td", {
+                    className: "border border-gray-200 px-4 py-3 text-gray-700",
+                    children: "Google Ireland Ltd"
+                  }), /* @__PURE__ */ jsx("td", {
+                    className: "border border-gray-200 px-4 py-3 text-gray-700",
+                    children: "Irlanda (UE)"
+                  }), /* @__PURE__ */ jsx("td", {
+                    className: "border border-gray-200 px-4 py-3 text-gray-700",
+                    children: "N/A (all'interno dell'UE)"
+                  })]
+                })]
+              })]
+            })
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "6. I Tuoi Diritti"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "In conformità con il GDPR, hai il diritto di:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "mt-3 space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Accesso:"
+              }), " ottenere informazioni sui dati che trattiamo"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Rettifica:"
+              }), " correggere dati inesatti o incompleti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Cancellazione:"
+              }), " richiedere la cancellazione dei tuoi dati"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Limitazione:"
+              }), " limitare il trattamento dei tuoi dati"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Portabilità:"
+              }), " ricevere i tuoi dati in formato strutturato"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Opposizione:"
+              }), " opporti al trattamento basato sul legittimo interesse"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Revoca del consenso:"
+              }), " ritirare il consenso in qualsiasi momento"]
+            })]
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed mt-4",
+            children: ["Per esercitare questi diritti, contattaci all'indirizzo:", " ", /* @__PURE__ */ jsx("a", {
+              href: `mailto:${companyEmail}`,
+              className: "text-brand-600 hover:underline",
+              children: companyEmail
+            })]
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: ["Hai inoltre il diritto di proporre reclamo all'Autorità Garante per la Protezione dei Dati Personali:", " ", /* @__PURE__ */ jsx("a", {
+              href: "https://www.garanteprivacy.it",
+              target: "_blank",
+              rel: "noopener noreferrer",
+              className: "text-brand-600 hover:underline",
+              children: "www.garanteprivacy.it"
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "7. Titolare del Trattamento"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "bg-gray-50 rounded-lg p-4",
+            children: /* @__PURE__ */ jsxs("p", {
+              className: "text-gray-700",
+              children: [/* @__PURE__ */ jsx("strong", {
+                children: "Runoot"
+              }), /* @__PURE__ */ jsx("br", {}), "[Inserire Ragione Sociale]", /* @__PURE__ */ jsx("br", {}), "[Inserire Indirizzo]", /* @__PURE__ */ jsx("br", {}), "[Inserire Partita IVA / Codice Fiscale]", /* @__PURE__ */ jsx("br", {}), "Email: ", /* @__PURE__ */ jsx("a", {
+                href: `mailto:${companyEmail}`,
+                className: "text-brand-600 hover:underline",
+                children: companyEmail
+              })]
+            })
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "8. Modifiche alla Cookie Policy"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Ci riserviamo il diritto di modificare questa Cookie Policy in qualsiasi momento. Eventuali modifiche saranno pubblicate su questa pagina con indicazione della data di ultimo aggiornamento. Ti invitiamo a consultare periodicamente questa pagina per rimanere informato sulle nostre pratiche relative ai cookie."
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: "In caso di modifiche sostanziali, ti informeremo tramite un avviso ben visibile sul nostro Sito o, ove possibile, via email."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "9. Contatti"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Per qualsiasi domanda relativa a questa Cookie Policy o al trattamento dei tuoi dati personali, puoi contattarci a:"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "mt-4 bg-brand-50 rounded-lg p-4 border border-brand-200",
+            children: /* @__PURE__ */ jsxs("p", {
+              className: "text-gray-700",
+              children: ["📧 Email: ", /* @__PURE__ */ jsx("a", {
+                href: `mailto:${companyEmail}`,
+                className: "text-brand-600 hover:underline font-medium",
+                children: companyEmail
+              })]
+            })
+          })]
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "mt-8 text-center text-sm text-gray-500",
+        children: [/* @__PURE__ */ jsx("a", {
+          href: "/privacy-policy",
+          className: "hover:text-brand-600",
+          children: "Privacy Policy"
+        }), /* @__PURE__ */ jsx("span", {
+          className: "mx-2",
+          children: "•"
+        }), /* @__PURE__ */ jsx("a", {
+          href: "/terms",
+          className: "hover:text-brand-600",
+          children: "Termini di Servizio"
+        }), /* @__PURE__ */ jsx("span", {
+          className: "mx-2",
+          children: "•"
+        }), /* @__PURE__ */ jsx("a", {
+          href: "/",
+          className: "hover:text-brand-600",
+          children: "Torna alla Home"
+        })]
+      })]
+    })]
+  });
+});
+const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  default: cookiePolicy,
+  meta: meta$f
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$e = ({
   data: data2
 }) => {
   var _a;
@@ -3308,9 +7180,9 @@ async function action$a({
       data: userProfile
     } = await supabaseAdmin.from("profiles").select("user_type").eq("id", userId).single();
     const {
-      error: error2
+      error
     } = await supabaseAdmin.from("listings").delete().eq("id", id);
-    if (error2) {
+    if (error) {
       return data({
         error: "Failed to delete listing"
       }, {
@@ -3320,46 +7192,12 @@ async function action$a({
     const redirectPath = (userProfile == null ? void 0 : userProfile.user_type) === "tour_operator" ? "/dashboard" : "/my-listings";
     return redirect(redirectPath);
   }
-  if (listing.author_id === userId) {
-    return data({
-      error: "You cannot message yourself"
-    }, {
-      status: 400
-    });
-  }
-  const {
-    data: existingConversation
-  } = await supabaseAdmin.from("conversations").select("id").eq("listing_id", id).or(`and(participant_1.eq.${userId},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${userId})`).single();
-  if (existingConversation) {
-    return redirect(`/messages/${existingConversation.id}`);
-  }
-  const {
-    data: newConversation,
-    error
-  } = await supabaseAdmin.from("conversations").insert({
-    listing_id: id,
-    participant_1: userId,
-    participant_2: listing.author_id
-  }).select().single();
-  if (error) {
-    return data({
-      error: "Failed to start conversation"
-    }, {
-      status: 500
-    });
-  }
-  return redirect(`/messages/${newConversation.id}`);
+  return data({
+    error: "Invalid action"
+  }, {
+    status: 400
+  });
 }
-const typeLabels$1 = {
-  room: "Room only",
-  bib: "Bib only",
-  room_and_bib: "Package"
-};
-const typeColors$1 = {
-  room: "bg-blue-100 text-blue-700 border-blue-200",
-  bib: "bg-purple-100 text-purple-700 border-purple-200",
-  room_and_bib: "bg-green-100 text-green-700 border-green-200"
-};
 function formatRoomType(roomType) {
   if (!roomType) return "Room";
   const labels = {
@@ -3379,12 +7217,12 @@ function getDaysUntilEvent(eventDate) {
   const diffTime = event.getTime() - today.getTime();
   return Math.ceil(diffTime / (1e3 * 60 * 60 * 24));
 }
-function getEventSlug(event) {
+function getEventSlug$1(event) {
   if (event.slug) return event.slug;
   return event.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
-  var _a, _b;
+  var _a, _b, _c, _d;
   const {
     user,
     listing,
@@ -3397,18 +7235,18 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
   const listingData = listing;
   const userData = user;
   const eventDate = new Date(listingData.event.event_date);
-  const eventDateFormatted = eventDate.toLocaleDateString("en-GB", {
+  eventDate.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long"
   });
-  eventDate.toLocaleDateString("en-GB", {
+  const eventDateShort = eventDate.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric"
   });
   const isOwner = (userData == null ? void 0 : userData.id) === listingData.author_id;
-  const daysUntil = getDaysUntilEvent(listingData.event.event_date);
+  getDaysUntilEvent(listingData.event.event_date);
   if (listingData.listing_type === "room") {
     const nights = listingData.check_in && listingData.check_out ? Math.ceil((new Date(listingData.check_out).getTime() - new Date(listingData.check_in).getTime()) / (1e3 * 60 * 60 * 24)) : 0;
     `${formatRoomType(listingData.room_type)} · ${nights > 0 ? `${nights} nights` : "Race weekend"}`;
@@ -3416,151 +7254,128 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
     `${listingData.bib_count || 1} bib${(listingData.bib_count || 1) > 1 ? "s" : ""} available`;
   } else ;
   const priceAnchor = listingData.hotel_stars ? `Comparable ${listingData.hotel_stars}-star hotels from €${Math.round(listingData.hotel_stars * 80 + 100)}` : "Comparable hotels from €200+";
-  return /* @__PURE__ */ jsxs("div", {
-    className: "min-h-full bg-gray-50",
-    children: [/* @__PURE__ */ jsx(Header, {
-      user
-    }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8",
-      children: [/* @__PURE__ */ jsxs(Link, {
-        to: "/listings",
-        className: "inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 mb-6",
-        children: [/* @__PURE__ */ jsx("svg", {
-          className: "h-4 w-4",
-          fill: "none",
-          viewBox: "0 0 24 24",
-          stroke: "currentColor",
-          children: /* @__PURE__ */ jsx("path", {
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            strokeWidth: 2,
-            d: "M15 19l-7-7 7-7"
+  return /* @__PURE__ */ jsx("div", {
+    className: "min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed",
+    children: /* @__PURE__ */ jsxs("div", {
+      className: "min-h-screen bg-gray-50/85",
+      children: [/* @__PURE__ */ jsx(Header, {
+        user
+      }), /* @__PURE__ */ jsxs("main", {
+        className: "mx-auto max-w-7xl px-4 py-6 pb-36 md:pb-6 sm:px-6 lg:px-8",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "mb-4",
+          children: /* @__PURE__ */ jsxs(Link, {
+            to: "/listings",
+            className: "inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 underline",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "h-4 w-4",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M15 19l-7-7 7-7"
+              })
+            }), "Back to listings"]
           })
-        }), "Back to listings"]
-      }), /* @__PURE__ */ jsxs("div", {
-        className: "grid gap-6 lg:grid-cols-3",
-        children: [/* @__PURE__ */ jsxs("div", {
-          className: "lg:col-span-2 space-y-6",
-          children: [/* @__PURE__ */ jsxs("div", {
-            className: "relative rounded-xl overflow-hidden shadow-lg",
-            children: [/* @__PURE__ */ jsx("img", {
-              src: `/events/${getEventSlug(listingData.event)}.jpg`,
-              alt: listingData.event.name,
-              className: "w-full aspect-video object-cover",
-              onError: (e) => {
-                const target = e.target;
+        }), /* @__PURE__ */ jsxs("div", {
+          className: "rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.15)] mb-6",
+          children: [/* @__PURE__ */ jsx("img", {
+            src: `/banners/${getEventSlug$1(listingData.event)}.jpg`,
+            alt: listingData.event.name,
+            className: "w-full aspect-[3/1] object-cover",
+            onError: (e) => {
+              const target = e.target;
+              if (!target.dataset.triedFallback) {
+                target.dataset.triedFallback = "true";
+                target.src = `/events/${getEventSlug$1(listingData.event)}.jpg`;
+              } else {
                 target.style.display = "none";
                 const fallback = target.nextElementSibling;
                 if (fallback) fallback.style.display = "flex";
               }
-            }), /* @__PURE__ */ jsx("div", {
-              className: "w-full aspect-video bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center",
-              style: {
-                display: "none"
-              },
-              children: /* @__PURE__ */ jsx("svg", {
-                className: "h-16 w-16 text-brand-400",
-                fill: "none",
-                viewBox: "0 0 24 24",
-                stroke: "currentColor",
-                children: /* @__PURE__ */ jsx("path", {
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round",
-                  strokeWidth: 1.5,
-                  d: "M13 10V3L4 14h7v7l9-11h-7z"
-                })
+            }
+          }), /* @__PURE__ */ jsx("div", {
+            className: "w-full aspect-[3/1] bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center",
+            style: {
+              display: "none"
+            },
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "h-16 w-16 text-brand-400",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 1.5,
+                d: "M13 10V3L4 14h7v7l9-11h-7z"
               })
-            })]
-          }), (listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
-            className: "bg-white rounded-xl shadow-lg p-6",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4",
-              children: "Hotel & Location"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "space-y-5",
-              children: [listingData.hotel_name && /* @__PURE__ */ jsx("div", {
-                children: /* @__PURE__ */ jsxs("div", {
-                  className: "flex items-start gap-3",
-                  children: [/* @__PURE__ */ jsx("div", {
-                    className: "flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700 flex-shrink-0",
-                    children: /* @__PURE__ */ jsx("svg", {
-                      className: "h-5 w-5",
-                      fill: "none",
-                      viewBox: "0 0 24 24",
-                      stroke: "currentColor",
-                      children: /* @__PURE__ */ jsx("path", {
-                        strokeLinecap: "round",
-                        strokeLinejoin: "round",
-                        strokeWidth: 2,
-                        d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                      })
-                    })
-                  }), /* @__PURE__ */ jsxs("div", {
-                    className: "flex-1",
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-500 mb-1",
-                      children: "Hotel"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "font-semibold text-gray-900",
-                      children: listingData.hotel_website ? /* @__PURE__ */ jsxs("a", {
-                        href: listingData.hotel_website,
-                        target: "_blank",
-                        rel: "noopener noreferrer",
-                        className: "text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1",
-                        children: [listingData.hotel_name, /* @__PURE__ */ jsx("svg", {
-                          className: "h-4 w-4",
-                          fill: "none",
-                          viewBox: "0 0 24 24",
-                          stroke: "currentColor",
-                          children: /* @__PURE__ */ jsx("path", {
-                            strokeLinecap: "round",
-                            strokeLinejoin: "round",
-                            strokeWidth: 2,
-                            d: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          })
-                        })]
-                      }) : listingData.hotel_name
-                    }), (listingData.hotel_city || listingData.hotel_country) && /* @__PURE__ */ jsxs("p", {
-                      className: "text-sm text-gray-600 mt-0.5",
-                      children: ["📍 ", listingData.hotel_city || "", listingData.hotel_city && listingData.hotel_country ? ", " : "", listingData.hotel_country || ""]
-                    }), listingData.hotel_rating && /* @__PURE__ */ jsxs("p", {
-                      className: "text-sm text-gray-600 mt-1",
-                      children: ["⭐ ", listingData.hotel_rating.toFixed(1), " rating"]
-                    })]
-                  })]
-                })
+            })
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          className: "grid gap-6 lg:grid-cols-3",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "lg:col-span-2 space-y-6",
+            children: [(listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
+              className: "bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-display text-lg font-semibold text-gray-900 pb-3 mb-6 border-b border-gray-200",
+                children: "Hotel & Location"
               }), /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("div", {
-                  className: "flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0",
-                  children: /* @__PURE__ */ jsx("svg", {
-                    className: "h-5 w-5",
-                    fill: "none",
-                    viewBox: "0 0 24 24",
-                    stroke: "currentColor",
-                    children: /* @__PURE__ */ jsx("path", {
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      strokeWidth: 2,
-                      d: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                    })
+                className: "space-y-5",
+                children: [listingData.hotel_name && /* @__PURE__ */ jsx("div", {
+                  children: /* @__PURE__ */ jsxs("div", {
+                    className: "flex items-center gap-3",
+                    children: [/* @__PURE__ */ jsx("div", {
+                      className: "flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0",
+                      children: /* @__PURE__ */ jsx("svg", {
+                        className: "h-5 w-5",
+                        fill: "none",
+                        viewBox: "0 0 24 24",
+                        stroke: "currentColor",
+                        children: /* @__PURE__ */ jsx("path", {
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          strokeWidth: 2,
+                          d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        })
+                      })
+                    }), /* @__PURE__ */ jsxs("div", {
+                      className: "flex-1",
+                      children: [/* @__PURE__ */ jsxs("p", {
+                        className: "font-semibold text-gray-900",
+                        children: [listingData.hotel_website ? /* @__PURE__ */ jsxs("a", {
+                          href: listingData.hotel_website,
+                          target: "_blank",
+                          rel: "noopener noreferrer",
+                          className: "text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1",
+                          children: [listingData.hotel_name, /* @__PURE__ */ jsx("svg", {
+                            className: "h-4 w-4",
+                            fill: "none",
+                            viewBox: "0 0 24 24",
+                            stroke: "currentColor",
+                            children: /* @__PURE__ */ jsx("path", {
+                              strokeLinecap: "round",
+                              strokeLinejoin: "round",
+                              strokeWidth: 2,
+                              d: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            })
+                          })]
+                        }) : listingData.hotel_name, listingData.hotel_rating && /* @__PURE__ */ jsxs("span", {
+                          className: "text-sm text-gray-500 font-normal ml-2",
+                          children: ["⭐ ", listingData.hotel_rating.toFixed(1)]
+                        })]
+                      }), (listingData.hotel_city || listingData.hotel_country) && /* @__PURE__ */ jsxs("p", {
+                        className: "text-sm text-gray-600 mt-0.5",
+                        children: ["📍 ", listingData.hotel_city || "", listingData.hotel_city && listingData.hotel_country ? ", " : "", listingData.hotel_country || ""]
+                      })]
+                    })]
                   })
                 }), /* @__PURE__ */ jsxs("div", {
-                  className: "flex-1",
-                  children: [/* @__PURE__ */ jsx("p", {
-                    className: "text-sm text-gray-500 mb-1",
-                    children: "Accommodation"
-                  }), /* @__PURE__ */ jsxs("p", {
-                    className: "font-semibold text-gray-900",
-                    children: [listingData.room_count || 1, " ", formatRoomType(listingData.room_type), " room", (listingData.room_count || 1) > 1 ? "s" : ""]
-                  })]
-                })]
-              }), listingData.check_in && listingData.check_out && (() => {
-                const checkIn = new Date(listingData.check_in);
-                const checkOut = new Date(listingData.check_out);
-                const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1e3 * 60 * 60 * 24));
-                return /* @__PURE__ */ jsxs("div", {
-                  className: "flex items-start gap-3",
+                  className: "flex items-center gap-3",
                   children: [/* @__PURE__ */ jsx("div", {
                     className: "flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0",
                     children: /* @__PURE__ */ jsx("svg", {
@@ -3572,99 +7387,492 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
                         strokeLinecap: "round",
                         strokeLinejoin: "round",
                         strokeWidth: 2,
-                        d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        d: "M4 19h16M4 15h16M4 15V9a2 2 0 012-2h2a2 2 0 012 2v0M4 15V9m8-2h6a2 2 0 012 2v6M4 9h4m0 0a2 2 0 012 2v4"
+                      })
+                    })
+                  }), /* @__PURE__ */ jsx("div", {
+                    className: "flex-1",
+                    children: /* @__PURE__ */ jsxs("p", {
+                      className: "font-semibold text-gray-900",
+                      children: [listingData.room_count || 1, " ", formatRoomType(listingData.room_type), " room", (listingData.room_count || 1) > 1 ? "s" : ""]
+                    })
+                  })]
+                }), listingData.check_in && listingData.check_out && (() => {
+                  const checkIn = new Date(listingData.check_in);
+                  const checkOut = new Date(listingData.check_out);
+                  const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1e3 * 60 * 60 * 24));
+                  return /* @__PURE__ */ jsxs("div", {
+                    className: "flex items-center gap-3",
+                    children: [/* @__PURE__ */ jsx("div", {
+                      className: "flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0",
+                      children: /* @__PURE__ */ jsx("svg", {
+                        className: "h-5 w-5",
+                        fill: "none",
+                        viewBox: "0 0 24 24",
+                        stroke: "currentColor",
+                        children: /* @__PURE__ */ jsx("path", {
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          strokeWidth: 2,
+                          d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        })
+                      })
+                    }), /* @__PURE__ */ jsx("div", {
+                      className: "flex-1",
+                      children: /* @__PURE__ */ jsxs("p", {
+                        className: "font-semibold text-gray-900",
+                        children: [checkIn.toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short"
+                        }), " → ", checkOut.toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric"
+                        }), /* @__PURE__ */ jsxs("span", {
+                          className: "text-sm text-gray-500 font-normal ml-2",
+                          children: ["(", nights, " night", nights > 1 ? "s" : "", ")"]
+                        })]
+                      })
+                    })]
+                  });
+                })()]
+              })]
+            }), listingData.distance_to_finish && /* @__PURE__ */ jsxs("div", {
+              className: "bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-display text-lg font-semibold text-gray-900 mb-4",
+                children: "Distance to Finish Line"
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "space-y-3",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center gap-3",
+                  children: [/* @__PURE__ */ jsx("div", {
+                    className: "flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 flex-shrink-0",
+                    children: /* @__PURE__ */ jsxs("svg", {
+                      className: "h-5 w-5",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: [/* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                      }), /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                      })]
+                    })
+                  }), /* @__PURE__ */ jsxs("div", {
+                    className: "flex-1",
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "font-semibold text-gray-900",
+                      children: listingData.distance_to_finish < 1e3 ? `${listingData.distance_to_finish}m` : `${(listingData.distance_to_finish / 1e3).toFixed(1)}km`
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-500",
+                      children: "Straight-line distance"
+                    })]
+                  })]
+                }), listingData.walking_duration && /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center gap-3",
+                  children: [/* @__PURE__ */ jsx("div", {
+                    className: "flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 flex-shrink-0",
+                    children: /* @__PURE__ */ jsxs("svg", {
+                      className: "h-5 w-5",
+                      viewBox: "0 0 24 24",
+                      fill: "currentColor",
+                      children: [/* @__PURE__ */ jsx("circle", {
+                        cx: "12",
+                        cy: "4.5",
+                        r: "2.5"
+                      }), /* @__PURE__ */ jsx("path", {
+                        d: "M10.5 8.5L7 11l1.5 1.5 2.5-2v4l-3 5.5 1.5 1 3-5 3 5 1.5-1-3-5.5v-4l2.5 2L17 11l-3.5-2.5h-3z"
+                      })]
+                    })
+                  }), /* @__PURE__ */ jsxs("div", {
+                    className: "flex-1",
+                    children: [/* @__PURE__ */ jsxs("p", {
+                      className: "font-semibold text-gray-900",
+                      children: [listingData.walking_duration, " min"]
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-500",
+                      children: "Walking"
+                    })]
+                  })]
+                }), listingData.transit_duration && listingData.distance_to_finish > 1e3 && /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center gap-3",
+                  children: [/* @__PURE__ */ jsx("div", {
+                    className: "flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 flex-shrink-0",
+                    children: /* @__PURE__ */ jsxs("svg", {
+                      className: "h-5 w-5",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: [/* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M8 7v10M16 7v10M6 17h12M6 7h12a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2z"
+                      }), /* @__PURE__ */ jsx("circle", {
+                        cx: "8",
+                        cy: "19",
+                        r: "1.5",
+                        fill: "currentColor"
+                      }), /* @__PURE__ */ jsx("circle", {
+                        cx: "16",
+                        cy: "19",
+                        r: "1.5",
+                        fill: "currentColor"
+                      })]
+                    })
+                  }), /* @__PURE__ */ jsxs("div", {
+                    className: "flex-1",
+                    children: [/* @__PURE__ */ jsxs("p", {
+                      className: "font-semibold text-gray-900",
+                      children: [listingData.transit_duration, " min"]
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-500",
+                      children: "Public transit"
+                    })]
+                  })]
+                })]
+              })]
+            }), (listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
+              className: "bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-display text-lg font-semibold text-gray-900 mb-4",
+                children: "Bib Transfer Details"
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "space-y-4",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  className: "flex items-start gap-3",
+                  children: [/* @__PURE__ */ jsx("div", {
+                    className: "flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-700 flex-shrink-0",
+                    children: /* @__PURE__ */ jsx("svg", {
+                      className: "h-5 w-5",
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      stroke: "currentColor",
+                      children: /* @__PURE__ */ jsx("path", {
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        strokeWidth: 2,
+                        d: "M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
                       })
                     })
                   }), /* @__PURE__ */ jsxs("div", {
                     className: "flex-1",
                     children: [/* @__PURE__ */ jsx("p", {
                       className: "text-sm text-gray-500 mb-1",
-                      children: "Dates"
+                      children: "Available bibs"
                     }), /* @__PURE__ */ jsxs("p", {
                       className: "font-semibold text-gray-900",
-                      children: [checkIn.toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short"
-                      }), " → ", checkOut.toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric"
-                      })]
-                    }), /* @__PURE__ */ jsxs("p", {
-                      className: "text-sm text-gray-600 mt-0.5",
-                      children: [nights, " night", nights > 1 ? "s" : ""]
+                      children: [listingData.bib_count || 1, " bib", (listingData.bib_count || 1) > 1 ? "s" : ""]
                     })]
                   })]
-                });
-              })()]
-            })]
-          }), (listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && listingData.hotel_name && /* @__PURE__ */ jsxs("div", {
-            className: "bg-white rounded-xl shadow-lg p-6",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4",
-              children: "Why this stay"
+                }), listingData.transfer_type && /* @__PURE__ */ jsxs("div", {
+                  className: "bg-blue-50 border border-blue-200 rounded-lg p-4",
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: "text-sm font-medium text-blue-900 mb-1",
+                    children: "Transfer method"
+                  }), /* @__PURE__ */ jsxs("p", {
+                    className: "text-sm text-blue-800",
+                    children: [listingData.transfer_type === "official_process" && "✓ Official organizer name change process", listingData.transfer_type === "package" && "✓ Included in complete race package", listingData.transfer_type === "contact" && "Contact seller for transfer details"]
+                  })]
+                })]
+              })]
+            }), listingData.description && /* @__PURE__ */ jsxs("div", {
+              className: "bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-display text-lg font-semibold text-gray-900 mb-3",
+                children: "Additional Information"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 whitespace-pre-wrap leading-relaxed",
+                children: listingData.description
+              })]
             }), /* @__PURE__ */ jsxs("div", {
-              className: "space-y-2.5",
-              children: [listingData.hotel_rating && listingData.hotel_rating >= 4 && /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("svg", {
-                  className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5",
-                  fill: "currentColor",
-                  viewBox: "0 0 20 20",
-                  children: /* @__PURE__ */ jsx("path", {
-                    fillRule: "evenodd",
-                    d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                    clipRule: "evenodd"
-                  })
-                }), /* @__PURE__ */ jsxs("span", {
-                  className: "text-gray-700",
-                  children: ["Top-rated hotel (⭐ ", listingData.hotel_rating.toFixed(1), " on Google)"]
+              className: "bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6",
+              children: [/* @__PURE__ */ jsx("h3", {
+                className: "font-display text-lg font-semibold text-gray-900 mb-4",
+                children: "How to Complete This Transaction"
+              }), listingData.listing_type === "room" && /* @__PURE__ */ jsxs("div", {
+                className: "space-y-4",
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "text-gray-600",
+                  children: "Follow these steps after agreeing with the seller:"
+                }), /* @__PURE__ */ jsxs("ol", {
+                  className: "space-y-3",
+                  children: [/* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
+                      children: "1"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Confirm booking details"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "Verify check-in/out dates, room type, and hotel name with the seller."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
+                      children: "2"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Arrange name change"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "The seller will contact the hotel to transfer the reservation to your name. Some hotels may charge a fee."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
+                      children: "3"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Get written confirmation"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "Request the updated booking confirmation directly from the hotel with your name."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
+                      children: "4"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Complete payment"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "Pay the seller only after receiving the hotel confirmation. Use PayPal or bank transfer for safety."
+                      })]
+                    })]
+                  })]
                 })]
-              }), listingData.hotel_city && /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("svg", {
-                  className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5",
-                  fill: "currentColor",
-                  viewBox: "0 0 20 20",
-                  children: /* @__PURE__ */ jsx("path", {
-                    fillRule: "evenodd",
-                    d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                    clipRule: "evenodd"
+              }), listingData.listing_type === "bib" && /* @__PURE__ */ jsxs("div", {
+                className: "space-y-4",
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "text-gray-600",
+                  children: "Follow these steps after agreeing with the seller:"
+                }), /* @__PURE__ */ jsxs("ol", {
+                  className: "space-y-3",
+                  children: [/* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
+                      children: "1"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Check race transfer policy"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "Visit the official race website to verify if bib transfers are allowed and the deadline."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
+                      children: "2"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Initiate official transfer"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "The seller must start the name change process through the race organizer's system. You may need to provide your details."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
+                      children: "3"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Receive confirmation"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "Wait for official confirmation from the race organizer that the bib is now registered in your name."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
+                      children: "4"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Complete payment"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "Pay the seller only after the transfer is confirmed. Use PayPal or bank transfer for safety."
+                      })]
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsx("div", {
+                  className: "mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg",
+                  children: /* @__PURE__ */ jsxs("p", {
+                    className: "text-sm text-amber-800",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "font-medium",
+                      children: "Important:"
+                    }), " Never run with someone else's bib without an official transfer. This violates race rules and insurance coverage."]
                   })
-                }), /* @__PURE__ */ jsxs("span", {
-                  className: "text-gray-700",
-                  children: ["Located in ", listingData.hotel_city]
                 })]
-              }), /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("svg", {
-                  className: "h-5 w-5 text-green-600 flex-shrink-0 mt-0.5",
-                  fill: "currentColor",
-                  viewBox: "0 0 20 20",
-                  children: /* @__PURE__ */ jsx("path", {
-                    fillRule: "evenodd",
-                    d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                    clipRule: "evenodd"
+              }), listingData.listing_type === "room_and_bib" && /* @__PURE__ */ jsxs("div", {
+                className: "space-y-4",
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "text-gray-600",
+                  children: "This is a complete package. Follow these steps after agreeing with the seller:"
+                }), /* @__PURE__ */ jsxs("ol", {
+                  className: "space-y-3",
+                  children: [/* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                      children: "1"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Verify package contents"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "Confirm exactly what's included: hotel dates, room type, race bib, and any extras."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                      children: "2"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Start bib transfer first"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "The race bib transfer often has strict deadlines. The seller should initiate this through the official organizer."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                      children: "3"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Transfer hotel booking"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "The seller contacts the hotel to change the reservation name. Request confirmation directly from the hotel."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                      children: "4"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Get all confirmations"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "Collect written confirmation for both the race entry and hotel booking in your name."
+                      })]
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex gap-3",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
+                      children: "5"
+                    }), /* @__PURE__ */ jsxs("div", {
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-medium text-gray-900",
+                        children: "Complete payment"
+                      }), /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-600",
+                        children: "Pay only after receiving all confirmations. Use PayPal or bank transfer for safety."
+                      })]
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsx("div", {
+                  className: "mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg",
+                  children: /* @__PURE__ */ jsxs("p", {
+                    className: "text-sm text-blue-800",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "font-medium",
+                      children: "Tip:"
+                    }), " For packages, consider splitting the payment — partial after bib confirmation, remainder after hotel confirmation."]
                   })
-                }), /* @__PURE__ */ jsx("span", {
-                  className: "text-gray-700",
-                  children: "Perfect for race weekend rest & recovery"
                 })]
               })]
             })]
-          }), (listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
-            className: "bg-white rounded-xl shadow-lg p-6",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4",
-              children: "Bib Transfer Details"
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "space-y-4",
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "space-y-6 lg:sticky lg:top-6",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] overflow-hidden",
               children: [/* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("div", {
-                  className: "flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-700 flex-shrink-0",
-                  children: /* @__PURE__ */ jsx("svg", {
-                    className: "h-5 w-5",
+                className: "px-5 py-5 border-b border-gray-100",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center justify-between mb-4",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: `px-3 py-1 rounded-full text-xs font-semibold ${listingData.listing_type === "room" ? "bg-blue-100 text-blue-700" : listingData.listing_type === "bib" ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"}`,
+                    children: listingData.listing_type === "room" ? "Room Only" : listingData.listing_type === "bib" ? "Bib Only" : "Room + Bib"
+                  }), user && !isOwner && listingData.status === "active" && /* @__PURE__ */ jsxs(saveFetcher.Form, {
+                    method: "post",
+                    action: "/api/saved",
+                    children: [/* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "listingId",
+                      value: listingData.id
+                    }), /* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "action",
+                      value: isSavedOptimistic ? "unsave" : "save"
+                    }), /* @__PURE__ */ jsx("button", {
+                      type: "submit",
+                      className: `p-2 rounded-full transition-colors ${isSavedOptimistic ? "text-red-500 bg-red-50 hover:bg-red-100" : "text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"}`,
+                      title: isSavedOptimistic ? "Remove from saved" : "Save listing",
+                      children: /* @__PURE__ */ jsx("svg", {
+                        className: "h-5 w-5",
+                        fill: isSavedOptimistic ? "currentColor" : "none",
+                        viewBox: "0 0 24 24",
+                        stroke: "currentColor",
+                        strokeWidth: 2,
+                        children: /* @__PURE__ */ jsx("path", {
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        })
+                      })
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsx("h1", {
+                  className: "font-display text-xl font-bold text-gray-900 leading-tight",
+                  children: listingData.event.name
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "mt-3 flex items-center gap-2 text-sm text-gray-600",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "h-4 w-4 text-gray-400 flex-shrink-0",
                     fill: "none",
                     viewBox: "0 0 24 24",
                     stroke: "currentColor",
@@ -3672,475 +7880,153 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
                       strokeLinecap: "round",
                       strokeLinejoin: "round",
                       strokeWidth: 2,
-                      d: "M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
+                      d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                     })
+                  }), /* @__PURE__ */ jsx("span", {
+                    children: eventDateShort
+                  })]
+                }), /* @__PURE__ */ jsx("div", {
+                  className: "mt-4",
+                  children: listingData.status === "active" ? /* @__PURE__ */ jsxs("span", {
+                    className: "inline-flex items-center gap-1.5 text-sm font-medium text-green-700",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "h-2 w-2 rounded-full bg-green-500"
+                    }), "Active listing"]
+                  }) : /* @__PURE__ */ jsx("span", {
+                    className: "px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600",
+                    children: listingData.status === "sold" ? "Sold" : "Expired"
                   })
-                }), /* @__PURE__ */ jsxs("div", {
-                  className: "flex-1",
-                  children: [/* @__PURE__ */ jsx("p", {
-                    className: "text-sm text-gray-500 mb-1",
-                    children: "Available bibs"
-                  }), /* @__PURE__ */ jsxs("p", {
-                    className: "font-semibold text-gray-900",
-                    children: [listingData.bib_count || 1, " bib", (listingData.bib_count || 1) > 1 ? "s" : ""]
-                  })]
-                })]
-              }), listingData.transfer_type && /* @__PURE__ */ jsxs("div", {
-                className: "bg-blue-50 border border-blue-200 rounded-lg p-4",
-                children: [/* @__PURE__ */ jsx("p", {
-                  className: "text-sm font-medium text-blue-900 mb-1",
-                  children: "Transfer method"
-                }), /* @__PURE__ */ jsxs("p", {
-                  className: "text-sm text-blue-800",
-                  children: [listingData.transfer_type === "official_process" && "✓ Official organizer name change process", listingData.transfer_type === "package" && "✓ Included in complete race package", listingData.transfer_type === "contact" && "Contact seller for transfer details"]
-                })]
-              })]
-            })]
-          }), listingData.description && /* @__PURE__ */ jsxs("div", {
-            className: "bg-white rounded-xl shadow-lg p-6",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-3",
-              children: "Additional Information"
-            }), /* @__PURE__ */ jsx("p", {
-              className: "text-gray-700 whitespace-pre-wrap leading-relaxed",
-              children: listingData.description
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "bg-white rounded-xl shadow-lg p-6",
-            children: [/* @__PURE__ */ jsx("h3", {
-              className: "font-display text-lg font-semibold text-gray-900 mb-4",
-              children: "How to Complete This Transaction"
-            }), listingData.listing_type === "room" && /* @__PURE__ */ jsxs("div", {
-              className: "space-y-4",
-              children: [/* @__PURE__ */ jsx("p", {
-                className: "text-gray-600",
-                children: "Follow these steps after agreeing with the seller:"
-              }), /* @__PURE__ */ jsxs("ol", {
-                className: "space-y-3",
-                children: [/* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
-                    children: "1"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Confirm booking details"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "Verify check-in/out dates, room type, and hotel name with the seller."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
-                    children: "2"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Arrange name change"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "The seller will contact the hotel to transfer the reservation to your name. Some hotels may charge a fee."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
-                    children: "3"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Get written confirmation"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "Request the updated booking confirmation directly from the hotel with your name."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0",
-                    children: "4"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Complete payment"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "Pay the seller only after receiving the hotel confirmation. Use PayPal or bank transfer for safety."
-                    })]
-                  })]
-                })]
-              })]
-            }), listingData.listing_type === "bib" && /* @__PURE__ */ jsxs("div", {
-              className: "space-y-4",
-              children: [/* @__PURE__ */ jsx("p", {
-                className: "text-gray-600",
-                children: "Follow these steps after agreeing with the seller:"
-              }), /* @__PURE__ */ jsxs("ol", {
-                className: "space-y-3",
-                children: [/* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
-                    children: "1"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Check race transfer policy"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "Visit the official race website to verify if bib transfers are allowed and the deadline."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
-                    children: "2"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Initiate official transfer"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "The seller must start the name change process through the race organizer's system. You may need to provide your details."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
-                    children: "3"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Receive confirmation"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "Wait for official confirmation from the race organizer that the bib is now registered in your name."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0",
-                    children: "4"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Complete payment"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "Pay the seller only after the transfer is confirmed. Use PayPal or bank transfer for safety."
-                    })]
-                  })]
                 })]
               }), /* @__PURE__ */ jsx("div", {
-                className: "mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg",
-                children: /* @__PURE__ */ jsxs("p", {
-                  className: "text-sm text-amber-800",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "font-medium",
-                    children: "Important:"
-                  }), " Never run with someone else's bib without an official transfer. This violates race rules and insurance coverage."]
+                className: "px-5 py-4 border-b border-gray-100",
+                children: /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-start gap-3",
+                  children: [/* @__PURE__ */ jsx("div", {
+                    className: "flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0",
+                    children: ((_a = listingData.author.company_name) == null ? void 0 : _a.charAt(0)) || ((_b = listingData.author.full_name) == null ? void 0 : _b.charAt(0)) || "?"
+                  }), /* @__PURE__ */ jsxs("div", {
+                    className: "flex-1 min-w-0",
+                    children: [/* @__PURE__ */ jsxs("div", {
+                      className: "flex items-center gap-1.5",
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: "font-semibold text-gray-900 truncate text-sm",
+                        children: listingData.author.company_name || listingData.author.full_name
+                      }), listingData.author.is_verified && /* @__PURE__ */ jsx("svg", {
+                        className: "h-4 w-4 text-brand-500 flex-shrink-0",
+                        fill: "currentColor",
+                        viewBox: "0 0 20 20",
+                        children: /* @__PURE__ */ jsx("path", {
+                          fillRule: "evenodd",
+                          d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                          clipRule: "evenodd"
+                        })
+                      })]
+                    }), /* @__PURE__ */ jsxs("p", {
+                      className: "text-xs text-gray-500",
+                      children: [listingData.author.user_type === "tour_operator" ? "Tour Operator" : "Private Seller", listingData.author.is_verified && " · Verified"]
+                    })]
+                  })]
                 })
-              })]
-            }), listingData.listing_type === "room_and_bib" && /* @__PURE__ */ jsxs("div", {
-              className: "space-y-4",
-              children: [/* @__PURE__ */ jsx("p", {
-                className: "text-gray-600",
-                children: "This is a complete package. Follow these steps after agreeing with the seller:"
-              }), /* @__PURE__ */ jsxs("ol", {
-                className: "space-y-3",
-                children: [/* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
-                    children: "1"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Verify package contents"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "Confirm exactly what's included: hotel dates, room type, race bib, and any extras."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
-                    children: "2"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Start bib transfer first"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "The race bib transfer often has strict deadlines. The seller should initiate this through the official organizer."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
-                    children: "3"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Transfer hotel booking"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "The seller contacts the hotel to change the reservation name. Request confirmation directly from the hotel."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
-                    children: "4"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Get all confirmations"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "Collect written confirmation for both the race entry and hotel booking in your name."
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex gap-3",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0",
-                    children: "5"
-                  }), /* @__PURE__ */ jsxs("div", {
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-medium text-gray-900",
-                      children: "Complete payment"
-                    }), /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-600",
-                      children: "Pay only after receiving all confirmations. Use PayPal or bank transfer for safety."
-                    })]
-                  })]
-                })]
-              }), /* @__PURE__ */ jsx("div", {
-                className: "mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg",
-                children: /* @__PURE__ */ jsxs("p", {
-                  className: "text-sm text-blue-800",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "font-medium",
-                    children: "Tip:"
-                  }), " For packages, consider splitting the payment — partial after bib confirmation, remainder after hotel confirmation."]
-                })
-              })]
-            })]
-          })]
-        }), /* @__PURE__ */ jsxs("div", {
-          className: "space-y-6 lg:sticky lg:top-6",
-          children: [/* @__PURE__ */ jsxs("div", {
-            className: "bg-white rounded-xl shadow-lg overflow-hidden",
-            children: [/* @__PURE__ */ jsxs("div", {
-              className: "px-5 py-4 flex items-center justify-between border-b border-gray-100",
-              children: [/* @__PURE__ */ jsx("span", {
-                className: `inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold border ${typeColors$1[listingData.listing_type]}`,
-                children: typeLabels$1[listingData.listing_type]
               }), /* @__PURE__ */ jsxs("div", {
-                className: "flex items-center gap-3",
-                children: [user && !isOwner && listingData.status === "active" && /* @__PURE__ */ jsxs(saveFetcher.Form, {
-                  method: "post",
-                  action: "/api/saved",
-                  children: [/* @__PURE__ */ jsx("input", {
-                    type: "hidden",
-                    name: "listingId",
-                    value: listingData.id
-                  }), /* @__PURE__ */ jsx("input", {
-                    type: "hidden",
-                    name: "action",
-                    value: isSavedOptimistic ? "unsave" : "save"
-                  }), /* @__PURE__ */ jsx("button", {
-                    type: "submit",
-                    className: `p-2 rounded-full transition-colors ${isSavedOptimistic ? "text-red-500 bg-red-50 hover:bg-red-100" : "text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"}`,
-                    title: isSavedOptimistic ? "Remove from saved" : "Save listing",
-                    children: /* @__PURE__ */ jsx("svg", {
-                      className: "h-5 w-5",
-                      fill: isSavedOptimistic ? "currentColor" : "none",
-                      viewBox: "0 0 24 24",
-                      stroke: "currentColor",
-                      strokeWidth: 2,
-                      children: /* @__PURE__ */ jsx("path", {
-                        strokeLinecap: "round",
-                        strokeLinejoin: "round",
-                        d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                      })
-                    })
+                className: "p-5",
+                children: [/* @__PURE__ */ jsx("div", {
+                  className: "text-center",
+                  children: listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib" ? listingData.associated_costs ? /* @__PURE__ */ jsxs(Fragment, {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "text-sm text-gray-500 mb-1",
+                      children: "Associated costs"
+                    }), /* @__PURE__ */ jsxs("p", {
+                      className: "text-3xl font-bold text-gray-900",
+                      children: ["€", listingData.associated_costs.toLocaleString()]
+                    }), listingData.cost_notes && /* @__PURE__ */ jsx("p", {
+                      className: "mt-2 text-sm text-gray-600",
+                      children: listingData.cost_notes
+                    })]
+                  }) : /* @__PURE__ */ jsxs(Fragment, {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "text-xl font-semibold text-gray-600 mb-1",
+                      children: "Contact for price"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-xs text-gray-500",
+                      children: "Price details available from seller"
+                    })]
+                  }) : listingData.price ? /* @__PURE__ */ jsxs(Fragment, {
+                    children: [/* @__PURE__ */ jsxs("p", {
+                      className: "text-3xl font-bold text-gray-900",
+                      children: ["€", listingData.price.toLocaleString()]
+                    }), listingData.price_negotiable && /* @__PURE__ */ jsx("p", {
+                      className: "mt-1 text-sm text-green-600 font-medium",
+                      children: "Price negotiable"
+                    })]
+                  }) : /* @__PURE__ */ jsxs(Fragment, {
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "text-xl font-semibold text-gray-600 mb-1",
+                      children: "Contact for price"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-xs text-gray-500",
+                      children: priceAnchor
+                    })]
+                  })
+                }), (actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsx("div", {
+                  className: "rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4",
+                  children: actionData.error
+                }), listingData.status === "active" && !isOwner && /* @__PURE__ */ jsxs(Link, {
+                  to: `/listings/${listingData.id}/contact`,
+                  className: "btn-primary w-full text-base py-3.5 font-semibold rounded-full shadow-lg shadow-brand-500/25 hidden md:block text-center",
+                  children: ["Contact ", listingData.author.company_name || ((_c = listingData.author.full_name) == null ? void 0 : _c.split(" ")[0]) || "Seller"]
+                }), isOwner && /* @__PURE__ */ jsxs("div", {
+                  className: "space-y-3",
+                  children: [/* @__PURE__ */ jsx(Link, {
+                    to: `/listings/${listingData.id}/edit`,
+                    className: "btn-secondary w-full block text-center",
+                    children: "Edit Listing"
+                  }), /* @__PURE__ */ jsxs(Form, {
+                    method: "post",
+                    onSubmit: (e) => {
+                      if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) {
+                        e.preventDefault();
+                      }
+                    },
+                    children: [/* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "_action",
+                      value: "delete"
+                    }), /* @__PURE__ */ jsx("button", {
+                      type: "submit",
+                      className: "w-full px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors",
+                      children: "Delete Listing"
+                    })]
                   })]
-                }), listingData.status !== "active" && /* @__PURE__ */ jsx("span", {
-                  className: "px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600",
-                  children: listingData.status === "sold" ? "Sold" : "Expired"
+                }), !user && listingData.status === "active" && /* @__PURE__ */ jsx(Link, {
+                  to: `/login?redirectTo=/listings/${listingData.id}`,
+                  className: "btn-primary w-full block text-center py-3.5 font-semibold shadow-lg shadow-brand-500/25",
+                  children: "Login to Contact"
                 })]
               })]
-            }), /* @__PURE__ */ jsx("div", {
-              className: "p-5 bg-gradient-to-br from-brand-50 to-blue-50",
-              children: /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("div", {
-                  className: "flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-white flex-shrink-0",
-                  children: /* @__PURE__ */ jsxs("svg", {
-                    className: "h-5 w-5",
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] overflow-hidden",
+              children: [/* @__PURE__ */ jsxs("button", {
+                onClick: () => setShowSafety(!showSafety),
+                className: "w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center gap-2",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "h-5 w-5 text-gray-600",
                     fill: "none",
                     viewBox: "0 0 24 24",
                     stroke: "currentColor",
-                    children: [/* @__PURE__ */ jsx("path", {
+                    children: /* @__PURE__ */ jsx("path", {
                       strokeLinecap: "round",
                       strokeLinejoin: "round",
                       strokeWidth: 2,
-                      d: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    }), /* @__PURE__ */ jsx("path", {
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      strokeWidth: 2,
-                      d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    })]
-                  })
-                }), /* @__PURE__ */ jsxs("div", {
-                  className: "flex-1",
-                  children: [/* @__PURE__ */ jsx("h2", {
-                    className: "font-display text-lg font-bold text-gray-900",
-                    children: listingData.event.name
-                  }), /* @__PURE__ */ jsxs("p", {
-                    className: "text-sm text-gray-600 mt-1",
-                    children: [/* @__PURE__ */ jsx("span", {
-                      className: "font-medium",
-                      children: "Race day:"
-                    }), " ", eventDateFormatted]
-                  }), daysUntil > 0 && daysUntil <= 60 && /* @__PURE__ */ jsxs("span", {
-                    className: "inline-block mt-3 px-2.5 py-1 text-xs font-medium text-accent-600 bg-accent-50 border border-accent-300 rounded-full",
-                    children: [daysUntil, " days until race"]
+                      d: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    })
+                  }), /* @__PURE__ */ jsx("span", {
+                    className: "font-medium text-gray-900",
+                    children: "Safety & Payments"
                   })]
-                })]
-              })
-            }), /* @__PURE__ */ jsx("div", {
-              className: "px-5 py-4",
-              children: /* @__PURE__ */ jsxs("div", {
-                className: "flex items-start gap-3",
-                children: [/* @__PURE__ */ jsx("div", {
-                  className: "flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0",
-                  children: ((_a = listingData.author.company_name) == null ? void 0 : _a.charAt(0)) || ((_b = listingData.author.full_name) == null ? void 0 : _b.charAt(0)) || "?"
-                }), /* @__PURE__ */ jsxs("div", {
-                  className: "flex-1 min-w-0",
-                  children: [/* @__PURE__ */ jsxs("div", {
-                    className: "flex items-center gap-1.5",
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: "font-semibold text-gray-900 truncate text-sm",
-                      children: listingData.author.company_name || listingData.author.full_name
-                    }), listingData.author.is_verified && /* @__PURE__ */ jsx("svg", {
-                      className: "h-4 w-4 text-brand-500 flex-shrink-0",
-                      fill: "currentColor",
-                      viewBox: "0 0 20 20",
-                      children: /* @__PURE__ */ jsx("path", {
-                        fillRule: "evenodd",
-                        d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                        clipRule: "evenodd"
-                      })
-                    })]
-                  }), /* @__PURE__ */ jsxs("p", {
-                    className: "text-xs text-gray-500",
-                    children: [listingData.author.user_type === "tour_operator" ? "Tour Operator" : "Private Seller", listingData.author.is_verified && " · Verified"]
-                  })]
-                })]
-              })
-            }), /* @__PURE__ */ jsxs("div", {
-              className: "p-5",
-              children: [/* @__PURE__ */ jsx("div", {
-                className: "text-center pb-4",
-                children: listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib" ? listingData.associated_costs ? /* @__PURE__ */ jsxs(Fragment, {
-                  children: [/* @__PURE__ */ jsx("p", {
-                    className: "text-sm text-gray-500 mb-1",
-                    children: "Associated costs"
-                  }), /* @__PURE__ */ jsxs("p", {
-                    className: "text-3xl font-bold text-gray-900",
-                    children: ["€", listingData.associated_costs.toLocaleString()]
-                  }), listingData.cost_notes && /* @__PURE__ */ jsx("p", {
-                    className: "mt-2 text-sm text-gray-600",
-                    children: listingData.cost_notes
-                  })]
-                }) : /* @__PURE__ */ jsxs(Fragment, {
-                  children: [/* @__PURE__ */ jsx("p", {
-                    className: "text-xl font-semibold text-gray-600 mb-1",
-                    children: "Contact for price"
-                  }), /* @__PURE__ */ jsx("p", {
-                    className: "text-xs text-gray-500",
-                    children: "Price details available from seller"
-                  })]
-                }) : listingData.price ? /* @__PURE__ */ jsxs(Fragment, {
-                  children: [/* @__PURE__ */ jsxs("p", {
-                    className: "text-3xl font-bold text-gray-900",
-                    children: ["€", listingData.price.toLocaleString()]
-                  }), listingData.price_negotiable && /* @__PURE__ */ jsx("p", {
-                    className: "mt-1 text-sm text-green-600 font-medium",
-                    children: "Price negotiable"
-                  })]
-                }) : /* @__PURE__ */ jsxs(Fragment, {
-                  children: [/* @__PURE__ */ jsx("p", {
-                    className: "text-xl font-semibold text-gray-600 mb-1",
-                    children: "Contact for price"
-                  }), /* @__PURE__ */ jsx("p", {
-                    className: "text-xs text-gray-500",
-                    children: priceAnchor
-                  })]
-                })
-              }), (actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsx("div", {
-                className: "rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4",
-                children: actionData.error
-              }), listingData.status === "active" && !isOwner && /* @__PURE__ */ jsx(Form, {
-                method: "post",
-                children: /* @__PURE__ */ jsx("button", {
-                  type: "submit",
-                  className: "btn-primary w-full text-base py-3 font-semibold",
-                  children: "Request price & availability"
-                })
-              }), isOwner && /* @__PURE__ */ jsxs("div", {
-                className: "space-y-3",
-                children: [/* @__PURE__ */ jsx(Link, {
-                  to: `/listings/${listingData.id}/edit`,
-                  className: "btn-secondary w-full",
-                  children: "Edit Listing"
-                }), /* @__PURE__ */ jsxs(Form, {
-                  method: "post",
-                  onSubmit: (e) => {
-                    if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) {
-                      e.preventDefault();
-                    }
-                  },
-                  children: [/* @__PURE__ */ jsx("input", {
-                    type: "hidden",
-                    name: "_action",
-                    value: "delete"
-                  }), /* @__PURE__ */ jsx("button", {
-                    type: "submit",
-                    className: "w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors",
-                    children: "Delete Listing"
-                  })]
-                })]
-              }), !user && listingData.status === "active" && /* @__PURE__ */ jsx(Link, {
-                to: `/login?redirectTo=/listings/${listingData.id}`,
-                className: "btn-primary w-full",
-                children: "Login to Contact"
-              })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "bg-white rounded-xl shadow-lg overflow-hidden",
-            children: [/* @__PURE__ */ jsxs("button", {
-              onClick: () => setShowSafety(!showSafety),
-              className: "w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors",
-              children: [/* @__PURE__ */ jsxs("div", {
-                className: "flex items-center gap-2",
-                children: [/* @__PURE__ */ jsx("svg", {
-                  className: "h-5 w-5 text-gray-600",
+                }), /* @__PURE__ */ jsx("svg", {
+                  className: `h-5 w-5 text-gray-400 transition-transform ${showSafety ? "rotate-180" : ""}`,
                   fill: "none",
                   viewBox: "0 0 24 24",
                   stroke: "currentColor",
@@ -4148,91 +8034,74 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
                     strokeLinecap: "round",
                     strokeLinejoin: "round",
                     strokeWidth: 2,
-                    d: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    d: "M19 9l-7 7-7-7"
                   })
-                }), /* @__PURE__ */ jsx("span", {
-                  className: "font-medium text-gray-900",
-                  children: "Safety & Payments"
                 })]
-              }), /* @__PURE__ */ jsx("svg", {
-                className: `h-5 w-5 text-gray-400 transition-transform ${showSafety ? "rotate-180" : ""}`,
-                fill: "none",
-                viewBox: "0 0 24 24",
-                stroke: "currentColor",
-                children: /* @__PURE__ */ jsx("path", {
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round",
-                  strokeWidth: 2,
-                  d: "M19 9l-7 7-7-7"
-                })
-              })]
-            }), showSafety && /* @__PURE__ */ jsxs("div", {
-              className: "px-4 pb-4",
-              children: [/* @__PURE__ */ jsxs("ul", {
-                className: "text-sm text-gray-700 space-y-2 mt-3",
-                children: [/* @__PURE__ */ jsxs("li", {
-                  className: "flex items-start gap-2",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "text-brand-500 flex-shrink-0",
-                    children: "•"
-                  }), /* @__PURE__ */ jsx("span", {
-                    children: "Always verify seller identity before payment"
+              }), showSafety && /* @__PURE__ */ jsxs("div", {
+                className: "px-4 pb-4",
+                children: [/* @__PURE__ */ jsxs("ul", {
+                  className: "text-sm text-gray-700 space-y-2 mt-3",
+                  children: [/* @__PURE__ */ jsxs("li", {
+                    className: "flex items-start gap-2",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "text-brand-500 flex-shrink-0",
+                      children: "•"
+                    }), /* @__PURE__ */ jsx("span", {
+                      children: "Always verify seller identity before payment"
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex items-start gap-2",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "text-brand-500 flex-shrink-0",
+                      children: "•"
+                    }), /* @__PURE__ */ jsx("span", {
+                      children: "Use secure payment methods (PayPal, bank transfer)"
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex items-start gap-2",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "text-brand-500 flex-shrink-0",
+                      children: "•"
+                    }), /* @__PURE__ */ jsx("span", {
+                      children: "Get written confirmation of all details"
+                    })]
+                  }), /* @__PURE__ */ jsxs("li", {
+                    className: "flex items-start gap-2",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "text-brand-500 flex-shrink-0",
+                      children: "•"
+                    }), /* @__PURE__ */ jsx("span", {
+                      children: "Report suspicious activity immediately"
+                    })]
                   })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex items-start gap-2",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "text-brand-500 flex-shrink-0",
-                    children: "•"
-                  }), /* @__PURE__ */ jsx("span", {
-                    children: "Use secure payment methods (PayPal, bank transfer)"
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex items-start gap-2",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "text-brand-500 flex-shrink-0",
-                    children: "•"
-                  }), /* @__PURE__ */ jsx("span", {
-                    children: "Get written confirmation of all details"
-                  })]
-                }), /* @__PURE__ */ jsxs("li", {
-                  className: "flex items-start gap-2",
-                  children: [/* @__PURE__ */ jsx("span", {
-                    className: "text-brand-500 flex-shrink-0",
-                    children: "•"
-                  }), /* @__PURE__ */ jsx("span", {
-                    children: "Report suspicious activity immediately"
-                  })]
+                }), /* @__PURE__ */ jsx(Link, {
+                  to: "/safety",
+                  className: "mt-3 inline-block text-sm text-brand-600 hover:text-brand-700 font-medium",
+                  children: "Read full safety guidelines →"
                 })]
-              }), /* @__PURE__ */ jsx(Link, {
-                to: "/safety",
-                className: "mt-3 inline-block text-sm text-brand-600 hover:text-brand-700 font-medium",
-                children: "Read full safety guidelines →"
               })]
             })]
           })]
-        })]
-      }), listingData.status === "active" && !isOwner && /* @__PURE__ */ jsx("div", {
-        className: "fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg lg:hidden z-10",
-        children: /* @__PURE__ */ jsx(Form, {
-          method: "post",
-          children: /* @__PURE__ */ jsx("button", {
-            type: "submit",
-            className: "btn-primary w-full text-base py-3 font-semibold",
-            children: "Request price & availability"
+        }), listingData.status === "active" && !isOwner && /* @__PURE__ */ jsx("div", {
+          className: "fixed bottom-16 left-0 right-0 px-8 py-2.5 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] md:hidden z-30",
+          children: /* @__PURE__ */ jsxs(Link, {
+            to: `/listings/${listingData.id}/contact`,
+            className: "btn-primary w-full text-sm py-2.5 font-semibold rounded-full shadow-lg shadow-brand-500/25 block text-center",
+            children: ["Contact ", listingData.author.company_name || ((_d = listingData.author.full_name) == null ? void 0 : _d.split(" ")[0]) || "Seller"]
           })
-        })
-      })]
-    })]
+        })]
+      }), /* @__PURE__ */ jsx(FooterLight, {})]
+    })
   });
 });
-const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$a,
   default: listings_$id,
   loader: loader$f,
-  meta: meta$d
+  meta: meta$e
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$c = ({
+const meta$d = ({
   data: data2
 }) => {
   var _a;
@@ -4803,14 +8672,127 @@ const listings_$id_backup = UNSAFE_withComponentProps(function ListingDetail2() 
     })]
   });
 });
-const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$9,
   default: listings_$id_backup,
   loader: loader$e,
-  meta: meta$c
+  meta: meta$d
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$b = () => {
+function calculateHaversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371e3;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+function toRad(deg) {
+  return deg * (Math.PI / 180);
+}
+const GOOGLE_DISTANCE_MATRIX_URL = "https://maps.googleapis.com/maps/api/distancematrix/json";
+const GOOGLE_DIRECTIONS_URL = "https://maps.googleapis.com/maps/api/directions/json";
+async function getWalkingDuration(fromLat, fromLng, toLat, toLng) {
+  var _a, _b, _c, _d, _e, _f;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) {
+    console.warn("GOOGLE_PLACES_API_KEY not set, skipping walking duration calculation");
+    return null;
+  }
+  console.log("Calling Google Distance Matrix API (walking)...");
+  try {
+    const url = `${GOOGLE_DISTANCE_MATRIX_URL}?origins=${fromLat},${fromLng}&destinations=${toLat},${toLng}&mode=walking&key=${apiKey}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Google Distance Matrix API error:", response.status, errorText);
+      return null;
+    }
+    const data2 = await response.json();
+    console.log("Google Distance Matrix walking response:", JSON.stringify(data2));
+    if (data2.status === "OK" && ((_d = (_c = (_b = (_a = data2.rows) == null ? void 0 : _a[0]) == null ? void 0 : _b.elements) == null ? void 0 : _c[0]) == null ? void 0 : _d.status) === "OK") {
+      const element = data2.rows[0].elements[0];
+      return {
+        duration: Math.round((((_e = element.duration) == null ? void 0 : _e.value) || 0) / 60),
+        // Convert seconds to minutes
+        distance: ((_f = element.distance) == null ? void 0 : _f.value) || 0
+      };
+    }
+    console.error("Google Distance Matrix API returned non-OK status:", data2.status);
+    return null;
+  } catch (error) {
+    console.error("Google Distance Matrix API error:", error);
+    return null;
+  }
+}
+async function getTransitDuration(fromLat, fromLng, toLat, toLng) {
+  var _a, _b, _c, _d, _e;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) {
+    console.warn("GOOGLE_PLACES_API_KEY not set, skipping transit duration calculation");
+    return null;
+  }
+  console.log("Calling Google Directions API (transit)...");
+  try {
+    const now = /* @__PURE__ */ new Date();
+    const daysUntilSunday = (7 - now.getUTCDay()) % 7 || 7;
+    const nextSunday = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + daysUntilSunday,
+      9,
+      0,
+      0
+      // 9:00 UTC
+    ));
+    const departureTime = Math.floor(nextSunday.getTime() / 1e3);
+    console.log(`Using departure time: ${nextSunday.toISOString()} (timestamp: ${departureTime})`);
+    const url = `${GOOGLE_DIRECTIONS_URL}?origin=${fromLat},${fromLng}&destination=${toLat},${toLng}&mode=transit&departure_time=${departureTime}&key=${apiKey}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Google Directions API error:", response.status, errorText);
+      return null;
+    }
+    const data2 = await response.json();
+    console.log("Google Directions transit response:", JSON.stringify(data2));
+    if (data2.status === "OK" && ((_c = (_b = (_a = data2.routes) == null ? void 0 : _a[0]) == null ? void 0 : _b.legs) == null ? void 0 : _c[0])) {
+      const leg = data2.routes[0].legs[0];
+      return {
+        duration: Math.round((((_d = leg.duration) == null ? void 0 : _d.value) || 0) / 60),
+        // Convert seconds to minutes
+        distance: ((_e = leg.distance) == null ? void 0 : _e.value) || 0
+      };
+    }
+    console.warn("Google Directions transit not available or returned non-OK status:", data2.status);
+    return null;
+  } catch (error) {
+    console.error("Google Directions API error:", error);
+    return null;
+  }
+}
+async function calculateDistanceData(hotelLat, hotelLng, finishLat, finishLng, eventDate) {
+  if (!hotelLat || !hotelLng || !finishLat || !finishLng) {
+    return {
+      distance_to_finish: null,
+      walking_duration: null,
+      transit_duration: null
+    };
+  }
+  const distance = calculateHaversineDistance(hotelLat, hotelLng, finishLat, finishLng);
+  const walkingResult = await getWalkingDuration(hotelLat, hotelLng, finishLat, finishLng);
+  let transitDuration = null;
+  if (distance > 1e3) {
+    const transitResult = await getTransitDuration(hotelLat, hotelLng, finishLat, finishLng);
+    transitDuration = (transitResult == null ? void 0 : transitResult.duration) ?? null;
+  }
+  return {
+    distance_to_finish: distance,
+    walking_duration: (walkingResult == null ? void 0 : walkingResult.duration) ?? null,
+    transit_duration: transitDuration
+  };
+}
+const meta$c = () => {
   return [{
     title: "Create Listing - RunStay Exchange"
   }];
@@ -4838,9 +8820,9 @@ async function action$8({
   const listingType = formData.get("listingType");
   const description = formData.get("description");
   const eventId = formData.get("eventId");
-  const newEventName = formData.get("newEventName");
-  const newEventCountry = formData.get("newEventCountry");
-  const newEventDate = formData.get("newEventDate");
+  formData.get("newEventName");
+  formData.get("newEventCountry");
+  formData.get("newEventDate");
   const hotelPlaceId = formData.get("hotelPlaceId");
   const hotelName = formData.get("hotelName");
   const hotelWebsite = formData.get("hotelWebsite");
@@ -4858,7 +8840,8 @@ async function action$8({
   const associatedCosts = formData.get("associatedCosts");
   const costNotes = formData.get("costNotes");
   const price = formData.get("price");
-  const priceNegotiable = formData.get("priceNegotiable") === "on";
+  const currency = formData.get("currency") || "EUR";
+  const priceNegotiable = formData.get("priceNegotiable") === "true";
   if (!listingType) {
     return data({
       error: "Please select a listing type"
@@ -4874,36 +8857,34 @@ async function action$8({
       status: 400
     });
   }
-  let finalEventId = eventId;
-  if (!eventId && newEventName && newEventDate) {
-    const {
-      data: newEvent,
-      error: eventError
-    } = await supabase.from("events").insert({
-      name: newEventName,
-      country: newEventCountry || "",
-      event_date: newEventDate,
-      created_by: user.id
-    }).select().single();
-    if (eventError) {
-      return data({
-        error: "Failed to create event"
-      }, {
-        status: 400
-      });
-    }
-    finalEventId = newEvent.id;
-  }
-  if (!finalEventId) {
+  if (!eventId) {
     return data({
-      error: "Please select or create an event"
+      error: "Please select an event",
+      field: "event"
     }, {
       status: 400
     });
   }
+  const finalEventId = eventId;
   const {
     data: eventData
-  } = await supabase.from("events").select("name, event_date").eq("id", finalEventId).single();
+  } = await supabase.from("events").select("name, event_date, finish_lat, finish_lng").eq("id", finalEventId).single();
+  if ((listingType === "room" || listingType === "room_and_bib") && !hotelName) {
+    return data({
+      error: "Please select or add a hotel",
+      field: "hotel"
+    }, {
+      status: 400
+    });
+  }
+  if ((listingType === "room" || listingType === "room_and_bib") && !roomType) {
+    return data({
+      error: "Please select a room type",
+      field: "roomType"
+    }, {
+      status: 400
+    });
+  }
   if ((listingType === "room" || listingType === "room_and_bib") && checkIn && checkOut) {
     const eventDate = new Date(eventData.event_date);
     const checkInDate = new Date(checkIn);
@@ -4970,6 +8951,14 @@ async function action$8({
       }
     }
   }
+  const distanceData = await calculateDistanceData(
+    hotelLat ? parseFloat(hotelLat) : null,
+    hotelLng ? parseFloat(hotelLng) : null,
+    (eventData == null ? void 0 : eventData.finish_lat) ?? null,
+    (eventData == null ? void 0 : eventData.finish_lng) ?? null,
+    eventData == null ? void 0 : eventData.event_date
+    // Pass event date for transit departure time (2pm on event day)
+  );
   const {
     data: listing,
     error
@@ -4994,15 +8983,18 @@ async function action$8({
     check_in: checkIn || null,
     check_out: checkOut || null,
     bib_count: bibCount ? parseInt(bibCount) : null,
-    // MODIFICARE QUESTE RIGHE:
+    // Price fields
     price: price ? parseFloat(price) : null,
-    // mantieni per backward compatibility
+    currency,
     price_negotiable: priceNegotiable,
-    // mantieni per backward compatibility
-    // AGGIUNGERE QUESTE RIGHE:
+    // Transfer fields
     transfer_type: transferType || null,
     associated_costs: associatedCosts ? parseFloat(associatedCosts) : null,
     cost_notes: costNotes || null,
+    // Distance to finish line
+    distance_to_finish: distanceData.distance_to_finish,
+    walking_duration: distanceData.walking_duration,
+    transit_duration: distanceData.transit_duration,
     status: "active"
   }).select().single();
   if (error) {
@@ -5033,6 +9025,10 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
   const [transferMethod, setTransferMethod] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdListingId, setCreatedListingId] = useState(null);
+  const [checkInDate, setCheckInDate] = useState(null);
+  const [currency, setCurrency] = useState("EUR");
+  const [priceValue, setPriceValue] = useState("");
+  const [priceNegotiable, setPriceNegotiable] = useState(null);
   useEffect(() => {
     if ((actionData == null ? void 0 : actionData.success) && (actionData == null ? void 0 : actionData.listingId)) {
       setCreatedListingId(actionData.listingId);
@@ -5075,31 +9071,28 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
     children: [/* @__PURE__ */ jsx(Header, {
       user
     }), /* @__PURE__ */ jsx("div", {
-      className: "min-h-screen bg-cover bg-center bg-no-repeat",
+      className: "min-h-screen bg-cover bg-center bg-no-repeat bg-fixed",
       style: {
         backgroundImage: "url('/new-listing.jpg')"
       },
       children: /* @__PURE__ */ jsxs("main", {
-        className: "mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8",
+        className: "mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
         children: [/* @__PURE__ */ jsxs("div", {
-          className: "mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+          className: "mb-6 md:mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-3 md:p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
           children: [/* @__PURE__ */ jsx("h1", {
-            className: "font-display text-3xl font-bold text-gray-900",
+            className: "font-display text-xl md:text-3xl font-bold text-gray-900",
             children: "Create a Listing"
           }), /* @__PURE__ */ jsx("p", {
-            className: "mt-2 text-gray-600",
+            className: "mt-1 md:mt-2 text-sm md:text-base text-gray-600",
             children: "Share your available rooms or bibs with the community"
           })]
         }), /* @__PURE__ */ jsx("div", {
-          className: "rounded-2xl bg-white/70 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+          className: "rounded-2xl bg-white/90 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
           children: /* @__PURE__ */ jsxs(Form, {
             method: "post",
             className: "space-y-8",
             onSubmit: () => setFormSubmitted(true),
-            children: [(actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsx("div", {
-              className: "rounded-lg bg-red-50 p-4 text-sm text-red-700",
-              children: actionData.error
-            }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsxs("div", {
               children: [/* @__PURE__ */ jsx("label", {
                 className: "label",
                 children: "What are you offering?"
@@ -5196,7 +9189,8 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                 onSelectEvent: (eventId) => {
                   const event = events.find((e) => e.id === eventId);
                   setSelectedEvent(event);
-                }
+                },
+                hasError: (actionData == null ? void 0 : actionData.field) === "event"
               })]
             }), (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
               className: "space-y-4",
@@ -5216,7 +9210,8 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                     eventCity: selectedEvent == null ? void 0 : selectedEvent.country,
                     eventCountry: selectedEvent == null ? void 0 : selectedEvent.country,
                     onSelectHotel: (hotel) => {
-                    }
+                    },
+                    hasError: (actionData == null ? void 0 : actionData.field) === "hotel"
                   })]
                 }), /* @__PURE__ */ jsx("div", {
                   children: " "
@@ -5225,7 +9220,7 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                 }), /* @__PURE__ */ jsxs("div", {
                   children: [/* @__PURE__ */ jsxs("label", {
                     htmlFor: "roomCount",
-                    className: "label",
+                    className: "label mb-3",
                     children: ["Number of rooms", maxRooms !== null && user.user_type === "tour_operator" && /* @__PURE__ */ jsxs("span", {
                       className: "text-xs text-gray-500 ml-2",
                       children: ["(max ", maxRooms, " for your account)"]
@@ -5236,9 +9231,9 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                       children: [/* @__PURE__ */ jsx("div", {
                         className: `flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "room" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`,
                         children: "1"
-                      }), /* @__PURE__ */ jsx("span", {
+                      }), /* @__PURE__ */ jsxs("span", {
                         className: "text-sm text-gray-600",
-                        children: "Private users can list 1 room only"
+                        children: ["Private users can list", /* @__PURE__ */ jsx("br", {}), "1 room only"]
                       })]
                     }), /* @__PURE__ */ jsx("input", {
                       type: "hidden",
@@ -5254,75 +9249,39 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                     placeholder: "e.g. 2",
                     className: "input"
                   })]
+                }), /* @__PURE__ */ jsx(RoomTypeDropdown, {
+                  value: roomType,
+                  onChange: setRoomType,
+                  hasError: (actionData == null ? void 0 : actionData.field) === "roomType"
                 }), /* @__PURE__ */ jsxs("div", {
-                  children: [/* @__PURE__ */ jsx("label", {
-                    htmlFor: "roomType",
-                    className: "label",
-                    children: "Room type"
-                  }), /* @__PURE__ */ jsxs("select", {
-                    id: "roomType",
-                    name: "roomType",
-                    className: "input",
-                    onChange: (e) => setRoomType(e.target.value),
-                    children: [/* @__PURE__ */ jsx("option", {
-                      value: "",
-                      children: "Select type"
-                    }), /* @__PURE__ */ jsx("option", {
-                      value: "single",
-                      children: "Single"
-                    }), /* @__PURE__ */ jsx("option", {
-                      value: "double",
-                      children: "Double"
-                    }), /* @__PURE__ */ jsx("option", {
-                      value: "twin",
-                      children: "Twin"
-                    }), /* @__PURE__ */ jsx("option", {
-                      value: "twin_shared",
-                      children: "Twin Shared"
-                    }), /* @__PURE__ */ jsx("option", {
-                      value: "double_single_use",
-                      children: "Double Single Use"
-                    }), /* @__PURE__ */ jsx("option", {
-                      value: "triple",
-                      children: "Triple"
-                    }), /* @__PURE__ */ jsx("option", {
-                      value: "quadruple",
-                      children: "Quadruple"
-                    }), /* @__PURE__ */ jsx("option", {
-                      value: "other",
-                      children: "Other * (specify)"
-                    })]
-                  })]
-                }), /* @__PURE__ */ jsxs("div", {
+                  className: "mt-4",
                   children: [/* @__PURE__ */ jsx("label", {
                     htmlFor: "checkIn",
-                    className: "label",
-                    children: "Check-in date"
-                  }), /* @__PURE__ */ jsx("input", {
-                    type: "date",
+                    className: "label mb-3",
+                    children: "Check-in"
+                  }), /* @__PURE__ */ jsx(DatePicker, {
                     id: "checkIn",
                     name: "checkIn",
                     placeholder: "dd/mm/yyyy",
-                    min: dateConstraints.min,
-                    max: dateConstraints.max,
-                    className: "input"
+                    minDate: dateConstraints.min ? new Date(dateConstraints.min) : void 0,
+                    maxDate: dateConstraints.max ? new Date(dateConstraints.max) : void 0,
+                    onChange: (date) => setCheckInDate(date)
                   }), selectedEvent && /* @__PURE__ */ jsxs("p", {
                     className: "mt-1 text-xs text-gray-500",
                     children: ["Event date: ", new Date(selectedEvent.event_date).toLocaleDateString(), " (±7 days)"]
                   })]
                 }), /* @__PURE__ */ jsxs("div", {
+                  className: "mt-4",
                   children: [/* @__PURE__ */ jsx("label", {
                     htmlFor: "checkOut",
-                    className: "label",
-                    children: "Check-out date"
-                  }), /* @__PURE__ */ jsx("input", {
-                    type: "date",
+                    className: "label mb-3",
+                    children: "Check-out"
+                  }), /* @__PURE__ */ jsx(DatePicker, {
                     id: "checkOut",
                     name: "checkOut",
                     placeholder: "dd/mm/yyyy",
-                    min: dateConstraints.min,
-                    max: dateConstraints.max,
-                    className: "input"
+                    minDate: checkInDate || (dateConstraints.min ? new Date(dateConstraints.min) : void 0),
+                    maxDate: dateConstraints.max ? new Date(dateConstraints.max) : void 0
                   })]
                 })]
               })]
@@ -5338,7 +9297,7 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                   className: `text-sm ${listingType === "bib" ? "text-purple-800" : "text-green-800"}`,
                   children: [/* @__PURE__ */ jsx("strong", {
                     children: "Important:"
-                  }), " RunOot facilitates connections for legitimate bib transfers only. Direct sale of bibs may violate event regulations."]
+                  }), " runoot facilitates connections for legitimate bib transfers only. Direct sale of bibs may violate event regulations."]
                 })
               }), /* @__PURE__ */ jsxs("div", {
                 children: [/* @__PURE__ */ jsxs("label", {
@@ -5415,8 +9374,8 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                   htmlFor: "associatedCosts",
                   className: "label",
                   children: ["Associated Costs (€) ", /* @__PURE__ */ jsx("span", {
-                    className: "text-red-500",
-                    children: "*"
+                    className: "text-gray-400",
+                    children: "(optional)"
                   })]
                 }), /* @__PURE__ */ jsx("input", {
                   type: "number",
@@ -5425,11 +9384,10 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                   min: "0",
                   step: "0.01",
                   placeholder: "e.g. 50",
-                  className: "input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                  required: true
+                  className: "input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 }), /* @__PURE__ */ jsx("p", {
                   className: "mt-1 text-xs text-gray-500",
-                  children: "Official name change fee from the event organizer"
+                  children: "Official name change fee from the event organizer (if applicable)"
                 })]
               }), visibleFields.showPackageInfo && /* @__PURE__ */ jsx("div", {
                 className: "bg-green-50 border border-green-200 rounded-lg p-4",
@@ -5446,34 +9404,54 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                 className: "font-medium text-gray-900 border-b pb-2",
                 children: "Price"
               }), /* @__PURE__ */ jsxs("div", {
-                className: "grid gap-4 sm:grid-cols-2",
-                children: [/* @__PURE__ */ jsxs("div", {
-                  children: [/* @__PURE__ */ jsx("label", {
-                    htmlFor: "price",
-                    className: "label",
-                    children: "Price (€)"
-                  }), /* @__PURE__ */ jsx("input", {
+                children: [/* @__PURE__ */ jsx("label", {
+                  htmlFor: "price",
+                  className: "label mb-3",
+                  children: "Amount"
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex gap-2",
+                  children: [/* @__PURE__ */ jsx("input", {
                     type: "number",
                     id: "price",
                     name: "price",
                     min: "0",
                     step: "0.01",
                     placeholder: "Empty = Contact for price",
-                    className: "input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className: "input w-[205px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-sm placeholder:font-sans",
+                    value: priceValue,
+                    onChange: (e) => {
+                      setPriceValue(e.target.value);
+                      if (!e.target.value) {
+                        setPriceNegotiable(null);
+                      }
+                    }
+                  }), /* @__PURE__ */ jsx(CurrencyPicker, {
+                    value: currency,
+                    onChange: setCurrency
                   })]
-                }), (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsx("div", {
-                  className: "flex items-end",
-                  children: /* @__PURE__ */ jsxs("label", {
-                    className: "flex items-center gap-2 cursor-pointer",
-                    children: [/* @__PURE__ */ jsx("input", {
-                      type: "checkbox",
-                      name: "priceNegotiable",
-                      className: "h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                    }), /* @__PURE__ */ jsx("span", {
-                      className: "text-sm text-gray-700",
-                      children: "Price is negotiable"
-                    })]
-                  })
+                })]
+              }), priceValue && (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
+                className: "mt-4",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "priceNegotiable",
+                  value: priceNegotiable === true ? "true" : "false"
+                }), /* @__PURE__ */ jsx("span", {
+                  className: "text-sm text-gray-700",
+                  children: "Is the price negotiable?"
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex gap-2 mt-2",
+                  children: [/* @__PURE__ */ jsx("button", {
+                    type: "button",
+                    onClick: () => setPriceNegotiable(priceNegotiable === true ? null : true),
+                    className: `px-4 py-2 rounded-lg text-sm font-medium transition-all ${priceNegotiable === true ? "bg-green-100 text-green-700 ring-2 ring-green-500 shadow-[0_2px_8px_rgba(0,0,0,0.15)]" : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"}`,
+                    children: "Yes"
+                  }), /* @__PURE__ */ jsx("button", {
+                    type: "button",
+                    onClick: () => setPriceNegotiable(priceNegotiable === false ? null : false),
+                    className: `px-4 py-2 rounded-lg text-sm font-medium transition-all ${priceNegotiable === false ? "bg-green-100 text-green-700 ring-2 ring-green-500 shadow-[0_2px_8px_rgba(0,0,0,0.15)]" : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"}`,
+                    children: "No"
+                  })]
                 })]
               })]
             }), /* @__PURE__ */ jsxs("div", {
@@ -5492,6 +9470,20 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                 className: `input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`,
                 required: roomType === "other"
               })]
+            }), (actionData == null ? void 0 : actionData.error) && /* @__PURE__ */ jsxs("div", {
+              className: "rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700 flex items-center gap-2",
+              children: [/* @__PURE__ */ jsx("svg", {
+                className: "h-5 w-5 text-red-500 flex-shrink-0",
+                fill: "none",
+                viewBox: "0 0 24 24",
+                stroke: "currentColor",
+                children: /* @__PURE__ */ jsx("path", {
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                  strokeWidth: 2,
+                  d: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                })
+              }), actionData.error]
             }), /* @__PURE__ */ jsx("div", {
               className: "flex gap-4 pt-4",
               children: /* @__PURE__ */ jsx("button", {
@@ -5557,14 +9549,14 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
     })]
   });
 });
-const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$8,
   default: listings_new,
   loader: loader$d,
-  meta: meta$b
+  meta: meta$c
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$a = () => {
+const meta$b = () => {
   return [{
     title: "My Listings - Runoot"
   }];
@@ -5612,88 +9604,87 @@ const myListings = UNSAFE_withComponentProps(function MyListings() {
     endedListings
   } = useLoaderData();
   const totalListings = activeListings.length + endedListings.length;
-  return /* @__PURE__ */ jsxs("div", {
-    className: "min-h-full bg-gray-50",
-    children: [/* @__PURE__ */ jsx(Header, {
-      user
-    }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8",
-      children: [/* @__PURE__ */ jsxs("div", {
-        className: "mb-8 flex items-center justify-between",
+  return /* @__PURE__ */ jsx("div", {
+    className: "min-h-full bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed",
+    children: /* @__PURE__ */ jsxs("div", {
+      className: "min-h-full bg-gray-50/85",
+      children: [/* @__PURE__ */ jsx(Header, {
+        user
+      }), /* @__PURE__ */ jsxs("main", {
+        className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
         children: [/* @__PURE__ */ jsxs("div", {
-          children: [/* @__PURE__ */ jsx("h1", {
-            className: "font-display text-3xl font-bold text-gray-900",
-            children: "My Listings"
-          }), /* @__PURE__ */ jsx("p", {
-            className: "mt-2 text-gray-600",
-            children: totalListings === 0 ? "You haven't created any listings yet" : `You have ${totalListings} listing${totalListings > 1 ? "s" : ""}`
-          })]
-        }), /* @__PURE__ */ jsx(Link, {
-          to: "/listings/new",
-          className: "btn-primary",
-          children: "+ New Listing"
-        })]
-      }), totalListings > 0 ? /* @__PURE__ */ jsxs("div", {
-        className: "space-y-10",
-        children: [activeListings.length > 0 && /* @__PURE__ */ jsxs("section", {
-          children: [/* @__PURE__ */ jsxs("h2", {
-            className: "font-display text-xl font-semibold text-gray-900 mb-4",
+          className: "mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6 flex items-center justify-between",
+          children: [/* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("h1", {
+              className: "font-display text-3xl font-bold text-gray-900",
+              children: "My Listings"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-2 text-gray-600",
+              children: totalListings === 0 ? "You haven't created any listings yet" : `You have ${totalListings} listing${totalListings > 1 ? "s" : ""}`
+            })]
+          }), activeListings.length > 0 && /* @__PURE__ */ jsxs("span", {
+            className: "font-display text-xl font-semibold text-gray-900",
             children: ["Active (", activeListings.length, ")"]
-          }), /* @__PURE__ */ jsx("div", {
-            className: "grid gap-6 sm:grid-cols-2 lg:grid-cols-3",
-            children: activeListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
-              listing,
-              isUserLoggedIn: true
-            }, listing.id))
           })]
-        }), endedListings.length > 0 && /* @__PURE__ */ jsxs("section", {
-          children: [/* @__PURE__ */ jsxs("h2", {
-            className: "font-display text-xl font-semibold text-gray-500 mb-4",
-            children: ["Ended (", endedListings.length, ")"]
-          }), /* @__PURE__ */ jsx("div", {
-            className: "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 opacity-60",
-            children: endedListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
-              listing,
-              isUserLoggedIn: true
-            }, listing.id))
-          })]
-        })]
-      }) : /* @__PURE__ */ jsxs("div", {
-        className: "card p-12 text-center",
-        children: [/* @__PURE__ */ jsx("div", {
-          className: "mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4",
-          children: /* @__PURE__ */ jsx("svg", {
-            className: "h-8 w-8 text-gray-400",
-            fill: "none",
-            viewBox: "0 0 24 24",
-            stroke: "currentColor",
-            children: /* @__PURE__ */ jsx("path", {
-              strokeLinecap: "round",
-              strokeLinejoin: "round",
-              strokeWidth: 2,
-              d: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+        }), totalListings > 0 ? /* @__PURE__ */ jsxs("div", {
+          className: "space-y-10",
+          children: [activeListings.length > 0 && /* @__PURE__ */ jsx("section", {
+            children: /* @__PURE__ */ jsx("div", {
+              className: "grid gap-6 sm:grid-cols-2 lg:grid-cols-3",
+              children: activeListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
+                listing,
+                isUserLoggedIn: true
+              }, listing.id))
             })
-          })
-        }), /* @__PURE__ */ jsx("h3", {
-          className: "text-lg font-semibold text-gray-900 mb-2",
-          children: "No listings yet"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "text-gray-500 mb-6",
-          children: "Create your first listing to start exchanging rooms or bibs with other runners."
-        }), /* @__PURE__ */ jsx(Link, {
-          to: "/listings/new",
-          className: "btn-primary",
-          children: "Create your first listing"
+          }), endedListings.length > 0 && /* @__PURE__ */ jsxs("section", {
+            children: [/* @__PURE__ */ jsxs("h2", {
+              className: "font-display text-xl font-semibold text-gray-500 mb-4",
+              children: ["Ended (", endedListings.length, ")"]
+            }), /* @__PURE__ */ jsx("div", {
+              className: "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 opacity-60",
+              children: endedListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
+                listing,
+                isUserLoggedIn: true
+              }, listing.id))
+            })]
+          })]
+        }) : /* @__PURE__ */ jsxs("div", {
+          className: "card p-12 text-center",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "h-8 w-8 text-gray-400",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              })
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-semibold text-gray-900 mb-2",
+            children: "No listings yet"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-500 mb-6",
+            children: "Create your first listing to start exchanging rooms or bibs with other runners."
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/listings/new",
+            className: "btn-primary rounded-full",
+            children: "Create your first listing"
+          })]
         })]
       })]
-    })]
+    })
   });
 });
-const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: myListings,
   loader: loader$c,
-  meta: meta$a
+  meta: meta$b
 }, Symbol.toStringTag, { value: "Module" }));
 async function loader$b({
   request
@@ -5724,7 +9715,7 @@ async function loader$b({
     unreadCount
   });
 }
-const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route18 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   loader: loader$b
 }, Symbol.toStringTag, { value: "Module" }));
@@ -5813,11 +9804,11 @@ async function action$7({
     status: 400
   });
 }
-const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$7
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$9 = () => {
+const meta$a = () => {
   return [{
     title: "Dashboard - Runoot"
   }];
@@ -5826,11 +9817,14 @@ async function loader$a({
   request
 }) {
   const user = await requireUser(request);
+  if (user.user_type !== "tour_operator") {
+    return redirect("/listings");
+  }
   const {
     data: listings
   } = await supabaseAdmin.from("listings").select(`
       *,
-      event:events(id, name, country, event_date),
+      event:events(id, name, slug, country, event_date),
       author:profiles(id, full_name, company_name, user_type, is_verified)
     `).eq("author_id", user.id).order("created_at", {
     ascending: false
@@ -5875,77 +9869,167 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
   } = useLoaderData();
   const activeListings = listings.filter((l) => l.status === "active");
   const soldListings = listings.filter((l) => l.status === "sold");
-  return /* @__PURE__ */ jsxs("div", {
-    className: "min-h-full bg-gray-50",
-    children: [/* @__PURE__ */ jsx(Header, {
-      user
-    }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8",
-      children: [/* @__PURE__ */ jsxs("div", {
-        className: "mb-8",
-        children: [/* @__PURE__ */ jsxs("h1", {
-          className: "font-display text-3xl font-bold text-gray-900",
-          children: ["Welcome back, ", user.full_name || user.email.split("@")[0]]
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-2 text-gray-600",
-          children: "Manage your listings and conversations"
-        })]
-      }), /* @__PURE__ */ jsxs("div", {
-        className: "grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8",
+  return /* @__PURE__ */ jsx("div", {
+    className: "min-h-screen bg-gray-100 md:bg-[url('/savedBG.png')] md:bg-cover md:bg-center md:bg-fixed",
+    children: /* @__PURE__ */ jsxs("div", {
+      className: "min-h-screen md:bg-gray-50/85",
+      children: [/* @__PURE__ */ jsx(Header, {
+        user
+      }), /* @__PURE__ */ jsxs("main", {
+        className: "md:hidden px-4 pt-20 pb-20",
         children: [/* @__PURE__ */ jsxs("div", {
-          className: "card p-6",
-          children: [/* @__PURE__ */ jsx("p", {
-            className: "text-sm text-gray-500",
-            children: "Active Listings"
-          }), /* @__PURE__ */ jsx("p", {
-            className: "mt-2 text-3xl font-bold text-gray-900",
-            children: activeListings.length
+          className: "flex items-center justify-between mb-5",
+          children: [/* @__PURE__ */ jsx("h1", {
+            className: "font-display text-lg font-bold text-gray-900",
+            children: "Dashboard"
+          }), /* @__PURE__ */ jsxs(Link, {
+            to: "/listings/new",
+            className: "bg-accent-500 text-white rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium shadow-sm active:bg-accent-600",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "w-3.5 h-3.5",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M12 4v16m8-8H4"
+              })
+            }), "New Listing"]
           })]
         }), /* @__PURE__ */ jsxs("div", {
-          className: "card p-6",
-          children: [/* @__PURE__ */ jsx("p", {
-            className: "text-sm text-gray-500",
-            children: "Sold"
-          }), /* @__PURE__ */ jsx("p", {
-            className: "mt-2 text-3xl font-bold text-gray-900",
-            children: soldListings.length
+          className: "grid grid-cols-2 gap-3 mb-6",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "bg-white rounded-xl p-4 shadow-sm border border-gray-100",
+            children: /* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-3",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center",
+                children: /* @__PURE__ */ jsx("svg", {
+                  className: "w-5 h-5 text-brand-600",
+                  fill: "none",
+                  stroke: "currentColor",
+                  viewBox: "0 0 24 24",
+                  children: /* @__PURE__ */ jsx("path", {
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    strokeWidth: 2,
+                    d: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                  })
+                })
+              }), /* @__PURE__ */ jsxs("div", {
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "text-2xl font-bold text-gray-900",
+                  children: activeListings.length
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "text-xs text-gray-500",
+                  children: "Active"
+                })]
+              })]
+            })
+          }), /* @__PURE__ */ jsx("div", {
+            className: "bg-white rounded-xl p-4 shadow-sm border border-gray-100",
+            children: /* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-3",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "w-10 h-10 rounded-full bg-success-100 flex items-center justify-center",
+                children: /* @__PURE__ */ jsx("svg", {
+                  className: "w-5 h-5 text-success-600",
+                  fill: "none",
+                  stroke: "currentColor",
+                  viewBox: "0 0 24 24",
+                  children: /* @__PURE__ */ jsx("path", {
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    strokeWidth: 2,
+                    d: "M5 13l4 4L19 7"
+                  })
+                })
+              }), /* @__PURE__ */ jsxs("div", {
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "text-2xl font-bold text-gray-900",
+                  children: soldListings.length
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "text-xs text-gray-500",
+                  children: "Sold"
+                })]
+              })]
+            })
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/messages",
+            className: "bg-white rounded-xl p-4 shadow-sm border border-gray-100 active:bg-gray-50",
+            children: /* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-3",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center",
+                children: /* @__PURE__ */ jsx("svg", {
+                  className: "w-5 h-5 text-blue-600",
+                  fill: "none",
+                  stroke: "currentColor",
+                  viewBox: "0 0 24 24",
+                  children: /* @__PURE__ */ jsx("path", {
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    strokeWidth: 2,
+                    d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  })
+                })
+              }), /* @__PURE__ */ jsxs("div", {
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "text-2xl font-bold text-gray-900",
+                  children: conversations.length
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "text-xs text-gray-500",
+                  children: "Chats"
+                })]
+              })]
+            })
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/messages",
+            className: "bg-white rounded-xl p-4 shadow-sm border border-gray-100 active:bg-gray-50",
+            children: /* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-3",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: `w-10 h-10 rounded-full flex items-center justify-center ${unreadCount > 0 ? "bg-accent-100" : "bg-gray-100"}`,
+                children: /* @__PURE__ */ jsx("svg", {
+                  className: `w-5 h-5 ${unreadCount > 0 ? "text-accent-600" : "text-gray-400"}`,
+                  fill: "none",
+                  stroke: "currentColor",
+                  viewBox: "0 0 24 24",
+                  children: /* @__PURE__ */ jsx("path", {
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    strokeWidth: 2,
+                    d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  })
+                })
+              }), /* @__PURE__ */ jsxs("div", {
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: `text-2xl font-bold ${unreadCount > 0 ? "text-accent-600" : "text-gray-900"}`,
+                  children: unreadCount
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "text-xs text-gray-500",
+                  children: "Unread"
+                })]
+              })]
+            })
           })]
         }), /* @__PURE__ */ jsxs("div", {
-          className: "card p-6",
-          children: [/* @__PURE__ */ jsx("p", {
-            className: "text-sm text-gray-500",
-            children: "Conversations"
-          }), /* @__PURE__ */ jsx("p", {
-            className: "mt-2 text-3xl font-bold text-gray-900",
-            children: conversations.length
-          })]
-        }), /* @__PURE__ */ jsxs("div", {
-          className: "card p-6",
-          children: [/* @__PURE__ */ jsx("p", {
-            className: "text-sm text-gray-500",
-            children: "Unread Messages"
-          }), /* @__PURE__ */ jsx("p", {
-            className: "mt-2 text-3xl font-bold text-brand-600",
-            children: unreadCount
-          })]
-        })]
-      }), /* @__PURE__ */ jsxs("div", {
-        className: "grid gap-8 lg:grid-cols-2",
-        children: [/* @__PURE__ */ jsxs("div", {
-          className: "card",
+          className: "mb-6",
           children: [/* @__PURE__ */ jsxs("div", {
-            className: "p-6 border-b border-gray-100 flex items-center justify-between",
+            className: "flex items-center justify-between mb-3",
             children: [/* @__PURE__ */ jsx("h2", {
-              className: "font-display text-lg font-semibold text-gray-900",
+              className: "font-display font-semibold text-gray-900",
               children: "My Listings"
-            }), /* @__PURE__ */ jsx(Link, {
-              to: "/listings/new",
-              className: "text-sm font-medium text-brand-600 hover:text-brand-700",
-              children: "+ New Listing"
+            }), listings.length > 3 && /* @__PURE__ */ jsx(Link, {
+              to: "/my-listings",
+              className: "text-sm text-brand-600 font-medium",
+              children: "See all"
             })]
           }), listings.length > 0 ? /* @__PURE__ */ jsx("div", {
-            className: "p-4 space-y-3",
-            children: listings.slice(0, 5).map((listing) => /* @__PURE__ */ jsxs("div", {
+            className: "space-y-3",
+            children: listings.slice(0, 3).map((listing) => /* @__PURE__ */ jsxs("div", {
               className: "relative",
               children: [/* @__PURE__ */ jsx(ListingCardCompact, {
                 listing,
@@ -5953,129 +10037,280 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
               }), /* @__PURE__ */ jsx("div", {
                 className: "absolute top-3 right-3",
                 children: /* @__PURE__ */ jsx("span", {
-                  className: `px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${statusColors[listing.status]}`,
+                  className: `px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[listing.status]}`,
                   children: listing.status
                 })
               })]
             }, listing.id))
           }) : /* @__PURE__ */ jsxs("div", {
-            className: "p-8 text-center",
+            className: "bg-white rounded-xl p-6 text-center border border-gray-100",
             children: [/* @__PURE__ */ jsx("p", {
-              className: "text-gray-500",
+              className: "text-gray-500 text-sm",
               children: "No listings yet"
             }), /* @__PURE__ */ jsx(Link, {
               to: "/listings/new",
-              className: "mt-4 inline-block text-brand-600 hover:text-brand-700 font-medium",
+              className: "text-brand-600 text-sm font-medium mt-2 inline-block",
               children: "Create your first listing →"
             })]
-          }), listings.length > 5 && /* @__PURE__ */ jsx("div", {
-            className: "p-4 border-t border-gray-100",
-            children: /* @__PURE__ */ jsxs(Link, {
-              to: "/dashboard/listings",
-              className: "text-sm text-gray-600 hover:text-gray-900",
-              children: ["View all ", listings.length, " listings →"]
-            })
           })]
         }), /* @__PURE__ */ jsxs("div", {
-          className: "card",
           children: [/* @__PURE__ */ jsxs("div", {
-            className: "p-6 border-b border-gray-100 flex items-center justify-between",
+            className: "flex items-center justify-between mb-3",
             children: [/* @__PURE__ */ jsx("h2", {
-              className: "font-display text-lg font-semibold text-gray-900",
+              className: "font-display font-semibold text-gray-900",
               children: "Recent Messages"
-            }), /* @__PURE__ */ jsx(Link, {
+            }), conversations.length > 0 && /* @__PURE__ */ jsx(Link, {
               to: "/messages",
-              className: "text-sm font-medium text-brand-600 hover:text-brand-700",
-              children: "View All"
+              className: "text-sm text-brand-600 font-medium",
+              children: "See all"
             })]
           }), conversations.length > 0 ? /* @__PURE__ */ jsx("div", {
-            className: "divide-y divide-gray-100",
-            children: conversations.map((conv) => {
+            className: "bg-white rounded-xl overflow-hidden border border-gray-100",
+            children: conversations.slice(0, 3).map((conv, index) => {
               var _a2, _b, _c;
               const lastMessage = (_a2 = conv.messages) == null ? void 0 : _a2[conv.messages.length - 1];
               const hasUnread = (_b = conv.messages) == null ? void 0 : _b.some((m) => m.sender_id !== user.id && !m.read_at);
-              return /* @__PURE__ */ jsx(Link, {
+              return /* @__PURE__ */ jsxs(Link, {
                 to: `/messages/${conv.id}`,
-                className: "block p-4 hover:bg-gray-50 transition-colors",
-                children: /* @__PURE__ */ jsxs("div", {
-                  className: "flex items-center justify-between",
-                  children: [/* @__PURE__ */ jsxs("div", {
-                    className: "min-w-0 flex-1",
-                    children: [/* @__PURE__ */ jsx("p", {
-                      className: `font-medium truncate ${hasUnread ? "text-gray-900" : "text-gray-600"}`,
-                      children: ((_c = conv.listing) == null ? void 0 : _c.title) || "Conversation"
-                    }), lastMessage && /* @__PURE__ */ jsx("p", {
-                      className: "text-sm text-gray-500 mt-1 truncate",
-                      children: lastMessage.content
-                    })]
-                  }), hasUnread && /* @__PURE__ */ jsx("span", {
-                    className: "ml-4 h-2.5 w-2.5 rounded-full bg-brand-500"
+                className: `flex items-center gap-3 p-4 active:bg-gray-50 ${index > 0 ? "border-t border-gray-100" : ""}`,
+                children: [/* @__PURE__ */ jsx("div", {
+                  className: `w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${hasUnread ? "bg-brand-100" : "bg-gray-100"}`,
+                  children: /* @__PURE__ */ jsx("svg", {
+                    className: `w-5 h-5 ${hasUnread ? "text-brand-600" : "text-gray-400"}`,
+                    fill: "none",
+                    stroke: "currentColor",
+                    viewBox: "0 0 24 24",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    })
+                  })
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex-1 min-w-0",
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: `text-sm truncate ${hasUnread ? "font-semibold text-gray-900" : "text-gray-700"}`,
+                    children: ((_c = conv.listing) == null ? void 0 : _c.title) || "Conversation"
+                  }), lastMessage && /* @__PURE__ */ jsx("p", {
+                    className: "text-xs text-gray-500 truncate mt-0.5",
+                    children: lastMessage.content
                   })]
-                })
+                }), hasUnread && /* @__PURE__ */ jsx("span", {
+                  className: "w-2.5 h-2.5 rounded-full bg-brand-500 flex-shrink-0"
+                })]
               }, conv.id);
             })
           }) : /* @__PURE__ */ jsxs("div", {
-            className: "p-8 text-center",
+            className: "bg-white rounded-xl p-6 text-center border border-gray-100",
             children: [/* @__PURE__ */ jsx("p", {
-              className: "text-gray-500",
+              className: "text-gray-500 text-sm",
               children: "No conversations yet"
-            }), /* @__PURE__ */ jsx("p", {
-              className: "text-sm text-gray-400 mt-1",
-              children: "Start by browsing listings"
+            }), /* @__PURE__ */ jsx(Link, {
+              to: "/listings",
+              className: "text-brand-600 text-sm font-medium mt-2 inline-block",
+              children: "Browse listings →"
             })]
           })]
         })]
-      }), /* @__PURE__ */ jsx("div", {
-        className: "mt-8 card p-6",
-        children: /* @__PURE__ */ jsxs("div", {
-          className: "flex items-center justify-between",
+      }), /* @__PURE__ */ jsxs("main", {
+        className: "hidden md:block mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6",
+          children: [/* @__PURE__ */ jsxs("h1", {
+            className: "font-display text-3xl font-bold text-gray-900",
+            children: ["Welcome back, ", user.full_name || user.email.split("@")[0]]
+          }), /* @__PURE__ */ jsx("p", {
+            className: "mt-2 text-gray-600",
+            children: "Manage your listings and conversations"
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          className: "grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8",
           children: [/* @__PURE__ */ jsxs("div", {
-            className: "flex items-center gap-4",
-            children: [/* @__PURE__ */ jsx("div", {
-              className: "flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-bold text-2xl",
-              children: ((_a = user.full_name) == null ? void 0 : _a.charAt(0)) || user.email.charAt(0).toUpperCase()
-            }), /* @__PURE__ */ jsxs("div", {
+            className: "card p-6",
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "text-sm text-gray-500",
+              children: "Active Listings"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-2 text-3xl font-bold text-gray-900",
+              children: activeListings.length
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "card p-6",
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "text-sm text-gray-500",
+              children: "Sold"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-2 text-3xl font-bold text-gray-900",
+              children: soldListings.length
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "card p-6",
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "text-sm text-gray-500",
+              children: "Conversations"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-2 text-3xl font-bold text-gray-900",
+              children: conversations.length
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "card p-6",
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "text-sm text-gray-500",
+              children: "Unread Messages"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-2 text-3xl font-bold text-brand-600",
+              children: unreadCount
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          className: "grid gap-8 lg:grid-cols-2",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "card",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "p-6 border-b border-gray-100 flex items-center justify-between",
+              children: [/* @__PURE__ */ jsx("h2", {
+                className: "font-display text-lg font-semibold text-gray-900",
+                children: "My Listings"
+              }), /* @__PURE__ */ jsx(Link, {
+                to: "/listings/new",
+                className: "text-sm font-medium text-brand-600 hover:text-brand-700",
+                children: "+ New Listing"
+              })]
+            }), listings.length > 0 ? /* @__PURE__ */ jsx("div", {
+              className: "p-4 space-y-3",
+              children: listings.slice(0, 5).map((listing) => /* @__PURE__ */ jsxs("div", {
+                className: "relative",
+                children: [/* @__PURE__ */ jsx(ListingCardCompact, {
+                  listing,
+                  isUserLoggedIn: true
+                }), /* @__PURE__ */ jsx("div", {
+                  className: "absolute top-3 right-3",
+                  children: /* @__PURE__ */ jsx("span", {
+                    className: `px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${statusColors[listing.status]}`,
+                    children: listing.status
+                  })
+                })]
+              }, listing.id))
+            }) : /* @__PURE__ */ jsxs("div", {
+              className: "p-8 text-center",
               children: [/* @__PURE__ */ jsx("p", {
-                className: "font-semibold text-gray-900 text-lg",
-                children: user.full_name || user.email
-              }), /* @__PURE__ */ jsx("p", {
                 className: "text-gray-500",
-                children: user.user_type === "tour_operator" ? user.company_name || "Tour Operator" : "Private Runner"
-              }), /* @__PURE__ */ jsx("div", {
-                className: "flex items-center gap-2 mt-1",
-                children: user.is_verified ? /* @__PURE__ */ jsxs("span", {
-                  className: "inline-flex items-center gap-1 text-sm text-brand-600",
-                  children: [/* @__PURE__ */ jsx("svg", {
-                    className: "h-4 w-4",
-                    fill: "currentColor",
-                    viewBox: "0 0 20 20",
-                    children: /* @__PURE__ */ jsx("path", {
-                      fillRule: "evenodd",
-                      d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
-                      clipRule: "evenodd"
-                    })
-                  }), "Verified"]
-                }) : /* @__PURE__ */ jsx("span", {
-                  className: "text-sm text-gray-400",
-                  children: "Not verified"
-                })
+                children: "No listings yet"
+              }), /* @__PURE__ */ jsx(Link, {
+                to: "/listings/new",
+                className: "mt-4 inline-block text-brand-600 hover:text-brand-700 font-medium",
+                children: "Create your first listing →"
+              })]
+            }), listings.length > 5 && /* @__PURE__ */ jsx("div", {
+              className: "p-4 border-t border-gray-100",
+              children: /* @__PURE__ */ jsxs(Link, {
+                to: "/my-listings",
+                className: "text-sm text-gray-600 hover:text-gray-900",
+                children: ["View all ", listings.length, " listings →"]
+              })
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "card",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "p-6 border-b border-gray-100 flex items-center justify-between",
+              children: [/* @__PURE__ */ jsx("h2", {
+                className: "font-display text-lg font-semibold text-gray-900",
+                children: "Recent Messages"
+              }), /* @__PURE__ */ jsx(Link, {
+                to: "/messages",
+                className: "text-sm font-medium text-brand-600 hover:text-brand-700",
+                children: "View All"
+              })]
+            }), conversations.length > 0 ? /* @__PURE__ */ jsx("div", {
+              className: "divide-y divide-gray-100",
+              children: conversations.map((conv) => {
+                var _a2, _b, _c;
+                const lastMessage = (_a2 = conv.messages) == null ? void 0 : _a2[conv.messages.length - 1];
+                const hasUnread = (_b = conv.messages) == null ? void 0 : _b.some((m) => m.sender_id !== user.id && !m.read_at);
+                return /* @__PURE__ */ jsx(Link, {
+                  to: `/messages/${conv.id}`,
+                  className: "block p-4 hover:bg-gray-50 transition-colors",
+                  children: /* @__PURE__ */ jsxs("div", {
+                    className: "flex items-center justify-between",
+                    children: [/* @__PURE__ */ jsxs("div", {
+                      className: "min-w-0 flex-1",
+                      children: [/* @__PURE__ */ jsx("p", {
+                        className: `font-medium truncate ${hasUnread ? "text-gray-900" : "text-gray-600"}`,
+                        children: ((_c = conv.listing) == null ? void 0 : _c.title) || "Conversation"
+                      }), lastMessage && /* @__PURE__ */ jsx("p", {
+                        className: "text-sm text-gray-500 mt-1 truncate",
+                        children: lastMessage.content
+                      })]
+                    }), hasUnread && /* @__PURE__ */ jsx("span", {
+                      className: "ml-4 h-2.5 w-2.5 rounded-full bg-brand-500"
+                    })]
+                  })
+                }, conv.id);
+              })
+            }) : /* @__PURE__ */ jsxs("div", {
+              className: "p-8 text-center",
+              children: [/* @__PURE__ */ jsx("p", {
+                className: "text-gray-500",
+                children: "No conversations yet"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-sm text-gray-400 mt-1",
+                children: "Start by browsing listings"
               })]
             })]
-          }), /* @__PURE__ */ jsx(Link, {
-            to: "/profile",
-            className: "btn-secondary",
-            children: "Edit Profile"
           })]
-        })
+        }), /* @__PURE__ */ jsx("div", {
+          className: "mt-8 card p-6",
+          children: /* @__PURE__ */ jsxs("div", {
+            className: "flex items-center justify-between",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-4",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-bold text-2xl",
+                children: ((_a = user.full_name) == null ? void 0 : _a.charAt(0)) || user.email.charAt(0).toUpperCase()
+              }), /* @__PURE__ */ jsxs("div", {
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "font-semibold text-gray-900 text-lg",
+                  children: user.full_name || user.email
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "text-gray-500",
+                  children: user.user_type === "tour_operator" ? user.company_name || "Tour Operator" : "Private Runner"
+                }), /* @__PURE__ */ jsx("div", {
+                  className: "flex items-center gap-2 mt-1",
+                  children: user.is_verified ? /* @__PURE__ */ jsxs("span", {
+                    className: "inline-flex items-center gap-1 text-sm text-brand-600",
+                    children: [/* @__PURE__ */ jsx("svg", {
+                      className: "h-4 w-4",
+                      fill: "currentColor",
+                      viewBox: "0 0 20 20",
+                      children: /* @__PURE__ */ jsx("path", {
+                        fillRule: "evenodd",
+                        d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                        clipRule: "evenodd"
+                      })
+                    }), "Verified"]
+                  }) : /* @__PURE__ */ jsx("span", {
+                    className: "text-sm text-gray-400",
+                    children: "Not verified"
+                  })
+                })]
+              })]
+            }), /* @__PURE__ */ jsx(Link, {
+              to: "/profile",
+              className: "btn-secondary",
+              children: "Edit Profile"
+            })]
+          })
+        })]
       })]
-    })]
+    })
   });
 });
-const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route20 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: dashboard,
   loader: loader$a,
-  meta: meta$9
+  meta: meta$a
 }, Symbol.toStringTag, { value: "Module" }));
 const POLL_INTERVAL$1 = 5e3;
 function useRealtimeConversations({
@@ -6164,7 +10399,9 @@ async function loader$9({
     if (conv.activated) return true;
     return ((_a = conv.listing) == null ? void 0 : _a.author_id) === userId;
   });
-  if (url.pathname === "/messages" && conversations && conversations.length > 0) {
+  const userAgent = request.headers.get("user-agent") || "";
+  const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  if (url.pathname === "/messages" && conversations && conversations.length > 0 && !isMobile) {
     return redirect(`/messages/${conversations[0].id}`);
   }
   return {
@@ -6199,121 +10436,124 @@ const messages = UNSAFE_withComponentProps(function MessagesLayout() {
     initialConversations
   });
   return /* @__PURE__ */ jsxs("div", {
-    className: "h-screen flex flex-col bg-gray-50",
+    className: "messages-page h-[calc(100dvh-4rem)] md:h-screen flex flex-col bg-gray-50",
     children: [/* @__PURE__ */ jsx(Header, {
       user
     }), /* @__PURE__ */ jsx("div", {
-      className: "flex-1 overflow-hidden bg-cover bg-center bg-no-repeat",
+      className: "flex-1 overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed",
       style: {
         backgroundImage: "url('/messages.webp')"
       },
       children: /* @__PURE__ */ jsx("div", {
-        className: "mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 py-16",
-        children: /* @__PURE__ */ jsxs("div", {
-          className: "flex h-full rounded-lg shadow-xl overflow-hidden",
-          children: [/* @__PURE__ */ jsxs("aside", {
-            className: `w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-sm rounded-l-lg flex flex-col overflow-hidden border-r border-gray-200 ${activeConversationId ? "hidden md:flex" : "flex"}`,
-            children: [/* @__PURE__ */ jsx("div", {
-              className: "p-4 border-b border-gray-200 flex items-center h-[72px]",
-              children: /* @__PURE__ */ jsx("h1", {
-                className: "font-display text-xl font-bold text-gray-900",
-                children: "Messages"
-              })
-            }), /* @__PURE__ */ jsx("div", {
-              className: "flex-1 overflow-y-auto",
-              children: conversations.length > 0 ? /* @__PURE__ */ jsx("div", {
-                className: "divide-y divide-gray-100",
-                children: conversations.map((conv) => {
-                  var _a, _b, _c, _d;
-                  const otherUser = conv.participant_1 === user.id ? conv.participant2 : conv.participant1;
-                  const sortedMessages = [...conv.messages || []].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                  const lastMessage = sortedMessages[0];
-                  const unreadCount = (_a = conv.messages) == null ? void 0 : _a.filter((m) => m.sender_id !== user.id && !m.read_at).length;
-                  const isActive = conv.id === activeConversationId;
-                  return /* @__PURE__ */ jsxs(Link, {
-                    to: `/messages/${conv.id}`,
-                    className: `flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors ${isActive ? "bg-gray-100" : ""}`,
-                    children: [/* @__PURE__ */ jsx("div", {
-                      className: `flex h-12 w-12 items-center justify-center rounded-full font-semibold flex-shrink-0 ${isActive ? "bg-brand-500 text-white" : getAvatarClasses((otherUser == null ? void 0 : otherUser.id) || "", otherUser == null ? void 0 : otherUser.user_type)}`,
-                      children: ((_b = otherUser == null ? void 0 : otherUser.company_name) == null ? void 0 : _b.charAt(0)) || ((_c = otherUser == null ? void 0 : otherUser.full_name) == null ? void 0 : _c.charAt(0)) || "?"
-                    }), /* @__PURE__ */ jsxs("div", {
-                      className: "min-w-0 flex-1",
-                      children: [/* @__PURE__ */ jsxs("div", {
-                        className: "flex items-center justify-between gap-2",
-                        children: [/* @__PURE__ */ jsx("p", {
-                          className: `font-medium truncate text-sm ${unreadCount > 0 ? "text-gray-900" : "text-gray-600"}`,
-                          children: (otherUser == null ? void 0 : otherUser.company_name) || (otherUser == null ? void 0 : otherUser.full_name) || "User"
-                        }), lastMessage && /* @__PURE__ */ jsx("span", {
-                          className: "text-xs text-gray-400 flex-shrink-0",
-                          children: formatTimeAgo(lastMessage.created_at)
-                        })]
-                      }), /* @__PURE__ */ jsx("p", {
-                        className: "text-xs text-gray-500 truncate",
-                        children: ((_d = conv.listing) == null ? void 0 : _d.title) || "Listing"
-                      }), lastMessage && /* @__PURE__ */ jsx("p", {
-                        className: `text-sm truncate mt-0.5 ${unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"}`,
-                        children: lastMessage.sender_id === user.id ? /* @__PURE__ */ jsxs(Fragment, {
-                          children: [/* @__PURE__ */ jsx("span", {
-                            className: "text-gray-400",
-                            children: "You: "
-                          }), lastMessage.message_type === "heart" ? "Listing saved" : lastMessage.content]
-                        }) : lastMessage.message_type === "heart" ? "Listing saved" : lastMessage.translated_content || "New message"
-                      })]
-                    }), unreadCount > 0 && !isActive && /* @__PURE__ */ jsx("div", {
-                      className: "h-3 w-3 rounded-full bg-red-500 flex-shrink-0"
-                    })]
-                  }, conv.id);
+        className: "h-full bg-gray-50/70",
+        children: /* @__PURE__ */ jsx("div", {
+          className: "mx-auto max-w-7xl h-full px-0 md:px-4 lg:px-8 py-0 md:py-8",
+          children: /* @__PURE__ */ jsxs("div", {
+            className: "flex h-full md:rounded-lg shadow-xl overflow-hidden",
+            children: [/* @__PURE__ */ jsxs("aside", {
+              className: `w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-sm md:rounded-l-lg flex flex-col overflow-hidden border-r border-gray-200 ${activeConversationId ? "hidden md:flex" : "flex"}`,
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "p-4 border-b border-gray-200 flex items-center h-[72px]",
+                children: /* @__PURE__ */ jsx("h1", {
+                  className: "font-display text-xl font-bold text-gray-900",
+                  children: "Messages"
                 })
-              }) : /* @__PURE__ */ jsxs("div", {
-                className: "p-8 text-center",
-                children: [/* @__PURE__ */ jsx("svg", {
-                  className: "mx-auto h-12 w-12 text-gray-300",
-                  fill: "none",
-                  viewBox: "0 0 24 24",
-                  stroke: "currentColor",
-                  children: /* @__PURE__ */ jsx("path", {
-                    strokeLinecap: "round",
-                    strokeLinejoin: "round",
-                    strokeWidth: 1.5,
-                    d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              }), /* @__PURE__ */ jsx("div", {
+                className: "flex-1 overflow-y-auto",
+                children: conversations.length > 0 ? /* @__PURE__ */ jsx("div", {
+                  className: "divide-y divide-gray-100",
+                  children: conversations.map((conv) => {
+                    var _a, _b, _c, _d;
+                    const otherUser = conv.participant_1 === user.id ? conv.participant2 : conv.participant1;
+                    const sortedMessages = [...conv.messages || []].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    const lastMessage = sortedMessages[0];
+                    const unreadCount = (_a = conv.messages) == null ? void 0 : _a.filter((m) => m.sender_id !== user.id && !m.read_at).length;
+                    const isActive = conv.id === activeConversationId;
+                    return /* @__PURE__ */ jsxs(Link, {
+                      to: `/messages/${conv.id}`,
+                      className: `flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors ${isActive ? "bg-gray-100" : ""}`,
+                      children: [/* @__PURE__ */ jsx("div", {
+                        className: `flex h-12 w-12 items-center justify-center rounded-full font-semibold flex-shrink-0 ${isActive ? "bg-brand-500 text-white" : getAvatarClasses((otherUser == null ? void 0 : otherUser.id) || "", otherUser == null ? void 0 : otherUser.user_type)}`,
+                        children: ((_b = otherUser == null ? void 0 : otherUser.company_name) == null ? void 0 : _b.charAt(0)) || ((_c = otherUser == null ? void 0 : otherUser.full_name) == null ? void 0 : _c.charAt(0)) || "?"
+                      }), /* @__PURE__ */ jsxs("div", {
+                        className: "min-w-0 flex-1",
+                        children: [/* @__PURE__ */ jsxs("div", {
+                          className: "flex items-center justify-between gap-2",
+                          children: [/* @__PURE__ */ jsx("p", {
+                            className: `font-medium truncate text-sm ${unreadCount > 0 ? "text-gray-900" : "text-gray-600"}`,
+                            children: (otherUser == null ? void 0 : otherUser.company_name) || (otherUser == null ? void 0 : otherUser.full_name) || "User"
+                          }), lastMessage && /* @__PURE__ */ jsx("span", {
+                            className: "text-xs text-gray-400 flex-shrink-0",
+                            children: formatTimeAgo(lastMessage.created_at)
+                          })]
+                        }), /* @__PURE__ */ jsx("p", {
+                          className: "text-xs text-gray-500 truncate",
+                          children: ((_d = conv.listing) == null ? void 0 : _d.title) || "Listing"
+                        }), lastMessage && /* @__PURE__ */ jsx("p", {
+                          className: `text-sm truncate mt-0.5 ${unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"}`,
+                          children: lastMessage.sender_id === user.id ? /* @__PURE__ */ jsxs(Fragment, {
+                            children: [/* @__PURE__ */ jsx("span", {
+                              className: "text-gray-400",
+                              children: "You: "
+                            }), lastMessage.message_type === "heart" ? "Listing saved" : lastMessage.content]
+                          }) : lastMessage.message_type === "heart" ? "Listing saved" : lastMessage.translated_content || "New message"
+                        })]
+                      }), unreadCount > 0 && !isActive && /* @__PURE__ */ jsx("div", {
+                        className: "h-3 w-3 rounded-full bg-red-500 flex-shrink-0"
+                      })]
+                    }, conv.id);
                   })
-                }), /* @__PURE__ */ jsx("p", {
-                  className: "mt-4 text-sm text-gray-500",
-                  children: "No messages yet"
-                }), /* @__PURE__ */ jsx(Link, {
-                  to: "/listings",
-                  className: "mt-4 btn-primary inline-block text-sm",
-                  children: "Browse Listings"
-                })]
+                }) : /* @__PURE__ */ jsxs("div", {
+                  className: "p-8 text-center",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "mx-auto h-12 w-12 text-gray-300",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 1.5,
+                      d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    })
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "mt-4 text-sm text-gray-500",
+                    children: "No messages yet"
+                  }), /* @__PURE__ */ jsx(Link, {
+                    to: "/listings",
+                    className: "mt-4 btn-primary inline-block text-sm",
+                    children: "Browse Listings"
+                  })]
+                })
+              })]
+            }), /* @__PURE__ */ jsx("main", {
+              className: `flex-1 flex flex-col min-w-0 overflow-hidden ${activeConversationId ? "flex" : "hidden md:flex"}`,
+              children: /* @__PURE__ */ jsx(Outlet, {
+                context: {
+                  user,
+                  conversations
+                }
               })
             })]
-          }), /* @__PURE__ */ jsx("main", {
-            className: `flex-1 flex flex-col ${activeConversationId ? "flex" : "hidden md:flex"}`,
-            children: /* @__PURE__ */ jsx(Outlet, {
-              context: {
-                user,
-                conversations
-              }
-            })
-          })]
+          })
         })
       })
     })]
   });
 });
-const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route21 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: messages,
   loader: loader$9
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$8 = () => {
+const meta$9 = () => {
   return [{
     title: "Messages - Runoot"
   }];
 };
 const messages__index = UNSAFE_withComponentProps(function MessagesIndex() {
   return /* @__PURE__ */ jsx("div", {
-    className: "flex-1 flex items-center justify-center bg-white/95 backdrop-blur-sm rounded-r-lg",
+    className: "hidden md:flex flex-1 items-center justify-center bg-white/95 backdrop-blur-sm rounded-r-lg",
     children: /* @__PURE__ */ jsxs("div", {
       className: "text-center p-8",
       children: [/* @__PURE__ */ jsx("svg", {
@@ -6337,10 +10577,10 @@ const messages__index = UNSAFE_withComponentProps(function MessagesIndex() {
     })
   });
 });
-const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route22 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: messages__index,
-  meta: meta$8
+  meta: meta$9
 }, Symbol.toStringTag, { value: "Module" }));
 const POLL_INTERVAL = 3e3;
 function playNotificationSound() {
@@ -6606,11 +10846,16 @@ function useTranslation({ userId, messages: messages2, enabled = true }) {
     getDisplayContent
   };
 }
-const meta$7 = () => {
+const meta$8 = () => {
   return [{
     title: "Conversation - Runoot"
   }];
 };
+function getEventSlug(event) {
+  if (!event) return "";
+  if (event.slug) return event.slug;
+  return event.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 async function loader$8({
   request,
   params
@@ -6626,7 +10871,7 @@ async function loader$8({
     error
   } = await supabaseAdmin.from("conversations").select(`
       *,
-      listing:listings(id, title, listing_type, status),
+      listing:listings(id, title, listing_type, status, event:events(id, name, slug)),
       participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified),
       participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified),
       messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
@@ -6770,7 +11015,7 @@ async function action$6({
   });
 }
 const messages_$id = UNSAFE_withComponentProps(function Conversation() {
-  var _a, _b, _c, _d;
+  var _a, _b, _c, _d, _e, _f, _g, _h;
   const {
     user,
     conversation,
@@ -6788,6 +11033,9 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
   const isSubmitting = navigation.state === "submitting";
   const userId = user.id;
   const otherUser = conversation.participant_1 === userId ? conversation.participant2 : conversation.participant1;
+  const eventSlug = getEventSlug((_a = conversation.listing) == null ? void 0 : _a.event);
+  const [logoFormat, setLogoFormat] = useState("png");
+  const logoPath = logoFormat ? `/logos/${eventSlug}.${logoFormat}` : null;
   const {
     messages: realtimeMessages,
     setMessages
@@ -6845,7 +11093,7 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
     e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
   };
   return /* @__PURE__ */ jsxs("div", {
-    className: "flex-1 flex flex-col bg-white/95 backdrop-blur-sm rounded-r-lg overflow-hidden",
+    className: "flex-1 flex flex-col bg-white/95 backdrop-blur-sm md:rounded-r-lg overflow-hidden",
     children: [/* @__PURE__ */ jsxs("div", {
       className: "flex items-center gap-4 p-4 border-b border-gray-200 h-[72px]",
       children: [/* @__PURE__ */ jsx(Link, {
@@ -6864,8 +11112,20 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
           })
         })
       }), /* @__PURE__ */ jsx("div", {
-        className: `flex h-10 w-10 items-center justify-center rounded-full font-semibold flex-shrink-0 ${getAvatarClasses((otherUser == null ? void 0 : otherUser.id) || "", otherUser == null ? void 0 : otherUser.user_type)}`,
-        children: ((_a = otherUser == null ? void 0 : otherUser.company_name) == null ? void 0 : _a.charAt(0)) || ((_b = otherUser == null ? void 0 : otherUser.full_name) == null ? void 0 : _b.charAt(0)) || "?"
+        className: "flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center",
+        children: logoPath ? /* @__PURE__ */ jsx("img", {
+          src: logoPath,
+          alt: `${((_c = (_b = conversation.listing) == null ? void 0 : _b.event) == null ? void 0 : _c.name) || "Event"} logo`,
+          className: "w-full h-full object-contain p-0.5",
+          onError: () => {
+            if (logoFormat === "png") setLogoFormat("jpg");
+            else if (logoFormat === "jpg") setLogoFormat("webp");
+            else setLogoFormat(null);
+          }
+        }) : /* @__PURE__ */ jsx("span", {
+          className: "text-xs font-semibold text-gray-400",
+          children: ((_f = (_e = (_d = conversation.listing) == null ? void 0 : _d.event) == null ? void 0 : _e.name) == null ? void 0 : _f.substring(0, 2).toUpperCase()) || "?"
+        })
       }), /* @__PURE__ */ jsxs("div", {
         className: "min-w-0 flex-1",
         children: [/* @__PURE__ */ jsxs("p", {
@@ -6884,9 +11144,9 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
             children: "Blocked"
           })]
         }), /* @__PURE__ */ jsx(Link, {
-          to: `/listings/${(_c = conversation.listing) == null ? void 0 : _c.id}`,
+          to: `/listings/${(_g = conversation.listing) == null ? void 0 : _g.id}`,
           className: "text-sm text-brand-600 hover:text-brand-700 truncate block",
-          children: (_d = conversation.listing) == null ? void 0 : _d.title
+          children: (_h = conversation.listing) == null ? void 0 : _h.title
         })]
       }), /* @__PURE__ */ jsxs("div", {
         className: "relative",
@@ -6999,7 +11259,7 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
         })]
       })
     }), /* @__PURE__ */ jsx("div", {
-      className: "flex-1 overflow-y-auto px-8 py-4",
+      className: "flex-1 overflow-y-auto px-4 md:px-8 pb-4",
       children: /* @__PURE__ */ jsxs("div", {
         className: "space-y-3",
         children: [realtimeMessages == null ? void 0 : realtimeMessages.map((message, index) => {
@@ -7012,6 +11272,10 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
           const prevMessageFromSameSender = (prevMessage == null ? void 0 : prevMessage.sender_id) === message.sender_id;
           const timeDiffMinutes = prevDate ? (messageDate.getTime() - prevDate.getTime()) / 6e4 : Infinity;
           const showTimestamp = !prevMessageFromSameSender || timeDiffMinutes > 5 || showDateSeparator;
+          const currentDisplayContent = getDisplayContent(message);
+          const prevDisplayContent = prevMessage ? getDisplayContent(prevMessage) : null;
+          const prevWasTranslatedFromSameSender = prevMessageFromSameSender && (prevDisplayContent == null ? void 0 : prevDisplayContent.canToggle) && !showTimestamp;
+          const showTranslationIndicator = currentDisplayContent.canToggle && !prevWasTranslatedFromSameSender;
           return /* @__PURE__ */ jsxs("div", {
             children: [showDateSeparator && /* @__PURE__ */ jsxs("div", {
               className: "flex items-center gap-4 my-6",
@@ -7050,56 +11314,45 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
                 })]
               })
             }) : (() => {
-              const displayContent = getDisplayContent(message);
-              return /* @__PURE__ */ jsx("div", {
+              var _a2, _b2;
+              return /* @__PURE__ */ jsxs("div", {
                 className: `flex ${isOwnMessage ? "justify-end" : "justify-start"}`,
-                children: /* @__PURE__ */ jsxs("div", {
-                  className: `max-w-[70%] rounded-2xl px-4 py-2.5 ${isOwnMessage ? "bg-accent-100 text-gray-900 rounded-br-md" : "bg-gray-200 text-gray-900 rounded-bl-md"}`,
-                  children: [/* @__PURE__ */ jsx("p", {
-                    className: "whitespace-pre-wrap break-words",
-                    children: displayContent.content
-                  }), displayContent.isLoading && /* @__PURE__ */ jsxs("div", {
-                    className: "flex items-center gap-1.5 mt-1.5 text-xs text-gray-400",
-                    children: [/* @__PURE__ */ jsxs("svg", {
-                      className: "animate-spin h-3 w-3",
-                      fill: "none",
-                      viewBox: "0 0 24 24",
-                      children: [/* @__PURE__ */ jsx("circle", {
-                        className: "opacity-25",
-                        cx: "12",
-                        cy: "12",
-                        r: "10",
-                        stroke: "currentColor",
-                        strokeWidth: "4"
-                      }), /* @__PURE__ */ jsx("path", {
-                        className: "opacity-75",
-                        fill: "currentColor",
-                        d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                children: [!isOwnMessage && /* @__PURE__ */ jsx("div", {
+                  className: `flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold mr-2 ${getAvatarClasses((otherUser == null ? void 0 : otherUser.id) || "", otherUser == null ? void 0 : otherUser.user_type)}`,
+                  children: ((_a2 = otherUser == null ? void 0 : otherUser.company_name) == null ? void 0 : _a2.charAt(0)) || ((_b2 = otherUser == null ? void 0 : otherUser.full_name) == null ? void 0 : _b2.charAt(0)) || "?"
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: `flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[85%] md:max-w-[70%]`,
+                  children: [/* @__PURE__ */ jsxs("div", {
+                    className: `rounded-2xl px-4 py-2.5 ${isOwnMessage ? "bg-accent-100 text-gray-900 rounded-br-md" : "bg-gray-200 text-gray-900 rounded-bl-md"}`,
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "whitespace-pre-wrap break-words",
+                      children: currentDisplayContent.content
+                    }), currentDisplayContent.isLoading && /* @__PURE__ */ jsxs("div", {
+                      className: "flex items-center gap-1.5 mt-1.5 text-xs text-gray-400",
+                      children: [/* @__PURE__ */ jsxs("svg", {
+                        className: "animate-spin h-3 w-3",
+                        fill: "none",
+                        viewBox: "0 0 24 24",
+                        children: [/* @__PURE__ */ jsx("circle", {
+                          className: "opacity-25",
+                          cx: "12",
+                          cy: "12",
+                          r: "10",
+                          stroke: "currentColor",
+                          strokeWidth: "4"
+                        }), /* @__PURE__ */ jsx("path", {
+                          className: "opacity-75",
+                          fill: "currentColor",
+                          d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        })]
+                      }), /* @__PURE__ */ jsx("span", {
+                        children: "Translating..."
                       })]
-                    }), /* @__PURE__ */ jsx("span", {
-                      children: "Translating..."
                     })]
-                  }), displayContent.canToggle && /* @__PURE__ */ jsxs("button", {
-                    type: "button",
-                    onClick: () => toggleShowOriginal(message.id),
-                    className: `flex items-center gap-1 mt-1.5 text-xs transition-colors ${isOwnMessage ? "text-accent-500 hover:text-accent-700" : "text-gray-400 hover:text-gray-600"}`,
-                    children: [/* @__PURE__ */ jsx("svg", {
-                      className: "h-3 w-3",
-                      fill: "none",
-                      viewBox: "0 0 24 24",
-                      stroke: "currentColor",
-                      children: /* @__PURE__ */ jsx("path", {
-                        strokeLinecap: "round",
-                        strokeLinejoin: "round",
-                        strokeWidth: 2,
-                        d: "M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
-                      })
-                    }), /* @__PURE__ */ jsx("span", {
-                      children: displayContent.showOriginal ? "Show translation" : "Auto-translated • Show original"
-                    })]
-                  }), (showTimestamp || isOwnMessage) && /* @__PURE__ */ jsxs("div", {
-                    className: `flex items-center justify-end gap-1.5 text-xs mt-1 ${isOwnMessage ? "text-accent-600" : "text-gray-500"}`,
+                  }), (showTimestamp || isOwnMessage || showTranslationIndicator) && /* @__PURE__ */ jsxs("div", {
+                    className: `flex items-center gap-2 text-xs mt-1 px-1 ${isOwnMessage ? "flex-row-reverse" : "flex-row"}`,
                     children: [showTimestamp && /* @__PURE__ */ jsx("span", {
+                      className: isOwnMessage ? "text-accent-600" : "text-gray-500",
                       children: messageDate.toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit"
@@ -7121,9 +11374,27 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
                           d: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"
                         })
                       })
+                    }), showTranslationIndicator && /* @__PURE__ */ jsxs("button", {
+                      type: "button",
+                      onClick: () => toggleShowOriginal(message.id),
+                      className: "flex items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors",
+                      children: [/* @__PURE__ */ jsx("svg", {
+                        className: "h-3 w-3",
+                        fill: "none",
+                        viewBox: "0 0 24 24",
+                        stroke: "currentColor",
+                        children: /* @__PURE__ */ jsx("path", {
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          strokeWidth: 2,
+                          d: "M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+                        })
+                      }), /* @__PURE__ */ jsx("span", {
+                        children: currentDisplayContent.showOriginal ? "Show translation" : "Auto-translated • Show original"
+                      })]
                     })]
                   })]
-                })
+                })]
               });
             })()]
           }, message.id);
@@ -7132,7 +11403,7 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
         })]
       })
     }), /* @__PURE__ */ jsxs("div", {
-      className: "border-t border-gray-200 p-4",
+      className: "border-t border-gray-200 px-2 pt-4 pb-3 md:p-4 bg-white",
       children: [actionData && "error" in actionData && /* @__PURE__ */ jsx("p", {
         className: "text-sm text-red-600 mb-2",
         children: actionData.error
@@ -7142,7 +11413,7 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
       }) : /* @__PURE__ */ jsxs(Form, {
         ref: formRef,
         method: "post",
-        className: "flex gap-3 items-end",
+        className: "flex gap-2 md:gap-3 items-end",
         onSubmit: () => {
           var _a2;
           const content = (_a2 = textareaRef.current) == null ? void 0 : _a2.value;
@@ -7157,13 +11428,13 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
           autoComplete: "off",
           required: true,
           rows: 1,
-          className: "input flex-1 resize-none py-3 min-h-[48px] max-h-[150px] overflow-hidden rounded-2xl",
+          className: "input flex-1 resize-none py-2 md:py-3 px-3 md:px-4 min-h-[40px] md:min-h-[48px] max-h-[150px] overflow-hidden rounded-2xl",
           disabled: isSubmitting,
           onChange: handleTextareaChange
         }), /* @__PURE__ */ jsx("button", {
           type: "submit",
           disabled: isSubmitting,
-          className: "btn-primary px-4 h-12 flex items-center justify-center rounded-2xl",
+          className: "btn-primary px-2 md:px-4 h-10 md:h-12 flex items-center justify-center rounded-2xl",
           children: isSubmitting ? /* @__PURE__ */ jsxs("svg", {
             className: "animate-spin h-5 w-5",
             fill: "none",
@@ -7197,14 +11468,14 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
     })]
   });
 });
-const route18 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route23 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$6,
   default: messages_$id,
   loader: loader$8,
-  meta: meta$7
+  meta: meta$8
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$6 = () => {
+const meta$7 = () => {
   return [{
     title: "Sign Up - Runoot"
   }];
@@ -7493,14 +11764,14 @@ const register = UNSAFE_withComponentProps(function Register() {
     })]
   });
 });
-const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route24 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$5,
   default: register,
   loader: loader$7,
-  meta: meta$6
+  meta: meta$7
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$5 = () => {
+const meta$6 = () => {
   return [{
     title: "Settings - Runoot"
   }];
@@ -7546,7 +11817,7 @@ async function action$4({
     status: 400
   });
 }
-const settings = UNSAFE_withComponentProps(function Settings() {
+const settings = UNSAFE_withComponentProps(function Settings2() {
   const {
     user,
     blockedUsers
@@ -7557,7 +11828,7 @@ const settings = UNSAFE_withComponentProps(function Settings() {
     children: [/* @__PURE__ */ jsx(Header, {
       user
     }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8",
+      className: "mx-auto max-w-3xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
       children: [/* @__PURE__ */ jsx("h1", {
         className: "font-display text-3xl font-bold text-gray-900 mb-8",
         children: "Settings"
@@ -7749,14 +12020,73 @@ const settings = UNSAFE_withComponentProps(function Settings() {
     })]
   });
 });
-const route20 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route25 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$4,
   default: settings,
   loader: loader$6,
-  meta: meta$5
+  meta: meta$6
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$4 = () => {
+const SUBJECT_OPTIONS = [
+  { value: "general", label: "General inquiry" },
+  { value: "bug", label: "Bug report" },
+  { value: "feature", label: "Feature request" },
+  { value: "partnership", label: "Partnership / Business" },
+  { value: "other", label: "Other" }
+];
+function SubjectDropdown({ value, onChange, hasError }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const selectedOption = SUBJECT_OPTIONS.find((opt) => opt.value === value);
+  return /* @__PURE__ */ jsxs("div", { ref: dropdownRef, className: "relative", children: [
+    /* @__PURE__ */ jsx("label", { className: "label text-base mb-6", children: "Subject *" }),
+    /* @__PURE__ */ jsx("input", { type: "hidden", name: "subject", value }),
+    /* @__PURE__ */ jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: () => setIsOpen(!isOpen),
+        className: `input shadow-md backdrop-blur-sm w-full text-left flex items-center justify-between gap-3 ${hasError ? "ring-1 ring-red-500" : ""} ${!value ? "text-gray-400" : "text-gray-900"}`,
+        children: [
+          /* @__PURE__ */ jsx("span", { children: (selectedOption == null ? void 0 : selectedOption.label) || "Select a subject..." }),
+          /* @__PURE__ */ jsx(
+            "svg",
+            {
+              className: `h-5 w-5 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`,
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 9l-7 7-7-7" })
+            }
+          )
+        ]
+      }
+    ),
+    isOpen && /* @__PURE__ */ jsx("div", { className: "absolute z-50 mt-1 w-full rounded-lg bg-white shadow-[0_4px_16px_rgba(0,0,0,0.15)] border border-gray-100 py-1 max-h-60 overflow-auto", children: SUBJECT_OPTIONS.map((option) => /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        onClick: () => {
+          onChange(option.value);
+          setIsOpen(false);
+        },
+        className: `w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${value === option.value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700"}`,
+        children: option.label
+      },
+      option.value
+    )) })
+  ] });
+}
+const meta$5 = () => {
   return [{
     title: "Contact Us - Runoot"
   }];
@@ -7765,82 +12095,73 @@ async function loader$5({
   request
 }) {
   const user = await getUser(request);
-  const url = new URL(request.url);
-  const type = url.searchParams.get("type") || "other";
-  const reportedId = url.searchParams.get("id");
-  const from = url.searchParams.get("from");
-  let reportedUser = null;
-  if (type === "user" && reportedId) {
-    const {
-      data: data2
-    } = await supabaseAdmin.from("profiles").select("id, full_name, company_name").eq("id", reportedId).single();
-    reportedUser = data2;
-  }
-  let reportedListing = null;
-  if (type === "listing" && reportedId) {
-    const {
-      data: data2
-    } = await supabaseAdmin.from("listings").select("id, title").eq("id", reportedId).single();
-    reportedListing = data2;
-  }
   return {
-    user,
-    type,
-    reportedUser,
-    reportedListing,
-    from
+    user
   };
 }
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 async function action$3({
   request
 }) {
+  var _a, _b, _c, _d;
   const user = await getUser(request);
   const formData = await request.formData();
-  const reportType = formData.get("report_type");
-  const reason = formData.get("reason");
-  const description = formData.get("description");
-  const reportedUserId = formData.get("reported_user_id");
-  const reportedListingId = formData.get("reported_listing_id");
-  formData.get("email");
-  formData.get("name");
-  if (!reason || reason.trim() === "") {
-    return data({
-      error: "Please select a reason"
-    }, {
-      status: 400
-    });
-  }
-  if (!description || description.trim().length < 10) {
-    return data({
-      error: "Please provide a description (at least 10 characters)"
-    }, {
-      status: 400
-    });
-  }
-  if (user) {
-    const {
-      error
-    } = await supabaseAdmin.from("reports").insert({
-      reporter_id: user.id,
-      report_type: reportType || "other",
-      reason,
-      description: description.trim(),
-      reported_user_id: reportedUserId || null,
-      reported_listing_id: reportedListingId || null
-    });
-    if (error) {
-      console.error("Report error:", error);
+  const name = (_a = formData.get("name")) == null ? void 0 : _a.trim();
+  const email = (_b = formData.get("email")) == null ? void 0 : _b.trim();
+  const subject = (_c = formData.get("subject")) == null ? void 0 : _c.trim();
+  const message = (_d = formData.get("message")) == null ? void 0 : _d.trim();
+  if (!user) {
+    if (!name || name.length < 2) {
       return data({
-        error: "Failed to submit report. Please try again."
+        error: "Please provide your name (at least 2 characters)"
       }, {
-        status: 500
+        status: 400
       });
     }
-  } else {
+    if (!email) {
+      return data({
+        error: "Please provide your email"
+      }, {
+        status: 400
+      });
+    }
+    if (!emailRegex.test(email)) {
+      return data({
+        error: "Please provide a valid email address"
+      }, {
+        status: 400
+      });
+    }
+  }
+  if (!subject) {
     return data({
-      error: "Please log in to submit a report"
+      error: "Please select a subject"
     }, {
-      status: 401
+      status: 400
+    });
+  }
+  if (!message || message.length < 10) {
+    return data({
+      error: "Please provide a message (at least 10 characters)"
+    }, {
+      status: 400
+    });
+  }
+  const {
+    error
+  } = await supabaseAdmin.from("contact_messages").insert({
+    user_id: user ? user.id : null,
+    name: user ? user.full_name : name,
+    email: user ? user.email : email,
+    subject,
+    message
+  });
+  if (error) {
+    console.error("Contact form error:", error);
+    return data({
+      error: "Failed to send message. Please try again."
+    }, {
+      status: 500
     });
   }
   return data({
@@ -7848,270 +12169,127 @@ async function action$3({
   });
 }
 const contact = UNSAFE_withComponentProps(function Contact() {
+  var _a;
   const {
-    user,
-    type,
-    reportedUser,
-    reportedListing,
-    from
+    user
   } = useLoaderData();
   const actionData = useActionData();
-  const [searchParams] = useSearchParams();
   const navigation = useNavigation();
+  const [subject, setSubject] = useState("");
   const isSubmitting = navigation.state === "submitting";
-  const reasonOptions = {
-    user: [{
-      value: "spam",
-      label: "Spam or fake account"
-    }, {
-      value: "harassment",
-      label: "Harassment or bullying"
-    }, {
-      value: "scam",
-      label: "Scam or fraud"
-    }, {
-      value: "inappropriate",
-      label: "Inappropriate content"
-    }, {
-      value: "other",
-      label: "Other"
-    }],
-    listing: [{
-      value: "fake",
-      label: "Fake or misleading listing"
-    }, {
-      value: "scam",
-      label: "Scam or fraud"
-    }, {
-      value: "duplicate",
-      label: "Duplicate listing"
-    }, {
-      value: "inappropriate",
-      label: "Inappropriate content"
-    }, {
-      value: "other",
-      label: "Other"
-    }],
-    bug: [{
-      value: "ui",
-      label: "UI/Display issue"
-    }, {
-      value: "functionality",
-      label: "Feature not working"
-    }, {
-      value: "performance",
-      label: "Slow performance"
-    }, {
-      value: "other",
-      label: "Other"
-    }],
-    other: [{
-      value: "feedback",
-      label: "General feedback"
-    }, {
-      value: "feature",
-      label: "Feature request"
-    }, {
-      value: "question",
-      label: "Question"
-    }, {
-      value: "other",
-      label: "Other"
-    }]
-  };
-  const currentReasons = reasonOptions[type] || reasonOptions.other;
-  return /* @__PURE__ */ jsxs("div", {
-    className: "min-h-full bg-gray-50",
-    children: [/* @__PURE__ */ jsx(Header, {
-      user
-    }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8",
-      children: [/* @__PURE__ */ jsxs("div", {
-        className: "mb-8",
-        children: [/* @__PURE__ */ jsx("h1", {
-          className: "font-display text-3xl font-bold text-gray-900",
-          children: "Contact Us"
-        }), /* @__PURE__ */ jsxs("p", {
-          className: "mt-2 text-gray-600",
-          children: [type === "user" && "Report a user", type === "listing" && "Report a listing", type === "bug" && "Report a bug", type === "other" && "Send us a message"]
-        })]
-      }), actionData && "success" in actionData ? /* @__PURE__ */ jsxs("div", {
-        className: "card p-8 text-center",
-        children: [/* @__PURE__ */ jsx("svg", {
-          className: "mx-auto h-16 w-16 text-green-500",
-          fill: "none",
-          viewBox: "0 0 24 24",
-          stroke: "currentColor",
-          children: /* @__PURE__ */ jsx("path", {
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            strokeWidth: 2,
-            d: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-          })
-        }), /* @__PURE__ */ jsx("h2", {
-          className: "mt-4 text-xl font-semibold text-gray-900",
-          children: "Thank you!"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-2 text-gray-600",
-          children: "Your message has been received. We'll review it and get back to you if needed."
-        }), from === "conversation" ? /* @__PURE__ */ jsx("a", {
-          href: "/messages",
-          className: "mt-6 btn-primary inline-block",
-          children: "Back to Messages"
-        }) : /* @__PURE__ */ jsx("a", {
-          href: "/",
-          className: "mt-6 btn-primary inline-block",
-          children: "Back to Home"
-        })]
-      }) : /* @__PURE__ */ jsxs("div", {
-        className: "card p-6",
-        children: [actionData && "error" in actionData && /* @__PURE__ */ jsx("div", {
-          className: "mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-sm",
-          children: actionData.error
-        }), reportedUser && /* @__PURE__ */ jsxs("div", {
-          className: "mb-6 p-4 bg-gray-50 rounded-lg",
-          children: [/* @__PURE__ */ jsx("p", {
-            className: "text-sm text-gray-600",
-            children: "Reporting user:"
+  return /* @__PURE__ */ jsx("div", {
+    className: "min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed",
+    children: /* @__PURE__ */ jsxs("div", {
+      className: "min-h-screen bg-gray-50/85",
+      children: [/* @__PURE__ */ jsx(Header, {
+        user
+      }), /* @__PURE__ */ jsxs("main", {
+        className: "mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6",
+          children: [/* @__PURE__ */ jsx("h1", {
+            className: "font-display text-3xl font-bold text-gray-900",
+            children: "Contact Us"
           }), /* @__PURE__ */ jsx("p", {
-            className: "font-medium text-gray-900",
-            children: reportedUser.company_name || reportedUser.full_name
+            className: "mt-2 text-gray-600",
+            children: "Send us a message and we'll get back to you"
           })]
-        }), reportedListing && /* @__PURE__ */ jsxs("div", {
-          className: "mb-6 p-4 bg-gray-50 rounded-lg",
-          children: [/* @__PURE__ */ jsx("p", {
-            className: "text-sm text-gray-600",
-            children: "Reporting listing:"
+        }), actionData && "success" in actionData ? /* @__PURE__ */ jsxs("div", {
+          className: "card p-8 text-center shadow-md bg-white/70 backdrop-blur-sm",
+          children: [/* @__PURE__ */ jsx("svg", {
+            className: "mx-auto h-16 w-16 text-green-500",
+            fill: "none",
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            })
+          }), /* @__PURE__ */ jsx("h2", {
+            className: "mt-4 text-xl font-semibold text-gray-900",
+            children: "Thank you!"
           }), /* @__PURE__ */ jsx("p", {
-            className: "font-medium text-gray-900",
-            children: reportedListing.title
+            className: "mt-2 text-gray-600",
+            children: "Your message has been received. We'll get back to you soon."
+          }), /* @__PURE__ */ jsx("a", {
+            href: "/",
+            className: "mt-6 btn-primary rounded-full inline-block",
+            children: "Back to Home"
           })]
-        }), /* @__PURE__ */ jsxs(Form, {
-          method: "post",
-          className: "space-y-6",
-          children: [/* @__PURE__ */ jsx("input", {
-            type: "hidden",
-            name: "report_type",
-            value: type
-          }), reportedUser && /* @__PURE__ */ jsx("input", {
-            type: "hidden",
-            name: "reported_user_id",
-            value: reportedUser.id
-          }), reportedListing && /* @__PURE__ */ jsx("input", {
-            type: "hidden",
-            name: "reported_listing_id",
-            value: reportedListing.id
-          }), !searchParams.get("type") && /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsx("label", {
-              className: "label",
-              children: "What can we help you with?"
-            }), /* @__PURE__ */ jsxs("select", {
-              name: "report_type",
-              className: "input",
-              children: [/* @__PURE__ */ jsx("option", {
-                value: "other",
-                children: "General inquiry"
-              }), /* @__PURE__ */ jsx("option", {
-                value: "bug",
-                children: "Report a bug"
-              }), /* @__PURE__ */ jsx("option", {
-                value: "user",
-                children: "Report a user"
-              }), /* @__PURE__ */ jsx("option", {
-                value: "listing",
-                children: "Report a listing"
-              })]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsx("label", {
-              className: "label",
-              children: "Reason *"
-            }), /* @__PURE__ */ jsxs("select", {
-              name: "reason",
-              className: "input",
-              required: true,
-              children: [/* @__PURE__ */ jsx("option", {
-                value: "",
-                children: "Select a reason..."
-              }), currentReasons.map((reason) => /* @__PURE__ */ jsx("option", {
-                value: reason.value,
-                children: reason.label
-              }, reason.value))]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            children: [/* @__PURE__ */ jsx("label", {
-              className: "label",
-              children: "Description *"
-            }), /* @__PURE__ */ jsx("textarea", {
-              name: "description",
-              rows: 5,
-              className: "input",
-              placeholder: "Please provide details...",
-              required: true,
-              minLength: 10
-            }), /* @__PURE__ */ jsx("p", {
-              className: "mt-1 text-sm text-gray-500",
-              children: "Minimum 10 characters"
-            })]
-          }), !user && /* @__PURE__ */ jsxs(Fragment, {
-            children: [/* @__PURE__ */ jsxs("div", {
+        }) : /* @__PURE__ */ jsxs("div", {
+          className: "card p-6 shadow-md bg-white/70 backdrop-blur-sm",
+          children: [actionData && "error" in actionData && /* @__PURE__ */ jsx("div", {
+            className: "mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-sm",
+            children: actionData.error
+          }), /* @__PURE__ */ jsxs(Form, {
+            method: "post",
+            className: "space-y-6",
+            children: [!user && /* @__PURE__ */ jsxs("div", {
               children: [/* @__PURE__ */ jsx("label", {
                 className: "label",
-                children: "Your name *"
+                children: "Name *"
               }), /* @__PURE__ */ jsx("input", {
                 type: "text",
                 name: "name",
-                className: "input",
-                required: true
+                className: "input shadow-sm",
+                placeholder: "Your name",
+                required: true,
+                minLength: 2
               })]
-            }), /* @__PURE__ */ jsxs("div", {
+            }), !user && /* @__PURE__ */ jsxs("div", {
               children: [/* @__PURE__ */ jsx("label", {
                 className: "label",
-                children: "Your email *"
+                children: "Email *"
               }), /* @__PURE__ */ jsx("input", {
                 type: "email",
                 name: "email",
-                className: "input",
+                className: "input shadow-sm",
+                placeholder: "your@email.com",
                 required: true
               })]
-            }), /* @__PURE__ */ jsxs("p", {
-              className: "text-sm text-amber-600 bg-amber-50 p-3 rounded-lg",
-              children: ["Please ", /* @__PURE__ */ jsx("a", {
-                href: "/login",
-                className: "underline font-medium",
-                children: "log in"
-              }), " to submit a report."]
-            })]
-          }), /* @__PURE__ */ jsxs("div", {
-            className: "flex gap-4",
-            children: [from === "conversation" ? /* @__PURE__ */ jsx("a", {
-              href: "/messages",
-              className: "btn-secondary",
-              children: "Cancel"
-            }) : /* @__PURE__ */ jsx("a", {
-              href: "/",
-              className: "btn-secondary",
-              children: "Cancel"
-            }), /* @__PURE__ */ jsx("button", {
-              type: "submit",
-              className: "btn-primary flex-1",
-              disabled: isSubmitting || !user,
-              children: isSubmitting ? "Submitting..." : "Submit"
+            }), /* @__PURE__ */ jsx(SubjectDropdown, {
+              value: subject,
+              onChange: setSubject,
+              hasError: actionData && "error" in actionData && ((_a = actionData.error) == null ? void 0 : _a.includes("subject"))
+            }), /* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("label", {
+                className: "label text-base mb-6",
+                children: "Message *"
+              }), /* @__PURE__ */ jsx("textarea", {
+                name: "message",
+                rows: 5,
+                className: "input shadow-md",
+                placeholder: "How can we help you?",
+                required: true,
+                minLength: 10
+              }), /* @__PURE__ */ jsx("p", {
+                className: "mt-1 text-sm text-gray-500",
+                children: "Minimum 10 characters"
+              })]
+            }), /* @__PURE__ */ jsx("div", {
+              children: /* @__PURE__ */ jsx("button", {
+                type: "submit",
+                className: "btn-primary rounded-full w-full shadow-lg shadow-accent-500/30",
+                disabled: isSubmitting,
+                children: isSubmitting ? "Sending..." : "Send Message"
+              })
             })]
           })]
         })]
-      })]
-    })]
+      }), /* @__PURE__ */ jsx(FooterLight, {})]
+    })
   });
 });
-const route21 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route26 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$3,
   default: contact,
   loader: loader$5,
-  meta: meta$4
+  meta: meta$5
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$3 = () => {
+const meta$4 = () => {
   return [{
     title: "Runoot - Room & Bibs Exchange Marketplace"
   }, {
@@ -8223,21 +12401,24 @@ const _index = UNSAFE_withComponentProps(function Index() {
           className: "text-center",
           children: [/* @__PURE__ */ jsxs("h1", {
             className: "font-display text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl [text-shadow:0_4px_20px_rgba(0,0,0,0.7)]",
-            children: ["Don't Let", " ", /* @__PURE__ */ jsx("span", {
-              className: "inline-block w-[140px] sm:w-[175px] lg:w-[210px] text-left",
+            children: [/* @__PURE__ */ jsx("span", {
+              className: "block",
+              children: "Don't Let"
+            }), /* @__PURE__ */ jsx("span", {
+              className: "block",
               children: /* @__PURE__ */ jsx("span", {
                 className: `inline-block ${words[subjectIndex].subjectColor} transition-all duration-500 ${subjectAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`,
                 children: words[subjectIndex].subject
               })
-            }), /* @__PURE__ */ jsxs("span", {
+            }), /* @__PURE__ */ jsx("span", {
               className: "block",
-              children: ["Go", " ", /* @__PURE__ */ jsx("span", {
-                className: "inline-block w-[145px] sm:w-[185px] lg:w-[225px] text-left",
-                children: /* @__PURE__ */ jsx("span", {
-                  className: `inline-block text-accent-400 transition-all duration-500 ${verbAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`,
-                  children: words[verbIndex].verb
-                })
-              })]
+              children: "Go"
+            }), /* @__PURE__ */ jsx("span", {
+              className: "block",
+              children: /* @__PURE__ */ jsx("span", {
+                className: `inline-block text-accent-400 transition-all duration-500 ${verbAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`,
+                children: words[verbIndex].verb
+              })
             })]
           }), /* @__PURE__ */ jsxs("p", {
             className: "mx-auto mt-6 max-w-2xl text-xl sm:text-2xl text-white [text-shadow:0_4px_16px_rgba(0,0,0,0.6)]",
@@ -8250,9 +12431,9 @@ const _index = UNSAFE_withComponentProps(function Index() {
             children: /* @__PURE__ */ jsxs(Form, {
               method: "get",
               action: "/listings",
-              className: "flex items-center gap-3",
+              className: "flex flex-col items-center gap-8",
               children: [/* @__PURE__ */ jsxs("div", {
-                className: "relative flex-1",
+                className: "relative w-full",
                 ref: searchRef,
                 children: [/* @__PURE__ */ jsx("svg", {
                   className: "absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10",
@@ -8297,7 +12478,7 @@ const _index = UNSAFE_withComponentProps(function Index() {
                 })]
               }), /* @__PURE__ */ jsx("button", {
                 type: "submit",
-                className: "px-6 py-3 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30",
+                className: "px-8 py-3 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30",
                 children: "Search"
               })]
             })
@@ -8305,7 +12486,7 @@ const _index = UNSAFE_withComponentProps(function Index() {
         })
       })]
     }), listings.length > 0 && /* @__PURE__ */ jsx("section", {
-      className: "py-20 bg-gray-50",
+      className: "pt-8 pb-20 md:py-20 bg-gray-50",
       children: /* @__PURE__ */ jsxs("div", {
         className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8",
         children: [/* @__PURE__ */ jsxs("div", {
@@ -8315,7 +12496,7 @@ const _index = UNSAFE_withComponentProps(function Index() {
             children: "Recent Listings"
           }), /* @__PURE__ */ jsx(Link, {
             to: user ? "/listings" : "/login",
-            className: "px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30",
+            className: "hidden md:inline-block px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30",
             children: "View all"
           })]
         }), /* @__PURE__ */ jsx("div", {
@@ -8332,48 +12513,23 @@ const _index = UNSAFE_withComponentProps(function Index() {
             isUserLoggedIn: !!user,
             isSaved: (savedListingIds || []).includes(listing.id)
           }, listing.id))
-        })]
-      })
-    }), /* @__PURE__ */ jsx("section", {
-      className: "py-20 bg-gray-900",
-      children: /* @__PURE__ */ jsxs("div", {
-        className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center",
-        children: [/* @__PURE__ */ jsx("h2", {
-          className: "font-display text-3xl font-bold text-white",
-          children: "Ready to get started?"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-4 text-lg text-gray-400",
-          children: "Join tour operators and runners already using RunStay Exchange."
         }), /* @__PURE__ */ jsx("div", {
-          className: "mt-8",
-          children: user ? /* @__PURE__ */ jsx(Link, {
-            to: "/listings/new",
-            className: "btn-primary text-lg px-8 py-3",
-            children: "Create a Listing"
-          }) : /* @__PURE__ */ jsx(Link, {
-            to: "/register",
-            className: "btn-primary text-lg px-8 py-3",
-            children: "Create Free Account"
+          className: "mt-4 flex justify-center md:hidden",
+          children: /* @__PURE__ */ jsx(Link, {
+            to: user ? "/listings" : "/login",
+            className: "px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30",
+            children: "View all"
           })
         })]
       })
-    }), /* @__PURE__ */ jsx("footer", {
-      className: "bg-gray-900 border-t border-gray-800",
-      children: /* @__PURE__ */ jsx("div", {
-        className: "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8",
-        children: /* @__PURE__ */ jsxs("p", {
-          className: "text-center text-sm text-gray-500",
-          children: ["© ", (/* @__PURE__ */ new Date()).getFullYear(), " Runoot Exchange. Platform for informational purposes only. Transactions are between users."]
-        })
-      })
-    })]
+    }), /* @__PURE__ */ jsx(FooterLight, {})]
   });
 });
-const route22 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route27 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: _index,
   loader: loader$4,
-  meta: meta$3
+  meta: meta$4
 }, Symbol.toStringTag, { value: "Module" }));
 async function action$2({
   request
@@ -8383,12 +12539,12 @@ async function action$2({
 async function loader$3() {
   return redirect("/");
 }
-const route23 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route28 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$2,
   loader: loader$3
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$2 = () => {
+const meta$3 = () => {
   return [{
     title: "Report - Runoot"
   }];
@@ -8557,7 +12713,7 @@ const report = UNSAFE_withComponentProps(function Report() {
     children: [/* @__PURE__ */ jsx(Header, {
       user
     }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8",
+      className: "mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
       children: [/* @__PURE__ */ jsxs("div", {
         className: "mb-8",
         children: [/* @__PURE__ */ jsxs("h1", {
@@ -8736,14 +12892,14 @@ const report = UNSAFE_withComponentProps(function Report() {
     })]
   });
 });
-const route24 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route29 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$1,
   default: report,
   loader: loader$2,
-  meta: meta$2
+  meta: meta$3
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$1 = () => {
+const meta$2 = () => {
   return [{
     title: "Login - Runoot"
   }];
@@ -8751,8 +12907,11 @@ const meta$1 = () => {
 async function loader$1({
   request
 }) {
-  const userId = await getUserId(request);
-  if (userId) return redirect("/dashboard");
+  const user = await getUser(request);
+  if (user) {
+    const redirectUrl = user.user_type === "tour_operator" ? "/dashboard" : "/listings";
+    return redirect(redirectUrl);
+  }
   return null;
 }
 async function action({
@@ -8761,7 +12920,7 @@ async function action({
   const formData = await request.formData();
   const email = formData.get("email");
   const password = formData.get("password");
-  const redirectTo = formData.get("redirectTo") || "/dashboard";
+  const redirectToParam = formData.get("redirectTo");
   if (typeof email !== "string" || typeof password !== "string") {
     return data({
       error: "Invalid form submission"
@@ -8797,12 +12956,21 @@ async function action({
       status: 400
     });
   }
+  const {
+    data: profile
+  } = await supabaseAdmin.from("profiles").select("user_type").eq("id", authData.user.id).single();
+  let redirectTo = "/listings";
+  if (redirectToParam && redirectToParam !== "/dashboard") {
+    redirectTo = redirectToParam;
+  } else if ((profile == null ? void 0 : profile.user_type) === "tour_operator") {
+    redirectTo = "/dashboard";
+  }
   return createUserSession(authData.user.id, authData.session.access_token, authData.session.refresh_token, redirectTo);
 }
 const login = UNSAFE_withComponentProps(function Login() {
   const [searchParams] = useSearchParams();
   const actionData = useActionData();
-  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+  const redirectTo = searchParams.get("redirectTo") || "";
   return /* @__PURE__ */ jsxs("div", {
     className: "min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50",
     children: [/* @__PURE__ */ jsxs("div", {
@@ -8932,14 +13100,14 @@ const login = UNSAFE_withComponentProps(function Login() {
     })]
   });
 });
-const route25 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route30 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action,
   default: login,
   loader: loader$1,
-  meta: meta$1
+  meta: meta$2
 }, Symbol.toStringTag, { value: "Module" }));
-const meta = () => {
+const meta$1 = () => {
   return [{
     title: "Saved Listings - Runoot"
   }];
@@ -8966,6 +13134,7 @@ async function loader({
         room_type,
         bib_count,
         price,
+        currency,
         price_negotiable,
         transfer_type,
         associated_costs,
@@ -8997,63 +13166,1115 @@ const saved = UNSAFE_withComponentProps(function SavedListings() {
     user,
     savedListings
   } = useLoaderData();
+  return /* @__PURE__ */ jsx("div", {
+    className: "min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed",
+    children: /* @__PURE__ */ jsxs("div", {
+      className: "min-h-screen bg-gray-50/85",
+      children: [/* @__PURE__ */ jsx(Header, {
+        user
+      }), /* @__PURE__ */ jsxs("main", {
+        className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6",
+          children: [/* @__PURE__ */ jsx("h1", {
+            className: "font-display text-3xl font-bold text-gray-900",
+            children: "Saved Listings"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "mt-2 text-gray-600",
+            children: "Listings you've saved for later"
+          })]
+        }), savedListings.length === 0 ? /* @__PURE__ */ jsxs("div", {
+          className: "card p-12 text-center shadow-md",
+          children: [/* @__PURE__ */ jsx("svg", {
+            className: "mx-auto h-16 w-16 text-gray-300",
+            fill: "none",
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 1.5,
+              d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "mt-4 text-lg font-medium text-gray-900",
+            children: "No saved listings yet"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "mt-2 text-gray-500",
+            children: "When you find a listing you like, click the heart icon to save it here."
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/listings",
+            className: "btn-primary rounded-full mt-6 inline-block",
+            children: "Browse Listings"
+          })]
+        }) : /* @__PURE__ */ jsx("div", {
+          className: "grid gap-6 md:grid-cols-2 lg:grid-cols-3",
+          children: savedListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
+            listing,
+            isUserLoggedIn: true,
+            isSaved: true
+          }, listing.id))
+        })]
+      }), /* @__PURE__ */ jsx(FooterLight, {})]
+    })
+  });
+});
+const route31 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  default: saved,
+  loader,
+  meta: meta$1
+}, Symbol.toStringTag, { value: "Module" }));
+const meta = () => {
+  return [{
+    title: "Termini e Condizioni | Runoot"
+  }, {
+    name: "description",
+    content: "Termini e Condizioni di utilizzo della piattaforma Runoot - Leggi attentamente prima di utilizzare il servizio."
+  }];
+};
+const terms = UNSAFE_withComponentProps(function TermsOfService() {
+  const lastUpdated = "29 Gennaio 2025";
+  const companyEmail = "legal@runoot.com";
   return /* @__PURE__ */ jsxs("div", {
-    className: "min-h-full bg-gray-50",
-    children: [/* @__PURE__ */ jsx(Header, {
-      user
+    className: "min-h-screen bg-gray-50",
+    children: [/* @__PURE__ */ jsx("header", {
+      className: "bg-white shadow-sm",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "max-w-4xl mx-auto px-4 py-6",
+        children: [/* @__PURE__ */ jsx("a", {
+          href: "/",
+          className: "text-brand-600 hover:text-brand-700 text-sm",
+          children: "← Torna alla Home"
+        }), /* @__PURE__ */ jsx("h1", {
+          className: "text-3xl font-bold text-gray-900 mt-4",
+          children: "Termini e Condizioni di Utilizzo"
+        }), /* @__PURE__ */ jsxs("p", {
+          className: "text-gray-500 mt-2",
+          children: ["Ultimo aggiornamento: ", lastUpdated]
+        })]
+      })
     }), /* @__PURE__ */ jsxs("main", {
-      className: "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8",
+      className: "max-w-4xl mx-auto px-4 py-8",
       children: [/* @__PURE__ */ jsxs("div", {
-        className: "mb-8",
-        children: [/* @__PURE__ */ jsx("h1", {
-          className: "font-display text-3xl font-bold text-gray-900",
-          children: "Saved Listings"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-2 text-gray-600",
-          children: "Listings you've saved for later"
-        })]
-      }), savedListings.length === 0 ? /* @__PURE__ */ jsxs("div", {
-        className: "card p-12 text-center",
-        children: [/* @__PURE__ */ jsx("svg", {
-          className: "mx-auto h-16 w-16 text-gray-300",
-          fill: "none",
-          viewBox: "0 0 24 24",
-          stroke: "currentColor",
-          children: /* @__PURE__ */ jsx("path", {
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            strokeWidth: 1.5,
-            d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+        className: "bg-white rounded-lg shadow-sm p-8 space-y-8",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "bg-red-50 border-2 border-red-200 rounded-lg p-6",
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-lg font-bold text-red-800 mb-3",
+            children: "AVVISO IMPORTANTE - LEGGERE ATTENTAMENTE"
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-red-700 leading-relaxed",
+            children: ["Runoot è esclusivamente una piattaforma di annunci che mette in contatto utenti interessati allo scambio di stanze d'hotel e pettorali per eventi podistici. ", /* @__PURE__ */ jsx("strong", {
+              children: "Runoot NON partecipa, media, garantisce o supervisiona in alcun modo le transazioni tra utenti."
+            }), " Tutte le transazioni avvengono direttamente tra le parti coinvolte, a loro esclusivo rischio e responsabilità."]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "1. Accettazione dei Termini"
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: [`I presenti Termini e Condizioni di Utilizzo (di seguito "Termini") regolano l'accesso e l'utilizzo della piattaforma Runoot (di seguito "Piattaforma" o "Servizio"), accessibile all'indirizzo`, " ", /* @__PURE__ */ jsx("a", {
+              href: "https://runoot.com",
+              className: "text-brand-600 hover:underline",
+              children: "runoot.com"
+            }), "."]
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: [/* @__PURE__ */ jsx("strong", {
+              children: "Utilizzando la Piattaforma, l'utente dichiara di aver letto, compreso e accettato integralmente i presenti Termini."
+            }), " Se non si accettano i Termini, è necessario astenersi dall'utilizzo della Piattaforma."]
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: "La registrazione e l'utilizzo della Piattaforma costituiscono accettazione vincolante dei presenti Termini, della Privacy Policy e della Cookie Policy."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "2. Definizioni"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-3 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-bold",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: '"Piattaforma"'
+                }), ": il sito web Runoot e tutti i servizi ad esso correlati."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-bold",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: '"Titolare"'
+                }), ": il soggetto che gestisce la Piattaforma, come identificato nei documenti legali."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-bold",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: '"Utente"'
+                }), ": qualsiasi persona fisica o giuridica che accede o utilizza la Piattaforma."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-bold",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: '"Tour Operator"'
+                }), ": utente registrato come operatore professionale nel settore turistico."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-bold",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: '"Privato" o "Private Runner"'
+                }), ": utente registrato come individuo non professionale."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-bold",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: '"Annuncio" o "Listing"'
+                }), ": inserzione pubblicata da un utente per offrire stanze d'hotel, pettorali o pacchetti combinati."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-bold",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: '"Pettorale" o "Bib"'
+                }), ": numero di gara che consente la partecipazione a un evento podistico."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-bold",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: '"Venditore"'
+                }), ": utente che pubblica un annuncio per cedere stanze, pettorali o pacchetti."]
+              })]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2 font-bold",
+                children: "•"
+              }), /* @__PURE__ */ jsxs("span", {
+                children: [/* @__PURE__ */ jsx("strong", {
+                  children: '"Acquirente"'
+                }), ": utente interessato ad acquisire quanto offerto in un annuncio."]
+              })]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "3. Natura del Servizio"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4",
+            children: /* @__PURE__ */ jsx("p", {
+              className: "text-gray-700 leading-relaxed font-medium",
+              children: "Runoot è una piattaforma di annunci classificati che consente agli utenti di pubblicare offerte relative a stanze d'hotel e pettorali per eventi podistici (maratone, mezze maratone, trail, ecc.) e di entrare in contatto tra loro."
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "3.1 Cosa fa Runoot"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-green-500 mr-2",
+                children: "✓"
+              }), "Fornisce uno spazio dove pubblicare annunci di stanze d'hotel e pettorali"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-green-500 mr-2",
+                children: "✓"
+              }), "Consente agli utenti di cercare e visualizzare annunci"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-green-500 mr-2",
+                children: "✓"
+              }), "Permette agli utenti di contattarsi tramite sistema di messaggistica interno"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-green-500 mr-2",
+                children: "✓"
+              }), "Offre strumenti di traduzione automatica dei messaggi"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "3.2 Cosa NON fa Runoot"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "NON partecipa, media o garantisce le transazioni tra utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "NON gestisce, processa o trasferisce pagamenti tra utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "NON verifica l'identità, l'affidabilità, la solvibilità o la buona fede degli utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "NON garantisce la disponibilità, qualità, legittimità o veridicità degli annunci"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "NON verifica la conformità del trasferimento dei pettorali ai regolamenti delle gare"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "NON fornisce servizi di prenotazione alberghiera o agenzia di viaggi"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "NON offre servizi di escrow, deposito a garanzia o protezione acquirenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "NON interviene in caso di dispute, controversie o inadempimenti tra utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "NON fornisce rimborsi, risarcimenti o compensazioni di alcun tipo"]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "4. Registrazione e Account"
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3",
+            children: "4.1 Requisiti"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Per utilizzare la Piattaforma è necessario:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700 mt-3",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Aver compiuto 18 anni di età"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Possedere la capacità legale di stipulare contratti vincolanti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Fornire informazioni veritiere e complete durante la registrazione"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Mantenere aggiornate le informazioni del proprio account"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "4.2 Tipologie di Account"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-3",
+            children: "La Piattaforma prevede due tipologie di account:"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "space-y-4",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "bg-gray-50 rounded-lg p-4",
+              children: [/* @__PURE__ */ jsx("h4", {
+                className: "font-medium text-gray-900",
+                children: "Tour Operator"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 mt-2",
+                children: "Account destinato a professionisti del settore turistico. Consente di pubblicare annunci con quantità illimitate di stanze e pettorali e di utilizzare tutte le modalità di trasferimento disponibili."
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "bg-gray-50 rounded-lg p-4",
+              children: [/* @__PURE__ */ jsx("h4", {
+                className: "font-medium text-gray-900",
+                children: "Privato (Private Runner)"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 mt-2",
+                children: "Account destinato a individui non professionisti. Limitato a massimo 1 stanza e 1 pettorale per annuncio. Il trasferimento dei pettorali deve avvenire esclusivamente tramite la procedura ufficiale dell'organizzatore della gara."
+              })]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "4.3 Responsabilità dell'Account"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "L'utente è l'unico responsabile della sicurezza del proprio account e della password. Qualsiasi attività svolta tramite l'account è imputabile all'utente titolare. In caso di accesso non autorizzato, l'utente deve notificarlo immediatamente al Titolare."
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "4.4 Verifica degli Account"
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: ['Il Titolare si riserva la facoltà, a propria esclusiva discrezione, di verificare gli account e assegnare un badge "Verificato". Tale verifica è puramente discrezionale e ', /* @__PURE__ */ jsx("strong", {
+              children: "non costituisce in alcun modo garanzia di affidabilità, solvibilità o buona fede dell'utente"
+            }), ". L'assenza del badge di verifica non implica che l'utente sia inaffidabile."]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "5. Pubblicazione degli Annunci"
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3",
+            children: "5.1 Tipologie di Annunci"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-3",
+            children: "La Piattaforma consente la pubblicazione di tre tipologie di annunci:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Solo Stanza:"
+              }), " offerta di prenotazione alberghiera in prossimità di un evento podistico"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Solo Pettorale:"
+              }), " offerta di numero di gara (bib) per un evento podistico"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), /* @__PURE__ */ jsx("strong", {
+                children: "Stanza + Pettorale:"
+              }), " pacchetto combinato"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "5.2 Obblighi del Venditore"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-3",
+            children: "Pubblicando un annuncio, il Venditore dichiara e garantisce che:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "a)"
+              }), "Le informazioni fornite sono veritiere, accurate e complete"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "b)"
+              }), "Ha la piena e legittima disponibilità di quanto offerto"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "c)"
+              }), "La cessione è conforme alle leggi applicabili e ai regolamenti degli organizzatori"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "d)"
+              }), "Non sta violando diritti di terzi o obblighi contrattuali"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "e)"
+              }), "Aggiornerà tempestivamente l'annuncio in caso di variazioni o indisponibilità"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "5.3 Contenuti Vietati"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-3",
+            children: "È vietato pubblicare annunci che:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Contengano informazioni false, ingannevoli o fuorvianti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Offrano prodotti o servizi illegali o non autorizzati"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Violino i regolamenti degli organizzatori degli eventi"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Contengano contenuti offensivi, discriminatori o inappropriati"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Promuovano attività fraudolente o schemi truffaldini"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Includano dati personali di terzi senza consenso"]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "6. Trasferimento dei Pettorali - Avvertenze Importanti"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4",
+            children: /* @__PURE__ */ jsx("p", {
+              className: "text-red-700 leading-relaxed font-medium",
+              children: "ATTENZIONE: Il trasferimento dei pettorali (numeri di gara) è soggetto ai regolamenti specifici di ciascun evento podistico. Molti organizzatori VIETANO o limitano severamente il trasferimento dei pettorali. È ESCLUSIVA RESPONSABILITÀ degli utenti verificare e rispettare tali regolamenti."
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3",
+            children: "6.1 Rischi del Trasferimento Non Autorizzato"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-3",
+            children: "Correre con un pettorale intestato ad altra persona senza autorizzazione ufficiale può comportare:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Squalifica immediata dalla gara"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Annullamento del risultato e del tempo"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Ban permanente dalle future edizioni dell'evento"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Problemi assicurativi in caso di infortuni"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Conseguenze legali in determinate giurisdizioni"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "6.2 Modalità di Trasferimento"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-3",
+            children: "La Piattaforma prevede le seguenti modalità di trasferimento:"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "space-y-4",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "bg-green-50 border border-green-200 rounded-lg p-4",
+              children: [/* @__PURE__ */ jsx("h4", {
+                className: "font-medium text-gray-900",
+                children: "Procedura Ufficiale (Consigliata)"
+              }), /* @__PURE__ */ jsxs("p", {
+                className: "text-gray-700 mt-2",
+                children: ["Il trasferimento avviene attraverso la procedura ufficiale dell'organizzatore della gara (cambio nome).", /* @__PURE__ */ jsx("strong", {
+                  children: " Questa è l'UNICA modalità disponibile per gli utenti Privati."
+                })]
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "bg-yellow-50 border border-yellow-200 rounded-lg p-4",
+              children: [/* @__PURE__ */ jsx("h4", {
+                className: "font-medium text-gray-900",
+                children: "Pacchetto (Solo Tour Operator)"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 mt-2",
+                children: "Il pettorale è incluso in un pacchetto turistico completo gestito dal Tour Operator."
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "bg-yellow-50 border border-yellow-200 rounded-lg p-4",
+              children: [/* @__PURE__ */ jsx("h4", {
+                className: "font-medium text-gray-900",
+                children: "Da Concordare (Solo Tour Operator)"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-gray-700 mt-2",
+                children: "Le modalità di trasferimento vengono concordate direttamente tra le parti."
+              })]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "6.3 Esclusione di Responsabilità"
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: [/* @__PURE__ */ jsx("strong", {
+              children: "Runoot declina ogni responsabilità"
+            }), " per trasferimenti di pettorali non conformi ai regolamenti degli organizzatori, per le conseguenze derivanti dall'utilizzo non autorizzato di pettorali, e per qualsiasi sanzione, squalifica, infortunio o danno che ne possa derivare."]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "7. Transazioni tra Utenti"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mb-4",
+            children: /* @__PURE__ */ jsx("p", {
+              className: "text-gray-700 leading-relaxed font-medium",
+              children: "TUTTE LE TRANSAZIONI AVVENGONO DIRETTAMENTE TRA GLI UTENTI, SENZA ALCUN COINVOLGIMENTO DI RUNOOT. Il Titolare non è parte delle transazioni e non ha alcun controllo su di esse."
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3",
+            children: "7.1 Pagamenti"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "I pagamenti avvengono direttamente tra Venditore e Acquirente, con le modalità da loro liberamente concordate. Runoot NON gestisce, processa, trattiene o trasferisce denaro in alcun modo. Gli utenti sono gli unici responsabili della scelta dei metodi di pagamento e dei rischi ad essi connessi."
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "7.2 Raccomandazioni di Sicurezza"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-3",
+            children: "Prima di effettuare qualsiasi pagamento, si raccomanda vivamente di:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Verificare l'identità della controparte attraverso canali indipendenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Richiedere documentazione comprovante la disponibilità di quanto offerto"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Per i pettorali: attendere la conferma ufficiale del cambio nome da parte dell'organizzatore"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Per le stanze: ottenere conferma scritta dall'hotel del cambio di intestazione"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Utilizzare metodi di pagamento tracciabili che offrano protezione (es. PayPal Beni e Servizi)"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Diffidare di richieste di pagamento urgenti o con metodi non tracciabili"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Conservare tutta la documentazione e le comunicazioni"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "7.3 Dispute tra Utenti"
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: ["In caso di controversie tra utenti relative a transazioni, ", /* @__PURE__ */ jsx("strong", {
+              children: "Runoot non interverrà e non potrà essere chiamato a mediare, arbitrare o risolvere la disputa"
+            }), ". Gli utenti dovranno risolvere qualsiasi controversia direttamente tra loro o attraverso i canali legali appropriati."]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "8. Sistema di Messaggistica"
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3",
+            children: "8.1 Utilizzo Consentito"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Il sistema di messaggistica interno è destinato esclusivamente alla comunicazione tra utenti in relazione agli annunci pubblicati sulla Piattaforma."
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "8.2 Utilizzo Vietato"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-3",
+            children: "È vietato utilizzare il sistema di messaggistica per:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Inviare spam, messaggi pubblicitari non richiesti o catene"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Molestare, minacciare o intimidire altri utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Tentare truffe, phishing o altre attività fraudolente"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Condividere contenuti illegali, offensivi o inappropriati"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "✕"
+              }), "Raccogliere dati personali di altri utenti"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "8.3 Blocco e Segnalazione"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Gli utenti possono bloccare altri utenti e segnalare comportamenti inappropriati. Il Titolare si riserva il diritto di esaminare le segnalazioni e adottare i provvedimenti ritenuti opportuni, inclusa la sospensione o eliminazione degli account."
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "8.4 Traduzione Automatica"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: `La Piattaforma offre un servizio di traduzione automatica dei messaggi. Tale servizio è fornito "così com'è" e il Titolare non garantisce l'accuratezza delle traduzioni. In caso di discrepanze, fa fede il messaggio nella lingua originale.`
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "9. Proprietà Intellettuale"
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3",
+            children: "9.1 Diritti del Titolare"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Tutti i diritti di proprietà intellettuale relativi alla Piattaforma (marchi, loghi, design, software, contenuti originali) sono di proprietà esclusiva del Titolare o dei suoi licenzianti. Nessun diritto viene trasferito all'utente oltre alla licenza limitata di utilizzo della Piattaforma."
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "9.2 Contenuti degli Utenti"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "L'utente mantiene i diritti sui contenuti da lui pubblicati, ma concede al Titolare una licenza non esclusiva, gratuita, mondiale e perpetua per utilizzare, riprodurre, modificare e visualizzare tali contenuti ai fini del funzionamento della Piattaforma."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "10. Limitazione di Responsabilità"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4",
+            children: /* @__PURE__ */ jsx("p", {
+              className: "text-red-700 leading-relaxed font-medium",
+              children: "LA PRESENTE SEZIONE CONTIENE IMPORTANTI LIMITAZIONI DI RESPONSABILITÀ. SI PREGA DI LEGGERLA ATTENTAMENTE."
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3",
+            children: "10.1 Esclusione Generale"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Nella misura massima consentita dalla legge applicabile, il Titolare NON è responsabile per:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700 mt-3",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Danni diretti, indiretti, incidentali, speciali, consequenziali o punitivi derivanti dall'utilizzo della Piattaforma"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Perdite economiche, mancato guadagno, perdita di opportunità o danni alla reputazione"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Transazioni tra utenti, inclusi inadempimenti, truffe, frodi o comportamenti illeciti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Veridicità, accuratezza, completezza o legalità degli annunci e delle informazioni fornite dagli utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Conformità degli annunci o delle transazioni alle leggi applicabili o ai regolamenti degli organizzatori"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Infortuni, incidenti o danni alla salute durante eventi podistici"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Squalifiche, ban o sanzioni inflitte da organizzatori di eventi"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-red-500 mr-2",
+                children: "•"
+              }), "Problemi assicurativi derivanti dall'utilizzo non autorizzato di pettorali"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: `10.2 Servizio "Così Com'è"`
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: `La Piattaforma è fornita "così com'è" e "come disponibile", senza garanzie di alcun tipo, esplicite o implicite, incluse garanzie di commerciabilità, idoneità per uno scopo particolare o non violazione. Il Titolare non garantisce che la Piattaforma sia priva di errori, sicura o sempre disponibile.`
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "10.3 Limitazione Quantitativa"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "In ogni caso, qualora il Titolare fosse ritenuto responsabile, la responsabilità sarà limitata all'importo maggiore tra (a) le eventuali somme pagate dall'utente al Titolare nei 12 mesi precedenti l'evento che ha dato origine alla responsabilità, oppure (b) Euro 100,00 (cento)."
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "10.4 Applicabilità"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Le limitazioni di responsabilità si applicano indipendentemente dalla teoria legale su cui si basa la pretesa (contratto, illecito, negligenza, responsabilità oggettiva o altra) e anche se il Titolare è stato avvisato della possibilità di tali danni."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "11. Manleva e Indennizzo"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "L'utente si impegna a manlevare, difendere e tenere indenne il Titolare, i suoi amministratori, dipendenti, collaboratori e affiliati da qualsiasi richiesta, pretesa, danno, perdita, costo, spesa (incluse le spese legali) derivanti da o connessi a:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700 mt-3",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "a)"
+              }), "L'utilizzo della Piattaforma da parte dell'utente"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "b)"
+              }), "La violazione dei presenti Termini da parte dell'utente"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "c)"
+              }), "La violazione di leggi o diritti di terzi da parte dell'utente"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "d)"
+              }), "I contenuti pubblicati dall'utente sulla Piattaforma"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "e)"
+              }), "Le transazioni effettuate dall'utente con altri utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "f)"
+              }), "Dispute con altri utenti o terze parti"]
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "12. Sospensione e Terminazione"
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3",
+            children: "12.1 Diritti del Titolare"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Il Titolare si riserva il diritto, a propria esclusiva discrezione e senza preavviso, di:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700 mt-3",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Sospendere o terminare l'accesso di qualsiasi utente alla Piattaforma"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Rimuovere qualsiasi annuncio o contenuto"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Modificare o interrompere qualsiasi funzionalità della Piattaforma"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Sospendere o terminare completamente il Servizio"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "12.2 Motivi di Sospensione o Terminazione"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mb-3",
+            children: "Tali provvedimenti possono essere adottati, tra l'altro, in caso di:"
+          }), /* @__PURE__ */ jsxs("ul", {
+            className: "space-y-2 text-gray-700",
+            children: [/* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Violazione dei presenti Termini"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Comportamenti fraudolenti, ingannevoli o illegali"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Segnalazioni da parte di altri utenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Richieste delle autorità competenti"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Inattività prolungata dell'account"]
+            }), /* @__PURE__ */ jsxs("li", {
+              className: "flex items-start",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "text-brand-600 mr-2",
+                children: "•"
+              }), "Qualsiasi altro motivo ritenuto opportuno dal Titolare"]
+            })]
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "12.3 Cancellazione da Parte dell'Utente"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "L'utente può richiedere la cancellazione del proprio account in qualsiasi momento contattando il Titolare. La cancellazione comporta la rimozione degli annunci attivi e l'impossibilità di accedere ai messaggi. Alcune informazioni potrebbero essere conservate per obblighi di legge."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "13. Modifiche ai Termini"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Il Titolare si riserva il diritto di modificare i presenti Termini in qualsiasi momento. Le modifiche saranno pubblicate sulla Piattaforma con indicazione della data di aggiornamento. Per modifiche sostanziali, gli utenti registrati potranno essere informati via email."
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: "L'utilizzo continuato della Piattaforma dopo la pubblicazione delle modifiche costituisce accettazione dei nuovi Termini. Se l'utente non accetta le modifiche, deve cessare l'utilizzo della Piattaforma e richiedere la cancellazione del proprio account."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "14. Disposizioni Generali"
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3",
+            children: "14.1 Intero Accordo"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "I presenti Termini, insieme alla Privacy Policy e alla Cookie Policy, costituiscono l'intero accordo tra l'utente e il Titolare relativamente all'utilizzo della Piattaforma e sostituiscono qualsiasi precedente accordo o intesa."
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "14.2 Nullità Parziale"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Se una qualsiasi disposizione dei presenti Termini fosse ritenuta invalida o inapplicabile, tale disposizione sarà limitata o eliminata nella misura minima necessaria, e le restanti disposizioni rimarranno pienamente valide ed efficaci."
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "14.3 Rinuncia"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Il mancato esercizio di un diritto o il mancato richiamo a una disposizione da parte del Titolare non costituisce rinuncia a tale diritto o disposizione."
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-3 mt-6",
+            children: "14.4 Cessione"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "L'utente non può cedere o trasferire i propri diritti o obblighi derivanti dai presenti Termini senza il consenso scritto del Titolare. Il Titolare può cedere i propri diritti e obblighi a terzi senza il consenso dell'utente."
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "15. Legge Applicabile e Foro Competente"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "I presenti Termini sono regolati dalla legge italiana. Per qualsiasi controversia derivante da o connessa ai presenti Termini o all'utilizzo della Piattaforma sarà competente in via esclusiva il Foro di [INSERIRE CITTÀ], salvo diversa disposizione inderogabile di legge a tutela del consumatore."
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-gray-700 leading-relaxed mt-3",
+            children: ["Ai sensi dell'art. 14 del Regolamento UE 524/2013, si informa che per la risoluzione delle controversie è possibile ricorrere alla piattaforma ODR (Online Dispute Resolution) dell'Unione Europea, accessibile al seguente link:", " ", /* @__PURE__ */ jsx("a", {
+              href: "https://ec.europa.eu/consumers/odr",
+              target: "_blank",
+              rel: "noopener noreferrer",
+              className: "text-brand-600 hover:underline",
+              children: "https://ec.europa.eu/consumers/odr"
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("section", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "text-xl font-semibold text-gray-900 mb-4",
+            children: "16. Contatti"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-700 leading-relaxed",
+            children: "Per qualsiasi domanda, richiesta o comunicazione relativa ai presenti Termini, è possibile contattare il Titolare all'indirizzo:"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "mt-4 bg-brand-50 rounded-lg p-4 border border-brand-200",
+            children: /* @__PURE__ */ jsxs("p", {
+              className: "text-gray-700",
+              children: ["Email: ", /* @__PURE__ */ jsx("a", {
+                href: `mailto:${companyEmail}`,
+                className: "text-brand-600 hover:underline font-medium",
+                children: companyEmail
+              })]
+            })
+          })]
+        }), /* @__PURE__ */ jsx("div", {
+          className: "pt-6 border-t border-gray-200",
+          children: /* @__PURE__ */ jsx("p", {
+            className: "text-gray-500 text-sm italic text-center",
+            children: "Utilizzando Runoot, l'utente conferma di aver letto, compreso e accettato i presenti Termini e Condizioni."
           })
-        }), /* @__PURE__ */ jsx("h3", {
-          className: "mt-4 text-lg font-medium text-gray-900",
-          children: "No saved listings yet"
-        }), /* @__PURE__ */ jsx("p", {
-          className: "mt-2 text-gray-500",
-          children: "When you find a listing you like, click the heart icon to save it here."
-        }), /* @__PURE__ */ jsx(Link, {
-          to: "/listings",
-          className: "btn-primary mt-6 inline-block",
-          children: "Browse Listings"
         })]
-      }) : /* @__PURE__ */ jsx("div", {
-        className: "grid gap-6 md:grid-cols-2 lg:grid-cols-3",
-        children: savedListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
-          listing,
-          isUserLoggedIn: true,
-          isSaved: true
-        }, listing.id))
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "mt-8 text-center text-sm text-gray-500",
+        children: [/* @__PURE__ */ jsx("a", {
+          href: "/privacy-policy",
+          className: "hover:text-brand-600",
+          children: "Privacy Policy"
+        }), /* @__PURE__ */ jsx("span", {
+          className: "mx-2",
+          children: "•"
+        }), /* @__PURE__ */ jsx("a", {
+          href: "/cookie-policy",
+          className: "hover:text-brand-600",
+          children: "Cookie Policy"
+        }), /* @__PURE__ */ jsx("span", {
+          className: "mx-2",
+          children: "•"
+        }), /* @__PURE__ */ jsx("a", {
+          href: "/",
+          className: "hover:text-brand-600",
+          children: "Torna alla Home"
+        })]
       })]
     })]
   });
 });
-const route26 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route32 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  default: saved,
-  loader,
+  default: terms,
   meta
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-Bj2TN-Zi.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/root-s-W88QXJ.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": ["/assets/root-DPsn7tEh.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id_.edit": { "id": "routes/listings.$id_.edit", "parentId": "root", "path": "listings/:id/edit", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id_.edit-Dbvxcncd.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/listing-rules-CouRL6vW.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.conversations": { "id": "routes/api.conversations", "parentId": "root", "path": "api/conversations", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.conversations-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.messages.$id": { "id": "routes/api.messages.$id", "parentId": "root", "path": "api/messages/:id", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.messages._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings._index": { "id": "routes/listings._index", "parentId": "root", "path": "listings", "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._index-DUh5nK6L.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCard-UlCRqv1D.js", "/assets/ListingCardCompact-Bf9JPoRI.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile._index": { "id": "routes/profile._index", "parentId": "root", "path": "profile", "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile._index-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.agency": { "id": "routes/profile.agency", "parentId": "root", "path": "profile/agency", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.agency-fQhOx7kB.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.runner": { "id": "routes/profile.runner", "parentId": "root", "path": "profile/runner", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.runner-5thRFXV3.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.translate": { "id": "routes/api.translate", "parentId": "root", "path": "api/translate", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.translate-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id": { "id": "routes/listings.$id", "parentId": "root", "path": "listings/:id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id-DPbMNEYB.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id.backup": { "id": "routes/listings.$id.backup", "parentId": "routes/listings.$id", "path": "backup", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id.backup-DcgidxCD.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.new": { "id": "routes/listings.new", "parentId": "root", "path": "listings/new", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings.new-CdeuYDid.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/listing-rules-CouRL6vW.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/my-listings": { "id": "routes/my-listings", "parentId": "root", "path": "my-listings", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/my-listings-aNcJmjJx.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCard-UlCRqv1D.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.unread": { "id": "routes/api.unread", "parentId": "root", "path": "api/unread", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.unread-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.saved": { "id": "routes/api.saved", "parentId": "root", "path": "api/saved", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.saved-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/dashboard": { "id": "routes/dashboard", "parentId": "root", "path": "dashboard", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/dashboard-BKMfxwZn.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCardCompact-Bf9JPoRI.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages": { "id": "routes/messages", "parentId": "root", "path": "messages", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages-dQcQR5VE.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages._index": { "id": "routes/messages._index", "parentId": "routes/messages", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._index-DHfLeAla.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages.$id": { "id": "routes/messages.$id", "parentId": "routes/messages", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._id-BknZCwbF.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/register": { "id": "routes/register", "parentId": "root", "path": "register", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/register-DkT2czJd.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/settings": { "id": "routes/settings", "parentId": "root", "path": "settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/settings-xQ-JyM2P.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/contact": { "id": "routes/contact", "parentId": "root", "path": "contact", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/contact-DF8TJiT5.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/_index-CUR7S7Px.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCard-UlCRqv1D.js", "/assets/ListingCardCompact-Bf9JPoRI.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/logout": { "id": "routes/logout", "parentId": "root", "path": "logout", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/logout-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/report": { "id": "routes/report", "parentId": "root", "path": "report", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/report-Dq-9biZi.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/login": { "id": "routes/login", "parentId": "root", "path": "login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/login-Hkz_UgEP.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/saved": { "id": "routes/saved", "parentId": "root", "path": "saved", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/saved-CeKFT0zZ.js", "imports": ["/assets/chunk-JZWAC4HX-Wpy6LLBq.js", "/assets/Header-DbNBnIdE.js", "/assets/ListingCard-UlCRqv1D.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-7db72fee.js", "version": "7db72fee", "sri": void 0 };
+const serverManifest = { "entry": { "module": "/assets/entry.client-CAcHcOeg.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/index-BA_b_5Qc.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/root-Cpa5Jj6B.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/index-BA_b_5Qc.js"], "css": ["/assets/root-I3WWNeih.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id_.contact": { "id": "routes/listings.$id_.contact", "parentId": "root", "path": "listings/:id/contact", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id_.contact-Bd6-6gDF.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id_.edit": { "id": "routes/listings.$id_.edit", "parentId": "root", "path": "listings/:id/edit", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id_.edit-4FhJL0oB.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/listing-rules-BvIOYztW.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.experience": { "id": "routes/profile.experience", "parentId": "root", "path": "profile/experience", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.experience-ByFG_Unl.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.conversations": { "id": "routes/api.conversations", "parentId": "root", "path": "api/conversations", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.conversations-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.messages.$id": { "id": "routes/api.messages.$id", "parentId": "root", "path": "api/messages/:id", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.messages._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.settings": { "id": "routes/profile.settings", "parentId": "root", "path": "profile/settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.settings-Dxqnua_h.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings._index": { "id": "routes/listings._index", "parentId": "root", "path": "listings", "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._index-BfnSDMwY.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js", "/assets/ListingCard-D5KGlvU5.js", "/assets/ListingCardCompact-BxkEj8iT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/privacy-policy": { "id": "routes/privacy-policy", "parentId": "root", "path": "privacy-policy", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/privacy-policy-DsVe_0H6.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile._index": { "id": "routes/profile._index", "parentId": "root", "path": "profile", "index": true, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile._index-p8MbuGKN.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.agency": { "id": "routes/profile.agency", "parentId": "root", "path": "profile/agency", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.agency-D04R5app.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.social": { "id": "routes/profile.social", "parentId": "root", "path": "profile/social", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.social-BA-5zWob.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.translate": { "id": "routes/api.translate", "parentId": "root", "path": "api/translate", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.translate-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/cookie-policy": { "id": "routes/cookie-policy", "parentId": "root", "path": "cookie-policy", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/cookie-policy-CQvquBhL.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id": { "id": "routes/listings.$id", "parentId": "root", "path": "listings/:id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id--AptXNU1.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id.backup": { "id": "routes/listings.$id.backup", "parentId": "routes/listings.$id", "path": "backup", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id.backup-CwoRSW0U.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.new": { "id": "routes/listings.new", "parentId": "root", "path": "listings/new", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings.new-g0ZtjXG6.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/listing-rules-BvIOYztW.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/my-listings": { "id": "routes/my-listings", "parentId": "root", "path": "my-listings", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/my-listings-BSu09rw6.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/ListingCard-D5KGlvU5.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.unread": { "id": "routes/api.unread", "parentId": "root", "path": "api/unread", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.unread-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.saved": { "id": "routes/api.saved", "parentId": "root", "path": "api/saved", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.saved-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/dashboard": { "id": "routes/dashboard", "parentId": "root", "path": "dashboard", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/dashboard-C2ar75KN.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/ListingCardCompact-BxkEj8iT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages": { "id": "routes/messages", "parentId": "root", "path": "messages", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages-B9KP3iQc.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages._index": { "id": "routes/messages._index", "parentId": "routes/messages", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._index-BB_rWxGp.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages.$id": { "id": "routes/messages.$id", "parentId": "routes/messages", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._id-ChrJngqs.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/register": { "id": "routes/register", "parentId": "root", "path": "register", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/register-4-HFgyEA.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/settings": { "id": "routes/settings", "parentId": "root", "path": "settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/settings-BirF_roh.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/contact": { "id": "routes/contact", "parentId": "root", "path": "contact", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/contact-DyAaYHz7.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/_index-8Tl17nKY.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js", "/assets/ListingCard-D5KGlvU5.js", "/assets/ListingCardCompact-BxkEj8iT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/logout": { "id": "routes/logout", "parentId": "root", "path": "logout", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/logout-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/report": { "id": "routes/report", "parentId": "root", "path": "report", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/report-DdD06R8V.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/login": { "id": "routes/login", "parentId": "root", "path": "login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/login-X7Tq6KJ8.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/saved": { "id": "routes/saved", "parentId": "root", "path": "saved", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/saved-BEXIOgUu.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js", "/assets/ListingCard-D5KGlvU5.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/terms": { "id": "routes/terms", "parentId": "root", "path": "terms", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/terms-D6S20Im9.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-40c95063.js", "version": "40c95063", "sri": void 0 };
 const assetsBuildDirectory = "build/client";
 const basename = "/";
 const future = { "unstable_optimizeDeps": false, "unstable_subResourceIntegrity": false, "unstable_trailingSlashAwareDataRequests": false, "v8_middleware": false, "v8_splitRouteModules": false, "v8_viteEnvironmentApi": false };
@@ -9072,13 +14293,29 @@ const routes = {
     caseSensitive: void 0,
     module: route0
   },
+  "routes/listings.$id_.contact": {
+    id: "routes/listings.$id_.contact",
+    parentId: "root",
+    path: "listings/:id/contact",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route1
+  },
   "routes/listings.$id_.edit": {
     id: "routes/listings.$id_.edit",
     parentId: "root",
     path: "listings/:id/edit",
     index: void 0,
     caseSensitive: void 0,
-    module: route1
+    module: route2
+  },
+  "routes/profile.experience": {
+    id: "routes/profile.experience",
+    parentId: "root",
+    path: "profile/experience",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route3
   },
   "routes/api.conversations": {
     id: "routes/api.conversations",
@@ -9086,7 +14323,7 @@ const routes = {
     path: "api/conversations",
     index: void 0,
     caseSensitive: void 0,
-    module: route2
+    module: route4
   },
   "routes/api.messages.$id": {
     id: "routes/api.messages.$id",
@@ -9094,7 +14331,15 @@ const routes = {
     path: "api/messages/:id",
     index: void 0,
     caseSensitive: void 0,
-    module: route3
+    module: route5
+  },
+  "routes/profile.settings": {
+    id: "routes/profile.settings",
+    parentId: "root",
+    path: "profile/settings",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route6
   },
   "routes/listings._index": {
     id: "routes/listings._index",
@@ -9102,7 +14347,15 @@ const routes = {
     path: "listings",
     index: true,
     caseSensitive: void 0,
-    module: route4
+    module: route7
+  },
+  "routes/privacy-policy": {
+    id: "routes/privacy-policy",
+    parentId: "root",
+    path: "privacy-policy",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route8
   },
   "routes/profile._index": {
     id: "routes/profile._index",
@@ -9110,7 +14363,7 @@ const routes = {
     path: "profile",
     index: true,
     caseSensitive: void 0,
-    module: route5
+    module: route9
   },
   "routes/profile.agency": {
     id: "routes/profile.agency",
@@ -9118,15 +14371,15 @@ const routes = {
     path: "profile/agency",
     index: void 0,
     caseSensitive: void 0,
-    module: route6
+    module: route10
   },
-  "routes/profile.runner": {
-    id: "routes/profile.runner",
+  "routes/profile.social": {
+    id: "routes/profile.social",
     parentId: "root",
-    path: "profile/runner",
+    path: "profile/social",
     index: void 0,
     caseSensitive: void 0,
-    module: route7
+    module: route11
   },
   "routes/api.translate": {
     id: "routes/api.translate",
@@ -9134,7 +14387,15 @@ const routes = {
     path: "api/translate",
     index: void 0,
     caseSensitive: void 0,
-    module: route8
+    module: route12
+  },
+  "routes/cookie-policy": {
+    id: "routes/cookie-policy",
+    parentId: "root",
+    path: "cookie-policy",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route13
   },
   "routes/listings.$id": {
     id: "routes/listings.$id",
@@ -9142,7 +14403,7 @@ const routes = {
     path: "listings/:id",
     index: void 0,
     caseSensitive: void 0,
-    module: route9
+    module: route14
   },
   "routes/listings.$id.backup": {
     id: "routes/listings.$id.backup",
@@ -9150,7 +14411,7 @@ const routes = {
     path: "backup",
     index: void 0,
     caseSensitive: void 0,
-    module: route10
+    module: route15
   },
   "routes/listings.new": {
     id: "routes/listings.new",
@@ -9158,7 +14419,7 @@ const routes = {
     path: "listings/new",
     index: void 0,
     caseSensitive: void 0,
-    module: route11
+    module: route16
   },
   "routes/my-listings": {
     id: "routes/my-listings",
@@ -9166,7 +14427,7 @@ const routes = {
     path: "my-listings",
     index: void 0,
     caseSensitive: void 0,
-    module: route12
+    module: route17
   },
   "routes/api.unread": {
     id: "routes/api.unread",
@@ -9174,7 +14435,7 @@ const routes = {
     path: "api/unread",
     index: void 0,
     caseSensitive: void 0,
-    module: route13
+    module: route18
   },
   "routes/api.saved": {
     id: "routes/api.saved",
@@ -9182,7 +14443,7 @@ const routes = {
     path: "api/saved",
     index: void 0,
     caseSensitive: void 0,
-    module: route14
+    module: route19
   },
   "routes/dashboard": {
     id: "routes/dashboard",
@@ -9190,7 +14451,7 @@ const routes = {
     path: "dashboard",
     index: void 0,
     caseSensitive: void 0,
-    module: route15
+    module: route20
   },
   "routes/messages": {
     id: "routes/messages",
@@ -9198,7 +14459,7 @@ const routes = {
     path: "messages",
     index: void 0,
     caseSensitive: void 0,
-    module: route16
+    module: route21
   },
   "routes/messages._index": {
     id: "routes/messages._index",
@@ -9206,7 +14467,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route17
+    module: route22
   },
   "routes/messages.$id": {
     id: "routes/messages.$id",
@@ -9214,7 +14475,7 @@ const routes = {
     path: ":id",
     index: void 0,
     caseSensitive: void 0,
-    module: route18
+    module: route23
   },
   "routes/register": {
     id: "routes/register",
@@ -9222,7 +14483,7 @@ const routes = {
     path: "register",
     index: void 0,
     caseSensitive: void 0,
-    module: route19
+    module: route24
   },
   "routes/settings": {
     id: "routes/settings",
@@ -9230,7 +14491,7 @@ const routes = {
     path: "settings",
     index: void 0,
     caseSensitive: void 0,
-    module: route20
+    module: route25
   },
   "routes/contact": {
     id: "routes/contact",
@@ -9238,7 +14499,7 @@ const routes = {
     path: "contact",
     index: void 0,
     caseSensitive: void 0,
-    module: route21
+    module: route26
   },
   "routes/_index": {
     id: "routes/_index",
@@ -9246,7 +14507,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route22
+    module: route27
   },
   "routes/logout": {
     id: "routes/logout",
@@ -9254,7 +14515,7 @@ const routes = {
     path: "logout",
     index: void 0,
     caseSensitive: void 0,
-    module: route23
+    module: route28
   },
   "routes/report": {
     id: "routes/report",
@@ -9262,7 +14523,7 @@ const routes = {
     path: "report",
     index: void 0,
     caseSensitive: void 0,
-    module: route24
+    module: route29
   },
   "routes/login": {
     id: "routes/login",
@@ -9270,7 +14531,7 @@ const routes = {
     path: "login",
     index: void 0,
     caseSensitive: void 0,
-    module: route25
+    module: route30
   },
   "routes/saved": {
     id: "routes/saved",
@@ -9278,7 +14539,15 @@ const routes = {
     path: "saved",
     index: void 0,
     caseSensitive: void 0,
-    module: route26
+    module: route31
+  },
+  "routes/terms": {
+    id: "routes/terms",
+    parentId: "root",
+    path: "terms",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route32
   }
 };
 const allowedActionOrigins = false;

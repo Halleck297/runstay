@@ -14,6 +14,11 @@ type Pages = {
   "/": {
     params: {};
   };
+  "/listings/:id/contact": {
+    params: {
+      "id": string;
+    };
+  };
   "/listings/:id/edit": {
     params: {
       "id": string;
@@ -116,7 +121,11 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/listings/:id/edit" | "/profile/experience" | "/api/conversations" | "/api/messages/:id" | "/profile/settings" | "/listings" | "/privacy-policy" | "/profile" | "/profile/agency" | "/profile/social" | "/api/translate" | "/cookie-policy" | "/listings/:id" | "/listings/:id/backup" | "/listings/new" | "/my-listings" | "/api/unread" | "/api/saved" | "/dashboard" | "/messages" | "/messages/:id" | "/register" | "/settings" | "/contact" | "/logout" | "/report" | "/login" | "/saved" | "/terms";
+    page: "/" | "/listings/:id/contact" | "/listings/:id/edit" | "/profile/experience" | "/api/conversations" | "/api/messages/:id" | "/profile/settings" | "/listings" | "/privacy-policy" | "/profile" | "/profile/agency" | "/profile/social" | "/api/translate" | "/cookie-policy" | "/listings/:id" | "/listings/:id/backup" | "/listings/new" | "/my-listings" | "/api/unread" | "/api/saved" | "/dashboard" | "/messages" | "/messages/:id" | "/register" | "/settings" | "/contact" | "/logout" | "/report" | "/login" | "/saved" | "/terms";
+  };
+  "routes/listings.$id_.contact.tsx": {
+    id: "routes/listings.$id_.contact";
+    page: "/listings/:id/contact";
   };
   "routes/listings.$id_.edit.tsx": {
     id: "routes/listings.$id_.edit";
@@ -246,6 +255,7 @@ type RouteFiles = {
 
 type RouteModules = {
   "root": typeof import("./app/root.tsx");
+  "routes/listings.$id_.contact": typeof import("./app/routes/listings.$id_.contact.tsx");
   "routes/listings.$id_.edit": typeof import("./app/routes/listings.$id_.edit.tsx");
   "routes/profile.experience": typeof import("./app/routes/profile.experience.tsx");
   "routes/api.conversations": typeof import("./app/routes/api.conversations.tsx");

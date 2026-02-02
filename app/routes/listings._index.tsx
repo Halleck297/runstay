@@ -178,13 +178,14 @@ export default function Listings() {
 
         <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
           {/* Page header with Search and Filters */}
-          <div className="relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
-            <h1 className="font-display text-3xl font-bold text-gray-900">
+          <div className="relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md px-3 py-4 sm:p-6">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left">
               Browse Listings
             </h1>
-            <p className="mt-2 text-gray-600 mb-8">
+            <p className="hidden sm:block mt-2 text-gray-600 mb-8">
               Find available rooms and bibs for upcoming marathons
             </p>
+            <div className="sm:hidden mb-6" />
 
             {/* Search Bar with Autocomplete */}
             <Form method="get" name="listing-search" className="mb-6">
@@ -256,7 +257,7 @@ export default function Listings() {
                 <a
                   key={category.value}
                   href={category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`}
-                  className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${
+                  className={`px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${
                     currentType === category.value
                       ? "bg-brand-500 text-white"
                       : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
@@ -275,7 +276,7 @@ export default function Listings() {
 {filteredBySort.length > 0 ? (
   <>
     {/* Desktop: Grid di card */}
-    <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr">
+    <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr relative z-0">
       {visibleListings.map((listing: any) => (
         <ListingCard
           key={listing.id}
@@ -287,7 +288,7 @@ export default function Listings() {
     </div>
 
     {/* Mobile: Lista verticale compatta */}
-    <div className="flex flex-col gap-3 md:hidden">
+    <div className="flex flex-col gap-3 md:hidden relative z-0">
       {visibleListings.map((listing: any) => (
         <ListingCardCompact
           key={listing.id}

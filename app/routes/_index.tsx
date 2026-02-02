@@ -232,8 +232,8 @@ export default function Index() {
 {listings.length > 0 && (
   <section className="pt-8 pb-20 md:py-20 bg-gray-50">
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-3xl font-bold text-gray-900">
+      <div className="flex flex-col md:flex-row items-center justify-between">
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center md:text-left">
           Recent Listings
         </h2>
         {/* View all - hidden on mobile, shown in header on desktop */}

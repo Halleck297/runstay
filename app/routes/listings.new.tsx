@@ -361,7 +361,7 @@ useEffect(() => {
         className="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed"
         style={{ backgroundImage: "url('/new-listing.jpg')" }}
       >
-        <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-2xl px-4 py-8 pb-8 md:pb-8 sm:px-6 lg:px-8">
           <div className="mb-6 md:mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-3 md:p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
             <h1 className="font-display text-xl md:text-3xl font-bold text-gray-900">
               Create a Listing
@@ -706,8 +706,8 @@ useEffect(() => {
                       name="price"
                       min="0"
                       step="0.01"
-                      placeholder="Empty = Contact for price"
-                      className="input w-[205px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-sm placeholder:font-sans"
+                      placeholder=""
+                      className="input w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={priceValue}
                       onChange={(e) => {
                         setPriceValue(e.target.value);
@@ -722,6 +722,9 @@ useEffect(() => {
                       onChange={setCurrency}
                     />
                   </div>
+                  <p className="mt-1.5 text-sm text-gray-500">
+                    Leave empty = Contact for price
+                  </p>
                 </div>
 
                 {/* Price negotiable - appare solo quando c'è un prezzo */}
@@ -788,7 +791,7 @@ useEffect(() => {
 
             {/* Submit */}
             <div className="flex gap-4 pt-4">
-              <button type="submit" className="btn-primary flex-1">
+              <button type="submit" className="btn-primary flex-1 rounded-full">
                 Create Listing
               </button>
             </div>

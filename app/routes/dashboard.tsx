@@ -84,13 +84,13 @@ export default function Dashboard() {
         {/* ============================================ */}
         {/* MOBILE VERSION */}
         {/* ============================================ */}
-        <main className="md:hidden px-4 pt-20 pb-20">
+        <main className="md:hidden px-4 pt-6 pb-20">
           {/* Header row */}
           <div className="flex items-center justify-between mb-5">
             <h1 className="font-display text-lg font-bold text-gray-900">Dashboard</h1>
             <Link
               to="/listings/new"
-              className="bg-accent-500 text-white rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium shadow-sm active:bg-accent-600"
+              className="bg-accent-500 text-white rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium shadow-sm active:bg-accent-600"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

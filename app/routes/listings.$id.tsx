@@ -98,41 +98,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return redirect(redirectPath);
   }
 
-  // Handle contact action (default)
-  if (listing.author_id === userId) {
-    return data({ error: "You cannot message yourself" }, { status: 400 });
-  }
-
-  // Check if conversation already exists
-  const { data: existingConversation } = await supabaseAdmin
-    .from("conversations")
-    .select("id")
-    .eq("listing_id", id!)
-    .or(
-      `and(participant_1.eq.${userId},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${userId})`
-    )
-    .single<{ id: string }>();
-
-  if (existingConversation) {
-    return redirect(`/messages/${existingConversation.id}`);
-  }
-
-  // Create new conversation
-  const { data: newConversation, error } = await supabaseAdmin
-    .from("conversations")
-    .insert({
-      listing_id: id!,
-      participant_1: userId,
-      participant_2: listing.author_id,
-    } as any)
-    .select()
-    .single<{ id: string }>();
-
-  if (error) {
-    return data({ error: "Failed to start conversation" }, { status: 500 });
-  }
-
-  return redirect(`/messages/${newConversation.id}`);
+  // No other actions - contact flow now handled by /listings/:id/contact
+  return data({ error: "Invalid action" }, { status: 400 });
 }
 
 const typeLabels = {
@@ -232,7 +199,7 @@ export default function ListingDetail() {
       <div className="min-h-screen bg-gray-50/85">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 py-6 pb-24 md:pb-6 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-7xl px-4 py-6 pb-36 md:pb-6 sm:px-6 lg:px-8">
           {/* Back link */}
           <div className="mb-4">
             <Link
@@ -727,7 +694,7 @@ export default function ListingDetail() {
 
               {/* Price */}
               <div className="p-5">
-                <div className="text-center pb-5 border-b border-gray-100 mb-5">
+                <div className="text-center">
                   {/* Se è bib o room_and_bib, mostra associated costs */}
                   {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") ? (
                     listingData.associated_costs ? (
@@ -783,11 +750,12 @@ export default function ListingDetail() {
 
                 {/* Desktop only - su mobile usiamo il pulsante sticky in fondo */}
                 {listingData.status === "active" && !isOwner && (
-                  <Form method="post" className="hidden md:block">
-                    <button type="submit" className="btn-primary w-full text-base py-3.5 font-semibold rounded-full shadow-lg shadow-brand-500/25">
-                      Contact {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || 'Seller'}
-                    </button>
-                  </Form>
+                  <Link
+                    to={`/listings/${listingData.id}/contact`}
+                    className="btn-primary w-full text-base py-3.5 font-semibold rounded-full shadow-lg shadow-brand-500/25 hidden md:block text-center"
+                  >
+                    Contact {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || 'Seller'}
+                  </Link>
                 )}
 
                 {isOwner && (
@@ -882,11 +850,12 @@ export default function ListingDetail() {
         {/* Mobile sticky CTA - solo su mobile, sopra la MobileNav */}
         {listingData.status === "active" && !isOwner && (
           <div className="fixed bottom-16 left-0 right-0 px-8 py-2.5 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] md:hidden z-30">
-            <Form method="post">
-              <button type="submit" className="btn-primary w-full text-sm py-2.5 font-semibold rounded-full shadow-lg shadow-brand-500/25">
-                Contact {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || 'Seller'}
-              </button>
-            </Form>
+            <Link
+              to={`/listings/${listingData.id}/contact`}
+              className="btn-primary w-full text-sm py-2.5 font-semibold rounded-full shadow-lg shadow-brand-500/25 block text-center"
+            >
+              Contact {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || 'Seller'}
+            </Link>
           </div>
         )}
         </main>

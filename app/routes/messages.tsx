@@ -5,6 +5,7 @@ import { Outlet, Link, useLoaderData, useParams } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
+import { FooterLight } from "~/components/FooterLight";
 import { useRealtimeConversations } from "~/hooks/useRealtimeConversations";
 import { getAvatarClasses } from "~/lib/avatarColors";
 
@@ -76,7 +77,7 @@ export default function MessagesLayout() {
   });
 
     return (
-    <div className="h-[calc(100vh-4rem)] md:h-screen flex flex-col bg-gray-50">
+    <div className="messages-page h-[calc(100dvh-4rem)] md:h-screen flex flex-col bg-gray-50">
       <Header user={user} />
 
       <div
@@ -98,14 +99,14 @@ export default function MessagesLayout() {
           {/* Header lista */}
           <div className="p-4 border-b border-gray-200 flex items-center h-[72px]">
             <h1 className="font-display text-xl font-bold text-gray-900">
-              Messages
+              Chat
             </h1>
           </div>
 
           {/* Lista conversazioni scrollabile */}
           <div className="flex-1 overflow-y-auto">
             {conversations.length > 0 ? (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-gray-200">
                 {conversations.map((conv: any) => {
                   const otherUser =
                     conv.participant_1 === (user as any).id
@@ -224,11 +225,16 @@ export default function MessagesLayout() {
               </div>
             )}
           </div>
+
+          {/* Footer mobile - solo quando lista conversazioni è visibile */}
+          <div className="md:hidden">
+            <FooterLight />
+          </div>
         </aside>
 
         {/* Area centrale: Conversazione attiva */}
         <main
-          className={`flex-1 flex flex-col ${
+          className={`flex-1 flex flex-col min-w-0 overflow-hidden ${
             activeConversationId ? "flex" : "hidden md:flex"
           }`}
         >

@@ -260,7 +260,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
 
             {/* Center: View Details button */}
             <div className="flex-1 flex justify-center">
-              <span className="bg-accent-500 text-white text-[10px] font-medium px-3 py-1 rounded-full">
+              <span className="bg-accent-500 text-white text-xs font-medium px-4 py-1.5 rounded-full">
                 View
               </span>
             </div>
