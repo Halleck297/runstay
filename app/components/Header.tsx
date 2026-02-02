@@ -67,18 +67,9 @@ export function Header({ user }: HeaderProps) {
   const unreadCount = fetcher.data?.unreadCount ?? (user as any)?.unreadCount ?? 0;
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
+    <>
+    <header className="hidden md:block sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
       <div className="mx-auto max-w-7xl px-4 md:px-0">
-        {/* Mobile Header */}
-        <div className="flex md:hidden h-14 items-center justify-center">
-          <Link to="/" className="flex items-center">
-            <img
-              src="/logo.svg"
-              alt="Runoot"
-              className="h-20 w-auto"
-            />
-          </Link>
-        </div>
 
         {/* Desktop Header */}
         <div className="hidden md:flex h-20 items-center justify-between">
@@ -270,5 +261,6 @@ export function Header({ user }: HeaderProps) {
         </div>
       </div>
     </header>
+    </>
   );
 }

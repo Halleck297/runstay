@@ -76,9 +76,9 @@ export function MobileNav({ user }: MobileNavProps) {
         />
       )}
 
-      {/* Sidebar Drawer */}
+      {/* Sidebar Drawer (now opens from top) */}
       <div
-        className={`md:hidden fixed bottom-16 right-2 w-56 bg-white rounded-2xl shadow-xl z-50 transform transition-all duration-200 ease-out ${
+        className={`md:hidden fixed top-16 right-2 w-56 bg-white rounded-2xl shadow-xl z-50 transform transition-all duration-200 ease-out ${
           isSidebarOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
@@ -170,8 +170,8 @@ export function MobileNav({ user }: MobileNavProps) {
         </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-bottom">
+      {/* Top Navigation (inverted from bottom) */}
+      <nav className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 safe-area-top">
       <div className="flex items-center justify-around h-16 px-2">
         {/* Home */}
         <Link

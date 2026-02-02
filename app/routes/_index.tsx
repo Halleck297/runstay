@@ -230,7 +230,7 @@ export default function Index() {
 
       {/* Recent Listings */}
 {listings.length > 0 && (
-  <section className="py-20 bg-gray-50">
+  <section className="pt-8 pb-20 md:py-20 bg-gray-50">
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-3xl font-bold text-gray-900">
@@ -260,7 +260,7 @@ export default function Index() {
       </div>
 
       {/* Mobile: View all button centered below cards */}
-      <div className="mt-6 mb-16 md:mb-0 flex justify-center md:hidden">
+      <div className="mt-4 flex justify-center md:hidden">
         <Link
           to={user ? "/listings" : "/login"}
           className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"

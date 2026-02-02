@@ -122,68 +122,68 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
   return (
     <Link
       to={isUserLoggedIn ? `/listings/${listing.id}` : "/login"}
-      className={cardClass}
+      className={`${cardClass} relative`}
     >
+      {/* Save button - absolute top right */}
+      {isUserLoggedIn && (
+        <div className="absolute top-3 right-3 z-10">
+          <saveFetcher.Form
+            method="post"
+            action="/api/saved"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input type="hidden" name="listingId" value={listing.id} />
+            <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
+            <button
+              type="submit"
+              onClick={(e) => e.preventDefault()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                saveFetcher.submit(
+                  { listingId: listing.id, action: isSavedOptimistic ? "unsave" : "save" },
+                  { method: "post", action: "/api/saved" }
+                );
+              }}
+              className={`p-1 rounded-full transition-colors ${
+                isSavedOptimistic
+                  ? "text-red-500"
+                  : "text-gray-400 hover:text-red-500"
+              }`}
+              title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
+            >
+              <svg
+                className="h-5 w-5"
+                fill={isSavedOptimistic ? "currentColor" : "none"}
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                />
+              </svg>
+            </button>
+          </saveFetcher.Form>
+        </div>
+      )}
+
       {/* Main content wrapper with logo on right */}
       <div className="flex gap-3">
         {/* Left content */}
         <div className="flex-1 min-w-0">
-          {/* Header row: Badges + Save */}
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`}>
-                {listing.listing_type === "bib" ? "Bib" : listing.listing_type === "room" ? "Hotel" : "Package"}
+          {/* Header row: Badges */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`}>
+              {listing.listing_type === "bib" ? "Bib" : listing.listing_type === "room" ? "Hotel" : "Package"}
+            </span>
+            {isLM && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-accent-100 text-accent-700">
+                LM
               </span>
-              {isLM && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-accent-100 text-accent-700">
-                  LM
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {isUserLoggedIn && (
-                <saveFetcher.Form
-                  method="post"
-                  action="/api/saved"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input type="hidden" name="listingId" value={listing.id} />
-                  <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
-                  <button
-                    type="submit"
-                    onClick={(e) => e.preventDefault()}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      saveFetcher.submit(
-                        { listingId: listing.id, action: isSavedOptimistic ? "unsave" : "save" },
-                        { method: "post", action: "/api/saved" }
-                      );
-                    }}
-                    className={`p-1 rounded-full transition-colors ${
-                      isSavedOptimistic
-                        ? "text-red-500"
-                        : "text-gray-400 hover:text-red-500"
-                    }`}
-                    title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      fill={isSavedOptimistic ? "currentColor" : "none"}
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                      />
-                    </svg>
-                  </button>
-                </saveFetcher.Form>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Titolo evento */}
@@ -226,8 +226,8 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
         </div>
       </div>
 
-      {/* Footer: Seller + Prezzo */}
-      <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
+      {/* Footer: Seller + View Details + Prezzo */}
+      <div className="flex items-center pt-2 border-t border-gray-100">
         {isUserLoggedIn ? (
           <>
             {/* Left: Seller con avatar */}
@@ -258,8 +258,15 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
               </div>
             </div>
 
+            {/* Center: View Details button */}
+            <div className="flex-1 flex justify-center">
+              <span className="bg-accent-500 text-white text-[10px] font-medium px-3 py-1 rounded-full">
+                View
+              </span>
+            </div>
+
             {/* Right: Prezzo */}
-            <div className="text-right flex-shrink-0">
+            <div className="text-right flex-1 flex justify-end">
               {listing.listing_type === "bib" && listing.associated_costs ? (
                 <p className="text-base font-bold text-gray-900">
                   €{listing.associated_costs.toLocaleString()}

@@ -88,6 +88,17 @@ export default function OperatorProfile() {
       <Header user={user} />
 
       <main className="mx-auto max-w-3xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
+        {/* Back button */}
+        <button
+          onClick={() => window.history.back()}
+          className="mb-4 inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="text-sm font-medium">Back</span>
+        </button>
+
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold text-gray-900">
             Company Profile
