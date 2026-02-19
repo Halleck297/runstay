@@ -1,6 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+.react-router/
+
 # Environment variables
 .env
 .env.local
 .env.*.local
-node_module
-node_modules
+
+# OS files
+.DS_Store
+
+# Claude local settings
+.claude/settings.local.json
