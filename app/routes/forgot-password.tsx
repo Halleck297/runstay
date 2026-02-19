@@ -9,9 +9,17 @@ export const meta: MetaFunction = () => {
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
-  const email = (formData.get("email") as string | null)?.trim() || "";
+  const rawEmail = (formData.get("email") as string | null) || "";
+  const email = rawEmail
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[“”‘’"'`]/g, "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toLowerCase();
 
-  if (!email || !email.includes("@")) {
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailPattern.test(email)) {
     return data({ error: "Please enter a valid email address." }, { status: 400 });
   }
 
