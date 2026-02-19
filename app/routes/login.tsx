@@ -12,10 +12,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   if (user) {
     // Redirect based on user type
-    const redirectUrl = user.user_type === "tour_operator" ? "/dashboard" : "/listings";
+    const redirectUrl = (user as any).user_type === "tour_operator" ? "/dashboard" : "/listings";
     return redirect(redirectUrl);
   }
-  return null;
+  return {};
 }
 
 export async function action({ request }: ActionFunctionArgs) {

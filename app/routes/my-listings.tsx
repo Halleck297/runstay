@@ -36,26 +36,29 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return redirect("/dashboard");
   }
 
-  // Split listings into active (event in future) and ended (event passed)
+  // Split listings by status first, then by event date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const pendingListings = userListings.filter((listing: any) => listing.status === "pending");
+  const rejectedListings = userListings.filter((listing: any) => listing.status === "rejected");
+
   const activeListings = userListings.filter((listing: any) => {
     const eventDate = new Date(listing.event.event_date);
-    return eventDate >= today;
+    return listing.status === "active" && eventDate >= today;
   });
 
   const endedListings = userListings.filter((listing: any) => {
     const eventDate = new Date(listing.event.event_date);
-    return eventDate < today;
+    return (listing.status === "active" || listing.status === "sold" || listing.status === "expired") && eventDate < today;
   });
 
-  return { user, activeListings, endedListings };
+  return { user, activeListings, endedListings, pendingListings, rejectedListings };
 }
 
 export default function MyListings() {
-  const { user, activeListings, endedListings } = useLoaderData<typeof loader>();
-  const totalListings = activeListings.length + endedListings.length;
+  const { user, activeListings, endedListings, pendingListings, rejectedListings } = useLoaderData<typeof loader>();
+  const totalListings = pendingListings.length + rejectedListings.length + activeListings.length + endedListings.length;
 
   return (
     <div className="min-h-full bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
@@ -83,6 +86,52 @@ export default function MyListings() {
 
         {totalListings > 0 ? (
           <div className="space-y-10">
+            {/* Pending Listings */}
+            {pendingListings.length > 0 && (
+              <section>
+                <h2 className="font-display text-xl font-semibold text-yellow-700 mb-4 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
+                  Pending Review ({pendingListings.length})
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  These listings are awaiting admin approval before going live.
+                </p>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 opacity-80">
+                  {pendingListings.map((listing: any) => (
+                    <div key={listing.id} className="relative">
+                      <ListingCard listing={listing} isUserLoggedIn={true} />
+                      <div className="absolute top-3 right-3">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">
+                          Pending
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Rejected Listings */}
+            {rejectedListings.length > 0 && (
+              <section>
+                <h2 className="font-display text-xl font-semibold text-red-700 mb-4">
+                  Not Approved ({rejectedListings.length})
+                </h2>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 opacity-60">
+                  {rejectedListings.map((listing: any) => (
+                    <div key={listing.id} className="relative">
+                      <ListingCard listing={listing} isUserLoggedIn={true} />
+                      <div className="absolute top-3 right-3">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
+                          Not approved
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Active Listings */}
             {activeListings.length > 0 && (
               <section>

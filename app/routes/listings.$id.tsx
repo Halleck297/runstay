@@ -655,6 +655,35 @@ export default function ListingDetail() {
                       <span className="h-2 w-2 rounded-full bg-green-500"></span>
                       Active listing
                     </span>
+                  ) : listingData.status === "pending" ? (
+                    isOwner ? (
+                      <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3">
+                        <p className="text-sm font-semibold text-yellow-800">Pending review</p>
+                        <p className="text-xs text-yellow-700 mt-0.5">
+                          Your listing is being reviewed by our team. We'll notify you once it's approved.
+                        </p>
+                      </div>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                        Listing unavailable
+                      </span>
+                    )
+                  ) : listingData.status === "rejected" ? (
+                    isOwner ? (
+                      <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+                        <p className="text-sm font-semibold text-red-800">Listing not approved</p>
+                        {(listingData as any).admin_note && (
+                          <p className="text-xs text-red-700 mt-0.5">{(listingData as any).admin_note}</p>
+                        )}
+                        <p className="text-xs text-red-600 mt-1">
+                          Please contact us if you have questions.
+                        </p>
+                      </div>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                        Listing unavailable
+                      </span>
+                    )
                   ) : (
                     <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
                       {listingData.status === "sold" ? "Sold" : "Expired"}

@@ -30,9 +30,17 @@ type Pages = {
   "/api/conversations": {
     params: {};
   };
+  "/api/notifications": {
+    params: {};
+  };
   "/api/messages/:id": {
     params: {
       "id": string;
+    };
+  };
+  "/become-tl/:token": {
+    params: {
+      "token": string;
     };
   };
   "/profile/settings": {
@@ -59,6 +67,9 @@ type Pages = {
   "/cookie-policy": {
     params: {};
   };
+  "/notifications": {
+    params: {};
+  };
   "/listings/:id": {
     params: {
       "id": string;
@@ -72,11 +83,19 @@ type Pages = {
   "/listings/new": {
     params: {};
   };
+  "/tl-dashboard": {
+    params: {};
+  };
   "/my-listings": {
     params: {};
   };
   "/api/unread": {
     params: {};
+  };
+  "/join/:code": {
+    params: {
+      "code": string;
+    };
   };
   "/api/saved": {
     params: {};
@@ -107,6 +126,30 @@ type Pages = {
   "/report": {
     params: {};
   };
+  "/admin": {
+    params: {};
+  };
+  "/admin/team-leaders": {
+    params: {};
+  };
+  "/admin/impersonate": {
+    params: {};
+  };
+  "/admin/impersonate/stop": {
+    params: {};
+  };
+  "/admin/listings": {
+    params: {};
+  };
+  "/admin/pending": {
+    params: {};
+  };
+  "/admin/users": {
+    params: {};
+  };
+  "/admin/users/new": {
+    params: {};
+  };
   "/login": {
     params: {};
   };
@@ -121,7 +164,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/listings/:id/contact" | "/listings/:id/edit" | "/profile/experience" | "/api/conversations" | "/api/messages/:id" | "/profile/settings" | "/listings" | "/privacy-policy" | "/profile" | "/profile/agency" | "/profile/social" | "/api/translate" | "/cookie-policy" | "/listings/:id" | "/listings/:id/backup" | "/listings/new" | "/my-listings" | "/api/unread" | "/api/saved" | "/dashboard" | "/messages" | "/messages/:id" | "/register" | "/settings" | "/contact" | "/logout" | "/report" | "/login" | "/saved" | "/terms";
+    page: "/" | "/listings/:id/contact" | "/listings/:id/edit" | "/profile/experience" | "/api/conversations" | "/api/notifications" | "/api/messages/:id" | "/become-tl/:token" | "/profile/settings" | "/listings" | "/privacy-policy" | "/profile" | "/profile/agency" | "/profile/social" | "/api/translate" | "/cookie-policy" | "/notifications" | "/listings/:id" | "/listings/:id/backup" | "/listings/new" | "/tl-dashboard" | "/my-listings" | "/api/unread" | "/join/:code" | "/api/saved" | "/dashboard" | "/messages" | "/messages/:id" | "/register" | "/settings" | "/contact" | "/logout" | "/report" | "/admin" | "/admin/team-leaders" | "/admin/impersonate" | "/admin/impersonate/stop" | "/admin/listings" | "/admin/pending" | "/admin/users" | "/admin/users/new" | "/login" | "/saved" | "/terms";
   };
   "routes/listings.$id_.contact.tsx": {
     id: "routes/listings.$id_.contact";
@@ -139,9 +182,17 @@ type RouteFiles = {
     id: "routes/api.conversations";
     page: "/api/conversations";
   };
+  "routes/api.notifications.tsx": {
+    id: "routes/api.notifications";
+    page: "/api/notifications";
+  };
   "routes/api.messages.$id.tsx": {
     id: "routes/api.messages.$id";
     page: "/api/messages/:id";
+  };
+  "routes/become-tl.$token.tsx": {
+    id: "routes/become-tl.$token";
+    page: "/become-tl/:token";
   };
   "routes/profile.settings.tsx": {
     id: "routes/profile.settings";
@@ -175,6 +226,10 @@ type RouteFiles = {
     id: "routes/cookie-policy";
     page: "/cookie-policy";
   };
+  "routes/notifications.tsx": {
+    id: "routes/notifications";
+    page: "/notifications";
+  };
   "routes/listings.$id.tsx": {
     id: "routes/listings.$id";
     page: "/listings/:id" | "/listings/:id/backup";
@@ -187,6 +242,10 @@ type RouteFiles = {
     id: "routes/listings.new";
     page: "/listings/new";
   };
+  "routes/tl-dashboard.tsx": {
+    id: "routes/tl-dashboard";
+    page: "/tl-dashboard";
+  };
   "routes/my-listings.tsx": {
     id: "routes/my-listings";
     page: "/my-listings";
@@ -194,6 +253,10 @@ type RouteFiles = {
   "routes/api.unread.tsx": {
     id: "routes/api.unread";
     page: "/api/unread";
+  };
+  "routes/join.$code.tsx": {
+    id: "routes/join.$code";
+    page: "/join/:code";
   };
   "routes/api.saved.tsx": {
     id: "routes/api.saved";
@@ -239,6 +302,42 @@ type RouteFiles = {
     id: "routes/report";
     page: "/report";
   };
+  "routes/admin.tsx": {
+    id: "routes/admin";
+    page: "/admin" | "/admin/team-leaders" | "/admin/impersonate" | "/admin/impersonate/stop" | "/admin/listings" | "/admin/pending" | "/admin/users" | "/admin/users/new";
+  };
+  "routes/admin.team-leaders.tsx": {
+    id: "routes/admin.team-leaders";
+    page: "/admin/team-leaders";
+  };
+  "routes/admin.impersonate.tsx": {
+    id: "routes/admin.impersonate";
+    page: "/admin/impersonate" | "/admin/impersonate/stop";
+  };
+  "routes/admin.impersonate.stop.tsx": {
+    id: "routes/admin.impersonate.stop";
+    page: "/admin/impersonate/stop";
+  };
+  "routes/admin.listings.tsx": {
+    id: "routes/admin.listings";
+    page: "/admin/listings";
+  };
+  "routes/admin.pending.tsx": {
+    id: "routes/admin.pending";
+    page: "/admin/pending";
+  };
+  "routes/admin._index.tsx": {
+    id: "routes/admin._index";
+    page: "/admin";
+  };
+  "routes/admin.users.tsx": {
+    id: "routes/admin.users";
+    page: "/admin/users" | "/admin/users/new";
+  };
+  "routes/admin.users.new.tsx": {
+    id: "routes/admin.users.new";
+    page: "/admin/users/new";
+  };
   "routes/login.tsx": {
     id: "routes/login";
     page: "/login";
@@ -259,7 +358,9 @@ type RouteModules = {
   "routes/listings.$id_.edit": typeof import("./app/routes/listings.$id_.edit.tsx");
   "routes/profile.experience": typeof import("./app/routes/profile.experience.tsx");
   "routes/api.conversations": typeof import("./app/routes/api.conversations.tsx");
+  "routes/api.notifications": typeof import("./app/routes/api.notifications.tsx");
   "routes/api.messages.$id": typeof import("./app/routes/api.messages.$id.tsx");
+  "routes/become-tl.$token": typeof import("./app/routes/become-tl.$token.tsx");
   "routes/profile.settings": typeof import("./app/routes/profile.settings.tsx");
   "routes/listings._index": typeof import("./app/routes/listings._index.tsx");
   "routes/privacy-policy": typeof import("./app/routes/privacy-policy.tsx");
@@ -268,11 +369,14 @@ type RouteModules = {
   "routes/profile.social": typeof import("./app/routes/profile.social.tsx");
   "routes/api.translate": typeof import("./app/routes/api.translate.tsx");
   "routes/cookie-policy": typeof import("./app/routes/cookie-policy.tsx");
+  "routes/notifications": typeof import("./app/routes/notifications.tsx");
   "routes/listings.$id": typeof import("./app/routes/listings.$id.tsx");
   "routes/listings.$id.backup": typeof import("./app/routes/listings.$id.backup.tsx");
   "routes/listings.new": typeof import("./app/routes/listings.new.tsx");
+  "routes/tl-dashboard": typeof import("./app/routes/tl-dashboard.tsx");
   "routes/my-listings": typeof import("./app/routes/my-listings.tsx");
   "routes/api.unread": typeof import("./app/routes/api.unread.tsx");
+  "routes/join.$code": typeof import("./app/routes/join.$code.tsx");
   "routes/api.saved": typeof import("./app/routes/api.saved.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/messages": typeof import("./app/routes/messages.tsx");
@@ -284,6 +388,15 @@ type RouteModules = {
   "routes/_index": typeof import("./app/routes/_index.tsx");
   "routes/logout": typeof import("./app/routes/logout.tsx");
   "routes/report": typeof import("./app/routes/report.tsx");
+  "routes/admin": typeof import("./app/routes/admin.tsx");
+  "routes/admin.team-leaders": typeof import("./app/routes/admin.team-leaders.tsx");
+  "routes/admin.impersonate": typeof import("./app/routes/admin.impersonate.tsx");
+  "routes/admin.impersonate.stop": typeof import("./app/routes/admin.impersonate.stop.tsx");
+  "routes/admin.listings": typeof import("./app/routes/admin.listings.tsx");
+  "routes/admin.pending": typeof import("./app/routes/admin.pending.tsx");
+  "routes/admin._index": typeof import("./app/routes/admin._index.tsx");
+  "routes/admin.users": typeof import("./app/routes/admin.users.tsx");
+  "routes/admin.users.new": typeof import("./app/routes/admin.users.new.tsx");
   "routes/login": typeof import("./app/routes/login.tsx");
   "routes/saved": typeof import("./app/routes/saved.tsx");
   "routes/terms": typeof import("./app/routes/terms.tsx");

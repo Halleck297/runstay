@@ -63,16 +63,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 }
 
-const statusColors = {
+const statusColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-700 border border-yellow-200",
   active: "bg-success-100 text-success-700 border border-success-200",
   sold: "bg-gray-100 text-gray-700 border border-gray-200",
   expired: "bg-alert-100 text-alert-700 border border-alert-200",
+  rejected: "bg-red-100 text-red-700 border border-red-200",
 };
 
 export default function Dashboard() {
   const { user, listings, conversations, unreadCount } =
     useLoaderData<typeof loader>();
 
+  const pendingListings = listings.filter((l: any) => l.status === "pending");
   const activeListings = listings.filter((l: any) => l.status === "active");
   const soldListings = listings.filter((l: any) => l.status === "sold");
 
@@ -98,6 +101,20 @@ export default function Dashboard() {
               New Listing
             </Link>
           </div>
+
+          {/* Pending alert */}
+          {pendingListings.length > 0 && (
+            <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm font-medium text-yellow-800">
+                  {pendingListings.length} listing{pendingListings.length > 1 ? "s" : ""} pending review
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Stats 2x2 grid */}
           <div className="grid grid-cols-2 gap-3 mb-6">
@@ -262,6 +279,23 @@ export default function Dashboard() {
               Manage your listings and conversations
             </p>
           </div>
+
+          {/* Pending alert - desktop */}
+          {pendingListings.length > 0 && (
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-200 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-yellow-800">
+                  {pendingListings.length} listing{pendingListings.length > 1 ? "s" : ""} pending review
+                </p>
+                <p className="text-xs text-yellow-600">We'll notify you once they're approved</p>
+              </div>
+            </div>
+          )}
 
           {/* Stats */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">

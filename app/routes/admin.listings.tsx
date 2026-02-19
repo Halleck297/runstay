@@ -1,0 +1,385 @@
+// app/routes/admin.listings.tsx - Admin Listings Management
+import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
+import { data } from "react-router";
+import { useLoaderData, useActionData, useSearchParams, Form, Link } from "react-router";
+import { requireAdmin, logAdminAction, startImpersonation } from "~/lib/session.server";
+import { supabaseAdmin } from "~/lib/supabase.server";
+
+export const meta: MetaFunction = () => {
+  return [{ title: "Listings - Admin - Runoot" }];
+};
+
+const ITEMS_PER_PAGE = 20;
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const admin = await requireAdmin(request);
+  const url = new URL(request.url);
+  const search = url.searchParams.get("search") || "";
+  const statusFilter = url.searchParams.get("status") || "";
+  const typeFilter = url.searchParams.get("type") || "";
+  const page = parseInt(url.searchParams.get("page") || "1");
+
+  let query = supabaseAdmin
+    .from("listings")
+    .select(
+      `*, author:profiles(id, full_name, email, company_name, user_type), event:events(id, name, country, event_date)`,
+      { count: "exact" }
+    )
+    .order("created_at", { ascending: false })
+    .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+
+  if (search) {
+    query = query.or(`title.ilike.%${search}%`);
+  }
+  if (statusFilter) {
+    query = query.eq("status", statusFilter);
+  }
+  if (typeFilter) {
+    query = query.eq("listing_type", typeFilter);
+  }
+
+  const { data: listings, count } = await query;
+
+  return {
+    admin,
+    listings: listings || [],
+    totalCount: count || 0,
+    currentPage: page,
+    totalPages: Math.ceil((count || 0) / ITEMS_PER_PAGE),
+  };
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  const admin = await requireAdmin(request);
+  const formData = await request.formData();
+  const actionType = formData.get("_action") as string;
+
+  switch (actionType) {
+    case "changeStatus": {
+      const listingId = formData.get("listingId") as string;
+      const newStatus = formData.get("newStatus") as string;
+
+      if (!["pending", "active", "sold", "expired", "rejected"].includes(newStatus)) {
+        return data({ error: "Invalid status" }, { status: 400 });
+      }
+
+      await (supabaseAdmin
+        .from("listings") as any)
+        .update({ status: newStatus })
+        .eq("id", listingId);
+
+      await logAdminAction((admin as any).id, "listing_status_changed", {
+        targetListingId: listingId,
+        details: { new_status: newStatus },
+      });
+
+      return data({ success: true });
+    }
+
+    case "delete": {
+      const listingId = formData.get("listingId") as string;
+
+      await supabaseAdmin
+        .from("listings")
+        .delete()
+        .eq("id", listingId);
+
+      await logAdminAction((admin as any).id, "listing_deleted", {
+        targetListingId: listingId,
+      });
+
+      return data({ success: true });
+    }
+
+    case "impersonateAuthor": {
+      const authorId = formData.get("authorId") as string;
+      return startImpersonation(request, authorId);
+    }
+
+    default:
+      return data({ error: "Unknown action" }, { status: 400 });
+  }
+}
+
+const listingTypeLabels: Record<string, { label: string; color: string }> = {
+  room: { label: "Hotel", color: "bg-blue-100 text-blue-700" },
+  bib: { label: "Bib", color: "bg-purple-100 text-purple-700" },
+  room_and_bib: { label: "Package", color: "bg-green-100 text-green-700" },
+};
+
+const statusColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-700",
+  active: "bg-success-100 text-success-700",
+  sold: "bg-gray-100 text-gray-600",
+  expired: "bg-alert-100 text-alert-700",
+  rejected: "bg-red-100 text-red-700",
+};
+
+export default function AdminListings() {
+  const { listings, totalCount, currentPage, totalPages } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
+  const [searchParams] = useSearchParams();
+
+  return (
+    <div>
+      {/* Page header */}
+      <div className="mb-6">
+        <h1 className="font-display text-2xl md:text-3xl font-bold text-gray-900">Listings</h1>
+        <p className="text-gray-500 mt-1">{totalCount} total listings</p>
+      </div>
+
+      {/* Action feedback */}
+      {actionData && "error" in actionData && (
+        <div className="mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm">
+          {actionData.error}
+        </div>
+      )}
+
+      {/* Search and filters */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <Form method="get" className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <input
+              type="text"
+              name="search"
+              placeholder="Search by title..."
+              defaultValue={searchParams.get("search") || ""}
+              className="input w-full"
+            />
+          </div>
+          <select
+            name="status"
+            defaultValue={searchParams.get("status") || ""}
+            className="input"
+          >
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="active">Active</option>
+            <option value="sold">Sold</option>
+            <option value="expired">Expired</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <select
+            name="type"
+            defaultValue={searchParams.get("type") || ""}
+            className="input"
+          >
+            <option value="">All types</option>
+            <option value="room">Hotel</option>
+            <option value="bib">Bib</option>
+            <option value="room_and_bib">Package</option>
+          </select>
+          <button type="submit" className="btn-accent">
+            Search
+          </button>
+        </Form>
+      </div>
+
+      {/* Listings table */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Listing</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Author</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Type</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Status</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Event</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Created</th>
+                <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {listings.map((listing: any) => {
+                const typeInfo = listingTypeLabels[listing.listing_type] || { label: listing.listing_type, color: "bg-gray-100 text-gray-600" };
+
+                return (
+                  <tr key={listing.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <Link to={`/listings/${listing.id}`} className="text-sm font-medium text-gray-900 hover:text-brand-600">
+                        {listing.title}
+                      </Link>
+                      {listing.price && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {listing.currency} {listing.price}
+                          {listing.price_negotiable && " (negotiable)"}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-700">
+                        {listing.author?.company_name || listing.author?.full_name || "Unknown"}
+                      </p>
+                      <p className="text-xs text-gray-400">{listing.author?.email}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.color}`}>
+                        {typeInfo.label}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Form method="post" className="inline">
+                        <input type="hidden" name="_action" value="changeStatus" />
+                        <input type="hidden" name="listingId" value={listing.id} />
+                        <select
+                          name="newStatus"
+                          defaultValue={listing.status}
+                          onChange={(e) => e.target.form?.requestSubmit()}
+                          className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${statusColors[listing.status] || ""}`}
+                        >
+                          <option value="pending">pending</option>
+                          <option value="active">active</option>
+                          <option value="sold">sold</option>
+                          <option value="expired">expired</option>
+                          <option value="rejected">rejected</option>
+                        </select>
+                      </Form>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {listing.event?.name || "—"}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {new Date(listing.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Form method="post" className="inline">
+                          <input type="hidden" name="_action" value="impersonateAuthor" />
+                          <input type="hidden" name="authorId" value={listing.author_id} />
+                          <button
+                            type="submit"
+                            className="text-xs font-medium text-navy-500 hover:text-navy-700 px-2 py-1 rounded hover:bg-gray-100"
+                            title="Impersonate author"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                        </Form>
+                        <Form method="post" className="inline" onSubmit={(e) => {
+                          if (!confirm("Are you sure you want to delete this listing?")) {
+                            e.preventDefault();
+                          }
+                        }}>
+                          <input type="hidden" name="_action" value="delete" />
+                          <input type="hidden" name="listingId" value={listing.id} />
+                          <button
+                            type="submit"
+                            className="text-xs font-medium text-alert-500 hover:text-alert-700 px-2 py-1 rounded hover:bg-alert-50"
+                            title="Delete listing"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </Form>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y divide-gray-100">
+          {listings.map((listing: any) => {
+            const typeInfo = listingTypeLabels[listing.listing_type] || { label: listing.listing_type, color: "bg-gray-100 text-gray-600" };
+
+            return (
+              <div key={listing.id} className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="min-w-0 flex-1">
+                    <Link to={`/listings/${listing.id}`} className="text-sm font-medium text-gray-900 hover:text-brand-600">
+                      {listing.title}
+                    </Link>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      by {listing.author?.company_name || listing.author?.full_name || "Unknown"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.color}`}>
+                      {typeInfo.label}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[listing.status] || ""}`}>
+                      {listing.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <div className="text-xs text-gray-500">
+                    {listing.event?.name} · {new Date(listing.created_at).toLocaleDateString()}
+                    {listing.price && (
+                      <span> · {listing.currency} {listing.price}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Form method="post" className="inline">
+                      <input type="hidden" name="_action" value="changeStatus" />
+                      <input type="hidden" name="listingId" value={listing.id} />
+                      <select
+                        name="newStatus"
+                        defaultValue={listing.status}
+                        onChange={(e) => e.target.form?.requestSubmit()}
+                        className="text-xs px-2 py-1 rounded bg-gray-50 border-0"
+                      >
+                        <option value="active">active</option>
+                        <option value="sold">sold</option>
+                        <option value="expired">expired</option>
+                      </select>
+                    </Form>
+                    <Form method="post" className="inline" onSubmit={(e) => {
+                      if (!confirm("Delete this listing?")) e.preventDefault();
+                    }}>
+                      <input type="hidden" name="_action" value="delete" />
+                      <input type="hidden" name="listingId" value={listing.id} />
+                      <button type="submit" className="text-xs text-alert-500 px-2 py-1 rounded bg-gray-50">
+                        Delete
+                      </button>
+                    </Form>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Empty state */}
+        {listings.length === 0 && (
+          <div className="p-8 text-center text-gray-400 text-sm">
+            No listings found
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-center gap-2">
+          {currentPage > 1 && (
+            <Link
+              to={`/admin/listings?page=${currentPage - 1}&search=${searchParams.get("search") || ""}&status=${searchParams.get("status") || ""}&type=${searchParams.get("type") || ""}`}
+              className="px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50"
+            >
+              Previous
+            </Link>
+          )}
+          <span className="text-sm text-gray-500">
+            Page {currentPage} of {totalPages}
+          </span>
+          {currentPage < totalPages && (
+            <Link
+              to={`/admin/listings?page=${currentPage + 1}&search=${searchParams.get("search") || ""}&status=${searchParams.get("status") || ""}&type=${searchParams.get("type") || ""}`}
+              className="px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50"
+            >
+              Next
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

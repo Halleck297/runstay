@@ -1,7 +1,7 @@
 import { jsx, jsxs, Fragment } from "react/jsx-runtime";
 import { PassThrough } from "node:stream";
 import { createReadableStreamFromReadable } from "@react-router/node";
-import { ServerRouter, createCookieSessionStorage, redirect, useLocation, useFetcher, Link, Form, UNSAFE_withComponentProps, useLoaderData, Outlet, Meta, Links, ScrollRestoration, Scripts, useActionData, useNavigation, data, useNavigate, useSearchParams, useParams } from "react-router";
+import { ServerRouter, createCookieSessionStorage, redirect, useLocation, useFetcher, Link, Form, UNSAFE_withErrorBoundaryProps, useRouteError, isRouteErrorResponse, UNSAFE_withComponentProps, useLoaderData, Outlet, Meta, Links, ScrollRestoration, Scripts, useActionData, useNavigation, data, useNavigate, useSearchParams, useParams } from "react-router";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
 import { createClient } from "@supabase/supabase-js";
@@ -113,10 +113,22 @@ async function getAccessToken(request) {
   return session.get("accessToken");
 }
 async function getUser(request) {
+  const session = await getUserSession(request);
+  const impersonatingAs = session.get("impersonatingAs");
+  if (impersonatingAs) {
+    const { data: profile2 } = await supabaseAdmin.from("profiles").select("*").eq("id", impersonatingAs).single();
+    return profile2;
+  }
   const userId = await getUserId(request);
   if (!userId) return null;
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).single();
   return profile;
+}
+async function getRealUserId(request) {
+  const session = await getUserSession(request);
+  const userId = session.get("userId");
+  if (!userId || typeof userId !== "string") return null;
+  return userId;
 }
 async function requireUserId(request, redirectTo = new URL(request.url).pathname) {
   const userId = await getUserId(request);
@@ -128,11 +140,84 @@ async function requireUserId(request, redirectTo = new URL(request.url).pathname
 }
 async function requireUser(request) {
   const userId = await requireUserId(request);
+  const session = await getUserSession(request);
+  const impersonatingAs = session.get("impersonatingAs");
+  if (impersonatingAs) {
+    const { data: profile2 } = await supabaseAdmin.from("profiles").select("*").eq("id", impersonatingAs).single();
+    if (!profile2) {
+      throw await stopImpersonation(request);
+    }
+    return profile2;
+  }
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).single();
   if (!profile) {
     throw await logout(request);
   }
   return profile;
+}
+async function requireAdmin(request) {
+  const realUserId = await requireUserId(request);
+  const { data: profile } = await supabaseAdmin.from("profiles").select("*").eq("id", realUserId).single();
+  if (!profile || !["admin", "superadmin"].includes(profile.role)) {
+    throw redirect("/");
+  }
+  return profile;
+}
+async function startImpersonation(request, targetUserId) {
+  const session = await getUserSession(request);
+  const adminId = session.get("userId");
+  session.set("impersonatingAs", targetUserId);
+  session.set("originalAdminId", adminId);
+  await logAdminAction(adminId, "impersonate_start", {
+    targetUserId,
+    details: { started_at: (/* @__PURE__ */ new Date()).toISOString() }
+  });
+  return redirect("/", {
+    headers: {
+      "Set-Cookie": await storage.commitSession(session)
+    }
+  });
+}
+async function stopImpersonation(request) {
+  const session = await getUserSession(request);
+  const adminId = session.get("userId");
+  const targetUserId = session.get("impersonatingAs");
+  if (adminId && targetUserId) {
+    await logAdminAction(adminId, "impersonate_stop", {
+      targetUserId,
+      details: { stopped_at: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+  }
+  session.unset("impersonatingAs");
+  session.unset("originalAdminId");
+  return redirect("/admin", {
+    headers: {
+      "Set-Cookie": await storage.commitSession(session)
+    }
+  });
+}
+async function getImpersonationContext(request) {
+  const session = await getUserSession(request);
+  const impersonatingAs = session.get("impersonatingAs");
+  const originalAdminId = session.get("originalAdminId");
+  if (!impersonatingAs || !originalAdminId) {
+    return null;
+  }
+  const { data: targetUser } = await supabaseAdmin.from("profiles").select("id, full_name, email, user_type, company_name").eq("id", impersonatingAs).single();
+  return {
+    isImpersonating: true,
+    originalAdminId,
+    targetUser
+  };
+}
+async function logAdminAction(adminId, action2, options) {
+  await supabaseAdmin.from("admin_audit_log").insert({
+    admin_id: adminId,
+    action: action2,
+    target_user_id: (options == null ? void 0 : options.targetUserId) || null,
+    target_listing_id: (options == null ? void 0 : options.targetListingId) || null,
+    details: (options == null ? void 0 : options.details) || null
+  });
 }
 async function logout(request) {
   const session = await getUserSession(request);
@@ -355,7 +440,10 @@ function MobileNav({ user }) {
     };
   }, [user, fetcher]);
   const unreadCount = ((_a = fetcher.data) == null ? void 0 : _a.unreadCount) ?? 0;
-  if (location.pathname === "/login" || location.pathname === "/register") {
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [location.pathname]);
+  if (location.pathname === "/login" || location.pathname === "/register" || location.pathname.startsWith("/join/")) {
     return null;
   }
   const isActive = (path) => {
@@ -363,10 +451,7 @@ function MobileNav({ user }) {
     return location.pathname.startsWith(path);
   };
   const myListingPath = (user == null ? void 0 : user.user_type) === "tour_operator" ? "/dashboard" : "/my-listings";
-  useEffect(() => {
-    setIsSidebarOpen(false);
-  }, [location.pathname]);
-  const firstName = ((_b = user == null ? void 0 : user.full_name) == null ? void 0 : _b.split(" ")[0]) || "Menu";
+  ((_b = user == null ? void 0 : user.full_name) == null ? void 0 : _b.split(" ")[0]) || "Menu";
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     isSidebarOpen && /* @__PURE__ */ jsx(
       "div",
@@ -433,6 +518,31 @@ function MobileNav({ user }) {
                 children: [
                   /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" }) }),
                   "Saved"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxs(
+              Link,
+              {
+                to: "/notifications",
+                onClick: () => setIsSidebarOpen(false),
+                className: "flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50",
+                children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" }) }),
+                  /* @__PURE__ */ jsx("span", { className: "flex-1", children: "Notifications" }),
+                  (user == null ? void 0 : user.unreadNotifications) > 0 && /* @__PURE__ */ jsx("span", { className: "flex h-4 w-4 items-center justify-center rounded-full bg-purple-500 text-[9px] font-bold text-white", children: user.unreadNotifications > 9 ? "9+" : user.unreadNotifications })
+                ]
+              }
+            ),
+            (user == null ? void 0 : user.is_team_leader) && /* @__PURE__ */ jsxs(
+              Link,
+              {
+                to: "/tl-dashboard",
+                onClick: () => setIsSidebarOpen(false),
+                className: "flex items-center gap-2.5 px-3 py-2 text-sm text-purple-700 hover:bg-purple-50",
+                children: [
+                  /* @__PURE__ */ jsx("svg", { className: "h-4 w-4 text-purple-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" }) }),
+                  "TL Dashboard"
                 ]
               }
             ),
@@ -532,7 +642,7 @@ function MobileNav({ user }) {
           className: `flex flex-col items-center justify-center flex-1 py-2 ${isActive("/profile") || isActive("/settings") || isActive("/saved") || isActive(myListingPath) ? "text-brand-600" : "text-gray-500"}`,
           children: [
             /* @__PURE__ */ jsx("svg", { className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: isActive("/profile") || isActive("/settings") || isActive("/saved") ? 2.5 : 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" }) }),
-            /* @__PURE__ */ jsx("span", { className: "text-[10px] mt-0.5 font-medium truncate max-w-[60px]", children: firstName })
+            /* @__PURE__ */ jsx("span", { className: "text-[10px] mt-0.5 font-medium", children: "Profile" })
           ]
         }
       ) : /* @__PURE__ */ jsxs(
@@ -560,21 +670,23 @@ const links = () => [{
   rel: "stylesheet",
   href: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap"
 }];
-async function loader$q({
+async function loader$D({
   request
 }) {
   const user = await getUser(request);
   const accessToken = await getAccessToken(request);
   let unreadCount = 0;
+  let unreadNotifications = 0;
   if (user) {
-    const {
-      data: conversations
-    } = await supabaseAdmin.from("conversations").select(`
-        id,
-        messages(id, sender_id, read_at)
-      `).or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`);
-    if (conversations) {
-      conversations.forEach((conv) => {
+    const [convResult, notifResult] = await Promise.all([supabaseAdmin.from("conversations").select(`
+          id,
+          messages(id, sender_id, read_at)
+        `).or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`), supabaseAdmin.from("notifications").select("*", {
+      count: "exact",
+      head: true
+    }).eq("user_id", user.id).is("read_at", null)]);
+    if (convResult.data) {
+      convResult.data.forEach((conv) => {
         var _a;
         (_a = conv.messages) == null ? void 0 : _a.forEach((msg) => {
           if (msg.sender_id !== user.id && !msg.read_at) {
@@ -583,12 +695,21 @@ async function loader$q({
         });
       });
     }
+    unreadNotifications = notifResult.count || 0;
+  }
+  let impersonation = null;
+  try {
+    impersonation = await getImpersonationContext(request);
+  } catch (e) {
+    console.error("Impersonation context error:", e);
   }
   return {
     user: user ? {
       ...user,
-      unreadCount
+      unreadCount,
+      unreadNotifications
     } : null,
+    impersonation,
     ENV: {
       SUPABASE_URL: process.env.SUPABASE_URL,
       SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
@@ -615,9 +736,59 @@ function Layout({
     })]
   });
 }
+const ErrorBoundary = UNSAFE_withErrorBoundaryProps(function ErrorBoundary2() {
+  const error = useRouteError();
+  return /* @__PURE__ */ jsxs("div", {
+    style: {
+      padding: "2rem",
+      fontFamily: "monospace"
+    },
+    children: [/* @__PURE__ */ jsx("h1", {
+      style: {
+        color: "red",
+        fontSize: "1.5rem"
+      },
+      children: "Something went wrong"
+    }), isRouteErrorResponse(error) ? /* @__PURE__ */ jsxs("div", {
+      children: [/* @__PURE__ */ jsxs("p", {
+        children: [/* @__PURE__ */ jsx("strong", {
+          children: "Status:"
+        }), " ", error.status, " ", error.statusText]
+      }), /* @__PURE__ */ jsx("pre", {
+        style: {
+          background: "#f5f5f5",
+          padding: "1rem",
+          overflow: "auto"
+        },
+        children: typeof error.data === "string" ? error.data : JSON.stringify(error.data, null, 2)
+      })]
+    }) : error instanceof Error ? /* @__PURE__ */ jsxs("div", {
+      children: [/* @__PURE__ */ jsxs("p", {
+        children: [/* @__PURE__ */ jsx("strong", {
+          children: "Error:"
+        }), " ", error.message]
+      }), /* @__PURE__ */ jsx("pre", {
+        style: {
+          background: "#f5f5f5",
+          padding: "1rem",
+          overflow: "auto",
+          fontSize: "0.8rem"
+        },
+        children: error.stack
+      })]
+    }) : /* @__PURE__ */ jsx("pre", {
+      style: {
+        background: "#f5f5f5",
+        padding: "1rem"
+      },
+      children: JSON.stringify(error, null, 2)
+    })]
+  });
+});
 const root = UNSAFE_withComponentProps(function App() {
   const {
     user,
+    impersonation,
     ENV
   } = useLoaderData();
   return /* @__PURE__ */ jsxs(Fragment, {
@@ -625,6 +796,42 @@ const root = UNSAFE_withComponentProps(function App() {
       dangerouslySetInnerHTML: {
         __html: `window.ENV = ${JSON.stringify(ENV)}`
       }
+    }), (impersonation == null ? void 0 : impersonation.isImpersonating) && impersonation.targetUser && /* @__PURE__ */ jsxs("div", {
+      className: "fixed top-0 left-0 right-0 z-[9999] bg-alert-500 text-white px-4 py-2 flex items-center justify-center gap-3 text-sm font-medium shadow-lg",
+      children: [/* @__PURE__ */ jsxs("span", {
+        className: "flex items-center gap-2",
+        children: [/* @__PURE__ */ jsxs("svg", {
+          className: "w-4 h-4",
+          fill: "none",
+          stroke: "currentColor",
+          viewBox: "0 0 24 24",
+          children: [/* @__PURE__ */ jsx("path", {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            strokeWidth: 2,
+            d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          }), /* @__PURE__ */ jsx("path", {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            strokeWidth: 2,
+            d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+          })]
+        }), "Viewing as ", /* @__PURE__ */ jsx("strong", {
+          children: impersonation.targetUser.full_name || impersonation.targetUser.email
+        }), impersonation.targetUser.company_name && /* @__PURE__ */ jsxs("span", {
+          className: "opacity-80",
+          children: ["(", impersonation.targetUser.company_name, ")"]
+        })]
+      }), /* @__PURE__ */ jsx(Form, {
+        method: "post",
+        action: "/admin/impersonate/stop",
+        className: "inline",
+        children: /* @__PURE__ */ jsx("button", {
+          type: "submit",
+          className: "ml-2 bg-white text-alert-600 px-3 py-1 rounded-full text-xs font-bold hover:bg-alert-50 transition-colors",
+          children: "Exit Impersonation"
+        })
+      })]
     }), /* @__PURE__ */ jsx(Outlet, {}), /* @__PURE__ */ jsx(CookieBanner, {}), /* @__PURE__ */ jsx(MobileNav, {
       user
     })]
@@ -632,12 +839,13 @@ const root = UNSAFE_withComponentProps(function App() {
 });
 const route0 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
+  ErrorBoundary,
   Layout,
   default: root,
   links,
-  loader: loader$q
+  loader: loader$D
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$o = ({
+const meta$z = ({
   data: data2
 }) => {
   var _a, _b;
@@ -645,7 +853,7 @@ const meta$o = ({
     title: `Contact Seller - ${((_b = (_a = data2 == null ? void 0 : data2.listing) == null ? void 0 : _a.event) == null ? void 0 : _b.name) || "Runoot"}`
   }];
 };
-async function loader$p({
+async function loader$C({
   request,
   params
 }) {
@@ -691,7 +899,7 @@ async function loader$p({
     sent: !!sent
   };
 }
-async function action$i({
+async function action$u({
   request,
   params
 }) {
@@ -953,10 +1161,10 @@ const listings_$id__contact = UNSAFE_withComponentProps(function ContactSeller()
 });
 const route1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$i,
+  action: action$u,
   default: listings_$id__contact,
-  loader: loader$p,
-  meta: meta$o
+  loader: loader$C,
+  meta: meta$z
 }, Symbol.toStringTag, { value: "Module" }));
 const UNREAD_POLL_INTERVAL = 5e3;
 function Header({ user }) {
@@ -998,6 +1206,8 @@ function Header({ user }) {
     };
   }, [user, fetcher]);
   const unreadCount = ((_a = fetcher.data) == null ? void 0 : _a.unreadCount) ?? (user == null ? void 0 : user.unreadCount) ?? 0;
+  const unreadNotifications = (user == null ? void 0 : user.unreadNotifications) ?? 0;
+  const hasAnyUnread = unreadCount > 0 || unreadNotifications > 0;
   return /* @__PURE__ */ jsx(Fragment, { children: /* @__PURE__ */ jsx("header", { className: "hidden md:block sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200", children: /* @__PURE__ */ jsx("div", { className: "mx-auto max-w-7xl px-4 md:px-0", children: /* @__PURE__ */ jsxs("div", { className: "hidden md:flex h-20 items-center justify-between", children: [
     /* @__PURE__ */ jsx(Link, { to: "/", className: "flex items-center mt-2", children: /* @__PURE__ */ jsx(
       "img",
@@ -1040,7 +1250,7 @@ function Header({ user }) {
                 onClick: () => setIsMenuOpen(!isMenuOpen),
                 className: "flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-full bg-white hover:bg-gray-50 text-gray-900 transition-colors",
                 children: [
-                  unreadCount > 0 && /* @__PURE__ */ jsx("span", { className: "h-2.5 w-2.5 rounded-full bg-red-500" }),
+                  hasAnyUnread && /* @__PURE__ */ jsx("span", { className: "h-2.5 w-2.5 rounded-full bg-red-500" }),
                   /* @__PURE__ */ jsx("span", { className: "text-sm font-bold max-w-[150px] truncate", children: user.full_name || user.email }),
                   /* @__PURE__ */ jsx(
                     "svg",
@@ -1109,6 +1319,29 @@ function Header({ user }) {
                   children: [
                     /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" }) }),
                     "Saved"
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxs(
+                Link,
+                {
+                  to: "/notifications",
+                  className: "flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50",
+                  children: [
+                    /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" }) }),
+                    /* @__PURE__ */ jsx("span", { className: "flex-1", children: "Notifications" }),
+                    unreadNotifications > 0 && /* @__PURE__ */ jsx("span", { className: "flex h-5 w-5 items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold text-white", children: unreadNotifications > 9 ? "9+" : unreadNotifications })
+                  ]
+                }
+              ),
+              user.is_team_leader && /* @__PURE__ */ jsxs(
+                Link,
+                {
+                  to: "/tl-dashboard",
+                  className: "flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50",
+                  children: [
+                    /* @__PURE__ */ jsx("svg", { className: "h-5 w-5 text-purple-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" }) }),
+                    "TL Dashboard"
                   ]
                 }
               ),
@@ -1473,20 +1706,6 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
     setInputValue("");
     setSuggestions([]);
   };
-  const handleManualSubmit = (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const manualHotel = {
-      placeId: "",
-      name: formData.get("manualHotelName"),
-      city: formData.get("manualCity"),
-      country: formData.get("manualCountry"),
-      formattedAddress: ""
-    };
-    setSelectedHotel(manualHotel);
-    onSelectHotel(manualHotel);
-    setShowManualForm(false);
-  };
   const isInEventCity = (suggestion) => {
     if (!eventCity) return false;
     return suggestion.secondaryText.toLowerCase().includes(eventCity.toLowerCase());
@@ -1570,81 +1789,17 @@ function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, def
       ] }),
       isOpen && inputValue && suggestions.length === 0 && !isLoading && /* @__PURE__ */ jsx("div", { className: "absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-4", children: /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-500 text-center", children: "No hotels found. Try a different search or add manually." }) })
     ] }),
-    /* @__PURE__ */ jsx(
-      "button",
+    /* @__PURE__ */ jsxs(
+      "a",
       {
-        type: "button",
-        onClick: () => setShowManualForm(!showManualForm),
+        href: "/contact",
         className: "inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors",
-        children: showManualForm ? /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsx("svg", { className: "h-4 w-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" }) }),
-          "Use search instead"
-        ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsx("svg", { className: "h-4 w-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M12 4v16m8-8H4" }) }),
-          "Can't find your hotel? Add manually"
-        ] })
+        children: [
+          /* @__PURE__ */ jsx("svg", { className: "h-4 w-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" }) }),
+          "Can't find your hotel? Contact us"
+        ]
       }
-    ),
-    showManualForm && /* @__PURE__ */ jsxs("form", { onSubmit: handleManualSubmit, className: "mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4", children: [
-      /* @__PURE__ */ jsxs("div", { children: [
-        /* @__PURE__ */ jsx("label", { htmlFor: "manualHotelName", className: "label text-sm", children: "Hotel name *" }),
-        /* @__PURE__ */ jsx(
-          "input",
-          {
-            type: "text",
-            id: "manualHotelName",
-            name: "manualHotelName",
-            required: true,
-            className: "input",
-            placeholder: "e.g. Hotel Artemide"
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: "grid grid-cols-2 gap-3", children: [
-        /* @__PURE__ */ jsxs("div", { children: [
-          /* @__PURE__ */ jsx("label", { htmlFor: "manualCity", className: "label text-sm", children: "City *" }),
-          /* @__PURE__ */ jsx(
-            "input",
-            {
-              type: "text",
-              id: "manualCity",
-              name: "manualCity",
-              required: true,
-              className: "input",
-              placeholder: "e.g. Rome",
-              defaultValue: eventCity
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxs("div", { children: [
-          /* @__PURE__ */ jsx("label", { htmlFor: "manualCountry", className: "label text-sm", children: "Country *" }),
-          /* @__PURE__ */ jsx(
-            "input",
-            {
-              type: "text",
-              id: "manualCountry",
-              name: "manualCountry",
-              required: true,
-              className: "input",
-              placeholder: "e.g. Italy",
-              defaultValue: eventCountry
-            }
-          )
-        ] })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: "flex gap-2", children: [
-        /* @__PURE__ */ jsx("button", { type: "submit", className: "rounded-full bg-accent-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-accent-500/30 hover:bg-accent-600 transition-colors", children: "Save hotel" }),
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            type: "button",
-            onClick: () => setShowManualForm(false),
-            className: "text-sm text-gray-600 hover:text-gray-800",
-            children: "Cancel"
-          }
-        )
-      ] })
-    ] })
+    )
   ] }) : /* @__PURE__ */ jsxs("div", { className: "flex items-start sm:items-center justify-between gap-3 rounded-xl border border-green-500 bg-green-50 p-4", children: [
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelPlaceId", value: (selectedHotel == null ? void 0 : selectedHotel.placeId) || "" }),
     /* @__PURE__ */ jsx("input", { type: "hidden", name: "hotelName", value: (selectedHotel == null ? void 0 : selectedHotel.name) || "" }),
@@ -2058,12 +2213,12 @@ function validateListingLimits(userType, roomCount, bibCount, transferMethod) {
   }
   return { valid: true };
 }
-const meta$n = () => {
+const meta$y = () => {
   return [{
     title: "Edit Listing - Runoot"
   }];
 };
-async function loader$o({
+async function loader$B({
   request,
   params
 }) {
@@ -2100,7 +2255,7 @@ async function loader$o({
     googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || ""
   };
 }
-async function action$h({
+async function action$t({
   request,
   params
 }) {
@@ -2775,17 +2930,17 @@ const listings_$id__edit = UNSAFE_withComponentProps(function EditListing() {
 });
 const route2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$h,
+  action: action$t,
   default: listings_$id__edit,
-  loader: loader$o,
-  meta: meta$n
+  loader: loader$B,
+  meta: meta$y
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$m = () => {
+const meta$x = () => {
   return [{
     title: "Running Experience - runoot"
   }];
 };
-async function loader$n({
+async function loader$A({
   request
 }) {
   const user = await requireUser(request);
@@ -2796,7 +2951,7 @@ async function loader$n({
     user
   };
 }
-async function action$g({
+async function action$s({
   request
 }) {
   const user = await requireUser(request);
@@ -3129,12 +3284,12 @@ const profile_experience = UNSAFE_withComponentProps(function RunningExperience(
 });
 const route3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$g,
+  action: action$s,
   default: profile_experience,
-  loader: loader$n,
-  meta: meta$m
+  loader: loader$A,
+  meta: meta$x
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$m({
+async function loader$z({
   request
 }) {
   const user = await requireUser(request);
@@ -3170,9 +3325,72 @@ async function loader$m({
 }
 const route4 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  loader: loader$m
+  loader: loader$z
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$l({
+async function loader$y({
+  request
+}) {
+  const userId = await getUserId(request);
+  if (!userId) {
+    return data({
+      unreadNotifications: 0
+    });
+  }
+  const {
+    count
+  } = await supabaseAdmin.from("notifications").select("*", {
+    count: "exact",
+    head: true
+  }).eq("user_id", userId).is("read_at", null);
+  return data({
+    unreadNotifications: count || 0
+  });
+}
+async function action$r({
+  request
+}) {
+  const userId = await getUserId(request);
+  if (!userId) {
+    return data({
+      error: "Not authenticated"
+    }, {
+      status: 401
+    });
+  }
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+  switch (actionType) {
+    case "markRead": {
+      const notificationId = formData.get("notificationId");
+      await supabaseAdmin.from("notifications").update({
+        read_at: (/* @__PURE__ */ new Date()).toISOString()
+      }).eq("id", notificationId).eq("user_id", userId);
+      return data({
+        success: true
+      });
+    }
+    case "markAllRead": {
+      await supabaseAdmin.from("notifications").update({
+        read_at: (/* @__PURE__ */ new Date()).toISOString()
+      }).eq("user_id", userId).is("read_at", null);
+      return data({
+        success: true
+      });
+    }
+    default:
+      return data({
+        error: "Unknown action"
+      }, {
+        status: 400
+      });
+  }
+}
+const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$r,
+  loader: loader$y
+}, Symbol.toStringTag, { value: "Module" }));
+async function loader$x({
   request,
   params
 }) {
@@ -3226,16 +3444,299 @@ async function loader$l({
     messages: messages2 || []
   });
 }
-const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  loader: loader$l
+  loader: loader$x
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$l = () => {
+const meta$w = () => {
+  return [{
+    title: "Become a Team Leader - Runoot"
+  }];
+};
+async function loader$w({
+  request,
+  params
+}) {
+  const user = await requireUser(request);
+  const token = params.token;
+  if (!token) {
+    throw redirect("/");
+  }
+  if (user.is_team_leader) {
+    return {
+      status: "already_tl",
+      user,
+      token: null
+    };
+  }
+  const {
+    data: tokenData
+  } = await supabaseAdmin.from("tl_invite_tokens").select("*").eq("token", token).single();
+  if (!tokenData) {
+    return {
+      status: "invalid",
+      user,
+      token: null
+    };
+  }
+  if (tokenData.used_by) {
+    return {
+      status: "used",
+      user,
+      token: null
+    };
+  }
+  if (tokenData.expires_at && new Date(tokenData.expires_at) < /* @__PURE__ */ new Date()) {
+    return {
+      status: "expired",
+      user,
+      token: null
+    };
+  }
+  return {
+    status: "valid",
+    user,
+    token: tokenData
+  };
+}
+async function action$q({
+  request,
+  params
+}) {
+  const user = await requireUser(request);
+  const tokenValue = params.token;
+  if (!tokenValue) {
+    return data({
+      error: "No token provided"
+    }, {
+      status: 400
+    });
+  }
+  if (user.is_team_leader) {
+    return data({
+      error: "You are already a Team Leader"
+    }, {
+      status: 400
+    });
+  }
+  const {
+    data: tokenData
+  } = await supabaseAdmin.from("tl_invite_tokens").select("*").eq("token", tokenValue).single();
+  if (!tokenData) {
+    return data({
+      error: "Invalid token"
+    }, {
+      status: 400
+    });
+  }
+  if (tokenData.used_by) {
+    return data({
+      error: "This token has already been used"
+    }, {
+      status: 400
+    });
+  }
+  if (tokenData.expires_at && new Date(tokenData.expires_at) < /* @__PURE__ */ new Date()) {
+    return data({
+      error: "This token has expired"
+    }, {
+      status: 400
+    });
+  }
+  const baseName = user.full_name || user.email.split("@")[0] || "TL";
+  let code = baseName.toUpperCase().replace(/[^A-Z0-9]/g, "").substring(0, 8) + (/* @__PURE__ */ new Date()).getFullYear();
+  const {
+    data: existing
+  } = await supabaseAdmin.from("profiles").select("id").eq("referral_code", code).single();
+  if (existing) {
+    code = code + Math.floor(Math.random() * 100);
+  }
+  await supabaseAdmin.from("profiles").update({
+    is_team_leader: true,
+    referral_code: code
+  }).eq("id", user.id);
+  await supabaseAdmin.from("tl_invite_tokens").update({
+    used_by: user.id,
+    used_at: (/* @__PURE__ */ new Date()).toISOString()
+  }).eq("token", tokenValue);
+  await supabaseAdmin.from("notifications").insert({
+    user_id: user.id,
+    type: "tl_promoted",
+    title: "Welcome, Team Leader!",
+    message: `You've accepted the invite and are now a Team Leader! Your referral code is ${code}. Visit your TL Dashboard to customize it.`,
+    data: {
+      referral_code: code
+    }
+  });
+  return redirect("/tl-dashboard");
+}
+const becomeTl_$token = UNSAFE_withComponentProps(function BecomeTL() {
+  const {
+    status,
+    user
+  } = useLoaderData();
+  const actionData = useActionData();
+  return /* @__PURE__ */ jsx("div", {
+    className: "min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12",
+    children: /* @__PURE__ */ jsx("div", {
+      className: "max-w-md w-full",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center",
+        children: [status === "valid" && /* @__PURE__ */ jsxs(Fragment, {
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-8 h-8 text-purple-600",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+              })
+            })
+          }), /* @__PURE__ */ jsx("h1", {
+            className: "font-display text-2xl font-bold text-gray-900 mb-2",
+            children: "Become a Team Leader"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-500 mb-6",
+            children: "You've been invited to become a Team Leader on Runoot! As a TL, you'll get a personal referral link to invite runners and track your community."
+          }), actionData && "error" in actionData && /* @__PURE__ */ jsx("div", {
+            className: "mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm",
+            children: actionData.error
+          }), /* @__PURE__ */ jsx(Form, {
+            method: "post",
+            children: /* @__PURE__ */ jsx("button", {
+              type: "submit",
+              className: "btn-primary w-full text-base py-3",
+              children: "Accept Invite"
+            })
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-xs text-gray-400 mt-4",
+            children: ["Logged in as ", user.full_name || user.email]
+          })]
+        }), status === "already_tl" && /* @__PURE__ */ jsxs(Fragment, {
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-4",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-8 h-8 text-brand-600",
+              fill: "currentColor",
+              viewBox: "0 0 20 20",
+              children: /* @__PURE__ */ jsx("path", {
+                fillRule: "evenodd",
+                d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                clipRule: "evenodd"
+              })
+            })
+          }), /* @__PURE__ */ jsx("h1", {
+            className: "font-display text-2xl font-bold text-gray-900 mb-2",
+            children: "You're Already a Team Leader!"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-500 mb-6",
+            children: "You already have Team Leader status. Head to your dashboard to manage your community."
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/tl-dashboard",
+            className: "btn-primary inline-block w-full py-3",
+            children: "Go to TL Dashboard"
+          })]
+        }), status === "invalid" && /* @__PURE__ */ jsxs(Fragment, {
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-8 h-8 text-red-500",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M6 18L18 6M6 6l12 12"
+              })
+            })
+          }), /* @__PURE__ */ jsx("h1", {
+            className: "font-display text-2xl font-bold text-gray-900 mb-2",
+            children: "Invalid Token"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-500 mb-6",
+            children: "This invite link is not valid. Please contact the admin for a new one."
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/",
+            className: "btn-secondary inline-block w-full py-3",
+            children: "Go Home"
+          })]
+        }), status === "used" && /* @__PURE__ */ jsxs(Fragment, {
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-8 h-8 text-amber-500",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              })
+            })
+          }), /* @__PURE__ */ jsx("h1", {
+            className: "font-display text-2xl font-bold text-gray-900 mb-2",
+            children: "Token Already Used"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-500 mb-6",
+            children: "This invite link has already been used by someone else. Please contact the admin for a new one."
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/",
+            className: "btn-secondary inline-block w-full py-3",
+            children: "Go Home"
+          })]
+        }), status === "expired" && /* @__PURE__ */ jsxs(Fragment, {
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-8 h-8 text-gray-400",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              })
+            })
+          }), /* @__PURE__ */ jsx("h1", {
+            className: "font-display text-2xl font-bold text-gray-900 mb-2",
+            children: "Token Expired"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-500 mb-6",
+            children: "This invite link has expired. Please contact the admin for a new one."
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/",
+            className: "btn-secondary inline-block w-full py-3",
+            children: "Go Home"
+          })]
+        })]
+      })
+    })
+  });
+});
+const route7 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$q,
+  default: becomeTl_$token,
+  loader: loader$w,
+  meta: meta$w
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$v = () => {
   return [{
     title: "Settings - runoot"
   }];
 };
-async function loader$k({
+async function loader$v({
   request
 }) {
   const user = await requireUser(request);
@@ -3258,7 +3759,7 @@ async function loader$k({
     blockedUsers: blockedUsers || []
   };
 }
-async function action$f({
+async function action$p({
   request
 }) {
   const user = await requireUser(request);
@@ -3620,12 +4121,12 @@ const profile_settings = UNSAFE_withComponentProps(function Settings() {
     })]
   });
 });
-const route6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$f,
+  action: action$p,
   default: profile_settings,
-  loader: loader$k,
-  meta: meta$l
+  loader: loader$v,
+  meta: meta$v
 }, Symbol.toStringTag, { value: "Module" }));
 function FooterLight() {
   return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -4080,7 +4581,7 @@ function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false })
               /* @__PURE__ */ jsx("p", { className: "text-[10px] text-gray-500", children: listing.author.user_type === "tour_operator" ? "Tour Operator" : "Private" })
             ] })
           ] }),
-          /* @__PURE__ */ jsx("div", { className: "flex-1 flex justify-center", children: /* @__PURE__ */ jsx("span", { className: "bg-accent-500 text-white text-[10px] font-medium px-3 py-1 rounded-full", children: "View" }) }),
+          /* @__PURE__ */ jsx("div", { className: "flex-1 flex justify-center", children: /* @__PURE__ */ jsx("span", { className: "bg-accent-500 text-white text-xs font-medium px-4 py-1.5 rounded-full", children: "View" }) }),
           /* @__PURE__ */ jsx("div", { className: "text-right flex-1 flex justify-end", children: listing.listing_type === "bib" && listing.associated_costs ? /* @__PURE__ */ jsxs("p", { className: "text-base font-bold text-gray-900", children: [
             "€",
             listing.associated_costs.toLocaleString()
@@ -4120,12 +4621,12 @@ function SortDropdown({ value, onChange }) {
       {
         type: "button",
         onClick: () => setIsOpen(!isOpen),
-        className: "flex items-center gap-1.5 px-3 py-2 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors",
+        className: "flex items-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors",
         children: [
           /* @__PURE__ */ jsx(
             "svg",
             {
-              className: "h-4 w-4 text-gray-500",
+              className: "h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-500",
               fill: "none",
               viewBox: "0 0 24 24",
               stroke: "currentColor",
@@ -4143,7 +4644,7 @@ function SortDropdown({ value, onChange }) {
           /* @__PURE__ */ jsx(
             "svg",
             {
-              className: `h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`,
+              className: `h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`,
               fill: "none",
               viewBox: "0 0 24 24",
               stroke: "currentColor",
@@ -4168,12 +4669,12 @@ function SortDropdown({ value, onChange }) {
     )) })
   ] });
 }
-const meta$k = () => {
+const meta$u = () => {
   return [{
     title: "Browse Listings - Runoot"
   }];
 };
-async function loader$j({
+async function loader$u({
   request
 }) {
   const user = await getUser(request);
@@ -4244,9 +4745,9 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
   const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [sortBy, setSortBy] = useState(currentSort);
-  const ITEMS_PER_PAGE = 12;
+  const ITEMS_PER_PAGE2 = 12;
   useEffect(() => {
-    setVisibleCount(ITEMS_PER_PAGE);
+    setVisibleCount(ITEMS_PER_PAGE2);
   }, [currentType, currentSearch, sortBy]);
   const sortedListings = [...listings].sort((a, b) => {
     var _a, _b;
@@ -4274,7 +4775,7 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
     }
   });
   const filteredBySort = sortBy === "contact_price" ? sortedListings.filter((l) => l.price == null) : sortedListings;
-  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE2);
   const visibleListings = filteredBySort.slice(0, visibleCount);
   const hasMore = visibleCount < filteredBySort.length;
   const filteredEvents = searchQuery.length >= 2 ? events.filter((event) => event.name.toLowerCase().includes(searchQuery.toLowerCase()) || event.country.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5) : [];
@@ -4304,13 +4805,15 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
       }), /* @__PURE__ */ jsxs("main", {
         className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full",
         children: [/* @__PURE__ */ jsxs("div", {
-          className: "relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6",
+          className: "relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md px-3 py-4 sm:p-6",
           children: [/* @__PURE__ */ jsx("h1", {
-            className: "font-display text-3xl font-bold text-gray-900",
+            className: "font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left",
             children: "Browse Listings"
           }), /* @__PURE__ */ jsx("p", {
-            className: "mt-2 text-gray-600 mb-8",
+            className: "hidden sm:block mt-2 text-gray-600 mb-8",
             children: "Find available rooms and bibs for upcoming marathons"
+          }), /* @__PURE__ */ jsx("div", {
+            className: "sm:hidden mb-6"
           }), /* @__PURE__ */ jsxs(Form, {
             method: "get",
             name: "listing-search",
@@ -4382,7 +4885,7 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
               label: "Package"
             }].map((category) => /* @__PURE__ */ jsx("a", {
               href: category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`,
-              className: `px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${currentType === category.value ? "bg-brand-500 text-white" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"}`,
+              className: `px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${currentType === category.value ? "bg-brand-500 text-white" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"}`,
               children: category.label
             }, category.value)), /* @__PURE__ */ jsx(SortDropdown, {
               value: sortBy,
@@ -4391,14 +4894,14 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
           })]
         }), filteredBySort.length > 0 ? /* @__PURE__ */ jsxs(Fragment, {
           children: [/* @__PURE__ */ jsx("div", {
-            className: "hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr",
+            className: "hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr relative z-0",
             children: visibleListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
               listing,
               isUserLoggedIn: !!user,
               isSaved: (savedListingIds || []).includes(listing.id)
             }, listing.id))
           }), /* @__PURE__ */ jsx("div", {
-            className: "flex flex-col gap-3 md:hidden",
+            className: "flex flex-col gap-3 md:hidden relative z-0",
             children: visibleListings.map((listing) => /* @__PURE__ */ jsx(ListingCardCompact, {
               listing,
               isUserLoggedIn: !!user,
@@ -4407,7 +4910,7 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
           }), hasMore && /* @__PURE__ */ jsx("div", {
             className: "mt-8 text-center",
             children: /* @__PURE__ */ jsxs("button", {
-              onClick: () => setVisibleCount((prev) => prev + ITEMS_PER_PAGE),
+              onClick: () => setVisibleCount((prev) => prev + ITEMS_PER_PAGE2),
               className: "px-8 py-3 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors shadow-md",
               children: ["Load More (", filteredBySort.length - visibleCount, " remaining)"]
             })
@@ -4437,13 +4940,13 @@ const listings__index = UNSAFE_withComponentProps(function Listings() {
     })
   });
 });
-const route7 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: listings__index,
-  loader: loader$j,
-  meta: meta$k
+  loader: loader$u,
+  meta: meta$u
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$j = () => {
+const meta$t = () => {
   return [{
     title: "Privacy Policy | Runoot"
   }, {
@@ -5230,17 +5733,17 @@ const privacyPolicy = UNSAFE_withComponentProps(function PrivacyPolicy() {
     })]
   });
 });
-const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: privacyPolicy,
-  meta: meta$j
+  meta: meta$t
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$i = () => {
+const meta$s = () => {
   return [{
     title: "My Profile - runoot"
   }];
 };
-async function loader$i({
+async function loader$t({
   request
 }) {
   const user = await requireUser(request);
@@ -5251,7 +5754,7 @@ async function loader$i({
     user
   };
 }
-async function action$e({
+async function action$o({
   request
 }) {
   const user = await requireUser(request);
@@ -5598,19 +6101,19 @@ const profile__index = UNSAFE_withComponentProps(function ProfileIndex() {
     })]
   });
 });
-const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$e,
+  action: action$o,
   default: profile__index,
-  loader: loader$i,
-  meta: meta$i
+  loader: loader$t,
+  meta: meta$s
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$h = () => {
+const meta$r = () => {
   return [{
     title: "Company Profile - runoot"
   }];
 };
-async function loader$h({
+async function loader$s({
   request
 }) {
   const user = await requireUser(request);
@@ -5621,7 +6124,7 @@ async function loader$h({
     user
   };
 }
-async function action$d({
+async function action$n({
   request
 }) {
   const user = await requireUser(request);
@@ -6031,19 +6534,19 @@ const profile_agency = UNSAFE_withComponentProps(function OperatorProfile() {
     })]
   });
 });
-const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$d,
+  action: action$n,
   default: profile_agency,
-  loader: loader$h,
-  meta: meta$h
+  loader: loader$s,
+  meta: meta$r
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$g = () => {
+const meta$q = () => {
   return [{
     title: "Social Media - runoot"
   }];
 };
-async function loader$g({
+async function loader$r({
   request
 }) {
   const user = await requireUser(request);
@@ -6054,7 +6557,7 @@ async function loader$g({
     user
   };
 }
-async function action$c({
+async function action$m({
   request
 }) {
   const user = await requireUser(request);
@@ -6368,12 +6871,12 @@ const profile_social = UNSAFE_withComponentProps(function SocialMedia() {
     })]
   });
 });
-const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$c,
+  action: action$m,
   default: profile_social,
-  loader: loader$g,
-  meta: meta$g
+  loader: loader$r,
+  meta: meta$q
 }, Symbol.toStringTag, { value: "Module" }));
 const GOOGLE_TRANSLATE_API_KEY = process.env.GOOGLE_TRANSLATE_API_KEY;
 const TRANSLATE_API_URL = "https://translation.googleapis.com/language/translate/v2";
@@ -6419,7 +6922,7 @@ function isSameLanguage(lang1, lang2) {
   if (!lang1 || !lang2) return false;
   return normalizeLanguageCode(lang1) === normalizeLanguageCode(lang2);
 }
-async function action$b({
+async function action$l({
   request
 }) {
   const user = await getUser(request);
@@ -6520,11 +7023,11 @@ async function action$b({
     });
   }
 }
-const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$b
+  action: action$l
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$f = () => {
+const meta$p = () => {
   return [{
     title: "Cookie Policy | Runoot"
   }, {
@@ -7096,12 +7599,226 @@ const cookiePolicy = UNSAFE_withComponentProps(function CookiePolicy() {
     })]
   });
 });
-const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: cookiePolicy,
-  meta: meta$f
+  meta: meta$p
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$e = ({
+const meta$o = () => {
+  return [{
+    title: "Notifications - Runoot"
+  }];
+};
+async function loader$q({
+  request
+}) {
+  const user = await requireUser(request);
+  const {
+    data: notifications2
+  } = await supabaseAdmin.from("notifications").select("*").eq("user_id", user.id).order("created_at", {
+    ascending: false
+  }).limit(50);
+  return {
+    user,
+    notifications: notifications2 || []
+  };
+}
+async function action$k({
+  request
+}) {
+  const user = await requireUser(request);
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+  switch (actionType) {
+    case "markRead": {
+      const notificationId = formData.get("notificationId");
+      await supabaseAdmin.from("notifications").update({
+        read_at: (/* @__PURE__ */ new Date()).toISOString()
+      }).eq("id", notificationId).eq("user_id", user.id);
+      return data({
+        success: true
+      });
+    }
+    case "markAllRead": {
+      await supabaseAdmin.from("notifications").update({
+        read_at: (/* @__PURE__ */ new Date()).toISOString()
+      }).eq("user_id", user.id).is("read_at", null);
+      return data({
+        success: true
+      });
+    }
+    default:
+      return data({
+        error: "Unknown action"
+      }, {
+        status: 400
+      });
+  }
+}
+const typeIcons = {
+  referral_signup: {
+    bg: "bg-brand-100",
+    color: "text-brand-600",
+    icon: "M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+  },
+  referral_active: {
+    bg: "bg-success-100",
+    color: "text-success-600",
+    icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+  },
+  tl_promoted: {
+    bg: "bg-purple-100",
+    color: "text-purple-600",
+    icon: "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+  },
+  system: {
+    bg: "bg-gray-100",
+    color: "text-gray-600",
+    icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+  },
+  listing_approved: {
+    bg: "bg-success-100",
+    color: "text-success-600",
+    icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+  },
+  listing_rejected: {
+    bg: "bg-alert-100",
+    color: "text-alert-600",
+    icon: "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+  }
+};
+function timeAgo(dateStr) {
+  const now = /* @__PURE__ */ new Date();
+  const date = new Date(dateStr);
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1e3);
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  return date.toLocaleDateString();
+}
+const notifications = UNSAFE_withComponentProps(function Notifications() {
+  const {
+    notifications: notifications2
+  } = useLoaderData();
+  const unreadCount = notifications2.filter((n) => !n.read_at).length;
+  return /* @__PURE__ */ jsxs("div", {
+    className: "max-w-2xl mx-auto px-4 py-8",
+    children: [/* @__PURE__ */ jsxs("div", {
+      className: "flex items-center justify-between mb-6",
+      children: [/* @__PURE__ */ jsxs("div", {
+        children: [/* @__PURE__ */ jsx("h1", {
+          className: "font-display text-2xl md:text-3xl font-bold text-gray-900",
+          children: "Notifications"
+        }), unreadCount > 0 && /* @__PURE__ */ jsxs("p", {
+          className: "text-sm text-gray-500 mt-1",
+          children: [unreadCount, " unread"]
+        })]
+      }), unreadCount > 0 && /* @__PURE__ */ jsxs(Form, {
+        method: "post",
+        children: [/* @__PURE__ */ jsx("input", {
+          type: "hidden",
+          name: "_action",
+          value: "markAllRead"
+        }), /* @__PURE__ */ jsx("button", {
+          type: "submit",
+          className: "text-sm text-brand-600 hover:text-brand-700 font-medium",
+          children: "Mark all read"
+        })]
+      })]
+    }), /* @__PURE__ */ jsx("div", {
+      className: "bg-white rounded-xl border border-gray-200 overflow-hidden",
+      children: /* @__PURE__ */ jsx("div", {
+        className: "divide-y divide-gray-100",
+        children: notifications2.length > 0 ? notifications2.map((notif) => {
+          var _a;
+          const typeStyle = typeIcons[notif.type] || typeIcons.system;
+          const isUnread = !notif.read_at;
+          return /* @__PURE__ */ jsxs("div", {
+            className: `p-4 flex items-start gap-3 ${isUnread ? "bg-brand-50/30" : ""}`,
+            children: [/* @__PURE__ */ jsx("div", {
+              className: `w-9 h-9 rounded-full ${typeStyle.bg} flex items-center justify-center flex-shrink-0`,
+              children: /* @__PURE__ */ jsx("svg", {
+                className: `w-4.5 h-4.5 ${typeStyle.color}`,
+                fill: "none",
+                stroke: "currentColor",
+                viewBox: "0 0 24 24",
+                children: /* @__PURE__ */ jsx("path", {
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                  strokeWidth: 2,
+                  d: typeStyle.icon
+                })
+              })
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "min-w-0 flex-1",
+              children: [/* @__PURE__ */ jsxs("div", {
+                className: "flex items-start justify-between gap-2",
+                children: [/* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: `text-sm ${isUnread ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`,
+                    children: notif.title
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-sm text-gray-500 mt-0.5",
+                    children: notif.message
+                  }), ((_a = notif.data) == null ? void 0 : _a.listing_id) && /* @__PURE__ */ jsx(Link, {
+                    to: `/listings/${notif.data.listing_id}`,
+                    className: "text-xs text-brand-600 hover:text-brand-700 font-medium mt-1 inline-block",
+                    children: "View listing →"
+                  })]
+                }), isUnread && /* @__PURE__ */ jsxs(Form, {
+                  method: "post",
+                  className: "flex-shrink-0",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "_action",
+                    value: "markRead"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "notificationId",
+                    value: notif.id
+                  }), /* @__PURE__ */ jsx("button", {
+                    type: "submit",
+                    className: "w-2.5 h-2.5 rounded-full bg-brand-500 hover:bg-brand-600 transition-colors",
+                    title: "Mark as read"
+                  })]
+                })]
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-xs text-gray-400 mt-1",
+                children: timeAgo(notif.created_at)
+              })]
+            })]
+          }, notif.id);
+        }) : /* @__PURE__ */ jsxs("div", {
+          className: "p-8 text-center",
+          children: [/* @__PURE__ */ jsx("svg", {
+            className: "w-12 h-12 text-gray-300 mx-auto mb-3",
+            fill: "none",
+            stroke: "currentColor",
+            viewBox: "0 0 24 24",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 1.5,
+              d: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+            })
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-sm text-gray-500",
+            children: "No notifications yet"
+          })]
+        })
+      })
+    })]
+  });
+});
+const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$k,
+  default: notifications,
+  loader: loader$q,
+  meta: meta$o
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$n = ({
   data: data2
 }) => {
   var _a;
@@ -7109,7 +7826,7 @@ const meta$e = ({
     title: ((_a = data2 == null ? void 0 : data2.listing) == null ? void 0 : _a.title) || "Listing - Runoot"
   }];
 };
-async function loader$f({
+async function loader$p({
   request,
   params
 }) {
@@ -7144,7 +7861,7 @@ async function loader$f({
     isSaved
   };
 }
-async function action$a({
+async function action$j({
   request,
   params
 }) {
@@ -7892,6 +8609,33 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
                     children: [/* @__PURE__ */ jsx("span", {
                       className: "h-2 w-2 rounded-full bg-green-500"
                     }), "Active listing"]
+                  }) : listingData.status === "pending" ? isOwner ? /* @__PURE__ */ jsxs("div", {
+                    className: "rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3",
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "text-sm font-semibold text-yellow-800",
+                      children: "Pending review"
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-xs text-yellow-700 mt-0.5",
+                      children: "Your listing is being reviewed by our team. We'll notify you once it's approved."
+                    })]
+                  }) : /* @__PURE__ */ jsx("span", {
+                    className: "px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600",
+                    children: "Listing unavailable"
+                  }) : listingData.status === "rejected" ? isOwner ? /* @__PURE__ */ jsxs("div", {
+                    className: "rounded-lg bg-red-50 border border-red-200 px-4 py-3",
+                    children: [/* @__PURE__ */ jsx("p", {
+                      className: "text-sm font-semibold text-red-800",
+                      children: "Listing not approved"
+                    }), listingData.admin_note && /* @__PURE__ */ jsx("p", {
+                      className: "text-xs text-red-700 mt-0.5",
+                      children: listingData.admin_note
+                    }), /* @__PURE__ */ jsx("p", {
+                      className: "text-xs text-red-600 mt-1",
+                      children: "Please contact us if you have questions."
+                    })]
+                  }) : /* @__PURE__ */ jsx("span", {
+                    className: "px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600",
+                    children: "Listing unavailable"
                   }) : /* @__PURE__ */ jsx("span", {
                     className: "px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600",
                     children: listingData.status === "sold" ? "Sold" : "Expired"
@@ -8094,14 +8838,14 @@ const listings_$id = UNSAFE_withComponentProps(function ListingDetail() {
     })
   });
 });
-const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$a,
+  action: action$j,
   default: listings_$id,
-  loader: loader$f,
-  meta: meta$e
+  loader: loader$p,
+  meta: meta$n
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$d = ({
+const meta$m = ({
   data: data2
 }) => {
   var _a;
@@ -8109,7 +8853,7 @@ const meta$d = ({
     title: ((_a = data2 == null ? void 0 : data2.listing) == null ? void 0 : _a.title) || "Listing - Runoot"
   }];
 };
-async function loader$e({
+async function loader$o({
   request,
   params
 }) {
@@ -8246,7 +8990,7 @@ async function loader$e({
     listing
   };
 }
-async function action$9({
+async function action$i({
   request,
   params
 }) {
@@ -8672,12 +9416,12 @@ const listings_$id_backup = UNSAFE_withComponentProps(function ListingDetail2() 
     })]
   });
 });
-const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route18 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$9,
+  action: action$i,
   default: listings_$id_backup,
-  loader: loader$e,
-  meta: meta$d
+  loader: loader$o,
+  meta: meta$m
 }, Symbol.toStringTag, { value: "Module" }));
 function calculateHaversineDistance(lat1, lng1, lat2, lng2) {
   const R = 6371e3;
@@ -8792,12 +9536,12 @@ async function calculateDistanceData(hotelLat, hotelLng, finishLat, finishLng, e
     transit_duration: transitDuration
   };
 }
-const meta$c = () => {
+const meta$l = () => {
   return [{
     title: "Create Listing - RunStay Exchange"
   }];
 };
-async function loader$d({
+async function loader$n({
   request
 }) {
   const user = await requireUser(request);
@@ -8812,7 +9556,7 @@ async function loader$d({
     googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || ""
   };
 }
-async function action$8({
+async function action$h({
   request
 }) {
   const user = await requireUser(request);
@@ -8995,7 +9739,7 @@ async function action$8({
     distance_to_finish: distanceData.distance_to_finish,
     walking_duration: distanceData.walking_duration,
     transit_duration: distanceData.transit_duration,
-    status: "active"
+    status: "pending"
   }).select().single();
   if (error) {
     console.error("Listing creation error:", error);
@@ -9076,7 +9820,7 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
         backgroundImage: "url('/new-listing.jpg')"
       },
       children: /* @__PURE__ */ jsxs("main", {
-        className: "mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+        className: "mx-auto max-w-2xl px-4 py-8 pb-8 md:pb-8 sm:px-6 lg:px-8",
         children: [/* @__PURE__ */ jsxs("div", {
           className: "mb-6 md:mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-3 md:p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
           children: [/* @__PURE__ */ jsx("h1", {
@@ -9416,8 +10160,8 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                     name: "price",
                     min: "0",
                     step: "0.01",
-                    placeholder: "Empty = Contact for price",
-                    className: "input w-[205px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-sm placeholder:font-sans",
+                    placeholder: "",
+                    className: "input w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                     value: priceValue,
                     onChange: (e) => {
                       setPriceValue(e.target.value);
@@ -9429,6 +10173,9 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
                     value: currency,
                     onChange: setCurrency
                   })]
+                }), /* @__PURE__ */ jsx("p", {
+                  className: "mt-1.5 text-sm text-gray-500",
+                  children: "Leave empty = Contact for price"
                 })]
               }), priceValue && (listingType === "room" || listingType === "room_and_bib") && /* @__PURE__ */ jsxs("div", {
                 className: "mt-4",
@@ -9488,7 +10235,7 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
               className: "flex gap-4 pt-4",
               children: /* @__PURE__ */ jsx("button", {
                 type: "submit",
-                className: "btn-primary flex-1",
+                className: "btn-primary flex-1 rounded-full",
                 children: "Create Listing"
               })
             })]
@@ -9525,10 +10272,10 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
             })
           }), /* @__PURE__ */ jsx("h2", {
             className: "font-display text-2xl font-bold text-gray-900 mb-2",
-            children: "Listing Created!"
+            children: "Listing Submitted!"
           }), /* @__PURE__ */ jsx("p", {
             className: "text-gray-600 mb-8",
-            children: "Your listing has been published successfully and is now visible to other users."
+            children: "Your listing has been submitted and is pending review. We'll notify you once it's approved and visible to other users."
           }), /* @__PURE__ */ jsxs("div", {
             className: "flex flex-col gap-3",
             children: [/* @__PURE__ */ jsx("button", {
@@ -9549,19 +10296,400 @@ const listings_new = UNSAFE_withComponentProps(function NewListing() {
     })]
   });
 });
-const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$8,
+  action: action$h,
   default: listings_new,
-  loader: loader$d,
-  meta: meta$c
+  loader: loader$n,
+  meta: meta$l
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$b = () => {
+const meta$k = () => {
+  return [{
+    title: "Team Leader Dashboard - Runoot"
+  }];
+};
+async function loader$m({
+  request
+}) {
+  const user = await requireUser(request);
+  if (!user.is_team_leader) {
+    throw redirect("/dashboard");
+  }
+  const {
+    data: referrals
+  } = await supabaseAdmin.from("referrals").select("id, referral_code_used, status, created_at, referred_user_id").eq("team_leader_id", user.id).order("created_at", {
+    ascending: false
+  });
+  const referralIds = (referrals || []).map((r) => r.referred_user_id);
+  let referredUsers = {};
+  if (referralIds.length > 0) {
+    const {
+      data: profiles
+    } = await supabaseAdmin.from("profiles").select("id, full_name, email, user_type, is_verified, created_at").in("id", referralIds);
+    if (profiles) {
+      for (const p of profiles) {
+        referredUsers[p.id] = p;
+      }
+    }
+  }
+  const totalReferrals = (referrals == null ? void 0 : referrals.length) || 0;
+  const activeReferrals = (referrals == null ? void 0 : referrals.filter((r) => r.status === "active").length) || 0;
+  const weeklyData = [];
+  for (let i = 3; i >= 0; i--) {
+    const weekStart = /* @__PURE__ */ new Date();
+    weekStart.setDate(weekStart.getDate() - (i + 1) * 7);
+    const weekEnd = /* @__PURE__ */ new Date();
+    weekEnd.setDate(weekEnd.getDate() - i * 7);
+    const count = (referrals || []).filter((r) => {
+      const d = new Date(r.created_at);
+      return d >= weekStart && d < weekEnd;
+    }).length;
+    weeklyData.push({
+      label: i === 0 ? "This week" : `${i}w ago`,
+      value: count
+    });
+  }
+  return {
+    user,
+    referrals: referrals || [],
+    referredUsers,
+    stats: {
+      totalReferrals,
+      activeReferrals
+    },
+    weeklyData
+  };
+}
+async function action$g({
+  request
+}) {
+  const user = await requireUser(request);
+  if (!user.is_team_leader) {
+    return data({
+      error: "Not a team leader"
+    }, {
+      status: 403
+    });
+  }
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+  switch (actionType) {
+    case "updateCode": {
+      const newCode = (formData.get("referralCode") || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (newCode.length < 3 || newCode.length > 20) {
+        return data({
+          error: "Code must be between 3 and 20 characters (letters and numbers only)"
+        }, {
+          status: 400
+        });
+      }
+      const {
+        data: existing
+      } = await supabaseAdmin.from("profiles").select("id").eq("referral_code", newCode).neq("id", user.id).single();
+      if (existing) {
+        return data({
+          error: "This code is already taken. Try a different one."
+        }, {
+          status: 400
+        });
+      }
+      await supabaseAdmin.from("profiles").update({
+        referral_code: newCode
+      }).eq("id", user.id);
+      return data({
+        success: true,
+        message: "Referral code updated!"
+      });
+    }
+    case "updateWelcome": {
+      const welcomeMessage = (formData.get("welcomeMessage") || "").trim();
+      if (welcomeMessage.length > 500) {
+        return data({
+          error: "Welcome message must be under 500 characters"
+        }, {
+          status: 400
+        });
+      }
+      await supabaseAdmin.from("profiles").update({
+        tl_welcome_message: welcomeMessage || null
+      }).eq("id", user.id);
+      return data({
+        success: true,
+        message: "Welcome message updated!"
+      });
+    }
+    default:
+      return data({
+        error: "Unknown action"
+      }, {
+        status: 400
+      });
+  }
+}
+const userTypeLabels$2 = {
+  tour_operator: "Tour Operator",
+  private: "Runner"
+};
+const tlDashboard = UNSAFE_withComponentProps(function TLDashboard() {
+  const {
+    user,
+    referrals,
+    referredUsers,
+    stats,
+    weeklyData
+  } = useLoaderData();
+  const actionData = useActionData();
+  const [copied, setCopied] = useState(false);
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const referralLink = `${baseUrl}/join/${user.referral_code}`;
+  const copyLink = () => {
+    navigator.clipboard.writeText(referralLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2e3);
+  };
+  const maxWeekly = Math.max(...weeklyData.map((w) => w.value), 1);
+  return /* @__PURE__ */ jsxs("div", {
+    className: "max-w-4xl mx-auto px-4 py-8",
+    children: [/* @__PURE__ */ jsx("div", {
+      className: "mb-8",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "flex items-center gap-3 mb-2",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center",
+          children: /* @__PURE__ */ jsx("svg", {
+            className: "w-5 h-5 text-purple-600",
+            fill: "none",
+            stroke: "currentColor",
+            viewBox: "0 0 24 24",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+            })
+          })
+        }), /* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsx("h1", {
+            className: "font-display text-2xl md:text-3xl font-bold text-gray-900",
+            children: "Team Leader Dashboard"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-gray-500",
+            children: "Manage your referral community"
+          })]
+        })]
+      })
+    }), actionData && "error" in actionData && /* @__PURE__ */ jsx("div", {
+      className: "mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm",
+      children: actionData.error
+    }), actionData && "message" in actionData && /* @__PURE__ */ jsx("div", {
+      className: "mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm",
+      children: actionData.message
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "grid grid-cols-2 gap-4 mb-6",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl p-5 border border-gray-200 shadow-sm",
+        children: [/* @__PURE__ */ jsx("p", {
+          className: "text-xs text-gray-500 uppercase tracking-wide",
+          children: "Total Referrals"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-3xl font-bold text-gray-900 mt-1",
+          children: stats.totalReferrals
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl p-5 border border-gray-200 shadow-sm",
+        children: [/* @__PURE__ */ jsx("p", {
+          className: "text-xs text-gray-500 uppercase tracking-wide",
+          children: "Active"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-3xl font-bold text-brand-600 mt-1",
+          children: stats.activeReferrals
+        })]
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-6",
+      children: [/* @__PURE__ */ jsx("h2", {
+        className: "font-display font-semibold text-gray-900 mb-4",
+        children: "Weekly Signups"
+      }), /* @__PURE__ */ jsx("div", {
+        className: "flex items-end gap-3 h-32",
+        children: weeklyData.map((week, i) => /* @__PURE__ */ jsxs("div", {
+          className: "flex-1 flex flex-col items-center gap-1",
+          children: [/* @__PURE__ */ jsx("span", {
+            className: "text-xs font-semibold text-gray-900",
+            children: week.value
+          }), /* @__PURE__ */ jsx("div", {
+            className: "w-full bg-brand-500 rounded-t-md transition-all duration-500",
+            style: {
+              height: `${Math.max(week.value / maxWeekly * 100, 4)}%`,
+              minHeight: "4px"
+            }
+          }), /* @__PURE__ */ jsx("span", {
+            className: "text-xs text-gray-500 mt-1",
+            children: week.label
+          })]
+        }, i))
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-6",
+      children: [/* @__PURE__ */ jsx("h2", {
+        className: "font-display font-semibold text-gray-900 mb-2",
+        children: "Your Referral Link"
+      }), /* @__PURE__ */ jsx("p", {
+        className: "text-sm text-gray-500 mb-4",
+        children: "Share this link with people you want to invite to Runoot."
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "flex items-center gap-2 mb-4",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "flex-1 bg-gray-50 rounded-lg px-4 py-2.5 font-mono text-sm text-gray-700 border border-gray-200 truncate",
+          children: referralLink
+        }), /* @__PURE__ */ jsx("button", {
+          onClick: copyLink,
+          className: "btn-primary text-sm px-4 py-2.5 flex-shrink-0",
+          children: copied ? "Copied!" : "Copy"
+        })]
+      }), /* @__PURE__ */ jsxs(Form, {
+        method: "post",
+        className: "flex items-end gap-3",
+        children: [/* @__PURE__ */ jsx("input", {
+          type: "hidden",
+          name: "_action",
+          value: "updateCode"
+        }), /* @__PURE__ */ jsxs("div", {
+          className: "flex-1",
+          children: [/* @__PURE__ */ jsx("label", {
+            htmlFor: "referralCode",
+            className: "label",
+            children: "Custom Code"
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "flex items-center",
+            children: [/* @__PURE__ */ jsx("span", {
+              className: "text-sm text-gray-400 mr-1",
+              children: "/join/"
+            }), /* @__PURE__ */ jsx("input", {
+              type: "text",
+              id: "referralCode",
+              name: "referralCode",
+              defaultValue: user.referral_code || "",
+              placeholder: "MYCODE2026",
+              className: "input flex-1 uppercase",
+              maxLength: 20
+            })]
+          })]
+        }), /* @__PURE__ */ jsx("button", {
+          type: "submit",
+          className: "btn-secondary text-sm px-4 py-2",
+          children: "Save Code"
+        })]
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-6",
+      children: [/* @__PURE__ */ jsx("h2", {
+        className: "font-display font-semibold text-gray-900 mb-2",
+        children: "Welcome Message"
+      }), /* @__PURE__ */ jsx("p", {
+        className: "text-sm text-gray-500 mb-4",
+        children: "This message will appear on your referral page when someone opens your link."
+      }), /* @__PURE__ */ jsxs(Form, {
+        method: "post",
+        children: [/* @__PURE__ */ jsx("input", {
+          type: "hidden",
+          name: "_action",
+          value: "updateWelcome"
+        }), /* @__PURE__ */ jsx("textarea", {
+          name: "welcomeMessage",
+          rows: 3,
+          defaultValue: user.tl_welcome_message || "",
+          placeholder: "Welcome to our running community! I'm excited to have you join us on Runoot...",
+          className: "input w-full mb-3",
+          maxLength: 500
+        }), /* @__PURE__ */ jsx("button", {
+          type: "submit",
+          className: "btn-secondary text-sm",
+          children: "Save Message"
+        })]
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden",
+      children: [/* @__PURE__ */ jsx("div", {
+        className: "px-6 py-4 border-b border-gray-100",
+        children: /* @__PURE__ */ jsx("h2", {
+          className: "font-display font-semibold text-gray-900",
+          children: "Your Referrals"
+        })
+      }), /* @__PURE__ */ jsx("div", {
+        className: "divide-y divide-gray-100",
+        children: referrals.length > 0 ? referrals.map((ref) => {
+          var _a, _b, _c;
+          const refUser = referredUsers[ref.referred_user_id];
+          return /* @__PURE__ */ jsxs("div", {
+            className: "p-4 flex items-center justify-between",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-3 min-w-0 flex-1",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-semibold flex-shrink-0 text-sm",
+                children: ((_a = refUser == null ? void 0 : refUser.full_name) == null ? void 0 : _a.charAt(0)) || ((_c = (_b = refUser == null ? void 0 : refUser.email) == null ? void 0 : _b.charAt(0)) == null ? void 0 : _c.toUpperCase()) || "?"
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "min-w-0",
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "text-sm font-medium text-gray-900 truncate",
+                  children: (refUser == null ? void 0 : refUser.full_name) || (refUser == null ? void 0 : refUser.email) || "Unknown user"
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center gap-2 mt-0.5",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-xs text-gray-500",
+                    children: refUser ? userTypeLabels$2[refUser.user_type] || refUser.user_type : ""
+                  }), /* @__PURE__ */ jsx("span", {
+                    className: "text-xs text-gray-300",
+                    children: "·"
+                  }), /* @__PURE__ */ jsx("span", {
+                    className: "text-xs text-gray-500",
+                    children: new Date(ref.created_at).toLocaleDateString()
+                  })]
+                })]
+              })]
+            }), /* @__PURE__ */ jsx("span", {
+              className: `px-2.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${ref.status === "active" ? "bg-success-100 text-success-700" : "bg-gray-100 text-gray-600"}`,
+              children: ref.status
+            })]
+          }, ref.id);
+        }) : /* @__PURE__ */ jsxs("div", {
+          className: "p-8 text-center",
+          children: [/* @__PURE__ */ jsx("svg", {
+            className: "w-12 h-12 text-gray-300 mx-auto mb-3",
+            fill: "none",
+            stroke: "currentColor",
+            viewBox: "0 0 24 24",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 1.5,
+              d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+            })
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-sm text-gray-500 mb-1",
+            children: "No referrals yet"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-xs text-gray-400",
+            children: "Share your referral link to start growing your community!"
+          })]
+        })
+      })]
+    })]
+  });
+});
+const route20 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$g,
+  default: tlDashboard,
+  loader: loader$m,
+  meta: meta$k
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$j = () => {
   return [{
     title: "My Listings - Runoot"
   }];
 };
-async function loader$c({
+async function loader$l({
   request
 }) {
   const user = await requireUser(request);
@@ -9583,27 +10711,33 @@ async function loader$c({
   }
   const today = /* @__PURE__ */ new Date();
   today.setHours(0, 0, 0, 0);
+  const pendingListings = userListings.filter((listing) => listing.status === "pending");
+  const rejectedListings = userListings.filter((listing) => listing.status === "rejected");
   const activeListings = userListings.filter((listing) => {
     const eventDate = new Date(listing.event.event_date);
-    return eventDate >= today;
+    return listing.status === "active" && eventDate >= today;
   });
   const endedListings = userListings.filter((listing) => {
     const eventDate = new Date(listing.event.event_date);
-    return eventDate < today;
+    return (listing.status === "active" || listing.status === "sold" || listing.status === "expired") && eventDate < today;
   });
   return {
     user,
     activeListings,
-    endedListings
+    endedListings,
+    pendingListings,
+    rejectedListings
   };
 }
 const myListings = UNSAFE_withComponentProps(function MyListings() {
   const {
     user,
     activeListings,
-    endedListings
+    endedListings,
+    pendingListings,
+    rejectedListings
   } = useLoaderData();
-  const totalListings = activeListings.length + endedListings.length;
+  const totalListings = pendingListings.length + rejectedListings.length + activeListings.length + endedListings.length;
   return /* @__PURE__ */ jsx("div", {
     className: "min-h-full bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed",
     children: /* @__PURE__ */ jsxs("div", {
@@ -9628,7 +10762,52 @@ const myListings = UNSAFE_withComponentProps(function MyListings() {
           })]
         }), totalListings > 0 ? /* @__PURE__ */ jsxs("div", {
           className: "space-y-10",
-          children: [activeListings.length > 0 && /* @__PURE__ */ jsx("section", {
+          children: [pendingListings.length > 0 && /* @__PURE__ */ jsxs("section", {
+            children: [/* @__PURE__ */ jsxs("h2", {
+              className: "font-display text-xl font-semibold text-yellow-700 mb-4 flex items-center gap-2",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: "h-2 w-2 rounded-full bg-yellow-500"
+              }), "Pending Review (", pendingListings.length, ")"]
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-sm text-gray-500 mb-4",
+              children: "These listings are awaiting admin approval before going live."
+            }), /* @__PURE__ */ jsx("div", {
+              className: "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 opacity-80",
+              children: pendingListings.map((listing) => /* @__PURE__ */ jsxs("div", {
+                className: "relative",
+                children: [/* @__PURE__ */ jsx(ListingCard, {
+                  listing,
+                  isUserLoggedIn: true
+                }), /* @__PURE__ */ jsx("div", {
+                  className: "absolute top-3 right-3",
+                  children: /* @__PURE__ */ jsx("span", {
+                    className: "px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200",
+                    children: "Pending"
+                  })
+                })]
+              }, listing.id))
+            })]
+          }), rejectedListings.length > 0 && /* @__PURE__ */ jsxs("section", {
+            children: [/* @__PURE__ */ jsxs("h2", {
+              className: "font-display text-xl font-semibold text-red-700 mb-4",
+              children: ["Not Approved (", rejectedListings.length, ")"]
+            }), /* @__PURE__ */ jsx("div", {
+              className: "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 opacity-60",
+              children: rejectedListings.map((listing) => /* @__PURE__ */ jsxs("div", {
+                className: "relative",
+                children: [/* @__PURE__ */ jsx(ListingCard, {
+                  listing,
+                  isUserLoggedIn: true
+                }), /* @__PURE__ */ jsx("div", {
+                  className: "absolute top-3 right-3",
+                  children: /* @__PURE__ */ jsx("span", {
+                    className: "px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200",
+                    children: "Not approved"
+                  })
+                })]
+              }, listing.id))
+            })]
+          }), activeListings.length > 0 && /* @__PURE__ */ jsx("section", {
             children: /* @__PURE__ */ jsx("div", {
               className: "grid gap-6 sm:grid-cols-2 lg:grid-cols-3",
               children: activeListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
@@ -9680,13 +10859,13 @@ const myListings = UNSAFE_withComponentProps(function MyListings() {
     })
   });
 });
-const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route21 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: myListings,
-  loader: loader$c,
-  meta: meta$b
+  loader: loader$l,
+  meta: meta$j
 }, Symbol.toStringTag, { value: "Module" }));
-async function loader$b({
+async function loader$k({
   request
 }) {
   const user = await getUser(request);
@@ -9715,11 +10894,508 @@ async function loader$b({
     unreadCount
   });
 }
-const route18 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route22 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  loader: loader$b
+  loader: loader$k
 }, Symbol.toStringTag, { value: "Module" }));
-async function action$7({
+const meta$i = ({
+  data: data2
+}) => {
+  var _a;
+  const tlName = ((_a = data2 == null ? void 0 : data2.teamLeader) == null ? void 0 : _a.full_name) || "a Team Leader";
+  return [{
+    title: `Join Runoot - Invited by ${tlName}`
+  }];
+};
+async function loader$j({
+  request,
+  params
+}) {
+  const code = params.code;
+  if (!code) {
+    throw redirect("/register");
+  }
+  const userId = await getUserId(request);
+  const {
+    data: teamLeader
+  } = await supabaseAdmin.from("profiles").select("id, full_name, company_name, user_type, avatar_url, is_verified, referral_code, tl_welcome_message").eq("referral_code", code).eq("is_team_leader", true).single();
+  if (!teamLeader) {
+    return {
+      status: "invalid",
+      teamLeader: null,
+      alreadyLoggedIn: false,
+      code
+    };
+  }
+  if (userId) {
+    const {
+      data: existingRef
+    } = await supabaseAdmin.from("referrals").select("id").eq("referred_user_id", userId).single();
+    if (existingRef) {
+      return {
+        status: "already_referred",
+        teamLeader,
+        alreadyLoggedIn: true,
+        code
+      };
+    }
+    await supabaseAdmin.from("referrals").insert({
+      team_leader_id: teamLeader.id,
+      referred_user_id: userId,
+      referral_code_used: code,
+      status: "active"
+    });
+    const {
+      data: referredUser
+    } = await supabaseAdmin.from("profiles").select("full_name, email").eq("id", userId).single();
+    await supabaseAdmin.from("notifications").insert({
+      user_id: teamLeader.id,
+      type: "referral_signup",
+      title: "New referral!",
+      message: `${(referredUser == null ? void 0 : referredUser.full_name) || (referredUser == null ? void 0 : referredUser.email) || "Someone"} joined via your referral link.`,
+      data: {
+        referred_user_id: userId,
+        referral_code: code
+      }
+    });
+    return {
+      status: "linked",
+      teamLeader,
+      alreadyLoggedIn: true,
+      code
+    };
+  }
+  return {
+    status: "valid",
+    teamLeader,
+    alreadyLoggedIn: false,
+    code
+  };
+}
+async function action$f({
+  request,
+  params
+}) {
+  const code = params.code;
+  if (!code) {
+    return data({
+      error: "Invalid referral code"
+    }, {
+      status: 400
+    });
+  }
+  const formData = await request.formData();
+  const email = formData.get("email");
+  const password = formData.get("password");
+  const fullName = formData.get("fullName");
+  const userType = formData.get("userType");
+  const companyName = formData.get("companyName");
+  if (!email || !password || !fullName || !userType) {
+    return data({
+      error: "All fields are required"
+    }, {
+      status: 400
+    });
+  }
+  if (password.length < 8) {
+    return data({
+      error: "Password must be at least 8 characters"
+    }, {
+      status: 400
+    });
+  }
+  const {
+    data: teamLeader
+  } = await supabaseAdmin.from("profiles").select("id, referral_code").eq("referral_code", code).eq("is_team_leader", true).single();
+  if (!teamLeader) {
+    return data({
+      error: "Invalid referral code"
+    }, {
+      status: 400
+    });
+  }
+  const {
+    data: authData,
+    error: authError
+  } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName,
+        user_type: userType,
+        company_name: userType === "tour_operator" ? companyName : null
+      }
+    }
+  });
+  if (authError) {
+    return data({
+      error: authError.message
+    }, {
+      status: 400
+    });
+  }
+  if (!authData.user) {
+    return data({
+      error: "Registration failed. Please try again."
+    }, {
+      status: 400
+    });
+  }
+  if (!authData.session) {
+    return data({
+      success: true,
+      emailConfirmationRequired: true,
+      message: "Please check your email to confirm your account before logging in."
+    });
+  }
+  const {
+    error: profileError
+  } = await supabaseAdmin.from("profiles").insert({
+    id: authData.user.id,
+    email,
+    full_name: fullName,
+    user_type: userType,
+    company_name: userType === "tour_operator" && companyName ? companyName : null,
+    is_verified: false
+  });
+  if (profileError) {
+    console.error("Profile creation error:", profileError);
+  }
+  await supabaseAdmin.from("referrals").insert({
+    team_leader_id: teamLeader.id,
+    referred_user_id: authData.user.id,
+    referral_code_used: code,
+    status: "registered"
+  });
+  await supabaseAdmin.from("notifications").insert({
+    user_id: teamLeader.id,
+    type: "referral_signup",
+    title: "New referral!",
+    message: `${fullName || email} joined via your referral link.`,
+    data: {
+      referred_user_id: authData.user.id,
+      referral_code: code
+    }
+  });
+  return createUserSession(authData.user.id, authData.session.access_token, authData.session.refresh_token, "/dashboard");
+}
+const join_$code = UNSAFE_withComponentProps(function JoinReferral() {
+  var _a;
+  const {
+    status,
+    teamLeader,
+    code
+  } = useLoaderData();
+  const actionData = useActionData();
+  if (status === "invalid") {
+    return /* @__PURE__ */ jsx("div", {
+      className: "min-h-screen bg-gray-50 flex items-center justify-center px-4",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4",
+          children: /* @__PURE__ */ jsx("svg", {
+            className: "w-8 h-8 text-red-500",
+            fill: "none",
+            stroke: "currentColor",
+            viewBox: "0 0 24 24",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M6 18L18 6M6 6l12 12"
+            })
+          })
+        }), /* @__PURE__ */ jsx("h1", {
+          className: "font-display text-2xl font-bold text-gray-900 mb-2",
+          children: "Invalid Referral Link"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-gray-500 mb-6",
+          children: "This referral link is not valid or the Team Leader no longer exists."
+        }), /* @__PURE__ */ jsx(Link, {
+          to: "/register",
+          className: "btn-primary inline-block w-full py-3",
+          children: "Sign Up Normally"
+        })]
+      })
+    });
+  }
+  if (status === "already_referred") {
+    return /* @__PURE__ */ jsx("div", {
+      className: "min-h-screen bg-gray-50 flex items-center justify-center px-4",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-4",
+          children: /* @__PURE__ */ jsx("svg", {
+            className: "w-8 h-8 text-brand-600",
+            fill: "currentColor",
+            viewBox: "0 0 20 20",
+            children: /* @__PURE__ */ jsx("path", {
+              fillRule: "evenodd",
+              d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+              clipRule: "evenodd"
+            })
+          })
+        }), /* @__PURE__ */ jsx("h1", {
+          className: "font-display text-2xl font-bold text-gray-900 mb-2",
+          children: "Already Connected"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-gray-500 mb-6",
+          children: "You're already connected to a Team Leader. Head to your dashboard!"
+        }), /* @__PURE__ */ jsx(Link, {
+          to: "/dashboard",
+          className: "btn-primary inline-block w-full py-3",
+          children: "Go to Dashboard"
+        })]
+      })
+    });
+  }
+  if (status === "linked") {
+    return /* @__PURE__ */ jsx("div", {
+      className: "min-h-screen bg-gray-50 flex items-center justify-center px-4",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4",
+          children: /* @__PURE__ */ jsx("svg", {
+            className: "w-8 h-8 text-success-600",
+            fill: "currentColor",
+            viewBox: "0 0 20 20",
+            children: /* @__PURE__ */ jsx("path", {
+              fillRule: "evenodd",
+              d: "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+              clipRule: "evenodd"
+            })
+          })
+        }), /* @__PURE__ */ jsx("h1", {
+          className: "font-display text-2xl font-bold text-gray-900 mb-2",
+          children: "Welcome!"
+        }), /* @__PURE__ */ jsxs("p", {
+          className: "text-gray-500 mb-6",
+          children: ["You've been connected to ", (teamLeader == null ? void 0 : teamLeader.full_name) || "your Team Leader", "'s community."]
+        }), /* @__PURE__ */ jsx(Link, {
+          to: "/dashboard",
+          className: "btn-primary inline-block w-full py-3",
+          children: "Go to Dashboard"
+        })]
+      })
+    });
+  }
+  const tl = teamLeader;
+  return /* @__PURE__ */ jsx("div", {
+    className: "min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8",
+    children: /* @__PURE__ */ jsxs("div", {
+      className: "sm:mx-auto sm:w-full sm:max-w-md",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6 text-center",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-3",
+          children: /* @__PURE__ */ jsx("span", {
+            className: "text-xl font-bold text-purple-700",
+            children: ((_a = tl == null ? void 0 : tl.full_name) == null ? void 0 : _a.charAt(0)) || "T"
+          })
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-sm text-gray-500 mb-1",
+          children: "You've been invited by"
+        }), /* @__PURE__ */ jsx("h2", {
+          className: "font-display text-xl font-bold text-gray-900",
+          children: (tl == null ? void 0 : tl.full_name) || "Team Leader"
+        }), (tl == null ? void 0 : tl.company_name) && /* @__PURE__ */ jsx("p", {
+          className: "text-sm text-gray-500",
+          children: tl.company_name
+        }), (tl == null ? void 0 : tl.is_verified) && /* @__PURE__ */ jsxs("div", {
+          className: "flex items-center justify-center gap-1 mt-1",
+          children: [/* @__PURE__ */ jsx("svg", {
+            className: "w-4 h-4 text-brand-500",
+            fill: "currentColor",
+            viewBox: "0 0 20 20",
+            children: /* @__PURE__ */ jsx("path", {
+              fillRule: "evenodd",
+              d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+              clipRule: "evenodd"
+            })
+          }), /* @__PURE__ */ jsx("span", {
+            className: "text-xs text-brand-600 font-medium",
+            children: "Verified"
+          })]
+        }), (tl == null ? void 0 : tl.tl_welcome_message) && /* @__PURE__ */ jsxs("p", {
+          className: "mt-3 text-sm text-gray-600 italic border-t border-gray-100 pt-3",
+          children: ['"', tl.tl_welcome_message, '"']
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-2xl border border-gray-200 shadow-sm py-8 px-4 sm:px-10",
+        children: [/* @__PURE__ */ jsx("h2", {
+          className: "font-display text-2xl font-bold text-gray-900 text-center mb-2",
+          children: "Join Runoot"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-center text-sm text-gray-500 mb-6",
+          children: "Create your free account to get started"
+        }), actionData && "emailConfirmationRequired" in actionData && actionData.emailConfirmationRequired ? /* @__PURE__ */ jsxs("div", {
+          className: "text-center",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "h-6 w-6 text-green-600",
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              })
+            })
+          }), /* @__PURE__ */ jsx("h3", {
+            className: "text-lg font-medium text-gray-900 mb-2",
+            children: "Check your email"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-sm text-gray-600 mb-6",
+            children: actionData.message
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/login",
+            className: "btn-primary inline-block",
+            children: "Go to login"
+          })]
+        }) : /* @__PURE__ */ jsxs(Form, {
+          method: "post",
+          className: "space-y-5",
+          children: [actionData && "error" in actionData && /* @__PURE__ */ jsx("div", {
+            className: "rounded-lg bg-red-50 p-4 text-sm text-red-700",
+            children: actionData.error
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("label", {
+              htmlFor: "fullName",
+              className: "label",
+              children: "Full name"
+            }), /* @__PURE__ */ jsx("input", {
+              id: "fullName",
+              name: "fullName",
+              type: "text",
+              autoComplete: "name",
+              required: true,
+              className: "input w-full"
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("label", {
+              htmlFor: "email",
+              className: "label",
+              children: "Email address"
+            }), /* @__PURE__ */ jsx("input", {
+              id: "email",
+              name: "email",
+              type: "email",
+              autoComplete: "email",
+              required: true,
+              className: "input w-full"
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("label", {
+              htmlFor: "password",
+              className: "label",
+              children: "Password"
+            }), /* @__PURE__ */ jsx("input", {
+              id: "password",
+              name: "password",
+              type: "password",
+              autoComplete: "new-password",
+              required: true,
+              minLength: 8,
+              className: "input w-full"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "mt-1 text-xs text-gray-500",
+              children: "At least 8 characters"
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("label", {
+              className: "label",
+              children: "I am a"
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "mt-2 grid grid-cols-2 gap-3",
+              children: [/* @__PURE__ */ jsxs("label", {
+                className: "relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "radio",
+                  name: "userType",
+                  value: "private",
+                  className: "sr-only",
+                  defaultChecked: true
+                }), /* @__PURE__ */ jsx("span", {
+                  className: "flex flex-1",
+                  children: /* @__PURE__ */ jsxs("span", {
+                    className: "flex flex-col",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "block text-sm font-medium text-gray-900",
+                      children: "Runner"
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "mt-1 text-xs text-gray-500",
+                      children: "Individual runner"
+                    })]
+                  })
+                })]
+              }), /* @__PURE__ */ jsxs("label", {
+                className: "relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "radio",
+                  name: "userType",
+                  value: "tour_operator",
+                  className: "sr-only"
+                }), /* @__PURE__ */ jsx("span", {
+                  className: "flex flex-1",
+                  children: /* @__PURE__ */ jsxs("span", {
+                    className: "flex flex-col",
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "block text-sm font-medium text-gray-900",
+                      children: "Tour Operator"
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "mt-1 text-xs text-gray-500",
+                      children: "I sell packages"
+                    })]
+                  })
+                })]
+              })]
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsxs("label", {
+              htmlFor: "companyName",
+              className: "label",
+              children: ["Company name ", /* @__PURE__ */ jsx("span", {
+                className: "text-gray-400",
+                children: "(Tour Operators)"
+              })]
+            }), /* @__PURE__ */ jsx("input", {
+              id: "companyName",
+              name: "companyName",
+              type: "text",
+              className: "input w-full"
+            })]
+          }), /* @__PURE__ */ jsx("button", {
+            type: "submit",
+            className: "btn-primary w-full py-3",
+            children: "Create account"
+          }), /* @__PURE__ */ jsxs("p", {
+            className: "text-xs text-gray-500 text-center",
+            children: ["Already have an account?", " ", /* @__PURE__ */ jsx(Link, {
+              to: "/login",
+              className: "font-medium text-brand-600 hover:text-brand-500",
+              children: "Sign in"
+            })]
+          })]
+        })]
+      })]
+    })
+  });
+});
+const route23 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$f,
+  default: join_$code,
+  loader: loader$j,
+  meta: meta$i
+}, Symbol.toStringTag, { value: "Module" }));
+async function action$e({
   request
 }) {
   const user = await requireUser(request);
@@ -9804,16 +11480,16 @@ async function action$7({
     status: 400
   });
 }
-const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route24 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$7
+  action: action$e
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$a = () => {
+const meta$h = () => {
   return [{
     title: "Dashboard - Runoot"
   }];
 };
-async function loader$a({
+async function loader$i({
   request
 }) {
   const user = await requireUser(request);
@@ -9854,10 +11530,12 @@ async function loader$a({
     unreadCount
   };
 }
-const statusColors = {
+const statusColors$2 = {
+  pending: "bg-yellow-100 text-yellow-700 border border-yellow-200",
   active: "bg-success-100 text-success-700 border border-success-200",
   sold: "bg-gray-100 text-gray-700 border border-gray-200",
-  expired: "bg-alert-100 text-alert-700 border border-alert-200"
+  expired: "bg-alert-100 text-alert-700 border border-alert-200",
+  rejected: "bg-red-100 text-red-700 border border-red-200"
 };
 const dashboard = UNSAFE_withComponentProps(function Dashboard() {
   var _a;
@@ -9867,6 +11545,7 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
     conversations,
     unreadCount
   } = useLoaderData();
+  const pendingListings = listings.filter((l) => l.status === "pending");
   const activeListings = listings.filter((l) => l.status === "active");
   const soldListings = listings.filter((l) => l.status === "sold");
   return /* @__PURE__ */ jsx("div", {
@@ -9876,7 +11555,7 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
       children: [/* @__PURE__ */ jsx(Header, {
         user
       }), /* @__PURE__ */ jsxs("main", {
-        className: "md:hidden px-4 pt-20 pb-20",
+        className: "md:hidden px-4 pt-6 pb-20",
         children: [/* @__PURE__ */ jsxs("div", {
           className: "flex items-center justify-between mb-5",
           children: [/* @__PURE__ */ jsx("h1", {
@@ -9884,7 +11563,7 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
             children: "Dashboard"
           }), /* @__PURE__ */ jsxs(Link, {
             to: "/listings/new",
-            className: "bg-accent-500 text-white rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium shadow-sm active:bg-accent-600",
+            className: "bg-accent-500 text-white rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium shadow-sm active:bg-accent-600",
             children: [/* @__PURE__ */ jsx("svg", {
               className: "w-3.5 h-3.5",
               fill: "none",
@@ -9898,6 +11577,26 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
               })
             }), "New Listing"]
           })]
+        }), pendingListings.length > 0 && /* @__PURE__ */ jsx("div", {
+          className: "mb-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3",
+          children: /* @__PURE__ */ jsxs("div", {
+            className: "flex items-center gap-2",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "w-4 h-4 text-yellow-600 flex-shrink-0",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              })
+            }), /* @__PURE__ */ jsxs("p", {
+              className: "text-sm font-medium text-yellow-800",
+              children: [pendingListings.length, " listing", pendingListings.length > 1 ? "s" : "", " pending review"]
+            })]
+          })
         }), /* @__PURE__ */ jsxs("div", {
           className: "grid grid-cols-2 gap-3 mb-6",
           children: [/* @__PURE__ */ jsx("div", {
@@ -10037,7 +11736,7 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
               }), /* @__PURE__ */ jsx("div", {
                 className: "absolute top-3 right-3",
                 children: /* @__PURE__ */ jsx("span", {
-                  className: `px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[listing.status]}`,
+                  className: `px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors$2[listing.status]}`,
                   children: listing.status
                 })
               })]
@@ -10124,6 +11823,31 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
             className: "mt-2 text-gray-600",
             children: "Manage your listings and conversations"
           })]
+        }), pendingListings.length > 0 && /* @__PURE__ */ jsxs("div", {
+          className: "mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-center gap-3",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-10 h-10 rounded-full bg-yellow-200 flex items-center justify-center flex-shrink-0",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-5 h-5 text-yellow-700",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              })
+            })
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsxs("p", {
+              className: "font-semibold text-yellow-800",
+              children: [pendingListings.length, " listing", pendingListings.length > 1 ? "s" : "", " pending review"]
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-xs text-yellow-600",
+              children: "We'll notify you once they're approved"
+            })]
+          })]
         }), /* @__PURE__ */ jsxs("div", {
           className: "grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8",
           children: [/* @__PURE__ */ jsxs("div", {
@@ -10187,7 +11911,7 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
                 }), /* @__PURE__ */ jsx("div", {
                   className: "absolute top-3 right-3",
                   children: /* @__PURE__ */ jsx("span", {
-                    className: `px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${statusColors[listing.status]}`,
+                    className: `px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${statusColors$2[listing.status]}`,
                     children: listing.status
                   })
                 })]
@@ -10306,11 +12030,11 @@ const dashboard = UNSAFE_withComponentProps(function Dashboard() {
     })
   });
 });
-const route20 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route25 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: dashboard,
-  loader: loader$a,
-  meta: meta$a
+  loader: loader$i,
+  meta: meta$h
 }, Symbol.toStringTag, { value: "Module" }));
 const POLL_INTERVAL$1 = 5e3;
 function useRealtimeConversations({
@@ -10377,7 +12101,7 @@ function getAvatarClasses(userId, userType) {
   const colors = getAvatarColor(userId, userType);
   return `${colors.bg} ${colors.text}`;
 }
-async function loader$9({
+async function loader$h({
   request
 }) {
   const user = await requireUser(request);
@@ -10456,12 +12180,12 @@ const messages = UNSAFE_withComponentProps(function MessagesLayout() {
                 className: "p-4 border-b border-gray-200 flex items-center h-[72px]",
                 children: /* @__PURE__ */ jsx("h1", {
                   className: "font-display text-xl font-bold text-gray-900",
-                  children: "Messages"
+                  children: "Chat"
                 })
               }), /* @__PURE__ */ jsx("div", {
                 className: "flex-1 overflow-y-auto",
                 children: conversations.length > 0 ? /* @__PURE__ */ jsx("div", {
-                  className: "divide-y divide-gray-100",
+                  className: "divide-y divide-gray-200",
                   children: conversations.map((conv) => {
                     var _a, _b, _c, _d;
                     const otherUser = conv.participant_1 === user.id ? conv.participant2 : conv.participant1;
@@ -10525,6 +12249,9 @@ const messages = UNSAFE_withComponentProps(function MessagesLayout() {
                     children: "Browse Listings"
                   })]
                 })
+              }), /* @__PURE__ */ jsx("div", {
+                className: "md:hidden",
+                children: /* @__PURE__ */ jsx(FooterLight, {})
               })]
             }), /* @__PURE__ */ jsx("main", {
               className: `flex-1 flex flex-col min-w-0 overflow-hidden ${activeConversationId ? "flex" : "hidden md:flex"}`,
@@ -10541,12 +12268,12 @@ const messages = UNSAFE_withComponentProps(function MessagesLayout() {
     })]
   });
 });
-const route21 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route26 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: messages,
-  loader: loader$9
+  loader: loader$h
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$9 = () => {
+const meta$g = () => {
   return [{
     title: "Messages - Runoot"
   }];
@@ -10577,10 +12304,10 @@ const messages__index = UNSAFE_withComponentProps(function MessagesIndex() {
     })
   });
 });
-const route22 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route27 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: messages__index,
-  meta: meta$9
+  meta: meta$g
 }, Symbol.toStringTag, { value: "Module" }));
 const POLL_INTERVAL = 3e3;
 function playNotificationSound() {
@@ -10846,7 +12573,7 @@ function useTranslation({ userId, messages: messages2, enabled = true }) {
     getDisplayContent
   };
 }
-const meta$8 = () => {
+const meta$f = () => {
   return [{
     title: "Conversation - Runoot"
   }];
@@ -10856,7 +12583,7 @@ function getEventSlug(event) {
   if (event.slug) return event.slug;
   return event.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
-async function loader$8({
+async function loader$g({
   request,
   params
 }) {
@@ -10918,7 +12645,7 @@ async function loader$8({
     isBlocked
   };
 }
-async function action$6({
+async function action$d({
   request,
   params
 }) {
@@ -11468,26 +13195,26 @@ const messages_$id = UNSAFE_withComponentProps(function Conversation() {
     })]
   });
 });
-const route23 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route28 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$6,
+  action: action$d,
   default: messages_$id,
-  loader: loader$8,
-  meta: meta$8
+  loader: loader$g,
+  meta: meta$f
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$7 = () => {
+const meta$e = () => {
   return [{
     title: "Sign Up - Runoot"
   }];
 };
-async function loader$7({
+async function loader$f({
   request
 }) {
   const userId = await getUserId(request);
   if (userId) return redirect("/dashboard");
-  return null;
+  return {};
 }
-async function action$5({
+async function action$c({
   request
 }) {
   const formData = await request.formData();
@@ -11764,19 +13491,19 @@ const register = UNSAFE_withComponentProps(function Register() {
     })]
   });
 });
-const route24 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route29 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$5,
+  action: action$c,
   default: register,
-  loader: loader$7,
-  meta: meta$7
+  loader: loader$f,
+  meta: meta$e
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$6 = () => {
+const meta$d = () => {
   return [{
     title: "Settings - Runoot"
   }];
 };
-async function loader$6({
+async function loader$e({
   request
 }) {
   const user = await requireUser(request);
@@ -11796,7 +13523,7 @@ async function loader$6({
     blockedUsers: blockedUsers || []
   };
 }
-async function action$4({
+async function action$b({
   request
 }) {
   const user = await requireUser(request);
@@ -12020,12 +13747,12 @@ const settings = UNSAFE_withComponentProps(function Settings2() {
     })]
   });
 });
-const route25 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route30 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$4,
+  action: action$b,
   default: settings,
-  loader: loader$6,
-  meta: meta$6
+  loader: loader$e,
+  meta: meta$d
 }, Symbol.toStringTag, { value: "Module" }));
 const SUBJECT_OPTIONS = [
   { value: "general", label: "General inquiry" },
@@ -12086,12 +13813,12 @@ function SubjectDropdown({ value, onChange, hasError }) {
     )) })
   ] });
 }
-const meta$5 = () => {
+const meta$c = () => {
   return [{
     title: "Contact Us - Runoot"
   }];
 };
-async function loader$5({
+async function loader$d({
   request
 }) {
   const user = await getUser(request);
@@ -12100,7 +13827,7 @@ async function loader$5({
   };
 }
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-async function action$3({
+async function action$a({
   request
 }) {
   var _a, _b, _c, _d;
@@ -12185,7 +13912,23 @@ const contact = UNSAFE_withComponentProps(function Contact() {
         user
       }), /* @__PURE__ */ jsxs("main", {
         className: "mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
-        children: [/* @__PURE__ */ jsxs("div", {
+        children: [/* @__PURE__ */ jsxs("button", {
+          type: "button",
+          onClick: () => window.history.back(),
+          className: "mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors",
+          children: [/* @__PURE__ */ jsx("svg", {
+            className: "h-5 w-5",
+            fill: "none",
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M15 19l-7-7 7-7"
+            })
+          }), "Back"]
+        }), /* @__PURE__ */ jsxs("div", {
           className: "mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6",
           children: [/* @__PURE__ */ jsx("h1", {
             className: "font-display text-3xl font-bold text-gray-900",
@@ -12282,14 +14025,14 @@ const contact = UNSAFE_withComponentProps(function Contact() {
     })
   });
 });
-const route26 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route31 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$3,
+  action: action$a,
   default: contact,
-  loader: loader$5,
-  meta: meta$5
+  loader: loader$d,
+  meta: meta$c
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$4 = () => {
+const meta$b = () => {
   return [{
     title: "Runoot - Room & Bibs Exchange Marketplace"
   }, {
@@ -12297,7 +14040,7 @@ const meta$4 = () => {
     content: "Exchange unsold hotel rooms and bibs for running events. Connect tour operators and runners."
   }];
 };
-async function loader$4({
+async function loader$c({
   request
 }) {
   const user = await getUser(request);
@@ -12490,9 +14233,9 @@ const _index = UNSAFE_withComponentProps(function Index() {
       children: /* @__PURE__ */ jsxs("div", {
         className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8",
         children: [/* @__PURE__ */ jsxs("div", {
-          className: "flex items-center justify-between",
+          className: "flex flex-col md:flex-row items-center justify-between",
           children: [/* @__PURE__ */ jsx("h2", {
-            className: "font-display text-3xl font-bold text-gray-900",
+            className: "font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center md:text-left",
             children: "Recent Listings"
           }), /* @__PURE__ */ jsx(Link, {
             to: user ? "/listings" : "/login",
@@ -12525,31 +14268,31 @@ const _index = UNSAFE_withComponentProps(function Index() {
     }), /* @__PURE__ */ jsx(FooterLight, {})]
   });
 });
-const route27 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route32 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: _index,
-  loader: loader$4,
-  meta: meta$4
+  loader: loader$c,
+  meta: meta$b
 }, Symbol.toStringTag, { value: "Module" }));
-async function action$2({
+async function action$9({
   request
 }) {
   return logout(request);
 }
-async function loader$3() {
+async function loader$b() {
   return redirect("/");
 }
-const route28 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route33 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$2,
-  loader: loader$3
+  action: action$9,
+  loader: loader$b
 }, Symbol.toStringTag, { value: "Module" }));
-const meta$3 = () => {
+const meta$a = () => {
   return [{
     title: "Report - Runoot"
   }];
 };
-async function loader$2({
+async function loader$a({
   request
 }) {
   const user = await getUser(request);
@@ -12579,7 +14322,7 @@ async function loader$2({
     from
   };
 }
-async function action$1({
+async function action$8({
   request
 }) {
   const user = await getUser(request);
@@ -12892,11 +14635,3363 @@ const report = UNSAFE_withComponentProps(function Report() {
     })]
   });
 });
-const route29 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route34 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$8,
+  default: report,
+  loader: loader$a,
+  meta: meta$a
+}, Symbol.toStringTag, { value: "Module" }));
+async function loader$9({
+  request
+}) {
+  const admin2 = await requireAdmin(request);
+  const {
+    count: pendingCount
+  } = await supabaseAdmin.from("listings").select("*", {
+    count: "exact",
+    head: true
+  }).eq("status", "pending");
+  return {
+    admin: admin2,
+    pendingCount: pendingCount || 0
+  };
+}
+const navItems = [{
+  to: "/admin",
+  label: "Dashboard",
+  icon: /* @__PURE__ */ jsx("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24",
+    children: /* @__PURE__ */ jsx("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+    })
+  }),
+  exact: true
+}, {
+  to: "/admin/users",
+  label: "Users",
+  icon: /* @__PURE__ */ jsx("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24",
+    children: /* @__PURE__ */ jsx("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+    })
+  })
+}, {
+  to: "/admin/listings",
+  label: "Listings",
+  icon: /* @__PURE__ */ jsx("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24",
+    children: /* @__PURE__ */ jsx("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+    })
+  })
+}, {
+  to: "/admin/impersonate",
+  label: "Impersonate",
+  icon: /* @__PURE__ */ jsxs("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24",
+    children: [/* @__PURE__ */ jsx("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+    }), /* @__PURE__ */ jsx("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+    })]
+  })
+}, {
+  to: "/admin/team-leaders",
+  label: "Team Leaders",
+  icon: /* @__PURE__ */ jsx("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24",
+    children: /* @__PURE__ */ jsx("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+    })
+  })
+}, {
+  to: "/admin/pending",
+  label: "Pending",
+  icon: /* @__PURE__ */ jsx("svg", {
+    className: "w-5 h-5",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24",
+    children: /* @__PURE__ */ jsx("path", {
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2,
+      d: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+    })
+  })
+}];
+const admin = UNSAFE_withComponentProps(function AdminLayout() {
+  var _a;
+  const {
+    admin: admin2,
+    pendingCount
+  } = useLoaderData();
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  function isActive(to, exact) {
+    if (exact) return location.pathname === to;
+    return location.pathname.startsWith(to);
+  }
+  return /* @__PURE__ */ jsxs("div", {
+    className: "min-h-screen bg-gray-100 flex",
+    children: [sidebarOpen && /* @__PURE__ */ jsx("div", {
+      className: "fixed inset-0 bg-black/50 z-40 md:hidden",
+      onClick: () => setSidebarOpen(false)
+    }), /* @__PURE__ */ jsxs("aside", {
+      className: `fixed md:static inset-y-0 left-0 z-50 w-64 bg-navy-900 text-white flex flex-col transform transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`,
+      children: [/* @__PURE__ */ jsx("div", {
+        className: "p-6 border-b border-navy-700",
+        children: /* @__PURE__ */ jsxs(Link, {
+          to: "/admin",
+          className: "flex items-center gap-3",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-8 h-8 bg-accent-500 rounded-lg flex items-center justify-center",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-5 h-5 text-white",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M13 10V3L4 14h7v7l9-11h-7z"
+              })
+            })
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "font-display font-bold text-lg",
+              children: "Runoot"
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-xs text-navy-300",
+              children: "Admin Panel"
+            })]
+          })]
+        })
+      }), /* @__PURE__ */ jsx("nav", {
+        className: "flex-1 p-4 space-y-1",
+        children: navItems.map((item) => /* @__PURE__ */ jsxs(Link, {
+          to: item.to,
+          onClick: () => setSidebarOpen(false),
+          className: `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive(item.to, item.exact) ? "bg-brand-600 text-white" : "text-navy-200 hover:bg-navy-800 hover:text-white"}`,
+          children: [item.icon, /* @__PURE__ */ jsx("span", {
+            className: "flex-1",
+            children: item.label
+          }), item.to === "/admin/pending" && pendingCount > 0 && /* @__PURE__ */ jsx("span", {
+            className: "ml-auto bg-accent-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center",
+            children: pendingCount
+          })]
+        }, item.to))
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "p-4 border-t border-navy-700",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "flex items-center gap-3 mb-3",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-sm font-bold",
+            children: ((_a = admin2.full_name) == null ? void 0 : _a.charAt(0)) || admin2.email.charAt(0).toUpperCase()
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "min-w-0",
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "text-sm font-medium text-white truncate",
+              children: admin2.full_name || admin2.email
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-xs text-navy-400 capitalize",
+              children: admin2.role
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs(Link, {
+          to: "/",
+          className: "flex items-center gap-2 text-sm text-navy-300 hover:text-white transition-colors",
+          children: [/* @__PURE__ */ jsx("svg", {
+            className: "w-4 h-4",
+            fill: "none",
+            stroke: "currentColor",
+            viewBox: "0 0 24 24",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M10 19l-7-7m0 0l7-7m-7 7h18"
+            })
+          }), "Back to site"]
+        })]
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "flex-1 flex flex-col min-w-0",
+      children: [/* @__PURE__ */ jsxs("header", {
+        className: "md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between",
+        children: [/* @__PURE__ */ jsx("button", {
+          onClick: () => setSidebarOpen(true),
+          className: "p-2 rounded-lg hover:bg-gray-100",
+          children: /* @__PURE__ */ jsx("svg", {
+            className: "w-6 h-6 text-gray-600",
+            fill: "none",
+            stroke: "currentColor",
+            viewBox: "0 0 24 24",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M4 6h16M4 12h16M4 18h16"
+            })
+          })
+        }), /* @__PURE__ */ jsx("p", {
+          className: "font-display font-bold text-gray-900",
+          children: "Admin"
+        }), /* @__PURE__ */ jsx(Link, {
+          to: "/",
+          className: "p-2 rounded-lg hover:bg-gray-100",
+          children: /* @__PURE__ */ jsx("svg", {
+            className: "w-5 h-5 text-gray-600",
+            fill: "none",
+            stroke: "currentColor",
+            viewBox: "0 0 24 24",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M10 19l-7-7m0 0l7-7m-7 7h18"
+            })
+          })
+        })]
+      }), /* @__PURE__ */ jsx("main", {
+        className: "flex-1 p-4 md:p-8 overflow-auto",
+        children: /* @__PURE__ */ jsx(Outlet, {})
+      })]
+    })]
+  });
+});
+const route35 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  default: admin,
+  loader: loader$9
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$9 = () => {
+  return [{
+    title: "Team Leaders - Admin - Runoot"
+  }];
+};
+async function loader$8({
+  request
+}) {
+  const admin2 = await requireAdmin(request);
+  const {
+    data: teamLeaders
+  } = await supabaseAdmin.from("profiles").select("id, full_name, email, company_name, user_type, is_verified, is_team_leader, referral_code, created_at").eq("is_team_leader", true).order("created_at", {
+    ascending: false
+  });
+  const tlIds = (teamLeaders || []).map((tl) => tl.id);
+  let referralCounts = {};
+  if (tlIds.length > 0) {
+    const {
+      data: counts
+    } = await supabaseAdmin.from("referrals").select("team_leader_id").in("team_leader_id", tlIds);
+    if (counts) {
+      for (const row of counts) {
+        referralCounts[row.team_leader_id] = (referralCounts[row.team_leader_id] || 0) + 1;
+      }
+    }
+  }
+  const {
+    data: tokens
+  } = await supabaseAdmin.from("tl_invite_tokens").select("id, token, created_by, used_by, used_at, expires_at, created_at").order("created_at", {
+    ascending: false
+  }).limit(20);
+  const {
+    count: totalTLs
+  } = await supabaseAdmin.from("profiles").select("*", {
+    count: "exact",
+    head: true
+  }).eq("is_team_leader", true);
+  const {
+    count: totalReferrals
+  } = await supabaseAdmin.from("referrals").select("*", {
+    count: "exact",
+    head: true
+  });
+  return {
+    admin: admin2,
+    teamLeaders: teamLeaders || [],
+    referralCounts,
+    tokens: tokens || [],
+    stats: {
+      totalTLs: totalTLs || 0,
+      totalReferrals: totalReferrals || 0
+    }
+  };
+}
+function generateToken() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let token = "";
+  for (let i = 0; i < 16; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+function generateReferralCode(name) {
+  const base = name.toUpperCase().replace(/[^A-Z0-9]/g, "").substring(0, 8);
+  const year = (/* @__PURE__ */ new Date()).getFullYear();
+  return `${base}${year}`;
+}
+async function action$7({
+  request
+}) {
+  var _a;
+  const admin2 = await requireAdmin(request);
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+  switch (actionType) {
+    case "generateToken": {
+      const token = generateToken();
+      const expiresInDays = 30;
+      const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1e3).toISOString();
+      const {
+        error
+      } = await supabaseAdmin.from("tl_invite_tokens").insert({
+        token,
+        created_by: admin2.id,
+        expires_at: expiresAt
+      });
+      if (error) {
+        return data({
+          error: `Failed to generate token: ${error.message}`
+        }, {
+          status: 500
+        });
+      }
+      await logAdminAction(admin2.id, "tl_token_generated", {
+        details: {
+          token
+        }
+      });
+      return data({
+        success: true,
+        token,
+        message: "Invite token generated!"
+      });
+    }
+    case "toggleTeamLeader": {
+      const userId = formData.get("userId");
+      const currentStatus = formData.get("currentStatus") === "true";
+      const newStatus = !currentStatus;
+      let updateData = {
+        is_team_leader: newStatus
+      };
+      if (newStatus) {
+        const {
+          data: userProfile
+        } = await supabaseAdmin.from("profiles").select("full_name, email").eq("id", userId).single();
+        const baseName = (userProfile == null ? void 0 : userProfile.full_name) || ((_a = userProfile == null ? void 0 : userProfile.email) == null ? void 0 : _a.split("@")[0]) || "TL";
+        let code = generateReferralCode(baseName);
+        const {
+          data: existing
+        } = await supabaseAdmin.from("profiles").select("id").eq("referral_code", code).single();
+        if (existing) {
+          code = code + Math.floor(Math.random() * 100);
+        }
+        updateData.referral_code = code;
+      }
+      const {
+        error
+      } = await supabaseAdmin.from("profiles").update(updateData).eq("id", userId);
+      if (error) {
+        return data({
+          error: `Failed to update: ${error.message}`
+        }, {
+          status: 500
+        });
+      }
+      await logAdminAction(admin2.id, newStatus ? "tl_promoted" : "tl_demoted", {
+        targetUserId: userId
+      });
+      if (newStatus) {
+        await supabaseAdmin.from("notifications").insert({
+          user_id: userId,
+          type: "tl_promoted",
+          title: "You're a Team Leader!",
+          message: "An admin has promoted you to Team Leader. You can now share your referral link and manage your community from the TL Dashboard.",
+          data: {
+            referral_code: updateData.referral_code
+          }
+        });
+      }
+      return data({
+        success: true
+      });
+    }
+    case "deleteToken": {
+      const tokenId = formData.get("tokenId");
+      await supabaseAdmin.from("tl_invite_tokens").delete().eq("id", tokenId);
+      return data({
+        success: true
+      });
+    }
+    default:
+      return data({
+        error: "Unknown action"
+      }, {
+        status: 400
+      });
+  }
+}
+const admin_teamLeaders = UNSAFE_withComponentProps(function AdminTeamLeaders() {
+  const {
+    teamLeaders,
+    referralCounts,
+    tokens,
+    stats
+  } = useLoaderData();
+  const actionData = useActionData();
+  const [copiedToken, setCopiedToken] = useState(null);
+  const copyToClipboard = (text, tokenId) => {
+    navigator.clipboard.writeText(text);
+    setCopiedToken(tokenId);
+    setTimeout(() => setCopiedToken(null), 2e3);
+  };
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  return /* @__PURE__ */ jsxs("div", {
+    children: [/* @__PURE__ */ jsxs("div", {
+      className: "mb-6",
+      children: [/* @__PURE__ */ jsx("h1", {
+        className: "font-display text-2xl md:text-3xl font-bold text-gray-900",
+        children: "Team Leaders"
+      }), /* @__PURE__ */ jsx("p", {
+        className: "text-gray-500 mt-1",
+        children: "Manage team leaders and invite tokens"
+      })]
+    }), actionData && "error" in actionData && /* @__PURE__ */ jsx("div", {
+      className: "mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm",
+      children: actionData.error
+    }), actionData && "token" in actionData && /* @__PURE__ */ jsxs("div", {
+      className: "mb-4 p-4 rounded-lg bg-success-50 border border-success-200",
+      children: [/* @__PURE__ */ jsx("p", {
+        className: "text-sm font-medium text-success-800 mb-2",
+        children: "Token generated!"
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "flex items-center gap-2",
+        children: [/* @__PURE__ */ jsxs("code", {
+          className: "text-sm bg-white px-3 py-1.5 rounded border border-success-200 font-mono flex-1 break-all",
+          children: [baseUrl, "/become-tl/", actionData.token]
+        }), /* @__PURE__ */ jsx("button", {
+          onClick: () => copyToClipboard(`${baseUrl}/become-tl/${actionData.token}`, "new"),
+          className: "btn-secondary text-xs px-3 py-1.5 flex-shrink-0",
+          children: copiedToken === "new" ? "Copied!" : "Copy"
+        })]
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "grid grid-cols-2 gap-4 mb-6",
+      children: [/* @__PURE__ */ jsx("div", {
+        className: "bg-white rounded-xl p-5 border border-gray-200",
+        children: /* @__PURE__ */ jsxs("div", {
+          className: "flex items-center gap-3",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-5 h-5 text-purple-600",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              })
+            })
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "text-2xl font-bold text-gray-900",
+              children: stats.totalTLs
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-xs text-gray-500",
+              children: "Team Leaders"
+            })]
+          })]
+        })
+      }), /* @__PURE__ */ jsx("div", {
+        className: "bg-white rounded-xl p-5 border border-gray-200",
+        children: /* @__PURE__ */ jsxs("div", {
+          className: "flex items-center gap-3",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-5 h-5 text-brand-600",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+              })
+            })
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "text-2xl font-bold text-gray-900",
+              children: stats.totalReferrals
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-xs text-gray-500",
+              children: "Total Referrals"
+            })]
+          })]
+        })
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl border border-gray-200 p-6 mb-6",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "flex items-center justify-between mb-4",
+        children: [/* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "font-display font-semibold text-gray-900",
+            children: "Invite Tokens"
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-sm text-gray-500 mt-1",
+            children: "Generate links to invite someone to become a Team Leader"
+          })]
+        }), /* @__PURE__ */ jsxs(Form, {
+          method: "post",
+          children: [/* @__PURE__ */ jsx("input", {
+            type: "hidden",
+            name: "_action",
+            value: "generateToken"
+          }), /* @__PURE__ */ jsxs("button", {
+            type: "submit",
+            className: "btn-primary text-sm inline-flex items-center gap-2",
+            children: [/* @__PURE__ */ jsx("svg", {
+              className: "w-4 h-4",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M12 4v16m8-8H4"
+              })
+            }), "Generate Token"]
+          })]
+        })]
+      }), tokens.length > 0 ? /* @__PURE__ */ jsx("div", {
+        className: "divide-y divide-gray-100",
+        children: tokens.map((token) => /* @__PURE__ */ jsxs("div", {
+          className: "py-3 flex items-center justify-between gap-3",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "min-w-0 flex-1",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-2",
+              children: [/* @__PURE__ */ jsx("code", {
+                className: "text-xs font-mono text-gray-600 truncate",
+                children: token.token
+              }), token.used_by ? /* @__PURE__ */ jsx("span", {
+                className: "px-2 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-700",
+                children: "Used"
+              }) : token.expires_at && new Date(token.expires_at) < /* @__PURE__ */ new Date() ? /* @__PURE__ */ jsx("span", {
+                className: "px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500",
+                children: "Expired"
+              }) : /* @__PURE__ */ jsx("span", {
+                className: "px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700",
+                children: "Active"
+              })]
+            }), /* @__PURE__ */ jsxs("p", {
+              className: "text-xs text-gray-400 mt-1",
+              children: ["Created ", new Date(token.created_at).toLocaleDateString(), token.expires_at && ` · Expires ${new Date(token.expires_at).toLocaleDateString()}`]
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "flex items-center gap-2 flex-shrink-0",
+            children: [!token.used_by && /* @__PURE__ */ jsx("button", {
+              onClick: () => copyToClipboard(`${baseUrl}/become-tl/${token.token}`, token.id),
+              className: "text-xs text-brand-600 hover:text-brand-700 px-2 py-1 rounded bg-brand-50",
+              children: copiedToken === token.id ? "Copied!" : "Copy Link"
+            }), /* @__PURE__ */ jsxs(Form, {
+              method: "post",
+              className: "inline",
+              children: [/* @__PURE__ */ jsx("input", {
+                type: "hidden",
+                name: "_action",
+                value: "deleteToken"
+              }), /* @__PURE__ */ jsx("input", {
+                type: "hidden",
+                name: "tokenId",
+                value: token.id
+              }), /* @__PURE__ */ jsx("button", {
+                type: "submit",
+                className: "text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50",
+                children: "Delete"
+              })]
+            })]
+          })]
+        }, token.id))
+      }) : /* @__PURE__ */ jsx("p", {
+        className: "text-sm text-gray-400 text-center py-4",
+        children: "No invite tokens yet. Generate one to invite a Team Leader."
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl border border-gray-200 overflow-hidden",
+      children: [/* @__PURE__ */ jsx("div", {
+        className: "px-6 py-4 border-b border-gray-100",
+        children: /* @__PURE__ */ jsx("h2", {
+          className: "font-display font-semibold text-gray-900",
+          children: "Active Team Leaders"
+        })
+      }), /* @__PURE__ */ jsx("div", {
+        className: "divide-y divide-gray-100",
+        children: teamLeaders.length > 0 ? teamLeaders.map((tl) => {
+          var _a;
+          return /* @__PURE__ */ jsxs("div", {
+            className: "p-4 flex items-center justify-between gap-3",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-3 min-w-0 flex-1",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0",
+                children: ((_a = tl.full_name) == null ? void 0 : _a.charAt(0)) || tl.email.charAt(0).toUpperCase()
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "min-w-0",
+                children: [/* @__PURE__ */ jsxs("p", {
+                  className: "text-sm font-medium text-gray-900 truncate",
+                  children: [tl.full_name || "No name", tl.company_name && /* @__PURE__ */ jsxs("span", {
+                    className: "text-gray-400 font-normal",
+                    children: [" · ", tl.company_name]
+                  })]
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center gap-2 mt-0.5 flex-wrap",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-xs text-gray-500",
+                    children: tl.email
+                  }), tl.referral_code && /* @__PURE__ */ jsxs(Fragment, {
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "text-xs text-gray-300",
+                      children: "·"
+                    }), /* @__PURE__ */ jsxs("span", {
+                      className: "text-xs font-mono text-purple-600",
+                      children: ["/", tl.referral_code]
+                    })]
+                  }), /* @__PURE__ */ jsx("span", {
+                    className: "text-xs text-gray-300",
+                    children: "·"
+                  }), /* @__PURE__ */ jsxs("span", {
+                    className: "text-xs text-brand-600 font-medium",
+                    children: [referralCounts[tl.id] || 0, " referrals"]
+                  })]
+                })]
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-2 flex-shrink-0",
+              children: [tl.referral_code && /* @__PURE__ */ jsx("button", {
+                onClick: () => copyToClipboard(`${baseUrl}/join/${tl.referral_code}`, `tl-${tl.id}`),
+                className: "text-xs text-brand-600 hover:text-brand-700 px-2 py-1 rounded bg-brand-50",
+                children: copiedToken === `tl-${tl.id}` ? "Copied!" : "Copy Referral"
+              }), /* @__PURE__ */ jsxs(Form, {
+                method: "post",
+                className: "inline",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "_action",
+                  value: "toggleTeamLeader"
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "userId",
+                  value: tl.id
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "currentStatus",
+                  value: "true"
+                }), /* @__PURE__ */ jsx("button", {
+                  type: "submit",
+                  className: "text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50",
+                  onClick: (e) => {
+                    if (!confirm(`Remove Team Leader status from ${tl.full_name || tl.email}?`)) {
+                      e.preventDefault();
+                    }
+                  },
+                  children: "Remove TL"
+                })]
+              })]
+            })]
+          }, tl.id);
+        }) : /* @__PURE__ */ jsxs("div", {
+          className: "p-8 text-center text-gray-400 text-sm",
+          children: ["No team leaders yet. Promote users from the", " ", /* @__PURE__ */ jsx("a", {
+            href: "/admin/users",
+            className: "text-brand-600 hover:underline",
+            children: "Users page"
+          }), " ", "or generate an invite token above."]
+        })
+      })]
+    })]
+  });
+});
+const route36 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$7,
+  default: admin_teamLeaders,
+  loader: loader$8,
+  meta: meta$9
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$8 = () => {
+  return [{
+    title: "Impersonate - Admin - Runoot"
+  }];
+};
+async function loader$7({
+  request
+}) {
+  const admin2 = await requireAdmin(request);
+  const url = new URL(request.url);
+  const search = url.searchParams.get("search") || "";
+  let query = supabaseAdmin.from("profiles").select("id, full_name, email, user_type, company_name, is_verified, role, created_by_admin, created_at").not("created_by_admin", "is", null).order("created_at", {
+    ascending: false
+  }).limit(50);
+  if (search) {
+    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company_name.ilike.%${search}%`);
+  }
+  const {
+    data: users
+  } = await query;
+  return {
+    admin: admin2,
+    users: users || []
+  };
+}
+async function action$6({
+  request
+}) {
+  await requireAdmin(request);
+  const formData = await request.formData();
+  const userId = formData.get("userId");
+  if (!userId) {
+    return {
+      error: "No user selected"
+    };
+  }
+  const {
+    data: targetUser
+  } = await supabaseAdmin.from("profiles").select("id, created_by_admin").eq("id", userId).single();
+  if (!targetUser || !targetUser.created_by_admin) {
+    return {
+      error: "You can only impersonate users created from the admin panel"
+    };
+  }
+  return startImpersonation(request, userId);
+}
+const userTypeLabels$1 = {
+  tour_operator: "Tour Operator",
+  private: "Runner"
+};
+const admin_impersonate = UNSAFE_withComponentProps(function AdminImpersonate() {
+  const {
+    admin: admin2,
+    users
+  } = useLoaderData();
+  const [searchParams] = useSearchParams();
+  return /* @__PURE__ */ jsxs("div", {
+    children: [/* @__PURE__ */ jsxs("div", {
+      className: "mb-6",
+      children: [/* @__PURE__ */ jsx("h1", {
+        className: "font-display text-2xl md:text-3xl font-bold text-gray-900",
+        children: "Impersonate User"
+      }), /* @__PURE__ */ jsx("p", {
+        className: "text-gray-500 mt-1",
+        children: "View and act as a user you created. Only admin-created users can be impersonated."
+      })]
+    }), /* @__PURE__ */ jsx("div", {
+      className: "mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "flex items-start gap-3",
+        children: [/* @__PURE__ */ jsx("svg", {
+          className: "w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0",
+          fill: "none",
+          stroke: "currentColor",
+          viewBox: "0 0 24 24",
+          children: /* @__PURE__ */ jsx("path", {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            strokeWidth: 2,
+            d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          })
+        }), /* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsx("p", {
+            className: "text-sm font-medium text-amber-800",
+            children: "Actions taken while impersonating will appear as if the user performed them."
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-xs text-amber-600 mt-1",
+            children: "All impersonation sessions are logged in the audit trail."
+          })]
+        })]
+      })
+    }), /* @__PURE__ */ jsx("div", {
+      className: "bg-white rounded-xl border border-gray-200 p-4 mb-6",
+      children: /* @__PURE__ */ jsxs(Form, {
+        method: "get",
+        className: "flex gap-3",
+        children: [/* @__PURE__ */ jsx("input", {
+          type: "text",
+          name: "search",
+          placeholder: "Search by name, email, or company...",
+          defaultValue: searchParams.get("search") || "",
+          className: "input flex-1"
+        }), /* @__PURE__ */ jsx("button", {
+          type: "submit",
+          className: "btn-accent",
+          children: "Search"
+        })]
+      })
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl border border-gray-200 overflow-hidden",
+      children: [/* @__PURE__ */ jsx("div", {
+        className: "divide-y divide-gray-100",
+        children: users.map((user) => {
+          var _a;
+          return /* @__PURE__ */ jsxs("div", {
+            className: `p-4 flex items-center justify-between hover:bg-gray-50 transition-colors ${user.id === admin2.id ? "opacity-50" : ""}`,
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-3 min-w-0 flex-1",
+              children: [/* @__PURE__ */ jsx("div", {
+                className: "w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-semibold flex-shrink-0",
+                children: ((_a = user.full_name) == null ? void 0 : _a.charAt(0)) || user.email.charAt(0).toUpperCase()
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "min-w-0",
+                children: [/* @__PURE__ */ jsxs("p", {
+                  className: "text-sm font-medium text-gray-900 truncate",
+                  children: [user.full_name || "No name", user.company_name && /* @__PURE__ */ jsxs("span", {
+                    className: "text-gray-400 font-normal",
+                    children: [" · ", user.company_name]
+                  })]
+                }), /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center gap-2 mt-0.5",
+                  children: [/* @__PURE__ */ jsx("span", {
+                    className: "text-xs text-gray-500",
+                    children: user.email
+                  }), /* @__PURE__ */ jsx("span", {
+                    className: "text-xs text-gray-300",
+                    children: "·"
+                  }), /* @__PURE__ */ jsx("span", {
+                    className: "text-xs text-gray-500",
+                    children: userTypeLabels$1[user.user_type]
+                  }), user.is_verified && /* @__PURE__ */ jsxs(Fragment, {
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "text-xs text-gray-300",
+                      children: "·"
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "text-xs text-brand-600",
+                      children: "Verified"
+                    })]
+                  }), user.role !== "user" && /* @__PURE__ */ jsxs(Fragment, {
+                    children: [/* @__PURE__ */ jsx("span", {
+                      className: "text-xs text-gray-300",
+                      children: "·"
+                    }), /* @__PURE__ */ jsx("span", {
+                      className: "text-xs text-purple-600 font-medium",
+                      children: user.role
+                    })]
+                  })]
+                })]
+              })]
+            }), user.id !== admin2.id ? /* @__PURE__ */ jsxs(Form, {
+              method: "post",
+              className: "flex-shrink-0 ml-4",
+              children: [/* @__PURE__ */ jsx("input", {
+                type: "hidden",
+                name: "userId",
+                value: user.id
+              }), /* @__PURE__ */ jsxs("button", {
+                type: "submit",
+                className: "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-navy-700 rounded-lg hover:bg-navy-800 transition-colors",
+                children: [/* @__PURE__ */ jsxs("svg", {
+                  className: "w-4 h-4",
+                  fill: "none",
+                  stroke: "currentColor",
+                  viewBox: "0 0 24 24",
+                  children: [/* @__PURE__ */ jsx("path", {
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    strokeWidth: 2,
+                    d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  }), /* @__PURE__ */ jsx("path", {
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    strokeWidth: 2,
+                    d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  })]
+                }), "Impersonate"]
+              })]
+            }) : /* @__PURE__ */ jsx("span", {
+              className: "text-xs text-gray-400 flex-shrink-0 ml-4",
+              children: "You"
+            })]
+          }, user.id);
+        })
+      }), users.length === 0 && /* @__PURE__ */ jsxs("div", {
+        className: "p-8 text-center text-gray-400 text-sm",
+        children: ["No admin-created users found. Create users from the ", /* @__PURE__ */ jsx("a", {
+          href: "/admin/users/new",
+          className: "text-brand-600 hover:underline",
+          children: "Users panel"
+        }), " to impersonate them."]
+      })]
+    })]
+  });
+});
+const route37 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$6,
+  default: admin_impersonate,
+  loader: loader$7,
+  meta: meta$8
+}, Symbol.toStringTag, { value: "Module" }));
+async function action$5({
+  request
+}) {
+  const realUserId = await getRealUserId(request);
+  if (!realUserId) {
+    return redirect("/login");
+  }
+  return stopImpersonation(request);
+}
+async function loader$6() {
+  return redirect("/admin");
+}
+const route38 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$5,
+  loader: loader$6
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$7 = () => {
+  return [{
+    title: "Listings - Admin - Runoot"
+  }];
+};
+const ITEMS_PER_PAGE$1 = 20;
+async function loader$5({
+  request
+}) {
+  const admin2 = await requireAdmin(request);
+  const url = new URL(request.url);
+  const search = url.searchParams.get("search") || "";
+  const statusFilter = url.searchParams.get("status") || "";
+  const typeFilter = url.searchParams.get("type") || "";
+  const page = parseInt(url.searchParams.get("page") || "1");
+  let query = supabaseAdmin.from("listings").select(`*, author:profiles(id, full_name, email, company_name, user_type), event:events(id, name, country, event_date)`, {
+    count: "exact"
+  }).order("created_at", {
+    ascending: false
+  }).range((page - 1) * ITEMS_PER_PAGE$1, page * ITEMS_PER_PAGE$1 - 1);
+  if (search) {
+    query = query.or(`title.ilike.%${search}%`);
+  }
+  if (statusFilter) {
+    query = query.eq("status", statusFilter);
+  }
+  if (typeFilter) {
+    query = query.eq("listing_type", typeFilter);
+  }
+  const {
+    data: listings,
+    count
+  } = await query;
+  return {
+    admin: admin2,
+    listings: listings || [],
+    totalCount: count || 0,
+    currentPage: page,
+    totalPages: Math.ceil((count || 0) / ITEMS_PER_PAGE$1)
+  };
+}
+async function action$4({
+  request
+}) {
+  const admin2 = await requireAdmin(request);
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+  switch (actionType) {
+    case "changeStatus": {
+      const listingId = formData.get("listingId");
+      const newStatus = formData.get("newStatus");
+      if (!["pending", "active", "sold", "expired", "rejected"].includes(newStatus)) {
+        return data({
+          error: "Invalid status"
+        }, {
+          status: 400
+        });
+      }
+      await supabaseAdmin.from("listings").update({
+        status: newStatus
+      }).eq("id", listingId);
+      await logAdminAction(admin2.id, "listing_status_changed", {
+        targetListingId: listingId,
+        details: {
+          new_status: newStatus
+        }
+      });
+      return data({
+        success: true
+      });
+    }
+    case "delete": {
+      const listingId = formData.get("listingId");
+      await supabaseAdmin.from("listings").delete().eq("id", listingId);
+      await logAdminAction(admin2.id, "listing_deleted", {
+        targetListingId: listingId
+      });
+      return data({
+        success: true
+      });
+    }
+    case "impersonateAuthor": {
+      const authorId = formData.get("authorId");
+      return startImpersonation(request, authorId);
+    }
+    default:
+      return data({
+        error: "Unknown action"
+      }, {
+        status: 400
+      });
+  }
+}
+const listingTypeLabels$2 = {
+  room: {
+    label: "Hotel",
+    color: "bg-blue-100 text-blue-700"
+  },
+  bib: {
+    label: "Bib",
+    color: "bg-purple-100 text-purple-700"
+  },
+  room_and_bib: {
+    label: "Package",
+    color: "bg-green-100 text-green-700"
+  }
+};
+const statusColors$1 = {
+  pending: "bg-yellow-100 text-yellow-700",
+  active: "bg-success-100 text-success-700",
+  sold: "bg-gray-100 text-gray-600",
+  expired: "bg-alert-100 text-alert-700",
+  rejected: "bg-red-100 text-red-700"
+};
+const admin_listings = UNSAFE_withComponentProps(function AdminListings() {
+  const {
+    listings,
+    totalCount,
+    currentPage,
+    totalPages
+  } = useLoaderData();
+  const actionData = useActionData();
+  const [searchParams] = useSearchParams();
+  return /* @__PURE__ */ jsxs("div", {
+    children: [/* @__PURE__ */ jsxs("div", {
+      className: "mb-6",
+      children: [/* @__PURE__ */ jsx("h1", {
+        className: "font-display text-2xl md:text-3xl font-bold text-gray-900",
+        children: "Listings"
+      }), /* @__PURE__ */ jsxs("p", {
+        className: "text-gray-500 mt-1",
+        children: [totalCount, " total listings"]
+      })]
+    }), actionData && "error" in actionData && /* @__PURE__ */ jsx("div", {
+      className: "mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm",
+      children: actionData.error
+    }), /* @__PURE__ */ jsx("div", {
+      className: "bg-white rounded-xl border border-gray-200 p-4 mb-6",
+      children: /* @__PURE__ */ jsxs(Form, {
+        method: "get",
+        className: "flex flex-col md:flex-row gap-3",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "flex-1",
+          children: /* @__PURE__ */ jsx("input", {
+            type: "text",
+            name: "search",
+            placeholder: "Search by title...",
+            defaultValue: searchParams.get("search") || "",
+            className: "input w-full"
+          })
+        }), /* @__PURE__ */ jsxs("select", {
+          name: "status",
+          defaultValue: searchParams.get("status") || "",
+          className: "input",
+          children: [/* @__PURE__ */ jsx("option", {
+            value: "",
+            children: "All statuses"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "pending",
+            children: "Pending"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "active",
+            children: "Active"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "sold",
+            children: "Sold"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "expired",
+            children: "Expired"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "rejected",
+            children: "Rejected"
+          })]
+        }), /* @__PURE__ */ jsxs("select", {
+          name: "type",
+          defaultValue: searchParams.get("type") || "",
+          className: "input",
+          children: [/* @__PURE__ */ jsx("option", {
+            value: "",
+            children: "All types"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "room",
+            children: "Hotel"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "bib",
+            children: "Bib"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "room_and_bib",
+            children: "Package"
+          })]
+        }), /* @__PURE__ */ jsx("button", {
+          type: "submit",
+          className: "btn-accent",
+          children: "Search"
+        })]
+      })
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl border border-gray-200 overflow-hidden",
+      children: [/* @__PURE__ */ jsx("div", {
+        className: "hidden md:block overflow-x-auto",
+        children: /* @__PURE__ */ jsxs("table", {
+          className: "w-full",
+          children: [/* @__PURE__ */ jsx("thead", {
+            className: "bg-gray-50 border-b border-gray-200",
+            children: /* @__PURE__ */ jsxs("tr", {
+              children: [/* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Listing"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Author"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Type"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Status"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Event"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Created"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Actions"
+              })]
+            })
+          }), /* @__PURE__ */ jsx("tbody", {
+            className: "divide-y divide-gray-100",
+            children: listings.map((listing) => {
+              var _a, _b, _c, _d;
+              const typeInfo = listingTypeLabels$2[listing.listing_type] || {
+                label: listing.listing_type,
+                color: "bg-gray-100 text-gray-600"
+              };
+              return /* @__PURE__ */ jsxs("tr", {
+                className: "hover:bg-gray-50 transition-colors",
+                children: [/* @__PURE__ */ jsxs("td", {
+                  className: "px-6 py-4",
+                  children: [/* @__PURE__ */ jsx(Link, {
+                    to: `/listings/${listing.id}`,
+                    className: "text-sm font-medium text-gray-900 hover:text-brand-600",
+                    children: listing.title
+                  }), listing.price && /* @__PURE__ */ jsxs("p", {
+                    className: "text-xs text-gray-500 mt-0.5",
+                    children: [listing.currency, " ", listing.price, listing.price_negotiable && " (negotiable)"]
+                  })]
+                }), /* @__PURE__ */ jsxs("td", {
+                  className: "px-6 py-4",
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: "text-sm text-gray-700",
+                    children: ((_a = listing.author) == null ? void 0 : _a.company_name) || ((_b = listing.author) == null ? void 0 : _b.full_name) || "Unknown"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-xs text-gray-400",
+                    children: (_c = listing.author) == null ? void 0 : _c.email
+                  })]
+                }), /* @__PURE__ */ jsx("td", {
+                  className: "px-6 py-4",
+                  children: /* @__PURE__ */ jsx("span", {
+                    className: `px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.color}`,
+                    children: typeInfo.label
+                  })
+                }), /* @__PURE__ */ jsx("td", {
+                  className: "px-6 py-4",
+                  children: /* @__PURE__ */ jsxs(Form, {
+                    method: "post",
+                    className: "inline",
+                    children: [/* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "_action",
+                      value: "changeStatus"
+                    }), /* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "listingId",
+                      value: listing.id
+                    }), /* @__PURE__ */ jsxs("select", {
+                      name: "newStatus",
+                      defaultValue: listing.status,
+                      onChange: (e) => {
+                        var _a2;
+                        return (_a2 = e.target.form) == null ? void 0 : _a2.requestSubmit();
+                      },
+                      className: `text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${statusColors$1[listing.status] || ""}`,
+                      children: [/* @__PURE__ */ jsx("option", {
+                        value: "pending",
+                        children: "pending"
+                      }), /* @__PURE__ */ jsx("option", {
+                        value: "active",
+                        children: "active"
+                      }), /* @__PURE__ */ jsx("option", {
+                        value: "sold",
+                        children: "sold"
+                      }), /* @__PURE__ */ jsx("option", {
+                        value: "expired",
+                        children: "expired"
+                      }), /* @__PURE__ */ jsx("option", {
+                        value: "rejected",
+                        children: "rejected"
+                      })]
+                    })]
+                  })
+                }), /* @__PURE__ */ jsx("td", {
+                  className: "px-6 py-4 text-sm text-gray-600",
+                  children: ((_d = listing.event) == null ? void 0 : _d.name) || "—"
+                }), /* @__PURE__ */ jsx("td", {
+                  className: "px-6 py-4 text-sm text-gray-500",
+                  children: new Date(listing.created_at).toLocaleDateString()
+                }), /* @__PURE__ */ jsx("td", {
+                  className: "px-6 py-4 text-right",
+                  children: /* @__PURE__ */ jsxs("div", {
+                    className: "flex items-center justify-end gap-1",
+                    children: [/* @__PURE__ */ jsxs(Form, {
+                      method: "post",
+                      className: "inline",
+                      children: [/* @__PURE__ */ jsx("input", {
+                        type: "hidden",
+                        name: "_action",
+                        value: "impersonateAuthor"
+                      }), /* @__PURE__ */ jsx("input", {
+                        type: "hidden",
+                        name: "authorId",
+                        value: listing.author_id
+                      }), /* @__PURE__ */ jsx("button", {
+                        type: "submit",
+                        className: "text-xs font-medium text-navy-500 hover:text-navy-700 px-2 py-1 rounded hover:bg-gray-100",
+                        title: "Impersonate author",
+                        children: /* @__PURE__ */ jsxs("svg", {
+                          className: "w-4 h-4",
+                          fill: "none",
+                          stroke: "currentColor",
+                          viewBox: "0 0 24 24",
+                          children: [/* @__PURE__ */ jsx("path", {
+                            strokeLinecap: "round",
+                            strokeLinejoin: "round",
+                            strokeWidth: 2,
+                            d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          }), /* @__PURE__ */ jsx("path", {
+                            strokeLinecap: "round",
+                            strokeLinejoin: "round",
+                            strokeWidth: 2,
+                            d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                          })]
+                        })
+                      })]
+                    }), /* @__PURE__ */ jsxs(Form, {
+                      method: "post",
+                      className: "inline",
+                      onSubmit: (e) => {
+                        if (!confirm("Are you sure you want to delete this listing?")) {
+                          e.preventDefault();
+                        }
+                      },
+                      children: [/* @__PURE__ */ jsx("input", {
+                        type: "hidden",
+                        name: "_action",
+                        value: "delete"
+                      }), /* @__PURE__ */ jsx("input", {
+                        type: "hidden",
+                        name: "listingId",
+                        value: listing.id
+                      }), /* @__PURE__ */ jsx("button", {
+                        type: "submit",
+                        className: "text-xs font-medium text-alert-500 hover:text-alert-700 px-2 py-1 rounded hover:bg-alert-50",
+                        title: "Delete listing",
+                        children: /* @__PURE__ */ jsx("svg", {
+                          className: "w-4 h-4",
+                          fill: "none",
+                          stroke: "currentColor",
+                          viewBox: "0 0 24 24",
+                          children: /* @__PURE__ */ jsx("path", {
+                            strokeLinecap: "round",
+                            strokeLinejoin: "round",
+                            strokeWidth: 2,
+                            d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          })
+                        })
+                      })]
+                    })]
+                  })
+                })]
+              }, listing.id);
+            })
+          })]
+        })
+      }), /* @__PURE__ */ jsx("div", {
+        className: "md:hidden divide-y divide-gray-100",
+        children: listings.map((listing) => {
+          var _a, _b, _c;
+          const typeInfo = listingTypeLabels$2[listing.listing_type] || {
+            label: listing.listing_type,
+            color: "bg-gray-100 text-gray-600"
+          };
+          return /* @__PURE__ */ jsxs("div", {
+            className: "p-4",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex items-start justify-between mb-2",
+              children: [/* @__PURE__ */ jsxs("div", {
+                className: "min-w-0 flex-1",
+                children: [/* @__PURE__ */ jsx(Link, {
+                  to: `/listings/${listing.id}`,
+                  className: "text-sm font-medium text-gray-900 hover:text-brand-600",
+                  children: listing.title
+                }), /* @__PURE__ */ jsxs("p", {
+                  className: "text-xs text-gray-500 mt-0.5",
+                  children: ["by ", ((_a = listing.author) == null ? void 0 : _a.company_name) || ((_b = listing.author) == null ? void 0 : _b.full_name) || "Unknown"]
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center gap-1 ml-2",
+                children: [/* @__PURE__ */ jsx("span", {
+                  className: `px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.color}`,
+                  children: typeInfo.label
+                }), /* @__PURE__ */ jsx("span", {
+                  className: `px-2 py-0.5 rounded-full text-xs font-medium ${statusColors$1[listing.status] || ""}`,
+                  children: listing.status
+                })]
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "flex items-center justify-between mt-3",
+              children: [/* @__PURE__ */ jsxs("div", {
+                className: "text-xs text-gray-500",
+                children: [(_c = listing.event) == null ? void 0 : _c.name, " · ", new Date(listing.created_at).toLocaleDateString(), listing.price && /* @__PURE__ */ jsxs("span", {
+                  children: [" · ", listing.currency, " ", listing.price]
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center gap-2",
+                children: [/* @__PURE__ */ jsxs(Form, {
+                  method: "post",
+                  className: "inline",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "_action",
+                    value: "changeStatus"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "listingId",
+                    value: listing.id
+                  }), /* @__PURE__ */ jsxs("select", {
+                    name: "newStatus",
+                    defaultValue: listing.status,
+                    onChange: (e) => {
+                      var _a2;
+                      return (_a2 = e.target.form) == null ? void 0 : _a2.requestSubmit();
+                    },
+                    className: "text-xs px-2 py-1 rounded bg-gray-50 border-0",
+                    children: [/* @__PURE__ */ jsx("option", {
+                      value: "active",
+                      children: "active"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "sold",
+                      children: "sold"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "expired",
+                      children: "expired"
+                    })]
+                  })]
+                }), /* @__PURE__ */ jsxs(Form, {
+                  method: "post",
+                  className: "inline",
+                  onSubmit: (e) => {
+                    if (!confirm("Delete this listing?")) e.preventDefault();
+                  },
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "_action",
+                    value: "delete"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "listingId",
+                    value: listing.id
+                  }), /* @__PURE__ */ jsx("button", {
+                    type: "submit",
+                    className: "text-xs text-alert-500 px-2 py-1 rounded bg-gray-50",
+                    children: "Delete"
+                  })]
+                })]
+              })]
+            })]
+          }, listing.id);
+        })
+      }), listings.length === 0 && /* @__PURE__ */ jsx("div", {
+        className: "p-8 text-center text-gray-400 text-sm",
+        children: "No listings found"
+      })]
+    }), totalPages > 1 && /* @__PURE__ */ jsxs("div", {
+      className: "mt-6 flex items-center justify-center gap-2",
+      children: [currentPage > 1 && /* @__PURE__ */ jsx(Link, {
+        to: `/admin/listings?page=${currentPage - 1}&search=${searchParams.get("search") || ""}&status=${searchParams.get("status") || ""}&type=${searchParams.get("type") || ""}`,
+        className: "px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50",
+        children: "Previous"
+      }), /* @__PURE__ */ jsxs("span", {
+        className: "text-sm text-gray-500",
+        children: ["Page ", currentPage, " of ", totalPages]
+      }), currentPage < totalPages && /* @__PURE__ */ jsx(Link, {
+        to: `/admin/listings?page=${currentPage + 1}&search=${searchParams.get("search") || ""}&status=${searchParams.get("status") || ""}&type=${searchParams.get("type") || ""}`,
+        className: "px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50",
+        children: "Next"
+      })]
+    })]
+  });
+});
+const route39 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$4,
+  default: admin_listings,
+  loader: loader$5,
+  meta: meta$7
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$6 = () => {
+  return [{
+    title: "Pending Approvals - Admin - Runoot"
+  }];
+};
+async function loader$4({
+  request
+}) {
+  const admin2 = await requireAdmin(request);
+  const {
+    data: listings,
+    count
+  } = await supabaseAdmin.from("listings").select(`*, author:profiles(id, full_name, email, company_name, user_type, is_verified),
+       event:events(id, name, country, event_date)`, {
+    count: "exact"
+  }).eq("status", "pending").order("created_at", {
+    ascending: true
+  });
+  return {
+    admin: admin2,
+    listings: listings || [],
+    pendingCount: count || 0
+  };
+}
+async function action$3({
+  request
+}) {
+  var _a;
+  const admin2 = await requireAdmin(request);
+  const adminId = admin2.id;
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+  const listingId = formData.get("listingId");
+  const adminNote = ((_a = formData.get("adminNote")) == null ? void 0 : _a.trim()) || null;
+  if (!listingId) {
+    return data({
+      error: "Missing listing ID"
+    }, {
+      status: 400
+    });
+  }
+  const {
+    data: listing
+  } = await supabaseAdmin.from("listings").select("id, title, author_id").eq("id", listingId).single();
+  if (!listing) {
+    return data({
+      error: "Listing not found"
+    }, {
+      status: 404
+    });
+  }
+  switch (actionType) {
+    case "approve": {
+      await supabaseAdmin.from("listings").update({
+        status: "active",
+        admin_note: adminNote,
+        reviewed_at: (/* @__PURE__ */ new Date()).toISOString(),
+        reviewed_by: adminId
+      }).eq("id", listingId);
+      await supabaseAdmin.from("notifications").insert({
+        user_id: listing.author_id,
+        type: "listing_approved",
+        title: "Your listing has been approved!",
+        message: `"${listing.title}" is now live and visible to other users.`,
+        data: {
+          listing_id: listingId
+        }
+      });
+      await logAdminAction(adminId, "listing_approved", {
+        targetListingId: listingId,
+        details: {
+          admin_note: adminNote
+        }
+      });
+      return data({
+        success: true,
+        action: "approved",
+        title: listing.title
+      });
+    }
+    case "reject": {
+      await supabaseAdmin.from("listings").update({
+        status: "rejected",
+        admin_note: adminNote,
+        reviewed_at: (/* @__PURE__ */ new Date()).toISOString(),
+        reviewed_by: adminId
+      }).eq("id", listingId);
+      await supabaseAdmin.from("notifications").insert({
+        user_id: listing.author_id,
+        type: "listing_rejected",
+        title: "Your listing needs changes",
+        message: adminNote ? `"${listing.title}" was not approved: ${adminNote}` : `"${listing.title}" was not approved. Please contact us for details.`,
+        data: {
+          listing_id: listingId
+        }
+      });
+      await logAdminAction(adminId, "listing_rejected", {
+        targetListingId: listingId,
+        details: {
+          admin_note: adminNote
+        }
+      });
+      return data({
+        success: true,
+        action: "rejected",
+        title: listing.title
+      });
+    }
+    default:
+      return data({
+        error: "Unknown action"
+      }, {
+        status: 400
+      });
+  }
+}
+const listingTypeLabels$1 = {
+  room: "Room",
+  bib: "Bib",
+  room_and_bib: "Room + Bib"
+};
+const listingTypeColors = {
+  room: "bg-blue-100 text-blue-700",
+  bib: "bg-purple-100 text-purple-700",
+  room_and_bib: "bg-accent-100 text-accent-700"
+};
+const admin_pending = UNSAFE_withComponentProps(function AdminPending() {
+  const {
+    listings,
+    pendingCount
+  } = useLoaderData();
+  const actionData = useActionData();
+  return /* @__PURE__ */ jsxs("div", {
+    children: [/* @__PURE__ */ jsxs("div", {
+      className: "mb-6",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "flex items-center gap-3",
+        children: [/* @__PURE__ */ jsx("h1", {
+          className: "font-display text-2xl md:text-3xl font-bold text-gray-900",
+          children: "Pending Approvals"
+        }), pendingCount > 0 && /* @__PURE__ */ jsx("span", {
+          className: "flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-accent-500 px-2 text-sm font-bold text-white",
+          children: pendingCount
+        })]
+      }), /* @__PURE__ */ jsx("p", {
+        className: "text-gray-500 mt-1",
+        children: "Review and approve listings before they go live"
+      })]
+    }), actionData && actionData.success && /* @__PURE__ */ jsx("div", {
+      className: `mb-6 rounded-lg border px-4 py-3 text-sm font-medium ${actionData.action === "approved" ? "bg-success-50 border-success-200 text-success-700" : "bg-alert-50 border-alert-200 text-alert-700"}`,
+      children: actionData.action === "approved" ? `"${actionData.title}" has been approved and is now live.` : `"${actionData.title}" has been rejected.`
+    }), actionData && actionData.error && /* @__PURE__ */ jsx("div", {
+      className: "mb-6 rounded-lg border bg-red-50 border-red-200 px-4 py-3 text-sm font-medium text-red-700",
+      children: actionData.error
+    }), listings.length === 0 ? /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl border border-gray-200 p-12 text-center",
+      children: [/* @__PURE__ */ jsx("div", {
+        className: "w-16 h-16 mx-auto mb-4 rounded-full bg-success-100 flex items-center justify-center",
+        children: /* @__PURE__ */ jsx("svg", {
+          className: "w-8 h-8 text-success-500",
+          fill: "none",
+          stroke: "currentColor",
+          viewBox: "0 0 24 24",
+          children: /* @__PURE__ */ jsx("path", {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            strokeWidth: 1.5,
+            d: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          })
+        })
+      }), /* @__PURE__ */ jsx("h3", {
+        className: "font-display font-semibold text-gray-900 text-lg mb-2",
+        children: "All clear!"
+      }), /* @__PURE__ */ jsx("p", {
+        className: "text-gray-500 text-sm max-w-md mx-auto",
+        children: "No listings are waiting for review. New submissions will appear here automatically."
+      })]
+    }) : /* @__PURE__ */ jsx("div", {
+      className: "space-y-4",
+      children: listings.map((listing) => {
+        var _a, _b, _c, _d, _e, _f, _g;
+        return /* @__PURE__ */ jsxs("div", {
+          className: "bg-white rounded-xl border border-gray-200 p-5",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "flex items-start justify-between gap-4 mb-3",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "min-w-0",
+              children: [/* @__PURE__ */ jsx(Link, {
+                to: `/listings/${listing.id}`,
+                target: "_blank",
+                className: "font-display font-semibold text-gray-900 hover:text-brand-600 transition-colors",
+                children: listing.title
+              }), /* @__PURE__ */ jsxs("p", {
+                className: "text-sm text-gray-500 mt-0.5",
+                children: ["by", " ", /* @__PURE__ */ jsx("span", {
+                  className: "font-medium text-gray-700",
+                  children: ((_a = listing.author) == null ? void 0 : _a.company_name) || ((_b = listing.author) == null ? void 0 : _b.full_name)
+                }), " · ", (_c = listing.author) == null ? void 0 : _c.email]
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "flex gap-2 flex-shrink-0",
+              children: [/* @__PURE__ */ jsx("span", {
+                className: `px-2 py-0.5 rounded-full text-xs font-medium ${((_d = listing.author) == null ? void 0 : _d.user_type) === "tour_operator" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`,
+                children: ((_e = listing.author) == null ? void 0 : _e.user_type) === "tour_operator" ? "Tour Operator" : "Private"
+              }), /* @__PURE__ */ jsx("span", {
+                className: `px-2 py-0.5 rounded-full text-xs font-medium ${listingTypeColors[listing.listing_type] || "bg-gray-100 text-gray-600"}`,
+                children: listingTypeLabels$1[listing.listing_type] || listing.listing_type
+              }), ((_f = listing.author) == null ? void 0 : _f.is_verified) && /* @__PURE__ */ jsx("span", {
+                className: "px-2 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-700",
+                children: "Verified"
+              })]
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 mb-4",
+            children: [listing.event && /* @__PURE__ */ jsxs("span", {
+              className: "flex items-center gap-1",
+              children: [/* @__PURE__ */ jsxs("svg", {
+                className: "w-4 h-4 text-gray-400",
+                fill: "none",
+                viewBox: "0 0 24 24",
+                stroke: "currentColor",
+                children: [/* @__PURE__ */ jsx("path", {
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                  strokeWidth: 2,
+                  d: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                }), /* @__PURE__ */ jsx("path", {
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                  strokeWidth: 2,
+                  d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                })]
+              }), listing.event.name, " · ", listing.event.country]
+            }), ((_g = listing.event) == null ? void 0 : _g.event_date) && /* @__PURE__ */ jsxs("span", {
+              className: "flex items-center gap-1",
+              children: [/* @__PURE__ */ jsx("svg", {
+                className: "w-4 h-4 text-gray-400",
+                fill: "none",
+                viewBox: "0 0 24 24",
+                stroke: "currentColor",
+                children: /* @__PURE__ */ jsx("path", {
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                  strokeWidth: 2,
+                  d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                })
+              }), "Event: ", new Date(listing.event.event_date).toLocaleDateString()]
+            }), /* @__PURE__ */ jsxs("span", {
+              className: "flex items-center gap-1",
+              children: [/* @__PURE__ */ jsx("svg", {
+                className: "w-4 h-4 text-gray-400",
+                fill: "none",
+                viewBox: "0 0 24 24",
+                stroke: "currentColor",
+                children: /* @__PURE__ */ jsx("path", {
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                  strokeWidth: 2,
+                  d: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                })
+              }), "Submitted: ", new Date(listing.created_at).toLocaleDateString()]
+            }), listing.price && /* @__PURE__ */ jsxs("span", {
+              className: "font-medium text-gray-900",
+              children: [listing.currency, " ", listing.price.toLocaleString(), listing.price_negotiable && " (negotiable)"]
+            })]
+          }), listing.description && /* @__PURE__ */ jsx("p", {
+            className: "text-sm text-gray-500 mb-4 line-clamp-2",
+            children: listing.description
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "flex flex-wrap gap-3 text-xs text-gray-500 mb-4",
+            children: [listing.hotel_name && /* @__PURE__ */ jsxs("span", {
+              className: "bg-gray-50 px-2 py-1 rounded",
+              children: ["Hotel: ", listing.hotel_name, listing.hotel_stars && ` (${listing.hotel_stars}★)`]
+            }), listing.room_count && /* @__PURE__ */ jsxs("span", {
+              className: "bg-gray-50 px-2 py-1 rounded",
+              children: [listing.room_count, " room", listing.room_count > 1 ? "s" : ""]
+            }), listing.bib_count && /* @__PURE__ */ jsxs("span", {
+              className: "bg-gray-50 px-2 py-1 rounded",
+              children: [listing.bib_count, " bib", listing.bib_count > 1 ? "s" : ""]
+            }), listing.transfer_type && /* @__PURE__ */ jsxs("span", {
+              className: "bg-gray-50 px-2 py-1 rounded",
+              children: ["Transfer: ", listing.transfer_type.replace("_", " ")]
+            })]
+          }), /* @__PURE__ */ jsx("div", {
+            className: "border-t border-gray-100 pt-4",
+            children: /* @__PURE__ */ jsxs("div", {
+              className: "flex flex-col sm:flex-row gap-3",
+              children: [/* @__PURE__ */ jsxs(Form, {
+                method: "post",
+                className: "flex-1",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "_action",
+                  value: "approve"
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "listingId",
+                  value: listing.id
+                }), /* @__PURE__ */ jsx("textarea", {
+                  name: "adminNote",
+                  placeholder: "Optional note (visible to user)...",
+                  className: "input w-full mb-2 text-sm",
+                  rows: 2
+                }), /* @__PURE__ */ jsxs("button", {
+                  type: "submit",
+                  className: "btn-primary w-full flex items-center justify-center gap-2",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "w-4 h-4",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M5 13l4 4L19 7"
+                    })
+                  }), "Approve"]
+                })]
+              }), /* @__PURE__ */ jsxs(Form, {
+                method: "post",
+                className: "flex-1",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "_action",
+                  value: "reject"
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "listingId",
+                  value: listing.id
+                }), /* @__PURE__ */ jsx("textarea", {
+                  name: "adminNote",
+                  placeholder: "Reason for rejection (shown to user)...",
+                  className: "input w-full mb-2 text-sm",
+                  rows: 2
+                }), /* @__PURE__ */ jsxs("button", {
+                  type: "submit",
+                  className: "w-full py-2.5 px-4 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 font-medium text-sm transition-colors flex items-center justify-center gap-2",
+                  children: [/* @__PURE__ */ jsx("svg", {
+                    className: "w-4 h-4",
+                    fill: "none",
+                    viewBox: "0 0 24 24",
+                    stroke: "currentColor",
+                    children: /* @__PURE__ */ jsx("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M6 18L18 6M6 6l12 12"
+                    })
+                  }), "Reject"]
+                })]
+              })]
+            })
+          })]
+        }, listing.id);
+      })
+    })]
+  });
+});
+const route40 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$3,
+  default: admin_pending,
+  loader: loader$4,
+  meta: meta$6
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$5 = () => {
+  return [{
+    title: "Admin Dashboard - Runoot"
+  }];
+};
+async function loader$3({
+  request
+}) {
+  await requireAdmin(request);
+  const now = /* @__PURE__ */ new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1e3).toISOString();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1e3).toISOString();
+  const [{
+    count: totalUsers
+  }, {
+    count: newUsersWeek
+  }, {
+    count: newUsersMonth
+  }, {
+    count: totalListings
+  }, {
+    count: activeListings
+  }, {
+    count: soldListings
+  }, {
+    count: expiredListings
+  }, {
+    count: totalMessages
+  }, {
+    count: totalConversations
+  }, {
+    count: privateUsers
+  }, {
+    count: tourOperators
+  }, {
+    count: roomListings
+  }, {
+    count: bibListings
+  }, {
+    count: packageListings
+  }, {
+    count: totalTeamLeaders
+  }, {
+    count: totalReferrals
+  }, {
+    count: pendingListings
+  }, {
+    data: recentUsers
+  }, {
+    data: recentListings
+  }] = await Promise.all([supabaseAdmin.from("profiles").select("*", {
+    count: "exact",
+    head: true
+  }), supabaseAdmin.from("profiles").select("*", {
+    count: "exact",
+    head: true
+  }).gte("created_at", sevenDaysAgo), supabaseAdmin.from("profiles").select("*", {
+    count: "exact",
+    head: true
+  }).gte("created_at", thirtyDaysAgo), supabaseAdmin.from("listings").select("*", {
+    count: "exact",
+    head: true
+  }), supabaseAdmin.from("listings").select("*", {
+    count: "exact",
+    head: true
+  }).eq("status", "active"), supabaseAdmin.from("listings").select("*", {
+    count: "exact",
+    head: true
+  }).eq("status", "sold"), supabaseAdmin.from("listings").select("*", {
+    count: "exact",
+    head: true
+  }).eq("status", "expired"), supabaseAdmin.from("messages").select("*", {
+    count: "exact",
+    head: true
+  }), supabaseAdmin.from("conversations").select("*", {
+    count: "exact",
+    head: true
+  }), supabaseAdmin.from("profiles").select("*", {
+    count: "exact",
+    head: true
+  }).eq("user_type", "private"), supabaseAdmin.from("profiles").select("*", {
+    count: "exact",
+    head: true
+  }).eq("user_type", "tour_operator"), supabaseAdmin.from("listings").select("*", {
+    count: "exact",
+    head: true
+  }).eq("listing_type", "room"), supabaseAdmin.from("listings").select("*", {
+    count: "exact",
+    head: true
+  }).eq("listing_type", "bib"), supabaseAdmin.from("listings").select("*", {
+    count: "exact",
+    head: true
+  }).eq("listing_type", "room_and_bib"), supabaseAdmin.from("profiles").select("*", {
+    count: "exact",
+    head: true
+  }).eq("is_team_leader", true), supabaseAdmin.from("referrals").select("*", {
+    count: "exact",
+    head: true
+  }), supabaseAdmin.from("listings").select("*", {
+    count: "exact",
+    head: true
+  }).eq("status", "pending"), supabaseAdmin.from("profiles").select("id, full_name, email, user_type, role, is_verified, is_team_leader, created_at").order("created_at", {
+    ascending: false
+  }).limit(10), supabaseAdmin.from("listings").select(`id, title, listing_type, status, created_at, author:profiles(full_name, email, company_name)`).order("created_at", {
+    ascending: false
+  }).limit(10)]);
+  return {
+    stats: {
+      totalUsers: totalUsers || 0,
+      newUsersWeek: newUsersWeek || 0,
+      newUsersMonth: newUsersMonth || 0,
+      totalListings: totalListings || 0,
+      activeListings: activeListings || 0,
+      soldListings: soldListings || 0,
+      expiredListings: expiredListings || 0,
+      totalMessages: totalMessages || 0,
+      totalConversations: totalConversations || 0,
+      privateUsers: privateUsers || 0,
+      tourOperators: tourOperators || 0,
+      roomListings: roomListings || 0,
+      bibListings: bibListings || 0,
+      packageListings: packageListings || 0,
+      totalTeamLeaders: totalTeamLeaders || 0,
+      totalReferrals: totalReferrals || 0,
+      pendingListings: pendingListings || 0
+    },
+    recentUsers: recentUsers || [],
+    recentListings: recentListings || []
+  };
+}
+function BarChart({
+  items
+}) {
+  const max = Math.max(...items.map((i) => i.value), 1);
+  return /* @__PURE__ */ jsx("div", {
+    className: "space-y-3",
+    children: items.map((item) => /* @__PURE__ */ jsxs("div", {
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "flex items-center justify-between text-sm mb-1",
+        children: [/* @__PURE__ */ jsx("span", {
+          className: "text-gray-600",
+          children: item.label
+        }), /* @__PURE__ */ jsx("span", {
+          className: "font-semibold text-gray-900",
+          children: item.value
+        })]
+      }), /* @__PURE__ */ jsx("div", {
+        className: "h-3 bg-gray-100 rounded-full overflow-hidden",
+        children: /* @__PURE__ */ jsx("div", {
+          className: `h-full rounded-full transition-all duration-500 ${item.color}`,
+          style: {
+            width: `${item.value / max * 100}%`
+          }
+        })
+      })]
+    }, item.label))
+  });
+}
+const listingTypeLabels = {
+  room: "Hotel",
+  bib: "Bib",
+  room_and_bib: "Package"
+};
+const statusColors = {
+  active: "bg-success-100 text-success-700",
+  sold: "bg-gray-100 text-gray-600",
+  expired: "bg-alert-100 text-alert-700"
+};
+const admin__index = UNSAFE_withComponentProps(function AdminDashboard() {
+  const {
+    stats,
+    recentUsers,
+    recentListings
+  } = useLoaderData();
+  return /* @__PURE__ */ jsxs("div", {
+    children: [/* @__PURE__ */ jsxs("div", {
+      className: "mb-8",
+      children: [/* @__PURE__ */ jsx("h1", {
+        className: "font-display text-2xl md:text-3xl font-bold text-gray-900",
+        children: "Dashboard"
+      }), /* @__PURE__ */ jsx("p", {
+        className: "text-gray-500 mt-1",
+        children: "Platform overview and statistics"
+      })]
+    }), stats.pendingListings > 0 && /* @__PURE__ */ jsx(Link, {
+      to: "/admin/pending",
+      className: "block mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 hover:bg-yellow-100 transition-colors",
+      children: /* @__PURE__ */ jsxs("div", {
+        className: "flex items-center gap-3",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "w-10 h-10 rounded-full bg-yellow-200 flex items-center justify-center flex-shrink-0",
+          children: /* @__PURE__ */ jsx("svg", {
+            className: "w-5 h-5 text-yellow-700",
+            fill: "none",
+            stroke: "currentColor",
+            viewBox: "0 0 24 24",
+            children: /* @__PURE__ */ jsx("path", {
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              strokeWidth: 2,
+              d: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            })
+          })
+        }), /* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsxs("p", {
+            className: "font-semibold text-yellow-800",
+            children: [stats.pendingListings, " listing", stats.pendingListings > 1 ? "s" : "", " pending review"]
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-xs text-yellow-600",
+            children: "Click to review and approve"
+          })]
+        })]
+      })
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8",
+      children: [/* @__PURE__ */ jsx(StatCard, {
+        label: "Total Users",
+        value: stats.totalUsers,
+        icon: "users",
+        color: "brand"
+      }), /* @__PURE__ */ jsx(StatCard, {
+        label: "New (7d)",
+        value: stats.newUsersWeek,
+        icon: "trending",
+        color: "success"
+      }), /* @__PURE__ */ jsx(StatCard, {
+        label: "Active Listings",
+        value: stats.activeListings,
+        icon: "listings",
+        color: "accent"
+      }), /* @__PURE__ */ jsx(StatCard, {
+        label: "Messages",
+        value: stats.totalMessages,
+        icon: "messages",
+        color: "blue"
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl p-4 border border-gray-200",
+        children: [/* @__PURE__ */ jsx("p", {
+          className: "text-xs text-gray-500 uppercase tracking-wide",
+          children: "New (30d)"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-2xl font-bold text-gray-900 mt-1",
+          children: stats.newUsersMonth
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl p-4 border border-gray-200",
+        children: [/* @__PURE__ */ jsx("p", {
+          className: "text-xs text-gray-500 uppercase tracking-wide",
+          children: "Total Listings"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-2xl font-bold text-gray-900 mt-1",
+          children: stats.totalListings
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl p-4 border border-gray-200",
+        children: [/* @__PURE__ */ jsx("p", {
+          className: "text-xs text-gray-500 uppercase tracking-wide",
+          children: "Sold"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-2xl font-bold text-success-600 mt-1",
+          children: stats.soldListings
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl p-4 border border-gray-200",
+        children: [/* @__PURE__ */ jsx("p", {
+          className: "text-xs text-gray-500 uppercase tracking-wide",
+          children: "Conversations"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-2xl font-bold text-gray-900 mt-1",
+          children: stats.totalConversations
+        })]
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "grid grid-cols-2 gap-4 mb-8",
+      children: [/* @__PURE__ */ jsx("div", {
+        className: "bg-white rounded-xl p-4 border border-gray-200",
+        children: /* @__PURE__ */ jsxs("div", {
+          className: "flex items-center gap-3",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-5 h-5 text-purple-600",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              })
+            })
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "text-2xl font-bold text-gray-900",
+              children: stats.totalTeamLeaders
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-xs text-gray-500",
+              children: "Team Leaders"
+            })]
+          })]
+        })
+      }), /* @__PURE__ */ jsx("div", {
+        className: "bg-white rounded-xl p-4 border border-gray-200",
+        children: /* @__PURE__ */ jsxs("div", {
+          className: "flex items-center gap-3",
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center",
+            children: /* @__PURE__ */ jsx("svg", {
+              className: "w-5 h-5 text-brand-600",
+              fill: "none",
+              stroke: "currentColor",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsx("path", {
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: 2,
+                d: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+              })
+            })
+          }), /* @__PURE__ */ jsxs("div", {
+            children: [/* @__PURE__ */ jsx("p", {
+              className: "text-2xl font-bold text-gray-900",
+              children: stats.totalReferrals
+            }), /* @__PURE__ */ jsx("p", {
+              className: "text-xs text-gray-500",
+              children: "Total Referrals"
+            })]
+          })]
+        })
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "grid md:grid-cols-2 gap-6 mb-8",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl p-6 border border-gray-200",
+        children: [/* @__PURE__ */ jsx("h2", {
+          className: "font-display font-semibold text-gray-900 mb-4",
+          children: "Users by Type"
+        }), /* @__PURE__ */ jsx(BarChart, {
+          items: [{
+            label: "Private Runners",
+            value: stats.privateUsers,
+            color: "bg-brand-500"
+          }, {
+            label: "Tour Operators",
+            value: stats.tourOperators,
+            color: "bg-accent-500"
+          }]
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl p-6 border border-gray-200",
+        children: [/* @__PURE__ */ jsx("h2", {
+          className: "font-display font-semibold text-gray-900 mb-4",
+          children: "Listings by Type"
+        }), /* @__PURE__ */ jsx(BarChart, {
+          items: [{
+            label: "Hotel Rooms",
+            value: stats.roomListings,
+            color: "bg-blue-500"
+          }, {
+            label: "Bibs",
+            value: stats.bibListings,
+            color: "bg-purple-500"
+          }, {
+            label: "Packages",
+            value: stats.packageListings,
+            color: "bg-success-500"
+          }]
+        })]
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "grid md:grid-cols-2 gap-6",
+      children: [/* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl border border-gray-200",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "px-6 py-4 border-b border-gray-100 flex items-center justify-between",
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "font-display font-semibold text-gray-900",
+            children: "Recent Users"
+          }), /* @__PURE__ */ jsx("a", {
+            href: "/admin/users",
+            className: "text-sm text-brand-600 font-medium hover:text-brand-700",
+            children: "View all"
+          })]
+        }), /* @__PURE__ */ jsx("div", {
+          className: "divide-y divide-gray-100",
+          children: recentUsers.length > 0 ? recentUsers.map((user) => /* @__PURE__ */ jsxs("div", {
+            className: "px-6 py-3 flex items-center justify-between",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "min-w-0 flex-1",
+              children: [/* @__PURE__ */ jsx("p", {
+                className: "text-sm font-medium text-gray-900 truncate",
+                children: user.full_name || user.email
+              }), /* @__PURE__ */ jsxs("p", {
+                className: "text-xs text-gray-500",
+                children: [user.user_type === "tour_operator" ? "TO" : "Runner", " · ", new Date(user.created_at).toLocaleDateString()]
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-2",
+              children: [user.is_verified && /* @__PURE__ */ jsx("span", {
+                className: "text-brand-500",
+                children: /* @__PURE__ */ jsx("svg", {
+                  className: "w-4 h-4",
+                  fill: "currentColor",
+                  viewBox: "0 0 20 20",
+                  children: /* @__PURE__ */ jsx("path", {
+                    fillRule: "evenodd",
+                    d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                    clipRule: "evenodd"
+                  })
+                })
+              }), user.is_team_leader && /* @__PURE__ */ jsx("span", {
+                className: "px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600",
+                children: "TL"
+              }), user.role !== "user" && /* @__PURE__ */ jsx("span", {
+                className: "px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700",
+                children: user.role
+              })]
+            })]
+          }, user.id)) : /* @__PURE__ */ jsx("div", {
+            className: "px-6 py-8 text-center text-gray-400 text-sm",
+            children: "No users yet"
+          })
+        })]
+      }), /* @__PURE__ */ jsxs("div", {
+        className: "bg-white rounded-xl border border-gray-200",
+        children: [/* @__PURE__ */ jsxs("div", {
+          className: "px-6 py-4 border-b border-gray-100 flex items-center justify-between",
+          children: [/* @__PURE__ */ jsx("h2", {
+            className: "font-display font-semibold text-gray-900",
+            children: "Recent Listings"
+          }), /* @__PURE__ */ jsx("a", {
+            href: "/admin/listings",
+            className: "text-sm text-brand-600 font-medium hover:text-brand-700",
+            children: "View all"
+          })]
+        }), /* @__PURE__ */ jsx("div", {
+          className: "divide-y divide-gray-100",
+          children: recentListings.length > 0 ? recentListings.map((listing) => {
+            var _a, _b, _c;
+            return /* @__PURE__ */ jsxs("div", {
+              className: "px-6 py-3 flex items-center justify-between",
+              children: [/* @__PURE__ */ jsxs("div", {
+                className: "min-w-0 flex-1",
+                children: [/* @__PURE__ */ jsx("p", {
+                  className: "text-sm font-medium text-gray-900 truncate",
+                  children: listing.title
+                }), /* @__PURE__ */ jsxs("p", {
+                  className: "text-xs text-gray-500",
+                  children: ["by ", ((_a = listing.author) == null ? void 0 : _a.company_name) || ((_b = listing.author) == null ? void 0 : _b.full_name) || ((_c = listing.author) == null ? void 0 : _c.email) || "Unknown", " · ", new Date(listing.created_at).toLocaleDateString()]
+                })]
+              }), /* @__PURE__ */ jsxs("div", {
+                className: "flex items-center gap-2",
+                children: [/* @__PURE__ */ jsx("span", {
+                  className: "px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600",
+                  children: listingTypeLabels[listing.listing_type] || listing.listing_type
+                }), /* @__PURE__ */ jsx("span", {
+                  className: `px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[listing.status] || ""}`,
+                  children: listing.status
+                })]
+              })]
+            }, listing.id);
+          }) : /* @__PURE__ */ jsx("div", {
+            className: "px-6 py-8 text-center text-gray-400 text-sm",
+            children: "No listings yet"
+          })
+        })]
+      })]
+    })]
+  });
+});
+function StatCard({
+  label,
+  value,
+  icon,
+  color
+}) {
+  const colorClasses = {
+    brand: {
+      bg: "bg-white",
+      iconBg: "bg-brand-100",
+      iconText: "text-brand-600"
+    },
+    success: {
+      bg: "bg-white",
+      iconBg: "bg-success-100",
+      iconText: "text-success-600"
+    },
+    accent: {
+      bg: "bg-white",
+      iconBg: "bg-accent-100",
+      iconText: "text-accent-600"
+    },
+    blue: {
+      bg: "bg-white",
+      iconBg: "bg-blue-100",
+      iconText: "text-blue-600"
+    }
+  };
+  const icons = {
+    users: /* @__PURE__ */ jsx("svg", {
+      className: "w-5 h-5",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24",
+      children: /* @__PURE__ */ jsx("path", {
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        strokeWidth: 2,
+        d: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+      })
+    }),
+    trending: /* @__PURE__ */ jsx("svg", {
+      className: "w-5 h-5",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24",
+      children: /* @__PURE__ */ jsx("path", {
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        strokeWidth: 2,
+        d: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+      })
+    }),
+    listings: /* @__PURE__ */ jsx("svg", {
+      className: "w-5 h-5",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24",
+      children: /* @__PURE__ */ jsx("path", {
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        strokeWidth: 2,
+        d: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+      })
+    }),
+    messages: /* @__PURE__ */ jsx("svg", {
+      className: "w-5 h-5",
+      fill: "none",
+      stroke: "currentColor",
+      viewBox: "0 0 24 24",
+      children: /* @__PURE__ */ jsx("path", {
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        strokeWidth: 2,
+        d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+      })
+    })
+  };
+  const c = colorClasses[color] || colorClasses.brand;
+  return /* @__PURE__ */ jsx("div", {
+    className: `${c.bg} rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm`,
+    children: /* @__PURE__ */ jsxs("div", {
+      className: "flex items-center gap-3",
+      children: [/* @__PURE__ */ jsx("div", {
+        className: `w-10 h-10 rounded-full ${c.iconBg} flex items-center justify-center ${c.iconText}`,
+        children: icons[icon]
+      }), /* @__PURE__ */ jsxs("div", {
+        children: [/* @__PURE__ */ jsx("p", {
+          className: "text-2xl font-bold text-gray-900",
+          children: value
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-xs text-gray-500",
+          children: label
+        })]
+      })]
+    })
+  });
+}
+const route41 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  default: admin__index,
+  loader: loader$3,
+  meta: meta$5
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$4 = () => {
+  return [{
+    title: "Users - Admin - Runoot"
+  }];
+};
+const ITEMS_PER_PAGE = 20;
+async function loader$2({
+  request
+}) {
+  const admin2 = await requireAdmin(request);
+  const url = new URL(request.url);
+  const search = url.searchParams.get("search") || "";
+  const typeFilter = url.searchParams.get("type") || "";
+  const roleFilter = url.searchParams.get("role") || "";
+  const page = parseInt(url.searchParams.get("page") || "1");
+  let query = supabaseAdmin.from("profiles").select("*", {
+    count: "exact"
+  }).order("created_at", {
+    ascending: false
+  }).range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+  if (search) {
+    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company_name.ilike.%${search}%`);
+  }
+  if (typeFilter) {
+    query = query.eq("user_type", typeFilter);
+  }
+  if (roleFilter) {
+    query = query.eq("role", roleFilter);
+  }
+  const {
+    data: users,
+    count
+  } = await query;
+  return {
+    admin: admin2,
+    users: users || [],
+    totalCount: count || 0,
+    currentPage: page,
+    totalPages: Math.ceil((count || 0) / ITEMS_PER_PAGE)
+  };
+}
+async function action$2({
+  request
+}) {
+  var _a;
+  const admin2 = await requireAdmin(request);
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+  switch (actionType) {
+    case "verify": {
+      const userId = formData.get("userId");
+      const currentStatus = formData.get("currentStatus") === "true";
+      await supabaseAdmin.from("profiles").update({
+        is_verified: !currentStatus
+      }).eq("id", userId);
+      await logAdminAction(admin2.id, currentStatus ? "user_unverified" : "user_verified", {
+        targetUserId: userId
+      });
+      return data({
+        success: true
+      });
+    }
+    case "changeRole": {
+      const userId = formData.get("userId");
+      const newRole = formData.get("newRole");
+      if (!["user", "admin", "superadmin"].includes(newRole)) {
+        return data({
+          error: "Invalid role"
+        }, {
+          status: 400
+        });
+      }
+      if (admin2.role !== "superadmin") {
+        return data({
+          error: "Only superadmins can change roles"
+        }, {
+          status: 403
+        });
+      }
+      await supabaseAdmin.from("profiles").update({
+        role: newRole
+      }).eq("id", userId);
+      await logAdminAction(admin2.id, "role_changed", {
+        targetUserId: userId,
+        details: {
+          new_role: newRole
+        }
+      });
+      return data({
+        success: true
+      });
+    }
+    case "impersonate": {
+      const userId = formData.get("userId");
+      const {
+        data: targetUser
+      } = await supabaseAdmin.from("profiles").select("id, created_by_admin").eq("id", userId).single();
+      if (!targetUser || !targetUser.created_by_admin) {
+        return data({
+          error: "You can only impersonate users created from the admin panel"
+        }, {
+          status: 403
+        });
+      }
+      return startImpersonation(request, userId);
+    }
+    case "toggleTeamLeader": {
+      const userId = formData.get("userId");
+      const currentStatus = formData.get("currentStatus") === "true";
+      const newStatus = !currentStatus;
+      let updateData = {
+        is_team_leader: newStatus
+      };
+      if (newStatus) {
+        const {
+          data: userProfile
+        } = await supabaseAdmin.from("profiles").select("full_name, email").eq("id", userId).single();
+        const baseName = (userProfile == null ? void 0 : userProfile.full_name) || ((_a = userProfile == null ? void 0 : userProfile.email) == null ? void 0 : _a.split("@")[0]) || "TL";
+        let code = baseName.toUpperCase().replace(/[^A-Z0-9]/g, "").substring(0, 8) + (/* @__PURE__ */ new Date()).getFullYear();
+        const {
+          data: existing
+        } = await supabaseAdmin.from("profiles").select("id").eq("referral_code", code).single();
+        if (existing) {
+          code = code + Math.floor(Math.random() * 100);
+        }
+        updateData.referral_code = code;
+        await supabaseAdmin.from("notifications").insert({
+          user_id: userId,
+          type: "tl_promoted",
+          title: "You're a Team Leader!",
+          message: "An admin has promoted you to Team Leader. Share your referral link from the TL Dashboard!",
+          data: {
+            referral_code: code
+          }
+        });
+      }
+      await supabaseAdmin.from("profiles").update(updateData).eq("id", userId);
+      await logAdminAction(admin2.id, newStatus ? "tl_promoted" : "tl_demoted", {
+        targetUserId: userId
+      });
+      return data({
+        success: true
+      });
+    }
+    case "deleteUser": {
+      const userId = formData.get("userId");
+      if (admin2.role !== "superadmin") {
+        return data({
+          error: "Only superadmins can delete users"
+        }, {
+          status: 403
+        });
+      }
+      if (userId === admin2.id) {
+        return data({
+          error: "You cannot delete yourself"
+        }, {
+          status: 400
+        });
+      }
+      await supabaseAdmin.from("messages").delete().eq("sender_id", userId);
+      await supabaseAdmin.from("saved_listings").delete().eq("user_id", userId);
+      await supabaseAdmin.from("conversations").delete().or(`participant_1.eq.${userId},participant_2.eq.${userId}`);
+      await supabaseAdmin.from("listings").delete().eq("author_id", userId);
+      await supabaseAdmin.from("blocked_users").delete().or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
+      await supabaseAdmin.from("reports").delete().eq("reporter_id", userId);
+      await supabaseAdmin.from("profiles").delete().eq("id", userId);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      await logAdminAction(admin2.id, "user_deleted", {
+        targetUserId: userId
+      });
+      return data({
+        success: true
+      });
+    }
+    default:
+      return data({
+        error: "Unknown action"
+      }, {
+        status: 400
+      });
+  }
+}
+const userTypeLabels = {
+  tour_operator: "Tour Operator",
+  private: "Runner"
+};
+const roleColors = {
+  user: "bg-gray-100 text-gray-600",
+  admin: "bg-purple-100 text-purple-700",
+  superadmin: "bg-red-100 text-red-700"
+};
+const admin_users = UNSAFE_withComponentProps(function AdminUsers() {
+  const {
+    admin: admin2,
+    users,
+    totalCount,
+    currentPage,
+    totalPages
+  } = useLoaderData();
+  const actionData = useActionData();
+  const [searchParams, setSearchParams] = useSearchParams();
+  return /* @__PURE__ */ jsxs("div", {
+    children: [/* @__PURE__ */ jsxs("div", {
+      className: "flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6",
+      children: [/* @__PURE__ */ jsxs("div", {
+        children: [/* @__PURE__ */ jsx("h1", {
+          className: "font-display text-2xl md:text-3xl font-bold text-gray-900",
+          children: "Users"
+        }), /* @__PURE__ */ jsxs("p", {
+          className: "text-gray-500 mt-1",
+          children: [totalCount, " total users"]
+        })]
+      }), /* @__PURE__ */ jsxs(Link, {
+        to: "/admin/users/new",
+        className: "btn-primary inline-flex items-center gap-2 self-start",
+        children: [/* @__PURE__ */ jsx("svg", {
+          className: "w-4 h-4",
+          fill: "none",
+          stroke: "currentColor",
+          viewBox: "0 0 24 24",
+          children: /* @__PURE__ */ jsx("path", {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            strokeWidth: 2,
+            d: "M12 4v16m8-8H4"
+          })
+        }), "Create User"]
+      })]
+    }), actionData && "error" in actionData && /* @__PURE__ */ jsx("div", {
+      className: "mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm",
+      children: actionData.error
+    }), /* @__PURE__ */ jsx("div", {
+      className: "bg-white rounded-xl border border-gray-200 p-4 mb-6",
+      children: /* @__PURE__ */ jsxs(Form, {
+        method: "get",
+        className: "flex flex-col md:flex-row gap-3",
+        children: [/* @__PURE__ */ jsx("div", {
+          className: "flex-1",
+          children: /* @__PURE__ */ jsx("input", {
+            type: "text",
+            name: "search",
+            placeholder: "Search by name, email, or company...",
+            defaultValue: searchParams.get("search") || "",
+            className: "input w-full"
+          })
+        }), /* @__PURE__ */ jsxs("select", {
+          name: "type",
+          defaultValue: searchParams.get("type") || "",
+          className: "input",
+          children: [/* @__PURE__ */ jsx("option", {
+            value: "",
+            children: "All types"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "private",
+            children: "Runner"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "tour_operator",
+            children: "Tour Operator"
+          })]
+        }), /* @__PURE__ */ jsxs("select", {
+          name: "role",
+          defaultValue: searchParams.get("role") || "",
+          className: "input",
+          children: [/* @__PURE__ */ jsx("option", {
+            value: "",
+            children: "All roles"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "user",
+            children: "User"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "admin",
+            children: "Admin"
+          }), /* @__PURE__ */ jsx("option", {
+            value: "superadmin",
+            children: "Superadmin"
+          })]
+        }), /* @__PURE__ */ jsx("button", {
+          type: "submit",
+          className: "btn-accent",
+          children: "Search"
+        })]
+      })
+    }), /* @__PURE__ */ jsxs("div", {
+      className: "bg-white rounded-xl border border-gray-200 overflow-hidden",
+      children: [/* @__PURE__ */ jsx("div", {
+        className: "hidden md:block overflow-x-auto",
+        children: /* @__PURE__ */ jsxs("table", {
+          className: "w-full",
+          children: [/* @__PURE__ */ jsx("thead", {
+            className: "bg-gray-50 border-b border-gray-200",
+            children: /* @__PURE__ */ jsxs("tr", {
+              children: [/* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "User"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Type"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Role"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Verified"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Joined"
+              }), /* @__PURE__ */ jsx("th", {
+                className: "text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3",
+                children: "Actions"
+              })]
+            })
+          }), /* @__PURE__ */ jsx("tbody", {
+            className: "divide-y divide-gray-100",
+            children: users.map((user) => /* @__PURE__ */ jsxs("tr", {
+              className: "hover:bg-gray-50 transition-colors",
+              children: [/* @__PURE__ */ jsx("td", {
+                className: "px-6 py-4",
+                children: /* @__PURE__ */ jsxs("div", {
+                  children: [/* @__PURE__ */ jsx("p", {
+                    className: "text-sm font-medium text-gray-900",
+                    children: user.full_name || "No name"
+                  }), /* @__PURE__ */ jsx("p", {
+                    className: "text-xs text-gray-500",
+                    children: user.email
+                  }), user.company_name && /* @__PURE__ */ jsx("p", {
+                    className: "text-xs text-gray-400",
+                    children: user.company_name
+                  })]
+                })
+              }), /* @__PURE__ */ jsx("td", {
+                className: "px-6 py-4",
+                children: /* @__PURE__ */ jsx("span", {
+                  className: "text-sm text-gray-600",
+                  children: userTypeLabels[user.user_type] || user.user_type
+                })
+              }), /* @__PURE__ */ jsx("td", {
+                className: "px-6 py-4",
+                children: admin2.role === "superadmin" ? /* @__PURE__ */ jsxs(Form, {
+                  method: "post",
+                  className: "inline",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "_action",
+                    value: "changeRole"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "userId",
+                    value: user.id
+                  }), /* @__PURE__ */ jsxs("select", {
+                    name: "newRole",
+                    defaultValue: user.role,
+                    onChange: (e) => {
+                      var _a;
+                      return (_a = e.target.form) == null ? void 0 : _a.requestSubmit();
+                    },
+                    className: `text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${roleColors[user.role] || ""}`,
+                    children: [/* @__PURE__ */ jsx("option", {
+                      value: "user",
+                      children: "user"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "admin",
+                      children: "admin"
+                    }), /* @__PURE__ */ jsx("option", {
+                      value: "superadmin",
+                      children: "superadmin"
+                    })]
+                  })]
+                }) : /* @__PURE__ */ jsx("span", {
+                  className: `px-2 py-0.5 rounded-full text-xs font-medium ${roleColors[user.role] || ""}`,
+                  children: user.role
+                })
+              }), /* @__PURE__ */ jsx("td", {
+                className: "px-6 py-4",
+                children: /* @__PURE__ */ jsxs(Form, {
+                  method: "post",
+                  className: "inline",
+                  children: [/* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "_action",
+                    value: "verify"
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "userId",
+                    value: user.id
+                  }), /* @__PURE__ */ jsx("input", {
+                    type: "hidden",
+                    name: "currentStatus",
+                    value: user.is_verified.toString()
+                  }), /* @__PURE__ */ jsx("button", {
+                    type: "submit",
+                    className: `text-sm font-medium ${user.is_verified ? "text-brand-600 hover:text-brand-700" : "text-gray-400 hover:text-gray-600"}`,
+                    children: user.is_verified ? /* @__PURE__ */ jsxs("span", {
+                      className: "flex items-center gap-1",
+                      children: [/* @__PURE__ */ jsx("svg", {
+                        className: "w-4 h-4",
+                        fill: "currentColor",
+                        viewBox: "0 0 20 20",
+                        children: /* @__PURE__ */ jsx("path", {
+                          fillRule: "evenodd",
+                          d: "M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z",
+                          clipRule: "evenodd"
+                        })
+                      }), "Verified"]
+                    }) : "Not verified"
+                  })]
+                })
+              }), /* @__PURE__ */ jsx("td", {
+                className: "px-6 py-4 text-sm text-gray-500",
+                children: new Date(user.created_at).toLocaleDateString()
+              }), /* @__PURE__ */ jsx("td", {
+                className: "px-6 py-4 text-right",
+                children: /* @__PURE__ */ jsxs("div", {
+                  className: "flex items-center justify-end gap-2",
+                  children: [/* @__PURE__ */ jsxs(Form, {
+                    method: "post",
+                    className: "inline",
+                    children: [/* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "_action",
+                      value: "toggleTeamLeader"
+                    }), /* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "userId",
+                      value: user.id
+                    }), /* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "currentStatus",
+                      value: (user.is_team_leader || false).toString()
+                    }), /* @__PURE__ */ jsxs("button", {
+                      type: "submit",
+                      className: `text-xs font-medium px-2 py-1 rounded transition-colors ${user.is_team_leader ? "text-purple-700 bg-purple-50 hover:bg-purple-100" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`,
+                      title: user.is_team_leader ? "Remove Team Leader" : "Make Team Leader",
+                      children: [/* @__PURE__ */ jsx("svg", {
+                        className: "w-4 h-4 inline mr-0.5",
+                        fill: "none",
+                        stroke: "currentColor",
+                        viewBox: "0 0 24 24",
+                        children: /* @__PURE__ */ jsx("path", {
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          strokeWidth: 2,
+                          d: "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                        })
+                      }), user.is_team_leader ? "TL" : "Set TL"]
+                    })]
+                  }), user.created_by_admin && /* @__PURE__ */ jsxs(Form, {
+                    method: "post",
+                    className: "inline",
+                    children: [/* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "_action",
+                      value: "impersonate"
+                    }), /* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "userId",
+                      value: user.id
+                    }), /* @__PURE__ */ jsxs("button", {
+                      type: "submit",
+                      className: "text-xs font-medium text-navy-500 hover:text-navy-700 px-2 py-1 rounded hover:bg-gray-100 transition-colors",
+                      title: "Impersonate this user",
+                      children: [/* @__PURE__ */ jsxs("svg", {
+                        className: "w-4 h-4 inline mr-1",
+                        fill: "none",
+                        stroke: "currentColor",
+                        viewBox: "0 0 24 24",
+                        children: [/* @__PURE__ */ jsx("path", {
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          strokeWidth: 2,
+                          d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        }), /* @__PURE__ */ jsx("path", {
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          strokeWidth: 2,
+                          d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        })]
+                      }), "Impersonate"]
+                    })]
+                  }), admin2.role === "superadmin" && user.id !== admin2.id && /* @__PURE__ */ jsxs(Form, {
+                    method: "post",
+                    className: "inline",
+                    onSubmit: (e) => {
+                      if (!confirm(`Delete ${user.full_name || user.email}? This cannot be undone.`)) e.preventDefault();
+                    },
+                    children: [/* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "_action",
+                      value: "deleteUser"
+                    }), /* @__PURE__ */ jsx("input", {
+                      type: "hidden",
+                      name: "userId",
+                      value: user.id
+                    }), /* @__PURE__ */ jsxs("button", {
+                      type: "submit",
+                      className: "text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition-colors",
+                      title: "Delete this user",
+                      children: [/* @__PURE__ */ jsx("svg", {
+                        className: "w-4 h-4 inline mr-1",
+                        fill: "none",
+                        stroke: "currentColor",
+                        viewBox: "0 0 24 24",
+                        children: /* @__PURE__ */ jsx("path", {
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          strokeWidth: 2,
+                          d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        })
+                      }), "Delete"]
+                    })]
+                  })]
+                })
+              })]
+            }, user.id))
+          })]
+        })
+      }), /* @__PURE__ */ jsx("div", {
+        className: "md:hidden divide-y divide-gray-100",
+        children: users.map((user) => /* @__PURE__ */ jsxs("div", {
+          className: "p-4",
+          children: [/* @__PURE__ */ jsxs("div", {
+            className: "flex items-start justify-between mb-2",
+            children: [/* @__PURE__ */ jsxs("div", {
+              children: [/* @__PURE__ */ jsx("p", {
+                className: "text-sm font-medium text-gray-900",
+                children: user.full_name || "No name"
+              }), /* @__PURE__ */ jsx("p", {
+                className: "text-xs text-gray-500",
+                children: user.email
+              }), user.company_name && /* @__PURE__ */ jsx("p", {
+                className: "text-xs text-gray-400",
+                children: user.company_name
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-1",
+              children: [user.is_team_leader && /* @__PURE__ */ jsx("span", {
+                className: "px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700",
+                children: "TL"
+              }), /* @__PURE__ */ jsx("span", {
+                className: `px-2 py-0.5 rounded-full text-xs font-medium ${roleColors[user.role] || ""}`,
+                children: user.role
+              })]
+            })]
+          }), /* @__PURE__ */ jsxs("div", {
+            className: "flex items-center justify-between mt-3",
+            children: [/* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-2 text-xs text-gray-500",
+              children: [/* @__PURE__ */ jsx("span", {
+                children: userTypeLabels[user.user_type]
+              }), /* @__PURE__ */ jsx("span", {
+                children: "·"
+              }), /* @__PURE__ */ jsx("span", {
+                children: new Date(user.created_at).toLocaleDateString()
+              }), user.is_verified && /* @__PURE__ */ jsxs(Fragment, {
+                children: [/* @__PURE__ */ jsx("span", {
+                  children: "·"
+                }), /* @__PURE__ */ jsx("span", {
+                  className: "text-brand-600",
+                  children: "Verified"
+                })]
+              })]
+            }), /* @__PURE__ */ jsxs("div", {
+              className: "flex items-center gap-2 flex-wrap",
+              children: [/* @__PURE__ */ jsxs(Form, {
+                method: "post",
+                className: "inline",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "_action",
+                  value: "verify"
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "userId",
+                  value: user.id
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "currentStatus",
+                  value: user.is_verified.toString()
+                }), /* @__PURE__ */ jsx("button", {
+                  type: "submit",
+                  className: "text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded bg-gray-50",
+                  children: user.is_verified ? "Unverify" : "Verify"
+                })]
+              }), /* @__PURE__ */ jsxs(Form, {
+                method: "post",
+                className: "inline",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "_action",
+                  value: "toggleTeamLeader"
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "userId",
+                  value: user.id
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "currentStatus",
+                  value: (user.is_team_leader || false).toString()
+                }), /* @__PURE__ */ jsx("button", {
+                  type: "submit",
+                  className: `text-xs px-2 py-1 rounded ${user.is_team_leader ? "text-purple-700 bg-purple-50" : "text-gray-500 bg-gray-50"}`,
+                  children: user.is_team_leader ? "Remove TL" : "Set TL"
+                })]
+              }), user.created_by_admin && /* @__PURE__ */ jsxs(Form, {
+                method: "post",
+                className: "inline",
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "_action",
+                  value: "impersonate"
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "userId",
+                  value: user.id
+                }), /* @__PURE__ */ jsx("button", {
+                  type: "submit",
+                  className: "text-xs text-navy-500 hover:text-navy-700 px-2 py-1 rounded bg-gray-50",
+                  children: "Impersonate"
+                })]
+              }), admin2.role === "superadmin" && user.id !== admin2.id && /* @__PURE__ */ jsxs(Form, {
+                method: "post",
+                className: "inline",
+                onSubmit: (e) => {
+                  if (!confirm(`Delete ${user.full_name || user.email}?`)) e.preventDefault();
+                },
+                children: [/* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "_action",
+                  value: "deleteUser"
+                }), /* @__PURE__ */ jsx("input", {
+                  type: "hidden",
+                  name: "userId",
+                  value: user.id
+                }), /* @__PURE__ */ jsx("button", {
+                  type: "submit",
+                  className: "text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded bg-red-50",
+                  children: "Delete"
+                })]
+              })]
+            })]
+          })]
+        }, user.id))
+      }), users.length === 0 && /* @__PURE__ */ jsx("div", {
+        className: "p-8 text-center text-gray-400 text-sm",
+        children: "No users found"
+      })]
+    }), totalPages > 1 && /* @__PURE__ */ jsxs("div", {
+      className: "mt-6 flex items-center justify-center gap-2",
+      children: [currentPage > 1 && /* @__PURE__ */ jsx(Link, {
+        to: `/admin/users?page=${currentPage - 1}&search=${searchParams.get("search") || ""}&type=${searchParams.get("type") || ""}&role=${searchParams.get("role") || ""}`,
+        className: "px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50",
+        children: "Previous"
+      }), /* @__PURE__ */ jsxs("span", {
+        className: "text-sm text-gray-500",
+        children: ["Page ", currentPage, " of ", totalPages]
+      }), currentPage < totalPages && /* @__PURE__ */ jsx(Link, {
+        to: `/admin/users?page=${currentPage + 1}&search=${searchParams.get("search") || ""}&type=${searchParams.get("type") || ""}&role=${searchParams.get("role") || ""}`,
+        className: "px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50",
+        children: "Next"
+      })]
+    })]
+  });
+});
+const route42 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$2,
+  default: admin_users,
+  loader: loader$2,
+  meta: meta$4
+}, Symbol.toStringTag, { value: "Module" }));
+const meta$3 = () => {
+  return [{
+    title: "Create User - Admin - Runoot"
+  }];
+};
+async function action$1({
+  request
+}) {
+  const admin2 = await requireAdmin(request);
+  const formData = await request.formData();
+  const email = formData.get("email");
+  const password = formData.get("password");
+  const fullName = formData.get("fullName");
+  const userType = formData.get("userType");
+  const companyName = formData.get("companyName");
+  const role = formData.get("role") || "user";
+  const skipConfirmation = formData.get("skipConfirmation") === "on";
+  if (!email || !password || !fullName || !userType) {
+    return data({
+      error: "Email, password, full name, and user type are required"
+    }, {
+      status: 400
+    });
+  }
+  if (password.length < 6) {
+    return data({
+      error: "Password must be at least 6 characters"
+    }, {
+      status: 400
+    });
+  }
+  if (!["private", "tour_operator"].includes(userType)) {
+    return data({
+      error: "Invalid user type"
+    }, {
+      status: 400
+    });
+  }
+  if (role !== "user" && admin2.role !== "superadmin") {
+    return data({
+      error: "Only superadmins can create admin users"
+    }, {
+      status: 403
+    });
+  }
+  try {
+    const {
+      data: authData,
+      error: authError
+    } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: skipConfirmation,
+      user_metadata: {
+        full_name: fullName,
+        user_type: userType,
+        company_name: companyName || null
+      }
+    });
+    if (authError) {
+      return data({
+        error: authError.message
+      }, {
+        status: 400
+      });
+    }
+    if (!authData.user) {
+      return data({
+        error: "Failed to create user"
+      }, {
+        status: 500
+      });
+    }
+    const profileData = {
+      id: authData.user.id,
+      email,
+      full_name: fullName,
+      user_type: userType,
+      role,
+      company_name: companyName || null,
+      created_by_admin: admin2.id
+    };
+    const {
+      error: profileError
+    } = await supabaseAdmin.from("profiles").insert(profileData);
+    if (profileError) {
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return data({
+        error: `Profile creation failed: ${profileError.message}`
+      }, {
+        status: 500
+      });
+    }
+    await logAdminAction(admin2.id, "user_created", {
+      targetUserId: authData.user.id,
+      details: {
+        email,
+        user_type: userType,
+        role
+      }
+    });
+    return redirect("/admin/users");
+  } catch (err) {
+    return data({
+      error: err.message || "An unexpected error occurred"
+    }, {
+      status: 500
+    });
+  }
+}
+const admin_users_new = UNSAFE_withComponentProps(function AdminCreateUser() {
+  const actionData = useActionData();
+  return /* @__PURE__ */ jsxs("div", {
+    className: "max-w-2xl",
+    children: [/* @__PURE__ */ jsxs("div", {
+      className: "flex items-center gap-4 mb-6",
+      children: [/* @__PURE__ */ jsx(Link, {
+        to: "/admin/users",
+        className: "p-2 rounded-lg hover:bg-gray-200 transition-colors",
+        children: /* @__PURE__ */ jsx("svg", {
+          className: "w-5 h-5 text-gray-600",
+          fill: "none",
+          stroke: "currentColor",
+          viewBox: "0 0 24 24",
+          children: /* @__PURE__ */ jsx("path", {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            strokeWidth: 2,
+            d: "M10 19l-7-7m0 0l7-7m-7 7h18"
+          })
+        })
+      }), /* @__PURE__ */ jsxs("div", {
+        children: [/* @__PURE__ */ jsx("h1", {
+          className: "font-display text-2xl md:text-3xl font-bold text-gray-900",
+          children: "Create User"
+        }), /* @__PURE__ */ jsx("p", {
+          className: "text-gray-500 mt-1",
+          children: "Add a new user to the platform"
+        })]
+      })]
+    }), actionData && "error" in actionData && /* @__PURE__ */ jsx("div", {
+      className: "mb-6 p-4 rounded-lg bg-alert-50 border border-alert-200 text-alert-700 text-sm",
+      children: actionData.error
+    }), /* @__PURE__ */ jsx("div", {
+      className: "bg-white rounded-xl border border-gray-200 p-6",
+      children: /* @__PURE__ */ jsxs(Form, {
+        method: "post",
+        className: "space-y-5",
+        children: [/* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsx("label", {
+            htmlFor: "email",
+            className: "label",
+            children: "Email *"
+          }), /* @__PURE__ */ jsx("input", {
+            type: "email",
+            id: "email",
+            name: "email",
+            required: true,
+            className: "input w-full",
+            placeholder: "user@example.com"
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsx("label", {
+            htmlFor: "password",
+            className: "label",
+            children: "Password *"
+          }), /* @__PURE__ */ jsx("input", {
+            type: "password",
+            id: "password",
+            name: "password",
+            required: true,
+            minLength: 6,
+            className: "input w-full",
+            placeholder: "Minimum 6 characters"
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsx("label", {
+            htmlFor: "fullName",
+            className: "label",
+            children: "Full Name *"
+          }), /* @__PURE__ */ jsx("input", {
+            type: "text",
+            id: "fullName",
+            name: "fullName",
+            required: true,
+            className: "input w-full",
+            placeholder: "John Doe"
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsx("label", {
+            htmlFor: "userType",
+            className: "label",
+            children: "User Type *"
+          }), /* @__PURE__ */ jsxs("select", {
+            id: "userType",
+            name: "userType",
+            required: true,
+            className: "input w-full",
+            children: [/* @__PURE__ */ jsx("option", {
+              value: "",
+              children: "Select type..."
+            }), /* @__PURE__ */ jsx("option", {
+              value: "private",
+              children: "Private Runner"
+            }), /* @__PURE__ */ jsx("option", {
+              value: "tour_operator",
+              children: "Tour Operator"
+            })]
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsxs("label", {
+            htmlFor: "companyName",
+            className: "label",
+            children: ["Company Name ", /* @__PURE__ */ jsx("span", {
+              className: "text-gray-400 font-normal",
+              children: "(for Tour Operators)"
+            })]
+          }), /* @__PURE__ */ jsx("input", {
+            type: "text",
+            id: "companyName",
+            name: "companyName",
+            className: "input w-full",
+            placeholder: "Travel Agency Name"
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          children: [/* @__PURE__ */ jsx("label", {
+            htmlFor: "role",
+            className: "label",
+            children: "Role"
+          }), /* @__PURE__ */ jsxs("select", {
+            id: "role",
+            name: "role",
+            className: "input w-full",
+            children: [/* @__PURE__ */ jsx("option", {
+              value: "user",
+              children: "User (default)"
+            }), /* @__PURE__ */ jsx("option", {
+              value: "admin",
+              children: "Admin"
+            }), /* @__PURE__ */ jsx("option", {
+              value: "superadmin",
+              children: "Superadmin"
+            })]
+          }), /* @__PURE__ */ jsx("p", {
+            className: "text-xs text-gray-400 mt-1",
+            children: "Only superadmins can create admin/superadmin users"
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          className: "flex items-center gap-3",
+          children: [/* @__PURE__ */ jsx("input", {
+            type: "checkbox",
+            id: "skipConfirmation",
+            name: "skipConfirmation",
+            defaultChecked: true,
+            className: "w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+          }), /* @__PURE__ */ jsx("label", {
+            htmlFor: "skipConfirmation",
+            className: "text-sm text-gray-700",
+            children: "Skip email confirmation (user can login immediately)"
+          })]
+        }), /* @__PURE__ */ jsxs("div", {
+          className: "flex items-center gap-3 pt-4 border-t border-gray-100",
+          children: [/* @__PURE__ */ jsx("button", {
+            type: "submit",
+            className: "btn-primary",
+            children: "Create User"
+          }), /* @__PURE__ */ jsx(Link, {
+            to: "/admin/users",
+            className: "btn-secondary",
+            children: "Cancel"
+          })]
+        })]
+      })
+    })]
+  });
+});
+const route43 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$1,
-  default: report,
-  loader: loader$2,
+  default: admin_users_new,
   meta: meta$3
 }, Symbol.toStringTag, { value: "Module" }));
 const meta$2 = () => {
@@ -12912,7 +18007,7 @@ async function loader$1({
     const redirectUrl = user.user_type === "tour_operator" ? "/dashboard" : "/listings";
     return redirect(redirectUrl);
   }
-  return null;
+  return {};
 }
 async function action({
   request
@@ -13100,7 +18195,7 @@ const login = UNSAFE_withComponentProps(function Login() {
     })]
   });
 });
-const route30 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route44 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action,
   default: login,
@@ -13169,18 +18264,18 @@ const saved = UNSAFE_withComponentProps(function SavedListings() {
   return /* @__PURE__ */ jsx("div", {
     className: "min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed",
     children: /* @__PURE__ */ jsxs("div", {
-      className: "min-h-screen bg-gray-50/85",
+      className: "min-h-screen bg-gray-50/60 md:bg-gray-50/85 flex flex-col",
       children: [/* @__PURE__ */ jsx(Header, {
         user
       }), /* @__PURE__ */ jsxs("main", {
-        className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8",
+        className: "mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full",
         children: [/* @__PURE__ */ jsxs("div", {
-          className: "mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6",
+          className: "mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md px-3 py-4 sm:p-6",
           children: [/* @__PURE__ */ jsx("h1", {
-            className: "font-display text-3xl font-bold text-gray-900",
+            className: "font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left",
             children: "Saved Listings"
           }), /* @__PURE__ */ jsx("p", {
-            className: "mt-2 text-gray-600",
+            className: "hidden sm:block mt-2 text-gray-600",
             children: "Listings you've saved for later"
           })]
         }), savedListings.length === 0 ? /* @__PURE__ */ jsxs("div", {
@@ -13207,19 +18302,28 @@ const saved = UNSAFE_withComponentProps(function SavedListings() {
             className: "btn-primary rounded-full mt-6 inline-block",
             children: "Browse Listings"
           })]
-        }) : /* @__PURE__ */ jsx("div", {
-          className: "grid gap-6 md:grid-cols-2 lg:grid-cols-3",
-          children: savedListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
-            listing,
-            isUserLoggedIn: true,
-            isSaved: true
-          }, listing.id))
+        }) : /* @__PURE__ */ jsxs(Fragment, {
+          children: [/* @__PURE__ */ jsx("div", {
+            className: "hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3",
+            children: savedListings.map((listing) => /* @__PURE__ */ jsx(ListingCard, {
+              listing,
+              isUserLoggedIn: true,
+              isSaved: true
+            }, listing.id))
+          }), /* @__PURE__ */ jsx("div", {
+            className: "flex flex-col gap-3 md:hidden",
+            children: savedListings.map((listing) => /* @__PURE__ */ jsx(ListingCardCompact, {
+              listing,
+              isUserLoggedIn: true,
+              isSaved: true
+            }, listing.id))
+          })]
         })]
       }), /* @__PURE__ */ jsx(FooterLight, {})]
     })
   });
 });
-const route31 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route45 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: saved,
   loader,
@@ -14269,12 +19373,12 @@ const terms = UNSAFE_withComponentProps(function TermsOfService() {
     })]
   });
 });
-const route32 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route46 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: terms,
   meta
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-CAcHcOeg.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/index-BA_b_5Qc.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/root-Cpa5Jj6B.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/index-BA_b_5Qc.js"], "css": ["/assets/root-I3WWNeih.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id_.contact": { "id": "routes/listings.$id_.contact", "parentId": "root", "path": "listings/:id/contact", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id_.contact-Bd6-6gDF.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id_.edit": { "id": "routes/listings.$id_.edit", "parentId": "root", "path": "listings/:id/edit", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id_.edit-4FhJL0oB.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/listing-rules-BvIOYztW.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.experience": { "id": "routes/profile.experience", "parentId": "root", "path": "profile/experience", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.experience-ByFG_Unl.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.conversations": { "id": "routes/api.conversations", "parentId": "root", "path": "api/conversations", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.conversations-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.messages.$id": { "id": "routes/api.messages.$id", "parentId": "root", "path": "api/messages/:id", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.messages._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.settings": { "id": "routes/profile.settings", "parentId": "root", "path": "profile/settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.settings-Dxqnua_h.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings._index": { "id": "routes/listings._index", "parentId": "root", "path": "listings", "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._index-BfnSDMwY.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js", "/assets/ListingCard-D5KGlvU5.js", "/assets/ListingCardCompact-BxkEj8iT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/privacy-policy": { "id": "routes/privacy-policy", "parentId": "root", "path": "privacy-policy", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/privacy-policy-DsVe_0H6.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile._index": { "id": "routes/profile._index", "parentId": "root", "path": "profile", "index": true, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile._index-p8MbuGKN.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.agency": { "id": "routes/profile.agency", "parentId": "root", "path": "profile/agency", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.agency-D04R5app.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.social": { "id": "routes/profile.social", "parentId": "root", "path": "profile/social", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.social-BA-5zWob.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.translate": { "id": "routes/api.translate", "parentId": "root", "path": "api/translate", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.translate-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/cookie-policy": { "id": "routes/cookie-policy", "parentId": "root", "path": "cookie-policy", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/cookie-policy-CQvquBhL.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id": { "id": "routes/listings.$id", "parentId": "root", "path": "listings/:id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id--AptXNU1.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id.backup": { "id": "routes/listings.$id.backup", "parentId": "routes/listings.$id", "path": "backup", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id.backup-CwoRSW0U.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.new": { "id": "routes/listings.new", "parentId": "root", "path": "listings/new", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings.new-g0ZtjXG6.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/listing-rules-BvIOYztW.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/my-listings": { "id": "routes/my-listings", "parentId": "root", "path": "my-listings", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/my-listings-BSu09rw6.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/ListingCard-D5KGlvU5.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.unread": { "id": "routes/api.unread", "parentId": "root", "path": "api/unread", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.unread-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.saved": { "id": "routes/api.saved", "parentId": "root", "path": "api/saved", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.saved-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/dashboard": { "id": "routes/dashboard", "parentId": "root", "path": "dashboard", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/dashboard-C2ar75KN.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/ListingCardCompact-BxkEj8iT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages": { "id": "routes/messages", "parentId": "root", "path": "messages", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages-B9KP3iQc.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages._index": { "id": "routes/messages._index", "parentId": "routes/messages", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._index-BB_rWxGp.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages.$id": { "id": "routes/messages.$id", "parentId": "routes/messages", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._id-ChrJngqs.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/register": { "id": "routes/register", "parentId": "root", "path": "register", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/register-4-HFgyEA.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/settings": { "id": "routes/settings", "parentId": "root", "path": "settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/settings-BirF_roh.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/contact": { "id": "routes/contact", "parentId": "root", "path": "contact", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/contact-DyAaYHz7.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/_index-8Tl17nKY.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js", "/assets/ListingCard-D5KGlvU5.js", "/assets/ListingCardCompact-BxkEj8iT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/logout": { "id": "routes/logout", "parentId": "root", "path": "logout", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/logout-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/report": { "id": "routes/report", "parentId": "root", "path": "report", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/report-DdD06R8V.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/login": { "id": "routes/login", "parentId": "root", "path": "login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/login-X7Tq6KJ8.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/saved": { "id": "routes/saved", "parentId": "root", "path": "saved", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/saved-BEXIOgUu.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js", "/assets/Header-CdtJeiXT.js", "/assets/FooterLight-C6ZHn2RQ.js", "/assets/ListingCard-D5KGlvU5.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/terms": { "id": "routes/terms", "parentId": "root", "path": "terms", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/terms-D6S20Im9.js", "imports": ["/assets/chunk-JZWAC4HX-Dc7zMzt7.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-40c95063.js", "version": "40c95063", "sri": void 0 };
+const serverManifest = { "entry": { "module": "/assets/entry.client-CUqhxZpv.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/index-D3X4eI3W.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": true, "module": "/assets/root-nWbadHQn.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/index-D3X4eI3W.js"], "css": ["/assets/root-kKo9WkIi.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id_.contact": { "id": "routes/listings.$id_.contact", "parentId": "root", "path": "listings/:id/contact", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id_.contact-ePf07xbC.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id_.edit": { "id": "routes/listings.$id_.edit", "parentId": "root", "path": "listings/:id/edit", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id_.edit-CLMQ4qj4.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/listing-rules-BUYIbtOx.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.experience": { "id": "routes/profile.experience", "parentId": "root", "path": "profile/experience", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.experience-mrtLbLFn.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.conversations": { "id": "routes/api.conversations", "parentId": "root", "path": "api/conversations", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.conversations-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.notifications": { "id": "routes/api.notifications", "parentId": "root", "path": "api/notifications", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.notifications-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.messages.$id": { "id": "routes/api.messages.$id", "parentId": "root", "path": "api/messages/:id", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.messages._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/become-tl.$token": { "id": "routes/become-tl.$token", "parentId": "root", "path": "become-tl/:token", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/become-tl._token-CrQ5hP6i.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.settings": { "id": "routes/profile.settings", "parentId": "root", "path": "profile/settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.settings-D3_0ZNje.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings._index": { "id": "routes/listings._index", "parentId": "root", "path": "listings", "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._index-CUy3BVi9.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/FooterLight-j7wjw8pq.js", "/assets/ListingCard-DyuJ_FNu.js", "/assets/ListingCardCompact-zqsE7_pc.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/privacy-policy": { "id": "routes/privacy-policy", "parentId": "root", "path": "privacy-policy", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/privacy-policy-BKSpoqXL.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile._index": { "id": "routes/profile._index", "parentId": "root", "path": "profile", "index": true, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile._index-CUSWgLTJ.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.agency": { "id": "routes/profile.agency", "parentId": "root", "path": "profile/agency", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.agency-Hqcv7NLZ.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/profile.social": { "id": "routes/profile.social", "parentId": "root", "path": "profile/social", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/profile.social-D9aX0o-0.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.translate": { "id": "routes/api.translate", "parentId": "root", "path": "api/translate", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.translate-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/cookie-policy": { "id": "routes/cookie-policy", "parentId": "root", "path": "cookie-policy", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/cookie-policy-k6PbImY2.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/notifications": { "id": "routes/notifications", "parentId": "root", "path": "notifications", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/notifications-CYy77Nsz.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id": { "id": "routes/listings.$id", "parentId": "root", "path": "listings/:id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id-DG9jsyRB.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/FooterLight-j7wjw8pq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.$id.backup": { "id": "routes/listings.$id.backup", "parentId": "routes/listings.$id", "path": "backup", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings._id.backup-tKtep0OC.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/listings.new": { "id": "routes/listings.new", "parentId": "root", "path": "listings/new", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/listings.new-B3rLSPxi.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/listing-rules-BUYIbtOx.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/tl-dashboard": { "id": "routes/tl-dashboard", "parentId": "root", "path": "tl-dashboard", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/tl-dashboard-Us05S9Jn.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/my-listings": { "id": "routes/my-listings", "parentId": "root", "path": "my-listings", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/my-listings-DtroIJ0V.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/ListingCard-DyuJ_FNu.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.unread": { "id": "routes/api.unread", "parentId": "root", "path": "api/unread", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.unread-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/join.$code": { "id": "routes/join.$code", "parentId": "root", "path": "join/:code", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/join._code-BIrCTY6H.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.saved": { "id": "routes/api.saved", "parentId": "root", "path": "api/saved", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/api.saved-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/dashboard": { "id": "routes/dashboard", "parentId": "root", "path": "dashboard", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/dashboard-B0MAIw5p.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/ListingCardCompact-zqsE7_pc.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages": { "id": "routes/messages", "parentId": "root", "path": "messages", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages-IplCLS-y.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/FooterLight-j7wjw8pq.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages._index": { "id": "routes/messages._index", "parentId": "routes/messages", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._index-DOFYkBTK.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/messages.$id": { "id": "routes/messages.$id", "parentId": "routes/messages", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/messages._id-UXZzIk1m.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/avatarColors-CZJ_YuDz.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/register": { "id": "routes/register", "parentId": "root", "path": "register", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/register-CPCn8rgg.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/settings": { "id": "routes/settings", "parentId": "root", "path": "settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/settings-CLh_JPPh.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/contact": { "id": "routes/contact", "parentId": "root", "path": "contact", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/contact-Bcc1LKMa.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/FooterLight-j7wjw8pq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/_index-DeVetV0a.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/FooterLight-j7wjw8pq.js", "/assets/ListingCard-DyuJ_FNu.js", "/assets/ListingCardCompact-zqsE7_pc.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/logout": { "id": "routes/logout", "parentId": "root", "path": "logout", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/logout-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/report": { "id": "routes/report", "parentId": "root", "path": "report", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/report-BI53kD0j.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/admin": { "id": "routes/admin", "parentId": "root", "path": "admin", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/admin-DHBpyNJ9.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/admin.team-leaders": { "id": "routes/admin.team-leaders", "parentId": "routes/admin", "path": "team-leaders", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/admin.team-leaders-Cn9M1AZ6.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/admin.impersonate": { "id": "routes/admin.impersonate", "parentId": "routes/admin", "path": "impersonate", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/admin.impersonate-DH69_UoV.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/admin.impersonate.stop": { "id": "routes/admin.impersonate.stop", "parentId": "routes/admin.impersonate", "path": "stop", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/admin.impersonate.stop-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/admin.listings": { "id": "routes/admin.listings", "parentId": "routes/admin", "path": "listings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/admin.listings-DgMrAiJZ.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/admin.pending": { "id": "routes/admin.pending", "parentId": "routes/admin", "path": "pending", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/admin.pending-DRCj5j7K.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/admin._index": { "id": "routes/admin._index", "parentId": "routes/admin", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/admin._index-Do-kKemp.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/admin.users": { "id": "routes/admin.users", "parentId": "routes/admin", "path": "users", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/admin.users-CkurRKn9.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/admin.users.new": { "id": "routes/admin.users.new", "parentId": "routes/admin.users", "path": "new", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/admin.users.new-D9c7Bq7D.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/login": { "id": "routes/login", "parentId": "root", "path": "login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/login-4W49vUR2.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/saved": { "id": "routes/saved", "parentId": "root", "path": "saved", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/saved-CnsJcCkI.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js", "/assets/Header-DiP6E3C1.js", "/assets/FooterLight-j7wjw8pq.js", "/assets/ListingCard-DyuJ_FNu.js", "/assets/ListingCardCompact-zqsE7_pc.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/terms": { "id": "routes/terms", "parentId": "root", "path": "terms", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasErrorBoundary": false, "module": "/assets/terms-B55xBHiF.js", "imports": ["/assets/chunk-JZWAC4HX-Dlc7LzsC.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-cabf7744.js", "version": "cabf7744", "sri": void 0 };
 const assetsBuildDirectory = "build/client";
 const basename = "/";
 const future = { "unstable_optimizeDeps": false, "unstable_subResourceIntegrity": false, "unstable_trailingSlashAwareDataRequests": false, "v8_middleware": false, "v8_splitRouteModules": false, "v8_viteEnvironmentApi": false };
@@ -14325,13 +19429,29 @@ const routes = {
     caseSensitive: void 0,
     module: route4
   },
+  "routes/api.notifications": {
+    id: "routes/api.notifications",
+    parentId: "root",
+    path: "api/notifications",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route5
+  },
   "routes/api.messages.$id": {
     id: "routes/api.messages.$id",
     parentId: "root",
     path: "api/messages/:id",
     index: void 0,
     caseSensitive: void 0,
-    module: route5
+    module: route6
+  },
+  "routes/become-tl.$token": {
+    id: "routes/become-tl.$token",
+    parentId: "root",
+    path: "become-tl/:token",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route7
   },
   "routes/profile.settings": {
     id: "routes/profile.settings",
@@ -14339,7 +19459,7 @@ const routes = {
     path: "profile/settings",
     index: void 0,
     caseSensitive: void 0,
-    module: route6
+    module: route8
   },
   "routes/listings._index": {
     id: "routes/listings._index",
@@ -14347,7 +19467,7 @@ const routes = {
     path: "listings",
     index: true,
     caseSensitive: void 0,
-    module: route7
+    module: route9
   },
   "routes/privacy-policy": {
     id: "routes/privacy-policy",
@@ -14355,7 +19475,7 @@ const routes = {
     path: "privacy-policy",
     index: void 0,
     caseSensitive: void 0,
-    module: route8
+    module: route10
   },
   "routes/profile._index": {
     id: "routes/profile._index",
@@ -14363,7 +19483,7 @@ const routes = {
     path: "profile",
     index: true,
     caseSensitive: void 0,
-    module: route9
+    module: route11
   },
   "routes/profile.agency": {
     id: "routes/profile.agency",
@@ -14371,7 +19491,7 @@ const routes = {
     path: "profile/agency",
     index: void 0,
     caseSensitive: void 0,
-    module: route10
+    module: route12
   },
   "routes/profile.social": {
     id: "routes/profile.social",
@@ -14379,7 +19499,7 @@ const routes = {
     path: "profile/social",
     index: void 0,
     caseSensitive: void 0,
-    module: route11
+    module: route13
   },
   "routes/api.translate": {
     id: "routes/api.translate",
@@ -14387,7 +19507,7 @@ const routes = {
     path: "api/translate",
     index: void 0,
     caseSensitive: void 0,
-    module: route12
+    module: route14
   },
   "routes/cookie-policy": {
     id: "routes/cookie-policy",
@@ -14395,7 +19515,15 @@ const routes = {
     path: "cookie-policy",
     index: void 0,
     caseSensitive: void 0,
-    module: route13
+    module: route15
+  },
+  "routes/notifications": {
+    id: "routes/notifications",
+    parentId: "root",
+    path: "notifications",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route16
   },
   "routes/listings.$id": {
     id: "routes/listings.$id",
@@ -14403,7 +19531,7 @@ const routes = {
     path: "listings/:id",
     index: void 0,
     caseSensitive: void 0,
-    module: route14
+    module: route17
   },
   "routes/listings.$id.backup": {
     id: "routes/listings.$id.backup",
@@ -14411,7 +19539,7 @@ const routes = {
     path: "backup",
     index: void 0,
     caseSensitive: void 0,
-    module: route15
+    module: route18
   },
   "routes/listings.new": {
     id: "routes/listings.new",
@@ -14419,7 +19547,15 @@ const routes = {
     path: "listings/new",
     index: void 0,
     caseSensitive: void 0,
-    module: route16
+    module: route19
+  },
+  "routes/tl-dashboard": {
+    id: "routes/tl-dashboard",
+    parentId: "root",
+    path: "tl-dashboard",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route20
   },
   "routes/my-listings": {
     id: "routes/my-listings",
@@ -14427,7 +19563,7 @@ const routes = {
     path: "my-listings",
     index: void 0,
     caseSensitive: void 0,
-    module: route17
+    module: route21
   },
   "routes/api.unread": {
     id: "routes/api.unread",
@@ -14435,7 +19571,15 @@ const routes = {
     path: "api/unread",
     index: void 0,
     caseSensitive: void 0,
-    module: route18
+    module: route22
+  },
+  "routes/join.$code": {
+    id: "routes/join.$code",
+    parentId: "root",
+    path: "join/:code",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route23
   },
   "routes/api.saved": {
     id: "routes/api.saved",
@@ -14443,7 +19587,7 @@ const routes = {
     path: "api/saved",
     index: void 0,
     caseSensitive: void 0,
-    module: route19
+    module: route24
   },
   "routes/dashboard": {
     id: "routes/dashboard",
@@ -14451,7 +19595,7 @@ const routes = {
     path: "dashboard",
     index: void 0,
     caseSensitive: void 0,
-    module: route20
+    module: route25
   },
   "routes/messages": {
     id: "routes/messages",
@@ -14459,7 +19603,7 @@ const routes = {
     path: "messages",
     index: void 0,
     caseSensitive: void 0,
-    module: route21
+    module: route26
   },
   "routes/messages._index": {
     id: "routes/messages._index",
@@ -14467,7 +19611,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route22
+    module: route27
   },
   "routes/messages.$id": {
     id: "routes/messages.$id",
@@ -14475,7 +19619,7 @@ const routes = {
     path: ":id",
     index: void 0,
     caseSensitive: void 0,
-    module: route23
+    module: route28
   },
   "routes/register": {
     id: "routes/register",
@@ -14483,7 +19627,7 @@ const routes = {
     path: "register",
     index: void 0,
     caseSensitive: void 0,
-    module: route24
+    module: route29
   },
   "routes/settings": {
     id: "routes/settings",
@@ -14491,7 +19635,7 @@ const routes = {
     path: "settings",
     index: void 0,
     caseSensitive: void 0,
-    module: route25
+    module: route30
   },
   "routes/contact": {
     id: "routes/contact",
@@ -14499,7 +19643,7 @@ const routes = {
     path: "contact",
     index: void 0,
     caseSensitive: void 0,
-    module: route26
+    module: route31
   },
   "routes/_index": {
     id: "routes/_index",
@@ -14507,7 +19651,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route27
+    module: route32
   },
   "routes/logout": {
     id: "routes/logout",
@@ -14515,7 +19659,7 @@ const routes = {
     path: "logout",
     index: void 0,
     caseSensitive: void 0,
-    module: route28
+    module: route33
   },
   "routes/report": {
     id: "routes/report",
@@ -14523,7 +19667,79 @@ const routes = {
     path: "report",
     index: void 0,
     caseSensitive: void 0,
-    module: route29
+    module: route34
+  },
+  "routes/admin": {
+    id: "routes/admin",
+    parentId: "root",
+    path: "admin",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route35
+  },
+  "routes/admin.team-leaders": {
+    id: "routes/admin.team-leaders",
+    parentId: "routes/admin",
+    path: "team-leaders",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route36
+  },
+  "routes/admin.impersonate": {
+    id: "routes/admin.impersonate",
+    parentId: "routes/admin",
+    path: "impersonate",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route37
+  },
+  "routes/admin.impersonate.stop": {
+    id: "routes/admin.impersonate.stop",
+    parentId: "routes/admin.impersonate",
+    path: "stop",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route38
+  },
+  "routes/admin.listings": {
+    id: "routes/admin.listings",
+    parentId: "routes/admin",
+    path: "listings",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route39
+  },
+  "routes/admin.pending": {
+    id: "routes/admin.pending",
+    parentId: "routes/admin",
+    path: "pending",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route40
+  },
+  "routes/admin._index": {
+    id: "routes/admin._index",
+    parentId: "routes/admin",
+    path: void 0,
+    index: true,
+    caseSensitive: void 0,
+    module: route41
+  },
+  "routes/admin.users": {
+    id: "routes/admin.users",
+    parentId: "routes/admin",
+    path: "users",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route42
+  },
+  "routes/admin.users.new": {
+    id: "routes/admin.users.new",
+    parentId: "routes/admin.users",
+    path: "new",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route43
   },
   "routes/login": {
     id: "routes/login",
@@ -14531,7 +19747,7 @@ const routes = {
     path: "login",
     index: void 0,
     caseSensitive: void 0,
-    module: route30
+    module: route44
   },
   "routes/saved": {
     id: "routes/saved",
@@ -14539,7 +19755,7 @@ const routes = {
     path: "saved",
     index: void 0,
     caseSensitive: void 0,
-    module: route31
+    module: route45
   },
   "routes/terms": {
     id: "routes/terms",
@@ -14547,7 +19763,7 @@ const routes = {
     path: "terms",
     index: void 0,
     caseSensitive: void 0,
-    module: route32
+    module: route46
   }
 };
 const allowedActionOrigins = false;

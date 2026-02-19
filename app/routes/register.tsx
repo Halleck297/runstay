@@ -12,7 +12,7 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const userId = await getUserId(request);
   if (userId) return redirect("/dashboard");
-  return null;
+  return {};
 }
 
 export async function action({ request }: ActionFunctionArgs) {

@@ -44,8 +44,13 @@ export function MobileNav({ user }: MobileNavProps) {
 
   const unreadCount = fetcher.data?.unreadCount ?? 0;
 
-  // Don't show on login/register pages
-  if (location.pathname === "/login" || location.pathname === "/register") {
+  // Close sidebar when route changes
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Don't show on login/register/join pages
+  if (location.pathname === "/login" || location.pathname === "/register" || location.pathname.startsWith("/join/")) {
     return null;
   }
 
@@ -57,11 +62,6 @@ export function MobileNav({ user }: MobileNavProps) {
 
   // My Listing path depends on user type
   const myListingPath = user?.user_type === "tour_operator" ? "/dashboard" : "/my-listings";
-
-  // Close sidebar when route changes
-  useEffect(() => {
-    setIsSidebarOpen(false);
-  }, [location.pathname]);
 
   // Get first name for display
   const firstName = user?.full_name?.split(' ')[0] || 'Menu';
@@ -141,6 +141,36 @@ export function MobileNav({ user }: MobileNavProps) {
             </svg>
             Saved
           </Link>
+
+          <Link
+            to="/notifications"
+            onClick={() => setIsSidebarOpen(false)}
+            className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <span className="flex-1">Notifications</span>
+            {(user as any)?.unreadNotifications > 0 && (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-purple-500 text-[9px] font-bold text-white">
+                {(user as any).unreadNotifications > 9 ? "9+" : (user as any).unreadNotifications}
+              </span>
+            )}
+          </Link>
+
+          {/* TL Dashboard - solo per Team Leaders */}
+          {(user as any)?.is_team_leader && (
+            <Link
+              to="/tl-dashboard"
+              onClick={() => setIsSidebarOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 text-sm text-purple-700 hover:bg-purple-50"
+            >
+              <svg className="h-4 w-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              TL Dashboard
+            </Link>
+          )}
 
           <div className="my-1 border-t border-gray-100" />
 

@@ -270,7 +270,7 @@ export async function action({ request }: ActionFunctionArgs) {
     walking_duration: distanceData.walking_duration,
     transit_duration: distanceData.transit_duration,
 
-    status: "active",
+    status: "pending",
     }as any)
     .select()
     .single<{ id: string }>();
@@ -846,12 +846,12 @@ useEffect(() => {
 
               {/* Title */}
               <h2 className="font-display text-2xl font-bold text-gray-900 mb-2">
-                Listing Created!
+                Listing Submitted!
               </h2>
 
               {/* Message */}
               <p className="text-gray-600 mb-8">
-                Your listing has been published successfully and is now visible to other users.
+                Your listing has been submitted and is pending review. We'll notify you once it's approved and visible to other users.
               </p>
 
               {/* Buttons */}

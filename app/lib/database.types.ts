@@ -8,9 +8,12 @@ export type Json =
 
 export type ListingType = "room" | "bib" | "room_and_bib";
 export type UserType = "tour_operator" | "private";
-export type ListingStatus = "active" | "sold" | "expired";
+export type UserRole = "user" | "admin" | "superadmin";
+export type ListingStatus = "pending" | "active" | "sold" | "expired" | "rejected";
 export type TransferType = "official_process" | "package" | "contact";
 export type Currency = "EUR" | "USD" | "GBP" | "JPY";
+export type ReferralStatus = "registered" | "active";
+export type NotificationType = "referral_signup" | "referral_active" | "tl_promoted" | "system" | "listing_approved" | "listing_rejected";
 // Estendi il tipo Profile con unreadCount (usato nel root loader)
 export type ProfileWithUnread = Database["public"]["Tables"]["profiles"]["Row"] & {
   unreadCount?: number;
@@ -25,6 +28,7 @@ export interface Database {
           email: string;
           full_name: string | null;
           user_type: UserType;
+          role: UserRole;
           company_name: string | null;
           phone: string | null;
           is_verified: boolean;
@@ -48,6 +52,12 @@ export interface Database {
           facebook: string | null;
           linkedin: string | null;
           website: string | null;
+          // Team Leader
+          is_team_leader: boolean;
+          referral_code: string | null;
+          tl_welcome_message: string | null;
+          // Admin tracking
+          created_by_admin: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -57,6 +67,7 @@ export interface Database {
           email: string;
           full_name?: string | null;
           user_type?: UserType;
+          role?: UserRole;
           company_name?: string | null;
           phone?: string | null;
           is_verified?: boolean;
@@ -77,6 +88,9 @@ export interface Database {
           facebook?: string | null;
           linkedin?: string | null;
           website?: string | null;
+          is_team_leader?: boolean;
+          referral_code?: string | null;
+          tl_welcome_message?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -85,6 +99,7 @@ export interface Database {
           email?: string;
           full_name?: string | null;
           user_type?: UserType;
+          role?: UserRole;
           company_name?: string | null;
           phone?: string | null;
           is_verified?: boolean;
@@ -105,6 +120,9 @@ export interface Database {
           facebook?: string | null;
           linkedin?: string | null;
           website?: string | null;
+          is_team_leader?: boolean;
+          referral_code?: string | null;
+          tl_welcome_message?: string | null;
           updated_at?: string;
         };
       };
@@ -225,6 +243,9 @@ export interface Database {
     transit_duration: number | null;
 
     status: ListingStatus;
+    admin_note: string | null;
+    reviewed_at: string | null;
+    reviewed_by: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -264,6 +285,9 @@ export interface Database {
   transit_duration?: number | null;
 
   status?: ListingStatus;
+  admin_note?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -300,6 +324,9 @@ export interface Database {
   transit_duration?: number | null;
 
   status?: ListingStatus;
+  admin_note?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
   updated_at?: string;
 };
 
@@ -428,6 +455,102 @@ export interface Database {
         Update: {
           status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
           updated_at?: string;
+        };
+      };
+      admin_audit_log: {
+        Row: {
+          id: string;
+          admin_id: string;
+          action: string;
+          target_user_id: string | null;
+          target_listing_id: string | null;
+          details: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          admin_id: string;
+          action: string;
+          target_user_id?: string | null;
+          target_listing_id?: string | null;
+          details?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          action?: string;
+          target_user_id?: string | null;
+          target_listing_id?: string | null;
+          details?: Json | null;
+        };
+      };
+      referrals: {
+        Row: {
+          id: string;
+          team_leader_id: string;
+          referred_user_id: string;
+          referral_code_used: string;
+          status: ReferralStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_leader_id: string;
+          referred_user_id: string;
+          referral_code_used: string;
+          status?: ReferralStatus;
+          created_at?: string;
+        };
+        Update: {
+          status?: ReferralStatus;
+        };
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: NotificationType;
+          title: string;
+          message: string;
+          data: Json | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: NotificationType;
+          title: string;
+          message: string;
+          data?: Json | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          read_at?: string | null;
+        };
+      };
+      tl_invite_tokens: {
+        Row: {
+          id: string;
+          token: string;
+          created_by: string;
+          used_by: string | null;
+          used_at: string | null;
+          expires_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          token: string;
+          created_by: string;
+          used_by?: string | null;
+          used_at?: string | null;
+          expires_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          used_by?: string | null;
+          used_at?: string | null;
         };
       };
 
