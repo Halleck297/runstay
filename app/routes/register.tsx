@@ -1,13 +1,22 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData } from "react-router";
-import { supabase } from "~/lib/supabase.server";
-import type { Database } from "~/lib/database.types";
+import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { createUserSession, getUserId } from "~/lib/session.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Sign Up - Runoot" }];
 };
+
+function normalizeEmail(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[“”‘’"'`]/g, "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const userId = await getUserId(request);
@@ -78,16 +87,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // Create profile (only if session exists, meaning email is confirmed or confirmation disabled)
-  const profileData: Database["public"]["Tables"]["profiles"]["Insert"] = {
-    id: authData.user.id,
-    email: email,
-    full_name: fullName,
-    user_type: userType as "tour_operator" | "private",
-    company_name: userType === "tour_operator" && companyName ? (companyName as string) : null,
-    is_verified: false,
-  };
-
-    const { error: profileError } = await supabase.from("profiles").insert({
+  const { error: profileError } = await supabase.from("profiles").insert({
     id: authData.user.id,
     email: email,
     full_name: fullName,
@@ -99,6 +99,52 @@ export async function action({ request }: ActionFunctionArgs) {
   if (profileError) {
     console.error("Profile creation error:", profileError);
     // Auth user created but profile failed - still log them in
+  } else {
+    const normalizedEmail = normalizeEmail(email);
+    const now = new Date().toISOString();
+
+    const { data: emailInvite } = await (supabaseAdmin.from("referral_invites") as any)
+      .select("id, team_leader_id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (emailInvite) {
+      const { data: existingReferral } = await supabaseAdmin
+        .from("referrals")
+        .select("id, team_leader_id")
+        .eq("referred_user_id", authData.user.id)
+        .maybeSingle();
+
+      if (!existingReferral) {
+        const { error: referralError } = await (supabaseAdmin.from("referrals") as any).insert({
+          team_leader_id: emailInvite.team_leader_id,
+          referred_user_id: authData.user.id,
+          referral_code_used: "EMAIL_INVITE",
+          status: "registered",
+        });
+
+        if (!referralError) {
+          await (supabaseAdmin.from("referral_invites") as any)
+            .update({
+              status: "accepted",
+              claimed_by: authData.user.id,
+              claimed_at: now,
+              updated_at: now,
+            })
+            .eq("id", emailInvite.id);
+
+          await (supabaseAdmin.from("notifications") as any).insert({
+            user_id: emailInvite.team_leader_id,
+            type: "referral_signup",
+            title: "New referral!",
+            message: `${fullName || email} joined with one of your reserved emails.`,
+            data: { referred_user_id: authData.user.id, source: "email_invite" },
+          });
+        } else {
+          console.error("Auto referral from email invite failed:", referralError);
+        }
+      }
+    }
   }
 
   return createUserSession(

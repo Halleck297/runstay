@@ -47,13 +47,13 @@ export function Header({ user }: HeaderProps) {
     };
   }, [isMenuOpen]);
 
-  const { unreadCount, unreadMessages } = useUnreadCount({
+  const { unreadMessages } = useUnreadCount({
     userId: user?.id || "",
     initialMessages: (user as any)?.unreadCount ?? 0,
     initialNotifications: (user as any)?.unreadNotifications ?? 0,
     enabled: isDesktop,
   });
-  const hasAnyUnread = unreadCount > 0;
+  const hasAnyUnread = unreadMessages > 0;
 
   return (
     <>

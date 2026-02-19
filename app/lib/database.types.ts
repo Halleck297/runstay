@@ -587,6 +587,37 @@ export interface Database {
         };
         Relationships: [];
       };
+      referral_invites: {
+        Row: {
+          id: string;
+          team_leader_id: string;
+          email: string;
+          status: "pending" | "accepted";
+          claimed_by: string | null;
+          claimed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_leader_id: string;
+          email: string;
+          status?: "pending" | "accepted";
+          claimed_by?: string | null;
+          claimed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          team_leader_id?: string;
+          email?: string;
+          status?: "pending" | "accepted";
+          claimed_by?: string | null;
+          claimed_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       contact_messages: {
         Row: {
           id: string;

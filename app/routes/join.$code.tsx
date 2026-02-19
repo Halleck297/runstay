@@ -5,6 +5,16 @@ import { useLoaderData, useActionData, Form, Link } from "react-router";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { createUserSession, getUserId } from "~/lib/session.server";
 
+function normalizeEmail(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[“”‘’"'`]/g, "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const tlName = (data as any)?.teamLeader?.full_name || "a Team Leader";
   return [{ title: `Join Runoot - Invited by ${tlName}` }];
@@ -34,6 +44,33 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   // If already logged in, check if already referred
   if (userId) {
+    const { data: currentUserProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const normalizedEmail = normalizeEmail((currentUserProfile as any)?.email || "");
+    const { data: emailInvite } = normalizedEmail
+      ? await (supabaseAdmin.from("referral_invites") as any)
+        .select("id, team_leader_id")
+        .eq("email", normalizedEmail)
+        .maybeSingle()
+      : { data: null as any };
+
+    let attributedTeamLeader: any = teamLeader;
+    if (emailInvite?.team_leader_id && emailInvite.team_leader_id !== (teamLeader as any).id) {
+      const { data: reservedTeamLeader } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, company_name, user_type, avatar_url, is_verified, referral_code, tl_welcome_message")
+        .eq("id", emailInvite.team_leader_id)
+        .maybeSingle();
+
+      if (reservedTeamLeader) {
+        attributedTeamLeader = reservedTeamLeader;
+      }
+    }
+
     const { data: existingRef } = await supabaseAdmin
       .from("referrals")
       .select("id")
@@ -46,11 +83,22 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     // Link the user to the TL
     await (supabaseAdmin.from("referrals") as any).insert({
-      team_leader_id: (teamLeader as any).id,
+      team_leader_id: (attributedTeamLeader as any).id,
       referred_user_id: userId,
-      referral_code_used: code,
+      referral_code_used: emailInvite ? "EMAIL_INVITE" : code,
       status: "active",
     });
+
+    if (emailInvite) {
+      await (supabaseAdmin.from("referral_invites") as any)
+        .update({
+          status: "accepted",
+          claimed_by: userId,
+          claimed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", emailInvite.id);
+    }
 
     // Notify TL
     const { data: referredUser } = await supabaseAdmin
@@ -60,14 +108,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       .single();
 
     await (supabaseAdmin.from("notifications") as any).insert({
-      user_id: (teamLeader as any).id,
+      user_id: (attributedTeamLeader as any).id,
       type: "referral_signup",
       title: "New referral!",
       message: `${(referredUser as any)?.full_name || (referredUser as any)?.email || "Someone"} joined via your referral link.`,
-      data: { referred_user_id: userId, referral_code: code },
+      data: { referred_user_id: userId, referral_code: emailInvite ? "EMAIL_INVITE" : code },
     });
 
-    return { status: "linked" as const, teamLeader, alreadyLoggedIn: true, code };
+    return { status: "linked" as const, teamLeader: attributedTeamLeader, alreadyLoggedIn: true, code };
   }
 
   return { status: "valid" as const, teamLeader, alreadyLoggedIn: false, code };
@@ -105,6 +153,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
   if (!teamLeader) {
     return data({ error: "Invalid referral code" }, { status: 400 });
   }
+
+  const normalizedEmail = normalizeEmail(email);
+  const { data: emailInvite } = await (supabaseAdmin.from("referral_invites") as any)
+    .select("id, team_leader_id")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+
+  const attributedTeamLeaderId = emailInvite?.team_leader_id || (teamLeader as any).id;
 
   // Create auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -152,19 +208,30 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   // Create referral link
   await (supabaseAdmin.from("referrals") as any).insert({
-    team_leader_id: (teamLeader as any).id,
+    team_leader_id: attributedTeamLeaderId,
     referred_user_id: authData.user.id,
-    referral_code_used: code,
+    referral_code_used: emailInvite ? "EMAIL_INVITE" : code,
     status: "registered",
   });
 
+  if (emailInvite) {
+    await (supabaseAdmin.from("referral_invites") as any)
+      .update({
+        status: "accepted",
+        claimed_by: authData.user.id,
+        claimed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", emailInvite.id);
+  }
+
   // Notify TL
   await (supabaseAdmin.from("notifications") as any).insert({
-    user_id: (teamLeader as any).id,
+    user_id: attributedTeamLeaderId,
     type: "referral_signup",
     title: "New referral!",
     message: `${fullName || email} joined via your referral link.`,
-    data: { referred_user_id: authData.user.id, referral_code: code },
+    data: { referred_user_id: authData.user.id, referral_code: emailInvite ? "EMAIL_INVITE" : code },
   });
 
   return createUserSession(

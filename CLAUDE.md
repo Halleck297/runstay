@@ -206,6 +206,17 @@ Fonts:
 - Verified badge display
 - Responsive design
 - User-friendly 404 and global error fallback pages
+- Team Leader referral system:
+  - `join/:code` referral attribution
+  - TL dashboard with referral stats and management
+  - Email batch invitations (max 10 at once)
+  - Email reservation ownership (`referral_invites`) so invited emails stay attributed to the reserving TL
+  - Auto-link referral on signup even without referral link when email is reserved
+- Centralized transactional email architecture (`app/lib/email`)
+  - Resend provider adapter
+  - Template registry + typed payloads
+  - Shared base email layout
+  - Templates: `referral_invite` (active), `password_reset` (prepared), `platform_notification` (prepared)
 
 ### Not Yet Implemented ❌
 - Google OAuth (configured but needs Google Cloud setup)
@@ -217,6 +228,9 @@ Fonts:
 - Typing indicator in chat
 - Image uploads for listings
 - Search by event name (basic filter exists)
+- Dedicated admin/audit UI for email delivery tracking
+- Full localization copy review for all email templates (`it/en/de/fr/es`)
+- Production SMTP failover strategy
 
 ## Deferred Product Decisions (To Revisit)
 
@@ -259,7 +273,17 @@ Required in `.env`:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SESSION_SECRET=random-32-char-string
+APP_URL=http://localhost:5173
+RESEND_API_KEY=re_xxxxxxxxx
+RESEND_FROM_EMAIL=Runoot <noreply@mail.yourdomain.com>
 ```
+
+## Email System Notes
+
+- Reset password currently uses Supabase Auth built-in recovery flow (`/recover`) and Supabase-hosted template.
+- App-managed transactional emails (invites/notifications) must go through `sendTemplatedEmail(...)` in `app/lib/email/service.server.ts`.
+- Keep templates separated by purpose in `app/lib/email/templates`.
+- Localization planning baseline is: `it`, `en`, `de`, `fr`, `es` (not just `it/en`).
 
 ## Important Notes for Claude
 

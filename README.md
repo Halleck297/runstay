@@ -57,6 +57,8 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key-here
 SESSION_SECRET=any-random-string-at-least-32-characters-long
 APP_URL=http://localhost:5173
+RESEND_API_KEY=re_xxxxxxxxx
+RESEND_FROM_EMAIL=Runoot <noreply@mail.yourdomain.com>
 ```
 
 To generate a session secret, you can use:
@@ -85,6 +87,37 @@ In Supabase dashboard go to **Authentication** → **URL Configuration** and add
 - `https://your-production-domain.com/reset-password` (production)
 
 If these URLs are not allowlisted, forgot-password will not send a valid reset flow.
+
+### 4c. Setup Transactional Email (Resend)
+
+This project uses a centralized email service in code (`app/lib/email`) and Resend as provider.
+
+Required env vars:
+
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL` (must use a verified sending domain in Resend)
+
+Current production usage:
+
+- Team Leader referral invitations from TL Dashboard
+
+Current template architecture:
+
+- `app/lib/email/provider.resend.server.ts`: provider adapter (actual send)
+- `app/lib/email/registry.ts`: template registry + payload typing
+- `app/lib/email/baseLayout.ts`: shared layout/branding/footer
+- `app/lib/email/templates/*`: template files per email type
+- `app/lib/email/service.server.ts`: `sendTemplatedEmail(...)` facade
+
+Supported/ready locales:
+
+- `en`, `it`, `de`, `fr`, `es`
+
+Currently implemented templates:
+
+- `referral_invite` (active)
+- `password_reset` (prepared for app-managed reset flows)
+- `platform_notification` (prepared for user notifications by email)
 
 ### 5. Run Locally
 
@@ -115,6 +148,9 @@ git push -u origin main
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - `SESSION_SECRET`
+   - `APP_URL`
+   - `RESEND_API_KEY`
+   - `RESEND_FROM_EMAIL`
 5. Click **Deploy**
 
 Your app will be live at `https://your-app.vercel.app`
