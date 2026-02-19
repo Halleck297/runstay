@@ -15,15 +15,32 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: "Please enter a valid email address." }, { status: 400 });
   }
 
-  const origin = new URL(request.url).origin;
-  const redirectTo = `${origin}/reset-password`;
+  // Prefer explicit app URL in env to avoid proxy/host header mismatches.
+  const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const redirectTo = `${appUrl}/reset-password`;
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
   });
 
   if (error) {
-    return data({ error: "Unable to send reset email right now. Please try again." }, { status: 400 });
+    console.error("forgot-password: resetPasswordForEmail failed", {
+      message: error.message,
+      code: (error as any).code,
+      status: (error as any).status,
+      redirectTo,
+    });
+
+    const lowerMessage = (error.message || "").toLowerCase();
+    if (lowerMessage.includes("redirect") || lowerMessage.includes("not allowed")) {
+      return data({
+        error: "Reset link URL not allowed. Add this URL in Supabase Auth Redirect URLs: " + redirectTo,
+      }, { status: 400 });
+    }
+
+    return data({
+      error: `Unable to send reset email right now. (${error.message})`,
+    }, { status: 400 });
   }
 
   return data({

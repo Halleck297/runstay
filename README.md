@@ -56,6 +56,7 @@ Edit `.env` with your values:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key-here
 SESSION_SECRET=any-random-string-at-least-32-characters-long
+APP_URL=http://localhost:5173
 ```
 
 To generate a session secret, you can use:
@@ -75,6 +76,15 @@ If you want Google login:
 6. Copy Client ID and Client Secret
 7. In Supabase: **Authentication** → **Providers** → **Google**
 8. Enable and paste your Google credentials
+
+### 4b. Setup Auth Redirect URLs (Required for reset password)
+
+In Supabase dashboard go to **Authentication** → **URL Configuration** and add:
+
+- `http://localhost:5173/reset-password` (local dev)
+- `https://your-production-domain.com/reset-password` (production)
+
+If these URLs are not allowlisted, forgot-password will not send a valid reset flow.
 
 ### 5. Run Locally
 
