@@ -44,16 +44,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     // Check if conversation already exists
     const { data: existingConversation } = await supabaseAdmin
       .from("conversations")
-      .select("id")
+      .select("id, short_id")
       .eq("listing_id", id!)
       .or(
         `and(participant_1.eq.${userId},participant_2.eq.${listingData.author_id}),and(participant_1.eq.${listingData.author_id},participant_2.eq.${userId})`
       )
-      .single<{ id: string }>();
+      .single<{ id: string; short_id: string | null }>();
 
     // If conversation exists, redirect to it
     if (existingConversation) {
-      return redirect(`/messages/${existingConversation.id}`);
+      return redirect(`/messages?c=${existingConversation.short_id || existingConversation.id}`);
     }
   }
 
@@ -97,12 +97,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Check if conversation already exists (race condition check)
   const { data: existingConversation } = await supabaseAdmin
     .from("conversations")
-    .select("id")
+    .select("id, short_id")
     .eq("listing_id", id!)
     .or(
       `and(participant_1.eq.${userId},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${userId})`
     )
-    .single<{ id: string }>();
+    .single<{ id: string; short_id: string | null }>();
 
   if (existingConversation) {
     // Add message to existing conversation
@@ -129,8 +129,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
       participant_1: userId,
       participant_2: listing.author_id,
     } as any)
-    .select()
-    .single<{ id: string }>();
+    .select("id, short_id")
+    .single<{ id: string; short_id: string | null }>();
 
   if (convError || !newConversation) {
     return data({ error: "Failed to start conversation" }, { status: 500 });

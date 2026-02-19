@@ -50,7 +50,8 @@ runoot-exchange/
 │   │   ├── listings.new.tsx     # Create listing (/listings/new)
 │   │   ├── listings.$id.tsx     # Listing detail (/listings/:id)
 │   │   ├── messages._index.tsx  # Messages inbox (/messages)
-│   │   └── messages.$id.tsx     # Conversation (/messages/:id)
+│   │   ├── messages.$id.tsx     # Conversation loader/action (canonical URL: /messages?c=<id>)
+│   │   └── $.tsx                # 404 catch-all route
 │   ├── styles/
 │   │   └── tailwind.css
 │   └── root.tsx             # App shell, global layout
@@ -200,8 +201,11 @@ Fonts:
 - Listing detail page
 - Internal messaging system
 - Conversation threads
+- Canonical message URL with query param (`/messages?c=<conversation_id>`)
+- Realtime + polling fallback for conversations/messages (cross-browser safe fallback)
 - Verified badge display
 - Responsive design
+- User-friendly 404 and global error fallback pages
 
 ### Not Yet Implemented ❌
 - Google OAuth (configured but needs Google Cloud setup)
@@ -210,10 +214,24 @@ Fonts:
 - User settings/profile edit page
 - Listing expiration
 - Mark listing as sold
-- Real-time message updates (polling only, no WebSocket yet)
+- Typing indicator in chat
 - Image uploads for listings
 - Search by event name (basic filter exists)
-- Password reset flow
+
+## Deferred Product Decisions (To Revisit)
+
+Date noted: 2026-02-19
+
+### Listing status: `sold`
+- `sold` should be **manual only** (set by listing author, or admin override).
+- Reason: current exchange flow is message-based and there is no reliable automatic signal that a deal is completed.
+- Keep this as a user action in listing management (do not auto-infer from chat activity).
+
+### Listing status: `expired`
+- Keep expired listings in DB for history/audit/analytics.
+- Do not show expired listings in public marketplace.
+- Potential future UX: show expired only to the listing owner (archived/old listings area), with optional relist action.
+- Final visibility/retention behavior is intentionally postponed until product direction is clearer.
 
 ## Development Commands
 

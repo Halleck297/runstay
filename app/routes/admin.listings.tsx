@@ -23,7 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   let query = supabaseAdmin
     .from("listings")
     .select(
-      `*, author:profiles!listings_author_id_fkey(id, full_name, email, company_name, user_type), event:events(id, name, country, event_date)`,
+      `*, author:profiles!listings_author_id_fkey(id, full_name, email, company_name, user_type), reviewer:profiles!listings_reviewed_by_fkey(id, full_name, email, company_name), event:events(id, name, country, event_date)`,
       { count: "exact" }
     )
     .order("created_at", { ascending: false })
@@ -243,6 +243,11 @@ export default function AdminListings() {
                           <option value="rejected">rejected</option>
                         </select>
                       </Form>
+                      {listing.reviewed_by && (
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          by {listing.reviewer?.company_name || listing.reviewer?.full_name || "Admin"}
+                        </p>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {listing.event?.name || "—"}
@@ -322,6 +327,9 @@ export default function AdminListings() {
                     {listing.event?.name} · {new Date(listing.created_at).toLocaleDateString()}
                     {listing.price && (
                       <span> · {listing.currency} {listing.price}</span>
+                    )}
+                    {listing.reviewed_by && (
+                      <span> · reviewed by {listing.reviewer?.company_name || listing.reviewer?.full_name || "Admin"}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">

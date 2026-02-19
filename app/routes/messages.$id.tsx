@@ -7,6 +7,7 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { useRealtimeMessages } from "~/hooks/useRealtimeMessages";
 import { useTranslation } from "~/hooks/useTranslation";
 import { getAvatarClasses } from "~/lib/avatarColors";
+import { applyConversationPublicIdFilter } from "~/lib/conversation.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Conversation - Runoot" }];
@@ -25,9 +26,19 @@ function getEventSlug(event: { name: string; slug: string | null } | null): stri
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const userId = (user as any).id as string;
-  const { id } = params;
+  const publicConversationId = params.id;
+  const url = new URL(request.url);
 
-  const { data: conversation, error } = await supabaseAdmin
+  if (!publicConversationId) {
+    throw new Response("Conversation not found", { status: 404 });
+  }
+
+  // Canonical URL for conversations is /messages?c=<public_id>
+  if (url.pathname.startsWith("/messages/")) {
+    return redirect(`/messages?c=${publicConversationId}`);
+  }
+
+  const baseQuery = supabaseAdmin
     .from("conversations")
     .select(
       `
@@ -37,9 +48,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified),
       messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
     `
-    )
-    .eq("id", id!)
-    .single<any>();
+    );
+
+  const { data: conversation, error } = await applyConversationPublicIdFilter(
+    baseQuery as any,
+    publicConversationId
+  ).single();
 
   if (error || !conversation) {
     throw new Response("Conversation not found", { status: 404 });
@@ -79,11 +93,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return m;
     });
 
-    (supabaseAdmin.from("messages") as any)
+    await (supabaseAdmin.from("messages") as any)
       .update({ read_at: now })
-      .in("id", unreadMessageIds)
-      .then(() => {});
+      .in("id", unreadMessageIds);
   }
+
+  // Keep menu badges in sync: opening a conversation consumes related "new message" notifications
+  await (supabaseAdmin.from("notifications") as any)
+    .update({ read_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("type", "system")
+    .filter("data->>kind", "eq", "new_message")
+    .filter("data->>conversation_id", "eq", conversation.id)
+    .is("read_at", null);
 
   const sortedMessages = [...(conversation.messages || [])].sort(
     (a: any, b: any) =>
@@ -100,17 +122,24 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export async function action({ request, params }: ActionFunctionArgs) {
   const user = await requireUser(request);
   const userId = (user as any).id as string;
-  const { id } = params;
+  const publicConversationId = params.id;
+
+  if (!publicConversationId) {
+    return data({ error: "Conversation not found" }, { status: 404 });
+  }
 
   const formData = await request.formData();
   const intent = formData.get("intent");
 
   // Get conversation to verify participation
-  const { data: conversation } = await supabaseAdmin
+  const conversationQuery = supabaseAdmin
     .from("conversations")
-    .select("participant_1, participant_2, activated, listing:listings(author_id)")
-    .eq("id", id!)
-    .single<{ participant_1: string; participant_2: string; activated: boolean; listing: { author_id: string } }>();
+    .select("id, participant_1, participant_2, listing_id, activated, listing:listings(author_id, title)")
+    ;
+  const { data: conversation } = await applyConversationPublicIdFilter(
+    conversationQuery as any,
+    publicConversationId
+  ).single();
 
   if (
     !conversation ||
@@ -156,7 +185,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     
     await (supabaseAdmin.from("conversations") as any)
       .update(isParticipant1 ? { deleted_by_1: true } : { deleted_by_2: true })
-      .eq("id", id!);
+      .eq("id", conversation.id);
 
     return redirect("/messages");
   }
@@ -169,7 +198,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   const { error } = await supabaseAdmin.from("messages").insert({
-    conversation_id: id!,
+    conversation_id: conversation.id,
     sender_id: userId,
     content: content.trim(),
     message_type: "user",
@@ -183,11 +212,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
   if (isListingOwner && !conversation.activated) {
     await (supabaseAdmin.from("conversations") as any)
       .update({ activated: true, updated_at: new Date().toISOString() })
-      .eq("id", id!);
+      .eq("id", conversation.id);
   } else {
     await (supabaseAdmin.from("conversations") as any)
       .update({ updated_at: new Date().toISOString() })
-      .eq("id", id!);
+      .eq("id", conversation.id);
   }
 
   return data({ success: true });
@@ -640,13 +669,23 @@ export default function Conversation() {
             <textarea
               ref={textareaRef}
               name="content"
-              placeholder="Write a message..."
+              placeholder="Write a message... (Shift+Return for new line)"
               autoComplete="off"
               required
               rows={1}
               className="input flex-1 resize-none py-2 md:py-3 px-3 md:px-4 min-h-[40px] md:min-h-[48px] max-h-[150px] overflow-hidden rounded-2xl"
               disabled={isSubmitting}
               onChange={handleTextareaChange}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                if (event.shiftKey) return;
+                if (event.nativeEvent.isComposing) return;
+
+                event.preventDefault();
+                if (!isSubmitting) {
+                  formRef.current?.requestSubmit();
+                }
+              }}
             />
             <button
               type="submit"

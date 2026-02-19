@@ -144,6 +144,11 @@ export default function Login() {
                 required
                 className="input"
               />
+              <div className="mt-2 text-right">
+                <Link to="/forgot-password" className="text-xs font-medium text-brand-600 hover:text-brand-700">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             <div>

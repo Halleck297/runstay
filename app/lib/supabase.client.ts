@@ -5,6 +5,11 @@ import type { Database } from "./database.types";
 let supabaseClient: ReturnType<typeof createClient<Database>> | null = null;
 let currentAccessToken: string | null = null;
 
+export function hasBrowserAccessToken() {
+  if (typeof window === "undefined") return false;
+  return Boolean(window.ENV?.ACCESS_TOKEN);
+}
+
 export function getSupabaseBrowserClient() {
   const supabaseUrl = window.ENV?.SUPABASE_URL;
   const supabaseAnonKey = window.ENV?.SUPABASE_ANON_KEY;

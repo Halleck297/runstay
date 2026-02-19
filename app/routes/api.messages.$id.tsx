@@ -2,22 +2,25 @@ import type { LoaderFunctionArgs } from "react-router";
 import { data } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { applyConversationPublicIdFilter } from "~/lib/conversation.server";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const userId = (user as any).id as string;
-  const conversationId = params.id;
+  const publicConversationId = params.id;
 
-  if (!conversationId) {
+  if (!publicConversationId) {
     return data({ messages: [] }, { status: 400 });
   }
 
   // Verify user is participant
-  const { data: conversation } = await supabaseAdmin
+  const conversationQuery = supabaseAdmin
     .from("conversations")
-    .select("participant_1, participant_2")
-    .eq("id", conversationId)
-    .single();
+    .select("id, participant_1, participant_2");
+  const { data: conversation } = await applyConversationPublicIdFilter(
+    conversationQuery as any,
+    publicConversationId
+  ).single();
 
   if (!conversation ||
       (conversation.participant_1 !== userId && conversation.participant_2 !== userId)) {
@@ -28,7 +31,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const { data: messages, error } = await supabaseAdmin
     .from("messages")
     .select("id, conversation_id, sender_id, content, created_at, read_at, message_type")
-    .eq("conversation_id", conversationId)
+    .eq("conversation_id", conversation.id)
     .order("created_at", { ascending: true });
 
   if (error) {

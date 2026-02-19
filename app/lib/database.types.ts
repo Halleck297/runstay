@@ -347,9 +347,10 @@ export interface Database {
         Relationships: [];
 
       };
-            conversations: {
+      conversations: {
         Row: {
           id: string;
+          short_id: string;
           listing_id: string;
           participant_1: string;
           participant_2: string;
@@ -361,6 +362,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          short_id?: string;
           listing_id: string;
           participant_1: string;
           participant_2: string;
@@ -371,6 +373,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
+          short_id?: string;
           activated?: boolean;
           deleted_by_1?: boolean;
           deleted_by_2?: boolean;

@@ -131,7 +131,8 @@ runstay-exchange/
 │   │   ├── listings.new.tsx    # Create listing
 │   │   ├── listings.$id.tsx    # Listing detail
 │   │   ├── messages._index.tsx # Messages inbox
-│   │   └── messages.$id.tsx    # Conversation
+│   │   ├── messages.$id.tsx    # Conversation loader/action
+│   │   └── $.tsx               # 404 catch-all
 │   ├── styles/
 │   │   └── tailwind.css
 │   └── root.tsx          # App shell
@@ -150,8 +151,11 @@ runstay-exchange/
 - ✅ Create listings (rooms, bibs, or both)
 - ✅ Browse and filter listings
 - ✅ Internal messaging system
+- ✅ Canonical message URLs (`/messages?c=<conversation_id>`)
+- ✅ Realtime + polling fallback for message updates
 - ✅ Verified badge for trusted sellers
 - ✅ Responsive design
+- ✅ 404 and global error fallback pages
 
 ## React Router Basics
 
@@ -218,6 +222,12 @@ Make sure your `.env` file exists and has the correct values.
 
 ### "Listing not found" on detail page
 The listing ID might not exist. Check your database.
+
+### Messages badge not updating in one browser
+Unread counters are server-synced via `/api/unread` with polling fallback. Ensure the user session cookie is valid in that browser.
+
+### 404 page appears for unknown URL
+Expected behavior: unknown routes are handled by the catch-all route and return a user-friendly 404 page.
 
 ### Auth not working
 1. Check Supabase Auth settings

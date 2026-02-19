@@ -89,9 +89,9 @@ export default function Settings() {
                 <p className="font-medium text-gray-900">Password</p>
                 <p className="text-sm text-gray-500">Change your password</p>
               </div>
-              <button className="btn-secondary text-sm" disabled>
-                Coming soon
-              </button>
+              <Link to="/forgot-password" className="btn-secondary text-sm">
+                Reset password
+              </Link>
             </div>
           </div>
         </section>

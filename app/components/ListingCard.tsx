@@ -414,12 +414,12 @@ if (listing.listing_type === "bib") {
             <div className="text-right">
               {listing.listing_type === "bib" && listing.associated_costs ? (
                 <p className="text-lg font-bold text-gray-900">
-                  €{listing.associated_costs.toLocaleString()}
+                  €{PRICE_FORMATTER.format(listing.associated_costs)}
                 </p>
               ) : listing.price ? (
                 <>
                   <p className="text-lg font-bold text-gray-900">
-                    €{listing.price.toLocaleString()}
+                    €{PRICE_FORMATTER.format(listing.price)}
                   </p>
                   {listing.price_negotiable && (
                     <p className="text-xs text-gray-500">Negotiable</p>
@@ -448,3 +448,4 @@ if (listing.listing_type === "bib") {
     </Link>
   );
 }
+const PRICE_FORMATTER = new Intl.NumberFormat("en-US");

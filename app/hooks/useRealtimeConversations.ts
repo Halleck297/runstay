@@ -1,5 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient, hasBrowserAccessToken } from "~/lib/supabase.client";
 
 interface Conversation {
   id: string;
@@ -11,6 +13,7 @@ interface Conversation {
     id: string;
     title: string;
     listing_type: string;
+    author_id?: string;
   };
   participant1?: {
     id: string;
@@ -30,6 +33,8 @@ interface Conversation {
     sender_id: string;
     created_at: string;
     read_at: string | null;
+    message_type?: "user" | "system" | "heart";
+    translated_content?: string | null;
   }[];
 }
 
@@ -38,48 +43,141 @@ interface UseRealtimeConversationsOptions {
   initialConversations: Conversation[];
 }
 
-// Polling interval in milliseconds
-const POLL_INTERVAL = 5000;
+const FALLBACK_POLL_INTERVAL = 15000;
+const shouldDisableRealtime =
+  typeof window !== "undefined" &&
+  window.location.hostname === "localhost" &&
+  /firefox/i.test(navigator.userAgent);
 
 export function useRealtimeConversations({
   userId,
   initialConversations,
 }: UseRealtimeConversationsOptions) {
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
+  const [isConnected, setIsConnected] = useState(false);
   const fetcher = useFetcher<{ conversations: Conversation[] }>();
-  const isPollingRef = useRef(false);
 
-  // Update when initial conversations change
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const pendingSyncRef = useRef(false);
+
   useEffect(() => {
     setConversations(initialConversations);
   }, [initialConversations]);
 
-  // Sync with fetcher data
   useEffect(() => {
     if (fetcher.data?.conversations && fetcher.state === "idle") {
       setConversations(fetcher.data.conversations);
     }
   }, [fetcher.data, fetcher.state]);
 
-  // Polling effect
+  useEffect(() => {
+    if (!pendingSyncRef.current) return;
+    if (fetcher.state !== "idle") return;
+
+    pendingSyncRef.current = false;
+    fetcher.load("/api/conversations");
+  }, [fetcher, fetcher.state]);
+
   useEffect(() => {
     if (!userId || typeof window === "undefined") return;
+    if (shouldDisableRealtime || !hasBrowserAccessToken()) {
+      setIsConnected(false);
+      return;
+    }
 
-    const poll = () => {
-      if (isPollingRef.current) return;
-      if (fetcher.state !== "idle") return;
+    const supabase = getSupabaseBrowserClient();
+    setIsConnected(false);
 
-      isPollingRef.current = true;
+    const requestSync = () => {
+      if (fetcher.state !== "idle") {
+        pendingSyncRef.current = true;
+        return;
+      }
       fetcher.load("/api/conversations");
-      isPollingRef.current = false;
     };
 
-    const intervalId = setInterval(poll, POLL_INTERVAL);
+    const channel = supabase
+      .channel(`conversations:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        requestSync
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+        },
+        requestSync
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "conversations",
+        },
+        requestSync
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "conversations",
+        },
+        requestSync
+      )
+      .subscribe((status) => {
+        setIsConnected(status === "SUBSCRIBED");
+      });
+
+    channelRef.current = channel;
 
     return () => {
-      clearInterval(intervalId);
+      setIsConnected(false);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [userId, fetcher]);
 
-  return { conversations, setConversations };
+  useEffect(() => {
+    if (!userId || typeof window === "undefined") return;
+    if (isConnected) return;
+
+    const poll = () => {
+      if (document.visibilityState !== "visible") return;
+      if (fetcher.state !== "idle") return;
+
+      fetcher.load("/api/conversations");
+    };
+
+    const onFocus = () => poll();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        poll();
+      }
+    };
+
+    poll();
+    const intervalId = setInterval(poll, FALLBACK_POLL_INTERVAL);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [fetcher, isConnected, userId]);
+
+  return { conversations, setConversations, isConnected };
 }

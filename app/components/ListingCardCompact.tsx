@@ -1,5 +1,7 @@
 import { Link, useFetcher } from "react-router";
 
+const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
+
 
 interface ListingCardCompactProps {
   listing: {
@@ -269,11 +271,11 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
             <div className="text-right flex-1 flex justify-end">
               {listing.listing_type === "bib" && listing.associated_costs ? (
                 <p className="text-base font-bold text-gray-900">
-                  €{listing.associated_costs.toLocaleString()}
+                  €{PRICE_FORMATTER.format(listing.associated_costs)}
                 </p>
               ) : listing.price ? (
                 <p className="text-base font-bold text-gray-900">
-                  €{listing.price.toLocaleString()}
+                  €{PRICE_FORMATTER.format(listing.price)}
                 </p>
               ) : (
                 <p className="text-xs font-medium text-gray-600">Contact</p>

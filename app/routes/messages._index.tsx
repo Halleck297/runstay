@@ -1,11 +1,49 @@
-import type { MetaFunction } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data } from "react-router";
+import { useSearchParams } from "react-router";
+import Conversation, { action as conversationAction, loader as conversationLoader } from "./messages.$id";
 
 
 export const meta: MetaFunction = () => {
   return [{ title: "Messages - Runoot" }];
 };
 
+export async function loader(args: LoaderFunctionArgs) {
+  const url = new URL(args.request.url);
+  const conversationPublicId = url.searchParams.get("c");
+
+  if (!conversationPublicId) {
+    return data({ noConversationSelected: true });
+  }
+
+  return conversationLoader({
+    ...args,
+    params: { ...(args.params || {}), id: conversationPublicId },
+  } as LoaderFunctionArgs);
+}
+
+export async function action(args: ActionFunctionArgs) {
+  const url = new URL(args.request.url);
+  const conversationPublicId = url.searchParams.get("c");
+
+  if (!conversationPublicId) {
+    return data({ error: "No conversation selected" }, { status: 400 });
+  }
+
+  return conversationAction({
+    ...args,
+    params: { ...(args.params || {}), id: conversationPublicId },
+  } as ActionFunctionArgs);
+}
+
 export default function MessagesIndex() {
+  const [searchParams] = useSearchParams();
+  const conversationPublicId = searchParams.get("c");
+
+  if (conversationPublicId) {
+    return <Conversation />;
+  }
+
   // This component is shown only on desktop when no conversation is selected
   // On mobile, the sidebar (conversation list) is shown instead
   return (

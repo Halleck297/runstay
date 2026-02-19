@@ -22,6 +22,7 @@ CREATE TABLE public.profiles (
   email TEXT NOT NULL,
   full_name TEXT,
   user_type TEXT NOT NULL DEFAULT 'private' CHECK (user_type IN ('tour_operator', 'private')),
+  role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'superadmin')),
   company_name TEXT,
   phone TEXT,
   is_verified BOOLEAN DEFAULT FALSE,
@@ -48,6 +49,13 @@ CREATE TABLE public.profiles (
   facebook TEXT,
   linkedin TEXT,
   website TEXT,
+  languages TEXT,
+  years_experience INTEGER,
+  specialties TEXT,
+  is_team_leader BOOLEAN DEFAULT FALSE,
+  referral_code TEXT UNIQUE,
+  tl_welcome_message TEXT,
+  created_by_admin UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
 
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -157,7 +165,10 @@ CREATE TABLE public.listings (
   walking_duration INTEGER,        -- minutes
   transit_duration INTEGER,        -- minutes (only if > 1km)
 
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'sold', 'expired')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'sold', 'expired', 'rejected')),
+  admin_note TEXT,
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -165,6 +176,7 @@ CREATE TABLE public.listings (
 -- Conversations
 CREATE TABLE public.conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  short_id TEXT GENERATED ALWAYS AS (substring(replace(id::text, '-', '') from 1 for 12)) STORED UNIQUE,
   listing_id UUID NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
   participant_1 UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   participant_2 UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -189,6 +201,94 @@ CREATE TABLE public.messages (
   translated_to TEXT             -- Target language code of translation
 );
 
+-- Saved Listings (user favorites)
+CREATE TABLE IF NOT EXISTS public.saved_listings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  listing_id UUID NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, listing_id)
+);
+
+-- Contact Messages
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  subject TEXT,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Blocked users
+CREATE TABLE IF NOT EXISTS public.blocked_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  blocker_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  blocked_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(blocker_id, blocked_id)
+);
+
+-- Reports
+CREATE TABLE IF NOT EXISTS public.reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  reported_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  reported_listing_id UUID REFERENCES public.listings(id) ON DELETE SET NULL,
+  report_type TEXT NOT NULL CHECK (report_type IN ('user', 'listing', 'bug', 'other')),
+  reason TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved', 'dismissed')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Admin audit log
+CREATE TABLE IF NOT EXISTS public.admin_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id UUID NOT NULL REFERENCES public.profiles(id),
+  action TEXT NOT NULL,
+  target_user_id UUID REFERENCES public.profiles(id),
+  target_listing_id UUID REFERENCES public.listings(id),
+  details JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Team leader referrals
+CREATE TABLE IF NOT EXISTS public.referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  team_leader_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  referred_user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  referral_code_used TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'registered' CHECK (status IN ('registered', 'active')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(referred_user_id)
+);
+
+-- Notifications
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('referral_signup', 'referral_active', 'tl_promoted', 'system', 'listing_approved', 'listing_rejected')),
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  data JSONB,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Team leader invite tokens
+CREATE TABLE IF NOT EXISTS public.tl_invite_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token TEXT UNIQUE NOT NULL,
+  created_by UUID NOT NULL REFERENCES public.profiles(id),
+  used_by UUID REFERENCES public.profiles(id),
+  used_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -211,6 +311,19 @@ CREATE INDEX idx_messages_conversation ON public.messages(conversation_id);
 CREATE INDEX idx_messages_created ON public.messages(created_at);
 CREATE INDEX idx_saved_listings_user ON public.saved_listings(user_id);
 CREATE INDEX idx_saved_listings_listing ON public.saved_listings(listing_id);
+CREATE INDEX idx_blocked_users_blocker ON public.blocked_users(blocker_id);
+CREATE INDEX idx_blocked_users_blocked ON public.blocked_users(blocked_id);
+CREATE INDEX idx_reports_status ON public.reports(status);
+CREATE INDEX idx_reports_created ON public.reports(created_at DESC);
+CREATE INDEX idx_audit_log_admin ON public.admin_audit_log(admin_id);
+CREATE INDEX idx_audit_log_created ON public.admin_audit_log(created_at DESC);
+CREATE INDEX idx_referrals_team_leader ON public.referrals(team_leader_id);
+CREATE INDEX idx_referrals_created ON public.referrals(created_at DESC);
+CREATE INDEX idx_notifications_user ON public.notifications(user_id);
+CREATE INDEX idx_notifications_unread ON public.notifications(user_id) WHERE read_at IS NULL;
+CREATE INDEX idx_notifications_created ON public.notifications(created_at DESC);
+CREATE INDEX idx_tl_invite_token ON public.tl_invite_tokens(token);
+CREATE INDEX idx_listings_pending ON public.listings(created_at DESC) WHERE status = 'pending';
 
 CREATE INDEX idx_events_date ON public.events(event_date);
 CREATE INDEX idx_contact_messages_created ON public.contact_messages(created_at DESC);
@@ -227,6 +340,12 @@ ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hotels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_listings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.blocked_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tl_invite_tokens ENABLE ROW LEVEL SECURITY;
 
 
 -- Profiles: anyone can read, users can update their own
@@ -234,10 +353,10 @@ CREATE POLICY "Profiles are viewable by everyone" ON public.profiles
   FOR SELECT USING (true);
 
 CREATE POLICY "Users can update own profile" ON public.profiles
-  FOR UPDATE USING (auth.uid() = id);
+  FOR UPDATE USING ((select auth.uid()) = id);
 
 CREATE POLICY "Users can insert own profile" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
+  FOR INSERT WITH CHECK ((select auth.uid()) = id);
 
 -- Events: anyone can read and create
 CREATE POLICY "Events are viewable by everyone" ON public.events
@@ -251,23 +370,32 @@ CREATE POLICY "Hotels are viewable by everyone" ON public.hotels
   FOR SELECT USING (true);
 
 CREATE POLICY "Service role can insert hotels" ON public.hotels
-  FOR INSERT WITH CHECK (true);
+  FOR INSERT TO service_role
+  WITH CHECK ((select auth.role()) = 'service_role');
 
 CREATE POLICY "Service role can update hotels" ON public.hotels
-  FOR UPDATE USING (true);
+  FOR UPDATE TO service_role
+  USING ((select auth.role()) = 'service_role')
+  WITH CHECK ((select auth.role()) = 'service_role');
 
--- Listings: anyone can read, authors can modify their own
-CREATE POLICY "Listings are viewable by everyone" ON public.listings
-  FOR SELECT USING (true);
+-- Listings: authenticated users can read active listings; authors can CRUD their own
+CREATE POLICY "Authenticated users can read active listings" ON public.listings
+  FOR SELECT TO authenticated
+  USING (
+    status = 'active'
+    OR (select auth.uid()) = author_id
+  );
 
-CREATE POLICY "Authenticated users can create listings" ON public.listings
-  FOR INSERT WITH CHECK (auth.uid() = author_id);
+CREATE POLICY "Users can insert their own listings" ON public.listings
+  FOR INSERT WITH CHECK ((select auth.uid()) = author_id);
 
-CREATE POLICY "Authors can update own listings" ON public.listings
-  FOR UPDATE USING (auth.uid() = author_id);
+CREATE POLICY "Users can update their own listings" ON public.listings
+  FOR UPDATE
+  USING ((select auth.uid()) = author_id)
+  WITH CHECK ((select auth.uid()) = author_id);
 
-CREATE POLICY "Authors can delete own listings" ON public.listings
-  FOR DELETE USING (auth.uid() = author_id);
+CREATE POLICY "Users can delete their own listings" ON public.listings
+  FOR DELETE USING ((select auth.uid()) = author_id);
 
 -- Conversations: only participants can see/create
 CREATE POLICY "Participants can view conversations" ON public.conversations
@@ -317,31 +445,112 @@ CREATE POLICY "Users can save listings" ON public.saved_listings
 CREATE POLICY "Users can unsave listings" ON public.saved_listings
   FOR DELETE USING (auth.uid() = user_id);
 
--- Contact Messages: anyone can submit, only service role can read
-CREATE POLICY "Anyone can submit contact messages" ON public.contact_messages
-  FOR INSERT WITH CHECK (true);
+-- Contact Messages: validated submit, admin-only read/update/delete
+CREATE POLICY "Contact form validated insert" ON public.contact_messages
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (
+    length(trim(name)) BETWEEN 2 AND 120
+    AND length(trim(email)) BETWEEN 5 AND 254
+    AND position('@' in email) > 1
+    AND length(trim(message)) BETWEEN 10 AND 5000
+    AND coalesce(subject, 'general') IN ('general', 'support', 'bug', 'partnership')
+    AND (
+      (auth.uid() IS NULL AND user_id IS NULL)
+      OR (auth.uid() IS NOT NULL AND user_id = auth.uid())
+    )
+  );
 
-CREATE POLICY "Service role can view contact messages" ON public.contact_messages
-  FOR SELECT USING (true);
+CREATE POLICY "Admins can view contact messages" ON public.contact_messages
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles
+      WHERE public.profiles.id = auth.uid()
+        AND public.profiles.role IN ('admin', 'superadmin')
+    )
+  );
 
--- Saved Listings (user favorites)
-CREATE TABLE public.saved_listings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  listing_id UUID NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, listing_id)
-);
+CREATE POLICY "Admins can update contact messages" ON public.contact_messages
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles
+      WHERE public.profiles.id = auth.uid()
+        AND public.profiles.role IN ('admin', 'superadmin')
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles
+      WHERE public.profiles.id = auth.uid()
+        AND public.profiles.role IN ('admin', 'superadmin')
+    )
+  );
 
--- Contact Messages
-CREATE TABLE public.contact_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  message TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+CREATE POLICY "Admins can delete contact messages" ON public.contact_messages
+  FOR DELETE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles
+      WHERE public.profiles.id = auth.uid()
+        AND public.profiles.role IN ('admin', 'superadmin')
+    )
+  );
+
+-- Blocked Users: users can manage their own block list
+CREATE POLICY "Users can view own blocked users" ON public.blocked_users
+  FOR SELECT USING ((select auth.uid()) = blocker_id);
+
+CREATE POLICY "Users can block users" ON public.blocked_users
+  FOR INSERT WITH CHECK ((select auth.uid()) = blocker_id);
+
+CREATE POLICY "Users can unblock users" ON public.blocked_users
+  FOR DELETE USING ((select auth.uid()) = blocker_id);
+
+-- Reports: users can create/view own reports
+CREATE POLICY "Users can create reports" ON public.reports
+  FOR INSERT WITH CHECK ((select auth.uid()) = reporter_id);
+
+CREATE POLICY "Users can view own reports" ON public.reports
+  FOR SELECT USING ((select auth.uid()) = reporter_id);
+
+-- Referrals: team leaders can see their own referrals
+CREATE POLICY "TLs can view own referrals" ON public.referrals
+  FOR SELECT USING (team_leader_id = auth.uid());
+
+-- Notifications: users can view/update their own notifications
+CREATE POLICY "Users can view own notifications" ON public.notifications
+  FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Users can update own notifications" ON public.notifications
+  FOR UPDATE USING (user_id = auth.uid());
+
+-- Admin audit log: admin/superadmin access
+CREATE POLICY "Admins can read audit log" ON public.admin_audit_log
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles
+      WHERE public.profiles.id = auth.uid()
+        AND public.profiles.role IN ('admin', 'superadmin')
+    )
+  );
+
+CREATE POLICY "Admins can insert audit log" ON public.admin_audit_log
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles
+      WHERE public.profiles.id = auth.uid()
+        AND public.profiles.role IN ('admin', 'superadmin')
+    )
+  );
 
 -- ============================================
 -- FUNCTIONS & TRIGGERS

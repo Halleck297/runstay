@@ -230,7 +230,7 @@ export default function Dashboard() {
                   return (
                     <Link
                       key={conv.id}
-                      to={`/messages/${conv.id}`}
+                      to={`/messages?c=${conv.short_id || conv.id}`}
                       className={`flex items-center gap-3 p-4 active:bg-gray-50 ${index > 0 ? 'border-t border-gray-100' : ''}`}
                     >
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${hasUnread ? 'bg-brand-100' : 'bg-gray-100'}`}>
@@ -407,7 +407,7 @@ export default function Dashboard() {
                     return (
                       <Link
                         key={conv.id}
-                        to={`/messages/${conv.id}`}
+                        to={`/messages?c=${conv.short_id || conv.id}`}
                         className="block p-4 hover:bg-gray-50 transition-colors"
                       >
                         <div className="flex items-center justify-between">

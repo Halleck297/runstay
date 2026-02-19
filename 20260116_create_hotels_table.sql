@@ -39,10 +39,13 @@ CREATE POLICY "Hotels are viewable by everyone" ON public.hotels
 
 -- Solo service role può creare/modificare (via supabaseAdmin)
 CREATE POLICY "Service role can insert hotels" ON public.hotels
-  FOR INSERT WITH CHECK (true);
+  FOR INSERT TO service_role
+  WITH CHECK (auth.role() = 'service_role');
 
 CREATE POLICY "Service role can update hotels" ON public.hotels
-  FOR UPDATE USING (true);
+  FOR UPDATE TO service_role
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
 
 -- 5. Trigger per updated_at
 CREATE TRIGGER on_hotels_updated

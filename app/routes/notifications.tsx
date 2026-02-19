@@ -125,7 +125,15 @@ export default function Notifications() {
         <div className="divide-y divide-gray-100">
           {notifications.length > 0 ? (
             notifications.map((notif: any) => {
-              const typeStyle = typeIcons[notif.type] || typeIcons.system;
+              const notifData = (notif.data as Record<string, any> | null) || null;
+              const isMessageNotification = notif.type === "system" && notifData?.kind === "new_message";
+              const typeStyle = isMessageNotification
+                ? {
+                    bg: "bg-blue-100",
+                    color: "text-blue-600",
+                    icon: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z",
+                  }
+                : typeIcons[notif.type] || typeIcons.system;
               const isUnread = !notif.read_at;
 
               return (
@@ -148,14 +156,21 @@ export default function Notifications() {
                           {notif.title}
                         </p>
                         <p className="text-sm text-gray-500 mt-0.5">{notif.message}</p>
-                        {(notif.data as any)?.listing_id && (
+                        {notifData?.conversation_id ? (
                           <Link
-                            to={`/listings/${(notif.data as any).listing_id}`}
+                            to={`/messages?c=${notifData.conversation_id}`}
+                            className="text-xs text-brand-600 hover:text-brand-700 font-medium mt-1 inline-block"
+                          >
+                            Open conversation →
+                          </Link>
+                        ) : notifData?.listing_id ? (
+                          <Link
+                            to={`/listings/${notifData.listing_id}`}
                             className="text-xs text-brand-600 hover:text-brand-700 font-medium mt-1 inline-block"
                           >
                             View listing →
                           </Link>
-                        )}
+                        ) : null}
                       </div>
                       {isUnread && (
                         <Form method="post" className="flex-shrink-0">

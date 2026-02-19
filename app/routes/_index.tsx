@@ -28,20 +28,65 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
 
-  // Carica ultimi 6 annunci attivi
-  const { data: listings } = await supabase
-    .from("listings")
-    .select(
+  // Home listings:
+  // - authenticated: normal RLS query
+  // - anonymous: admin query with sanitized preview fields only
+  let listings: any[] = [];
+  if (user) {
+    const { data } = await supabase
+      .from("listings")
+      .select(
+        `
+        *,
+        author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified),
+        event:events(id, name, slug, country, event_date)
       `
-      *,
-      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified),
-      event:events(id, name, slug, country, event_date)
-    `
-    )
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(3);
-      // Get saved listing IDs for this user
+      )
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(3);
+    listings = data || [];
+  } else {
+    const { data } = await (supabaseAdmin as any)
+      .from("listings")
+      .select(
+        `
+        id,
+        listing_type,
+        hotel_name,
+        hotel_stars,
+        hotel_rating,
+        room_count,
+        room_type,
+        bib_count,
+        check_in,
+        check_out,
+        created_at,
+        event:events(id, name, slug, country, event_date)
+      `
+      )
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    listings = (data || []).map((listing: any) => ({
+      ...listing,
+      title: listing.event?.name || "Listing",
+      price: null,
+      price_negotiable: false,
+      transfer_type: null,
+      associated_costs: null,
+      author: {
+        id: "",
+        full_name: null,
+        company_name: null,
+        user_type: "private",
+        is_verified: false,
+      },
+    }));
+  }
+
+  // Get saved listing IDs for this user
   let savedListingIds: string[] = [];
   if (user) {
     const { data: savedListings } = await (supabaseAdmin as any)
@@ -58,7 +103,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select("id, name, country, event_date")
     .order("event_date", { ascending: true });
 
-    return { user, listings: listings || [], savedListingIds, events: events || [] };
+    return { user, listings, savedListingIds, events: events || [] };
 
 }
 
@@ -120,12 +165,16 @@ export default function Index() {
     }, []);
 
     // Handle suggestion click
-    const handleSuggestionClick = (eventName: string) => {
-      setSearchQuery(eventName);
-      setShowSuggestions(false);
-      // Navigate to listings with the selected event name as search
-      navigate(`/listings?search=${encodeURIComponent(eventName)}`);
-    };
+  const handleSuggestionClick = (eventName: string) => {
+    setSearchQuery(eventName);
+    setShowSuggestions(false);
+    // Navigate anon users to login before opening listings
+    if (!user) {
+      navigate(`/login?redirectTo=${encodeURIComponent(`/listings?search=${eventName}`)}`);
+      return;
+    }
+    navigate(`/listings?search=${encodeURIComponent(eventName)}`);
+  };
 
   return (
     <div className="min-h-full">
@@ -167,7 +216,10 @@ export default function Index() {
 
             {/* Search Bar */}
             <div className="mt-10 mx-auto max-w-xl">
-              <Form method="get" action="/listings" className="flex flex-col items-center gap-8">
+              <Form method="get" action={user ? "/listings" : "/login"} className="flex flex-col items-center gap-8">
+                {!user && (
+                  <input type="hidden" name="redirectTo" value="/listings" />
+                )}
                 <div className="relative w-full" ref={searchRef}>
                   <svg
                     className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"

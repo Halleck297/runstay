@@ -1,7 +1,7 @@
 // app/routes/messages.tsx
 import type { LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
-import { Outlet, Link, useLoaderData, useParams } from "react-router";
+import { Outlet, Link, useLoaderData, useParams, useSearchParams } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -43,8 +43,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const userAgent = request.headers.get("user-agent") || "";
   const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 
-  if (url.pathname === "/messages" && conversations && conversations.length > 0 && !isMobile) {
-    return redirect(`/messages/${(conversations[0] as any).id}`);
+  if (url.pathname === "/messages" && !url.searchParams.get("c") && conversations && conversations.length > 0 && !isMobile) {
+    return redirect(`/messages?c=${(conversations[0] as any).short_id || (conversations[0] as any).id}`);
   }
 
   return { user, conversations: conversations || [] };
@@ -62,13 +62,17 @@ function formatTimeAgo(dateString: string): string {
   if (diffMins < 60) return `${diffMins}m`;
   if (diffHours < 24) return `${diffHours}h`;
   if (diffDays < 7) return `${diffDays}d`;
-  return date.toLocaleDateString();
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const year = String(date.getUTCFullYear());
+  return `${day}/${month}/${year}`;
 }
 
 export default function MessagesLayout() {
   const { user, conversations: initialConversations } = useLoaderData<typeof loader>();
+  const [searchParams] = useSearchParams();
   const params = useParams();
-  const activeConversationId = params.id;
+  const activeConversationId = searchParams.get("c") || params.id;
 
   // Use realtime conversations hook
   const { conversations } = useRealtimeConversations({
@@ -124,12 +128,13 @@ export default function MessagesLayout() {
                     (m: any) => m.sender_id !== (user as any).id && !m.read_at
                   ).length;
 
-                  const isActive = conv.id === activeConversationId;
+                  const convPublicId = conv.short_id || conv.id;
+                  const isActive = convPublicId === activeConversationId;
 
                   return (
                     <Link
                       key={conv.id}
-                      to={`/messages/${conv.id}`}
+                      to={`/messages?c=${convPublicId}`}
                       className={`flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors ${
                         isActive ? "bg-gray-100" : ""
                       }`}

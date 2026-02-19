@@ -202,7 +202,9 @@ export default function Settings() {
                     <label className="text-sm font-medium text-gray-900">Change password</label>
                     <p className="text-sm text-gray-500 mt-1">Update your account password</p>
                   </div>
-                  <span className="text-sm text-gray-400">Coming soon</span>
+                  <Link to="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                    Reset password
+                  </Link>
                 </div>
               </div>
             </div>

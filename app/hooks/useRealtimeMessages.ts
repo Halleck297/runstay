@@ -1,5 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient, hasBrowserAccessToken } from "~/lib/supabase.client";
 
 interface Message {
   id: string;
@@ -8,6 +10,10 @@ interface Message {
   content: string;
   created_at: string;
   read_at: string | null;
+  message_type?: "user" | "system" | "heart";
+  detected_language?: string | null;
+  translated_content?: string | null;
+  translated_to?: string | null;
 }
 
 interface UseRealtimeMessagesOptions {
@@ -17,22 +23,28 @@ interface UseRealtimeMessagesOptions {
   onNewMessage?: (message: Message) => void;
 }
 
-// Polling interval in milliseconds
-const POLL_INTERVAL = 3000;
+const FALLBACK_POLL_INTERVAL = 15000;
+const shouldDisableRealtime =
+  typeof window !== "undefined" &&
+  window.location.hostname === "localhost" &&
+  /firefox/i.test(navigator.userAgent);
 
-// Play notification sound
 function playNotificationSound() {
   if (typeof window === "undefined") return;
 
   try {
     const audio = new Audio("/ding-sound.mp3");
     audio.volume = 0.5;
-    audio.play().catch(() => {
-      // Ignore errors (e.g., user hasn't interacted with page yet)
-    });
+    audio.play().catch(() => {});
   } catch {
-    // Ignore errors
+    // Ignore browser audio restrictions
   }
+}
+
+function sortByCreatedAt(messages: Message[]) {
+  return [...messages].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
 }
 
 export function useRealtimeMessages({
@@ -41,91 +53,148 @@ export function useRealtimeMessages({
   currentUserId,
   onNewMessage,
 }: UseRealtimeMessagesOptions) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>(sortByCreatedAt(initialMessages));
+  const [isConnected, setIsConnected] = useState(false);
   const fetcher = useFetcher<{ messages: Message[] }>();
-  const isPollingRef = useRef(false);
-  const previousMessageCountRef = useRef(initialMessages.length);
 
-  // Update messages when conversation changes
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
   useEffect(() => {
-    setMessages(initialMessages);
-    previousMessageCountRef.current = initialMessages.length;
+    setMessages(sortByCreatedAt(initialMessages));
   }, [conversationId, initialMessages]);
 
-  // Sync with fetcher data when it returns
   useEffect(() => {
-    if (fetcher.data?.messages && fetcher.state === "idle") {
-      const serverMessages = fetcher.data.messages;
+    if (!fetcher.data?.messages || fetcher.state !== "idle") return;
 
-      setMessages((currentMessages) => {
-        // Get only temp messages (optimistic updates not yet confirmed)
-        const tempMessages = currentMessages.filter(m => m.id.startsWith("temp-"));
+    const serverMessages = sortByCreatedAt(fetcher.data.messages);
 
-        // Check if any temp message content matches a server message
-        // If so, the temp message was confirmed - don't keep it
-        const unconfirmedTempMessages = tempMessages.filter(tempMsg => {
-          // A temp message is confirmed if there's a server message with same content
-          // from the same sender, created around the same time
-          const isConfirmed = serverMessages.some(serverMsg =>
+    setMessages((currentMessages) => {
+      const tempMessages = currentMessages.filter((m) => m.id.startsWith("temp-"));
+
+      const unconfirmedTempMessages = tempMessages.filter((tempMsg) => {
+        const isConfirmed = serverMessages.some(
+          (serverMsg) =>
             serverMsg.sender_id === tempMsg.sender_id &&
             serverMsg.content === tempMsg.content
-          );
-          return !isConfirmed;
-        });
+        );
+        return !isConfirmed;
+      });
 
-        // Notify about new messages from other users
-        if (previousMessageCountRef.current < serverMessages.length) {
-          const newServerMessages = serverMessages.slice(previousMessageCountRef.current);
-          let hasNewMessageFromOther = false;
-          newServerMessages.forEach(msg => {
-            if (msg.sender_id !== currentUserId) {
-              onNewMessage?.(msg);
-              hasNewMessageFromOther = true;
+      return sortByCreatedAt([...serverMessages, ...unconfirmedTempMessages]);
+    });
+  }, [fetcher.data, fetcher.state]);
+
+  useEffect(() => {
+    if (!conversationId || typeof window === "undefined") return;
+    if (shouldDisableRealtime || !hasBrowserAccessToken()) {
+      setIsConnected(false);
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    setIsConnected(false);
+
+    const channel = supabase
+      .channel(`messages:${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+
+          setMessages((currentMessages) => {
+            if (currentMessages.some((m) => m.id === newMessage.id)) {
+              return currentMessages;
             }
+
+            const withoutConfirmedTemp = currentMessages.filter((m) => {
+              if (!m.id.startsWith("temp-")) return true;
+              return !(
+                m.sender_id === newMessage.sender_id &&
+                m.content === newMessage.content
+              );
+            });
+
+            return sortByCreatedAt([...withoutConfirmedTemp, newMessage]);
           });
-          // Play sound once if there are new messages from others
-          if (hasNewMessageFromOther) {
+
+          if (newMessage.sender_id !== currentUserId) {
+            onNewMessage?.(newMessage);
             playNotificationSound();
           }
         }
-        previousMessageCountRef.current = serverMessages.length;
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const updatedMessage = payload.new as Message;
 
-        // Return server messages + any unconfirmed temp messages
-        if (unconfirmedTempMessages.length > 0) {
-          return [...serverMessages, ...unconfirmedTempMessages].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          setMessages((currentMessages) =>
+            currentMessages.map((m) =>
+              m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m
+            )
           );
         }
-
-        return serverMessages;
+      )
+      .subscribe((status) => {
+        setIsConnected(status === "SUBSCRIBED");
       });
-    }
-  }, [fetcher.data, fetcher.state, currentUserId, onNewMessage]);
 
-  // Polling effect
+    channelRef.current = channel;
+
+    return () => {
+      setIsConnected(false);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [conversationId, currentUserId, onNewMessage]);
+
   useEffect(() => {
     if (!conversationId || typeof window === "undefined") return;
+    if (isConnected) return;
 
     const poll = () => {
-      if (isPollingRef.current) return;
+      if (document.visibilityState !== "visible") return;
       if (fetcher.state !== "idle") return;
 
-      isPollingRef.current = true;
       fetcher.load(`/api/messages/${conversationId}`);
-      isPollingRef.current = false;
     };
 
-    // Start polling
-    const intervalId = setInterval(poll, POLL_INTERVAL);
+    const onFocus = () => poll();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        poll();
+      }
+    };
+
+    poll();
+    const intervalId = setInterval(poll, FALLBACK_POLL_INTERVAL);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [conversationId, fetcher]);
+  }, [conversationId, fetcher, isConnected]);
 
   return {
     messages,
-    isConnected: true,
+    isConnected,
     setMessages,
   };
 }

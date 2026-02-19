@@ -7,27 +7,44 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   
   if (!user) {
-    return data({ unreadCount: 0 });
+    return data({
+      unreadCount: 0,
+      unreadMessages: 0,
+      unreadNotifications: 0,
+    });
   }
 
   const userId = (user as any).id as string;
 
-  const { data: conversations } = await supabaseAdmin
-    .from("conversations")
-    .select(`
-      id,
-      messages(id, sender_id, read_at)
-    `)
-    .or(`participant_1.eq.${userId},participant_2.eq.${userId}`);
+  const [convResult, notifResult] = await Promise.all([
+    supabaseAdmin
+      .from("conversations")
+      .select(`
+        id,
+        messages(id, sender_id, read_at)
+      `)
+      .or(`participant_1.eq.${userId},participant_2.eq.${userId}`),
+    supabaseAdmin
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .is("read_at", null),
+  ]);
 
-  let unreadCount = 0;
-  conversations?.forEach((conv: any) => {
+  let unreadMessages = 0;
+  convResult.data?.forEach((conv: any) => {
     conv.messages?.forEach((msg: any) => {
       if (msg.sender_id !== userId && !msg.read_at) {
-        unreadCount++;
+        unreadMessages++;
       }
     });
   });
 
-  return data({ unreadCount });
+  const unreadNotifications = notifResult.count || 0;
+
+  return data({
+    unreadCount: unreadMessages + unreadNotifications,
+    unreadMessages,
+    unreadNotifications,
+  });
 }
