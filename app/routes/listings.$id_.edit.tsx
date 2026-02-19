@@ -286,6 +286,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
 export default function EditListing() {
   const { user, listing, events, googlePlacesApiKey } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const actionErrorField =
+    actionData && "field" in actionData ? actionData.field : undefined;
+  const actionErrorMessage =
+    actionData && "error" in actionData ? actionData.error : undefined;
   const navigate = useNavigate();
 
   const listingData = listing as any;
@@ -493,7 +497,7 @@ export default function EditListing() {
                   <RoomTypeDropdown
                   value={roomType}
                   onChange={setRoomType}
-                  hasError={actionData?.field === "roomType"}
+                  hasError={actionErrorField === "roomType"}
                 />
 
                   <div className="mt-4">
@@ -706,12 +710,12 @@ export default function EditListing() {
             </div>
 
             {/* Error Message */}
-            {actionData?.error && (
+            {actionErrorMessage && (
               <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700 flex items-center gap-2">
                 <svg className="h-5 w-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                {actionData.error}
+                {actionErrorMessage}
               </div>
             )}
 

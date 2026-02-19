@@ -3,6 +3,7 @@ import { useLoaderData, useSearchParams, Form, useNavigate } from "react-router"
 import { useState, useRef, useEffect } from "react";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import type { ListingType } from "~/lib/database.types";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
@@ -27,7 +28,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select(
       `
       *,
-      author:profiles(id, full_name, company_name, user_type, is_verified),
+      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified),
       event:events(id, name, slug, country, event_date)
     `
     )
@@ -35,7 +36,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .order("created_at", { ascending: false });
 
   if (type && type !== "all") {
-    query = query.eq("listing_type", type);
+    const allowedTypes: ListingType[] = ["room", "bib", "room_and_bib"];
+    if (allowedTypes.includes(type as ListingType)) {
+      query = query.eq("listing_type", type as ListingType);
+    }
   }
 
   const { data: listings, error } = await query;

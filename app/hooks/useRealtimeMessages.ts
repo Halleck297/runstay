@@ -50,7 +50,7 @@ export function useRealtimeMessages({
   useEffect(() => {
     setMessages(initialMessages);
     previousMessageCountRef.current = initialMessages.length;
-  }, [conversationId]);
+  }, [conversationId, initialMessages]);
 
   // Sync with fetcher data when it returns
   useEffect(() => {

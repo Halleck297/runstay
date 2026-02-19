@@ -39,7 +39,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         check_out,
         status,
         created_at,
-        author:profiles(id, full_name, company_name, user_type, is_verified),
+        author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified),
         event:events(id, name, country, event_date)
       )
     `)

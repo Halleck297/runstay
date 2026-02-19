@@ -7,6 +7,9 @@ import { MobileNav } from "~/components/MobileNav";
 import "./styles/tailwind.css";
 
 export const links: LinksFunction = () => [
+  { rel: "icon", href: "/favicon.ico" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+  { rel: "apple-touch-icon-precomposed", href: "/apple-touch-icon-precomposed.png" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",

@@ -55,7 +55,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     supabaseAdmin.from("referrals").select("*", { count: "exact", head: true }),
     supabaseAdmin.from("listings").select("*", { count: "exact", head: true }).eq("status", "pending"),
     supabaseAdmin.from("profiles").select("id, full_name, email, user_type, role, is_verified, is_team_leader, created_at").order("created_at", { ascending: false }).limit(10),
-    supabaseAdmin.from("listings").select(`id, title, listing_type, status, created_at, author:profiles(full_name, email, company_name)`).order("created_at", { ascending: false }).limit(10),
+    supabaseAdmin.from("listings").select(`id, title, listing_type, status, created_at, author:profiles!listings_author_id_fkey(full_name, email, company_name)`).order("created_at", { ascending: false }).limit(10),
   ]);
 
   return {
@@ -117,6 +117,15 @@ const statusColors: Record<string, string> = {
   sold: "bg-gray-100 text-gray-600",
   expired: "bg-alert-100 text-alert-700",
 };
+
+function formatDateStable(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
 
 export default function AdminDashboard() {
   const { stats, recentUsers, recentListings } = useLoaderData<typeof loader>();
@@ -253,7 +262,7 @@ export default function AdminDashboard() {
                       {user.full_name || user.email}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {user.user_type === "tour_operator" ? "TO" : "Runner"} · {new Date(user.created_at).toLocaleDateString()}
+                      {user.user_type === "tour_operator" ? "TO" : "Runner"} · {formatDateStable(user.created_at)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -300,7 +309,7 @@ export default function AdminDashboard() {
                       {listing.title}
                     </p>
                     <p className="text-xs text-gray-500">
-                      by {listing.author?.company_name || listing.author?.full_name || listing.author?.email || "Unknown"} · {new Date(listing.created_at).toLocaleDateString()}
+                      by {listing.author?.company_name || listing.author?.full_name || listing.author?.email || "Unknown"} · {formatDateStable(listing.created_at)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

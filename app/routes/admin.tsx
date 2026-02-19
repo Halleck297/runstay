@@ -79,6 +79,13 @@ export default function AdminLayout() {
   const { admin, pendingCount } = useLoaderData<typeof loader>();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const adminFullName = (admin as any)?.full_name as string | null | undefined;
+  const adminEmail = (admin as any)?.email as string | null | undefined;
+  const adminRole = (admin as any)?.role as string | null | undefined;
+  const adminInitial =
+    adminFullName?.trim()?.charAt(0) ||
+    adminEmail?.trim()?.charAt(0)?.toUpperCase() ||
+    "?";
 
   function isActive(to: string, exact?: boolean) {
     if (exact) return location.pathname === to;
@@ -144,13 +151,13 @@ export default function AdminLayout() {
         <div className="p-4 border-t border-navy-700">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-sm font-bold">
-              {(admin as any).full_name?.charAt(0) || (admin as any).email.charAt(0).toUpperCase()}
+              {adminInitial}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium text-white truncate">
-                {(admin as any).full_name || (admin as any).email}
+                {adminFullName || adminEmail || "Admin"}
               </p>
-              <p className="text-xs text-navy-400 capitalize">{(admin as any).role}</p>
+              <p className="text-xs text-navy-400 capitalize">{adminRole || "admin"}</p>
             </div>
           </div>
           <Link

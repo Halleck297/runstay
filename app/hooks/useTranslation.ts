@@ -82,7 +82,7 @@ export function useTranslation({ userId, messages, enabled = true }: UseTranslat
           ...prev,
           [messageId]: {
             translatedContent: null,
-            detectedLanguage: message.detected_language,
+            detectedLanguage: message.detected_language ?? null,
             isLoading: false,
             error: null,
             showOriginal: false,

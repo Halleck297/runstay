@@ -4,6 +4,7 @@ import { data } from "react-router";
 import { useLoaderData, useActionData, useSearchParams, Form, Link } from "react-router";
 import { requireAdmin, logAdminAction, startImpersonation } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import type { ListingStatus, ListingType } from "~/lib/database.types";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Listings - Admin - Runoot" }];
@@ -22,7 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   let query = supabaseAdmin
     .from("listings")
     .select(
-      `*, author:profiles(id, full_name, email, company_name, user_type), event:events(id, name, country, event_date)`,
+      `*, author:profiles!listings_author_id_fkey(id, full_name, email, company_name, user_type), event:events(id, name, country, event_date)`,
       { count: "exact" }
     )
     .order("created_at", { ascending: false })
@@ -32,10 +33,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     query = query.or(`title.ilike.%${search}%`);
   }
   if (statusFilter) {
-    query = query.eq("status", statusFilter);
+    const allowedStatuses: ListingStatus[] = ["pending", "active", "sold", "expired", "rejected"];
+    if (allowedStatuses.includes(statusFilter as ListingStatus)) {
+      query = query.eq("status", statusFilter as ListingStatus);
+    }
   }
   if (typeFilter) {
-    query = query.eq("listing_type", typeFilter);
+    const allowedTypes: ListingType[] = ["room", "bib", "room_and_bib"];
+    if (allowedTypes.includes(typeFilter as ListingType)) {
+      query = query.eq("listing_type", typeFilter as ListingType);
+    }
   }
 
   const { data: listings, count } = await query;

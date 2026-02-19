@@ -4,6 +4,7 @@ import { data, redirect } from "react-router";
 import { useLoaderData, useActionData, useSearchParams, Form, Link } from "react-router";
 import { requireAdmin, logAdminAction, startImpersonation } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import type { UserRole, UserType } from "~/lib/database.types";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Users - Admin - Runoot" }];
@@ -29,10 +30,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company_name.ilike.%${search}%`);
   }
   if (typeFilter) {
-    query = query.eq("user_type", typeFilter);
+    const allowedUserTypes: UserType[] = ["tour_operator", "private"];
+    if (allowedUserTypes.includes(typeFilter as UserType)) {
+      query = query.eq("user_type", typeFilter as UserType);
+    }
   }
   if (roleFilter) {
-    query = query.eq("role", roleFilter);
+    const allowedRoles: UserRole[] = ["user", "admin", "superadmin"];
+    if (allowedRoles.includes(roleFilter as UserRole)) {
+      query = query.eq("role", roleFilter as UserRole);
+    }
   }
 
   const { data: users, count } = await query;

@@ -19,7 +19,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .from("listings")
     .select(`
       *,
-      author:profiles(id, full_name, company_name, user_type, is_verified),
+      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified),
       event:events(id, name, slug, country, event_date)
     `)
     .eq("id", id!)

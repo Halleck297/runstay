@@ -6,7 +6,7 @@ Runoot Exchange is a marketplace platform for tour operators and runners to exch
 
 ## Tech Stack
 
-- **Framework**: React Router v7 with Vite (migrated from Remix v2)
+- **Framework**: React Router v7 with Vite
 - **Language**: TypeScript
 - **Database**: Supabase (PostgreSQL)
 - **Auth**: Supabase Auth (email/password + Google OAuth)
@@ -15,8 +15,8 @@ Runoot Exchange is a marketplace platform for tour operators and runners to exch
 
 ## Key Architecture Decisions
 
-### Why React Router v7 (formerly Remix)
-The project was originally built with Remix v2. Remix was acquired by Shopify and has been merged into React Router v7 - they are essentially the same framework now. The architecture remains:
+### Why React Router v7
+The architecture is built around React Router v7 route modules:
 - Clearer mental model: `loader` = server data, `action` = form handling, component = UI
 - No "use client" confusion - boundaries are explicit
 - Easier debugging for non-programmers
@@ -245,7 +245,7 @@ SESSION_SECRET=random-32-char-string
 
 ## Important Notes for Claude
 
-1. **This is React Router v7, NOT Next.js** - Don't use Next.js patterns like `"use client"`, `getServerSideProps`, or `app/page.tsx` conventions. All imports come from `"react-router"`, not `"@remix-run/*"`.
+1. **This is React Router v7, NOT Next.js** - Don't use Next.js patterns like `"use client"`, `getServerSideProps`, or `app/page.tsx` conventions. Use React Router APIs and imports from `"react-router"`.
 
 2. **The owner is not a programmer** - Explain changes clearly, keep code simple and readable, avoid over-engineering.
 

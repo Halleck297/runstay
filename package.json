@@ -10,13 +10,12 @@
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev",
-    "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
+    "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.0.2",
-    "@react-router/fs-routes": "7.13.0",
     "@react-router/node": "7.13.0",
     "@react-router/serve": "7.13.0",
     "@supabase/supabase-js": "^2.47.0",
@@ -28,11 +27,16 @@
   },
   "devDependencies": {
     "@react-router/dev": "7.13.0",
+    "@react-router/fs-routes": "7.13.0",
     "@types/google.maps": "^3.58.1",
     "@types/react": "^18.2.20",
     "@types/react-datepicker": "^6.2.0",
     "@types/react-dom": "^18.2.7",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
     "autoprefixer": "^10.4.19",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.1.6",

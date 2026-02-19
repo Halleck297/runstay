@@ -8,6 +8,11 @@ import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
 
+const HERO_ROTATING_WORDS = [
+  { subject: "Rooms", subjectColor: "text-brand-200", verb: "Empty" },
+  { subject: "Bibs", subjectColor: "text-purple-300", verb: "Wasted" },
+];
+
 
 export const meta: MetaFunction = () => {
   return [
@@ -29,7 +34,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select(
       `
       *,
-      author:profiles(id, full_name, company_name, user_type, is_verified),
+      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified),
       event:events(id, name, slug, country, event_date)
     `
     )
@@ -70,10 +75,7 @@ export default function Index() {
     const [verbIndex, setVerbIndex] = useState(0);
     const [subjectAnimating, setSubjectAnimating] = useState(false);
     const [verbAnimating, setVerbAnimating] = useState(false);
-    const words = [
-      { subject: "Rooms", subjectColor: "text-brand-200", verb: "Empty" },
-      { subject: "Bibs", subjectColor: "text-purple-300", verb: "Wasted" },
-    ];
+    const words = HERO_ROTATING_WORDS;
 
     useEffect(() => {
       const interval = setInterval(() => {
@@ -96,7 +98,7 @@ export default function Index() {
         }, 900);
       }, 4000);
       return () => clearInterval(interval);
-    }, []);
+    }, [words.length]);
 
     // Filter events based on search query (min 2 chars)
     const filteredEvents = searchQuery.length >= 2

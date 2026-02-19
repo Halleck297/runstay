@@ -52,6 +52,9 @@ export interface Database {
           facebook: string | null;
           linkedin: string | null;
           website: string | null;
+          languages: string | null;
+          years_experience: number | null;
+          specialties: string | null;
           // Team Leader
           is_team_leader: boolean;
           referral_code: string | null;
@@ -88,6 +91,9 @@ export interface Database {
           facebook?: string | null;
           linkedin?: string | null;
           website?: string | null;
+          languages?: string | null;
+          years_experience?: number | null;
+          specialties?: string | null;
           is_team_leader?: boolean;
           referral_code?: string | null;
           tl_welcome_message?: string | null;
@@ -120,17 +126,22 @@ export interface Database {
           facebook?: string | null;
           linkedin?: string | null;
           website?: string | null;
+          languages?: string | null;
+          years_experience?: number | null;
+          specialties?: string | null;
           is_team_leader?: boolean;
           referral_code?: string | null;
           tl_welcome_message?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       events: {
         Row: {
           id: string;
           name: string;
           slug: string | null;
+          location: string | null;
           country: string;
           event_date: string;
           start_lat: number | null;
@@ -144,6 +155,7 @@ export interface Database {
           id?: string;
           name: string;
           slug?: string | null;
+          location?: string | null;
           country: string;
           event_date: string;
           start_lat?: number | null;
@@ -156,6 +168,7 @@ export interface Database {
         Update: {
           name?: string;
           slug?: string | null;
+          location?: string | null;
           country?: string;
           event_date?: string;
           start_lat?: number | null;
@@ -163,6 +176,7 @@ export interface Database {
           finish_lat?: number | null;
           finish_lng?: number | null;
         };
+        Relationships: [];
       };
 
             hotels: {
@@ -203,6 +217,7 @@ export interface Database {
           rating?: number | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
 
       listings: {
@@ -329,6 +344,7 @@ export interface Database {
   reviewed_by?: string | null;
   updated_at?: string;
 };
+        Relationships: [];
 
       };
             conversations: {
@@ -337,6 +353,7 @@ export interface Database {
           listing_id: string;
           participant_1: string;
           participant_2: string;
+          activated: boolean;
           deleted_by_1: boolean;
           deleted_by_2: boolean;
           created_at: string;
@@ -347,16 +364,19 @@ export interface Database {
           listing_id: string;
           participant_1: string;
           participant_2: string;
+          activated?: boolean;
           deleted_by_1?: boolean;
           deleted_by_2?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
+          activated?: boolean;
           deleted_by_1?: boolean;
           deleted_by_2?: boolean;
           updated_at?: string;
         };
+        Relationships: [];
       };
 
       messages: {
@@ -365,6 +385,7 @@ export interface Database {
           conversation_id: string;
           sender_id: string;
           content: string;
+          message_type: "user" | "system" | "heart";
           read_at: string | null;
           created_at: string;
           detected_language: string | null;
@@ -376,6 +397,7 @@ export interface Database {
           conversation_id: string;
           sender_id: string;
           content: string;
+          message_type?: "user" | "system" | "heart";
           read_at?: string | null;
           created_at?: string;
           detected_language?: string | null;
@@ -383,11 +405,13 @@ export interface Database {
           translated_to?: string | null;
         };
         Update: {
+          message_type?: "user" | "system" | "heart";
           read_at?: string | null;
           detected_language?: string | null;
           translated_content?: string | null;
           translated_to?: string | null;
         };
+        Relationships: [];
       };
             saved_listings: {
         Row: {
@@ -402,11 +426,12 @@ export interface Database {
           listing_id: string;
           created_at?: string;
         };
-        Delete: {
+        Update: {
           id?: string;
           user_id?: string;
           listing_id?: string;
         };
+        Relationships: [];
       };
              blocked_users: {
         Row: {
@@ -421,11 +446,12 @@ export interface Database {
           blocked_id: string;
           created_at?: string;
         };
-        Delete: {
+        Update: {
           id?: string;
           blocker_id?: string;
           blocked_id?: string;
         };
+        Relationships: [];
       };
       reports: {
         Row: {
@@ -456,6 +482,7 @@ export interface Database {
           status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
           updated_at?: string;
         };
+        Relationships: [];
       };
       admin_audit_log: {
         Row: {
@@ -482,6 +509,7 @@ export interface Database {
           target_listing_id?: string | null;
           details?: Json | null;
         };
+        Relationships: [];
       };
       referrals: {
         Row: {
@@ -503,6 +531,7 @@ export interface Database {
         Update: {
           status?: ReferralStatus;
         };
+        Relationships: [];
       };
       notifications: {
         Row: {
@@ -528,6 +557,7 @@ export interface Database {
         Update: {
           read_at?: string | null;
         };
+        Relationships: [];
       };
       tl_invite_tokens: {
         Row: {
@@ -552,8 +582,48 @@ export interface Database {
           used_by?: string | null;
           used_at?: string | null;
         };
+        Relationships: [];
+      };
+      contact_messages: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          name: string;
+          email: string;
+          subject: string | null;
+          message: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          name: string;
+          email: string;
+          subject?: string | null;
+          message: string;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          email?: string;
+          subject?: string | null;
+          message?: string;
+        };
+        Relationships: [];
       };
 
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
     };
   };
 }

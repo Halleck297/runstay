@@ -4,7 +4,7 @@ A marketplace for tour operators and runners to exchange unsold hotel rooms and 
 
 ## Tech Stack
 
-- **Framework**: Remix (React)
+- **Framework**: React Router v7 (React)
 - **Database**: Supabase (PostgreSQL)
 - **Auth**: Supabase Auth (Email + Google)
 - **Styling**: Tailwind CSS
@@ -153,7 +153,7 @@ runstay-exchange/
 - ✅ Verified badge for trusted sellers
 - ✅ Responsive design
 
-## Remix Basics
+## React Router Basics
 
 ### How Routes Work
 

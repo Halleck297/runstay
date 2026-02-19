@@ -15,7 +15,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const { data: listings, count } = await (supabaseAdmin as any)
     .from("listings")
     .select(
-      `*, author:profiles(id, full_name, email, company_name, user_type, is_verified),
+      `*, author:profiles!listings_author_id_fkey(id, full_name, email, company_name, user_type, is_verified),
        event:events(id, name, country, event_date)`,
       { count: "exact" }
     )
