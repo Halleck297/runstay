@@ -1,10 +1,10 @@
 // app/routes/tl-dashboard.tsx - Team Leader Dashboard
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { useLoaderData, useActionData, Form } from "react-router";
+import { useLoaderData, useActionData, Form, Link, useLocation, useNavigate } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "~/components/Header";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 
@@ -27,7 +27,19 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
+  const url = new URL(request.url);
   const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const reservedPerPageOptions = [5, 10, 20, 50];
+  const inviteSentRaw = Number(url.searchParams.get("inviteSent") || "0");
+  const inviteSent = Number.isFinite(inviteSentRaw) && inviteSentRaw > 0 ? Math.floor(inviteSentRaw) : 0;
+  const parsedReservedPerPage = Number(url.searchParams.get("reservedPerPage") || "5");
+  const reservedPerPage = reservedPerPageOptions.includes(parsedReservedPerPage) ? parsedReservedPerPage : 5;
+  const parsedReservedPage = Number(url.searchParams.get("reservedPage") || "1");
+  const requestedReservedPage = Number.isFinite(parsedReservedPage) && parsedReservedPage > 0
+    ? Math.floor(parsedReservedPage)
+    : 1;
+  const reservedView = url.searchParams.get("reservedView") === "linked" ? "linked" : "not_joined";
+  const reservedStatus = reservedView === "linked" ? "accepted" : "pending";
 
   if (!(user as any).is_team_leader) {
     throw redirect("/dashboard");
@@ -38,6 +50,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .from("referrals")
     .select("id, referral_code_used, status, created_at, referred_user_id")
     .eq("team_leader_id", (user as any).id)
+    .neq("referred_user_id", (user as any).id)
     .order("created_at", { ascending: false });
 
   // Fetch referred users' profiles
@@ -56,11 +69,33 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
 
+  const { count: reservedNotJoinedCount } = await (supabaseAdmin.from("referral_invites") as any)
+    .select("id", { count: "exact", head: true })
+    .eq("team_leader_id", (user as any).id)
+    .eq("status", "pending");
+
+  const { count: reservedLinkedCount } = await (supabaseAdmin.from("referral_invites") as any)
+    .select("id", { count: "exact", head: true })
+    .eq("team_leader_id", (user as any).id)
+    .eq("status", "accepted");
+
+  const { count: reservedTotalCount } = await (supabaseAdmin.from("referral_invites") as any)
+    .select("id", { count: "exact", head: true })
+    .eq("team_leader_id", (user as any).id)
+    .eq("status", reservedStatus);
+
+  const safeReservedTotalCount = reservedTotalCount || 0;
+  const reservedTotalPages = Math.max(1, Math.ceil(safeReservedTotalCount / reservedPerPage));
+  const reservedPage = Math.min(requestedReservedPage, reservedTotalPages);
+  const reservedFrom = (reservedPage - 1) * reservedPerPage;
+  const reservedTo = reservedFrom + reservedPerPage - 1;
+
   const { data: reservedEmails } = await (supabaseAdmin.from("referral_invites") as any)
     .select("id, email, status, created_at, claimed_at")
     .eq("team_leader_id", (user as any).id)
+    .eq("status", reservedStatus)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .range(reservedFrom, reservedTo);
 
   // Stats
   const totalReferrals = referrals?.length || 0;
@@ -102,6 +137,21 @@ export async function loader({ request }: LoaderFunctionArgs) {
     referrals: referrals || [],
     referredUsers,
     reservedEmails: reservedEmails || [],
+    reservedPagination: {
+      view: reservedView,
+      perPage: reservedPerPage,
+      page: reservedPage,
+      totalCount: safeReservedTotalCount,
+      totalPages: reservedTotalPages,
+      perPageOptions: reservedPerPageOptions,
+    },
+    reservedCounts: {
+      notJoined: reservedNotJoinedCount || 0,
+      linked: reservedLinkedCount || 0,
+    },
+    inviteResult: {
+      sent: inviteSent,
+    },
     stats: {
       totalReferrals,
       activeReferrals,
@@ -190,6 +240,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const now = new Date().toISOString();
       const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
       const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
+      const currentUserEmail = normalizeEmail(String((user as any).email || ""));
 
       const { data: existingInvites } = await (supabaseAdmin.from("referral_invites") as any)
         .select("id, email, team_leader_id, status")
@@ -229,6 +280,11 @@ export async function action({ request }: ActionFunctionArgs) {
       const warnings: string[] = [];
 
       for (const email of emails) {
+        if (email === currentUserEmail) {
+          skipped.push(`${email} (you cannot invite your own account)`);
+          continue;
+        }
+
         const invite = invitesByEmail.get(email);
         const existingProfile = profilesByEmail.get(email);
         const existingReferral = existingProfile ? referralsByUserId.get(existingProfile.id) : null;
@@ -315,15 +371,66 @@ export async function action({ request }: ActionFunctionArgs) {
         sentEmails += 1;
       }
 
-      const message = `Processed ${emails.length} emails: ${sentEmails} sent, ${autoLinked} auto-linked, ${skipped.length} skipped.`;
-      const warning = warnings.length > 0 || skipped.length > 0
-        ? [
-            skipped.length > 0 ? `Skipped: ${skipped.join("; ")}` : null,
-            warnings.length > 0 ? `Warnings: ${warnings.join("; ")}` : null,
-          ].filter(Boolean).join(" ")
-        : undefined;
+      if (sentEmails === 0 && autoLinked === 0) {
+        const details = [
+          skipped.length > 0 ? `Skipped: ${skipped.join("; ")}` : null,
+          warnings.length > 0 ? `Warnings: ${warnings.join("; ")}` : null,
+        ].filter(Boolean).join(" ");
+        return data({ error: details || "No invitations were sent." }, { status: 400 });
+      }
 
-      return data({ success: true, message, warning });
+      const redirectUrl = new URL(request.url);
+      redirectUrl.searchParams.set("inviteSent", String(sentEmails));
+      return redirect(`${redirectUrl.pathname}${redirectUrl.search}`);
+    }
+
+    case "resendInvite": {
+      const inviteId = String(formData.get("inviteId") || "").trim();
+      if (!inviteId) {
+        return data({ error: "Missing invite id." }, { status: 400 });
+      }
+
+      if (!(user as any).referral_code) {
+        return data({ error: "Missing referral code. Save your referral code first." }, { status: 400 });
+      }
+
+      const { data: invite } = await (supabaseAdmin.from("referral_invites") as any)
+        .select("id, email, status, team_leader_id")
+        .eq("id", inviteId)
+        .eq("team_leader_id", (user as any).id)
+        .maybeSingle();
+
+      if (!invite) {
+        return data({ error: "Invite not found." }, { status: 404 });
+      }
+
+      if (invite.status === "accepted") {
+        return data({ error: "This invite is already linked to a registered user." }, { status: 400 });
+      }
+
+      const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+      const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
+
+      const sendResult = await sendTemplatedEmail({
+        to: invite.email,
+        templateId: "referral_invite",
+        locale: (user as any).language || null,
+        payload: {
+          inviterName: (user as any).full_name || "Your Team Leader",
+          referralLink,
+          welcomeMessage: (user as any).tl_welcome_message,
+        },
+      });
+
+      if (!sendResult.ok) {
+        return data({ error: `Could not resend invitation: ${sendResult.error}` }, { status: 500 });
+      }
+
+      await (supabaseAdmin.from("referral_invites") as any)
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", invite.id);
+
+      return data({ success: true, message: `Invitation resent to ${invite.email}.` });
     }
 
     default:
@@ -332,10 +439,24 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function TLDashboard() {
-  const { user, appUrl, referrals, referredUsers, reservedEmails, stats, weeklyData } = useLoaderData<typeof loader>();
+  const {
+    user,
+    appUrl,
+    referrals,
+    referredUsers,
+    reservedEmails,
+    reservedPagination,
+    reservedCounts,
+    inviteResult,
+    stats,
+    weeklyData,
+  } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [inviteFields, setInviteFields] = useState(1);
+  const [inviteSuccessCount, setInviteSuccessCount] = useState<number | null>(null);
 
   const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
 
@@ -360,11 +481,56 @@ export default function TLDashboard() {
     pending: "Reserved",
     accepted: "Linked",
   };
+  const reservedBuildUrl = (updates: Record<string, string | number>) => {
+    const params = new URLSearchParams(location.search);
+    for (const [key, value] of Object.entries(updates)) {
+      params.set(key, String(value));
+    }
+    const query = params.toString();
+    return query ? `${location.pathname}?${query}` : location.pathname;
+  };
+
+  useEffect(() => {
+    if (!inviteResult?.sent) return;
+
+    setInviteSuccessCount(inviteResult.sent);
+    setInviteFields(1);
+
+    const params = new URLSearchParams(location.search);
+    params.delete("inviteSent");
+    const cleanQuery = params.toString();
+    navigate(cleanQuery ? `${location.pathname}?${cleanQuery}` : location.pathname, { replace: true });
+  }, [inviteResult?.sent, location.pathname, location.search, navigate]);
 
   return (
     <div className="min-h-full bg-gray-50">
       <Header user={user} />
       <main className="max-w-4xl mx-auto px-4 py-8 pb-24 md:pb-8">
+      {inviteSuccessCount !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-gray-200">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-success-100">
+              <svg className="h-6 w-6 text-success-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-center font-display text-lg font-semibold text-gray-900">Success</h3>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              {inviteSuccessCount === 1
+                ? "Invitation sent successfully."
+                : `Successfully sent ${inviteSuccessCount} invitations.`}
+            </p>
+            <button
+              type="button"
+              className="btn-primary rounded-full w-full mt-5"
+              onClick={() => setInviteSuccessCount(null)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Page header */}
       <div className="mb-8">
         <div className="mb-2">
@@ -381,17 +547,6 @@ export default function TLDashboard() {
           {(actionData as any).error}
         </div>
       )}
-      {actionData && "message" in actionData && (
-        <div className="mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm">
-          {(actionData as any).message}
-        </div>
-      )}
-      {actionData && "warning" in actionData && (actionData as any).warning && (
-        <div className="mb-4 p-3 rounded-lg bg-amber-50 text-amber-800 text-sm">
-          {(actionData as any).warning}
-        </div>
-      )}
-
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-gradient-to-br from-brand-600 to-brand-500 rounded-xl p-5 border border-brand-600 shadow-sm text-white">
@@ -518,7 +673,7 @@ export default function TLDashboard() {
               key={index}
               type="email"
               name={`inviteEmail${index}`}
-              placeholder={`lead${index + 1}@example.com`}
+              placeholder="runner@example.com"
               className="input"
               required={index === 0}
             />
@@ -554,6 +709,45 @@ export default function TLDashboard() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="font-display font-semibold text-gray-900">Reserved Emails</h2>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Link
+              to={reservedBuildUrl({ reservedView: "not_joined", reservedPage: 1 })}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                reservedPagination.view === "not_joined"
+                  ? "bg-brand-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              Not joined yet ({reservedCounts.notJoined})
+            </Link>
+            <Link
+              to={reservedBuildUrl({ reservedView: "linked", reservedPage: 1 })}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                reservedPagination.view === "linked"
+                  ? "bg-brand-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              Linked ({reservedCounts.linked})
+            </Link>
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-xs text-gray-600">
+            <span>Show</span>
+            {reservedPagination.perPageOptions.map((option: number) => (
+              <Link
+                key={option}
+                to={reservedBuildUrl({ reservedPerPage: option, reservedPage: 1 })}
+                className={`px-2.5 py-1 rounded-full ${
+                  reservedPagination.perPage === option
+                    ? "bg-brand-100 text-brand-700 font-medium"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {option}
+              </Link>
+            ))}
+            <span>per page</span>
+          </div>
         </div>
         <div className="divide-y divide-gray-100">
           {reservedEmails.length > 0 ? (
@@ -566,20 +760,58 @@ export default function TLDashboard() {
                     {invite.claimed_at ? ` · Claimed ${new Date(invite.claimed_at).toLocaleDateString()}` : ""}
                   </p>
                 </div>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
-                    invite.status === "accepted"
-                      ? "bg-success-100 text-success-700"
-                      : "bg-amber-100 text-amber-700"
-                  }`}
-                >
-                  {reservedStatusLabel[invite.status] || invite.status}
-                </span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      invite.status === "accepted"
+                        ? "bg-success-100 text-success-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {reservedStatusLabel[invite.status] || invite.status}
+                  </span>
+                  {invite.status !== "accepted" && (
+                    <Form method="post">
+                      <input type="hidden" name="_action" value="resendInvite" />
+                      <input type="hidden" name="inviteId" value={invite.id} />
+                      <button type="submit" className="btn-secondary rounded-full text-xs px-3 py-1.5">
+                        Resend invitation
+                      </button>
+                    </Form>
+                  )}
+                </div>
               </div>
             ))
           ) : (
-            <div className="p-6 text-sm text-gray-500">No reserved emails yet.</div>
+            <div className="p-6 text-sm text-gray-500">
+              {reservedPagination.view === "linked" ? "No linked emails yet." : "No pending reserved emails yet."}
+            </div>
           )}
+        </div>
+        <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600">
+          <span>
+            Page {reservedPagination.page} of {reservedPagination.totalPages} · {reservedPagination.totalCount} total
+          </span>
+          <div className="flex items-center gap-2">
+            <Link
+              to={reservedBuildUrl({ reservedPage: Math.max(1, reservedPagination.page - 1) })}
+              className={`px-2.5 py-1 rounded-full ${
+                reservedPagination.page <= 1 ? "bg-gray-100 text-gray-400 pointer-events-none" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              Prev
+            </Link>
+            <Link
+              to={reservedBuildUrl({ reservedPage: Math.min(reservedPagination.totalPages, reservedPagination.page + 1) })}
+              className={`px-2.5 py-1 rounded-full ${
+                reservedPagination.page >= reservedPagination.totalPages
+                  ? "bg-gray-100 text-gray-400 pointer-events-none"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              Next
+            </Link>
+          </div>
         </div>
       </div>
 

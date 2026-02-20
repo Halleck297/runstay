@@ -42,34 +42,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     return { status: "invalid" as const, teamLeader: null, alreadyLoggedIn: false, code };
   }
 
-  // If already logged in, check if already referred
+  // If already logged in, do not auto-link.
+  // TL invite flow is intended for new runner registrations.
   if (userId) {
     const { data: currentUserProfile } = await supabaseAdmin
       .from("profiles")
-      .select("email")
+      .select("email, user_type")
       .eq("id", userId)
       .maybeSingle();
 
-    const normalizedEmail = normalizeEmail((currentUserProfile as any)?.email || "");
-    const { data: emailInvite } = normalizedEmail
-      ? await (supabaseAdmin.from("referral_invites") as any)
-        .select("id, team_leader_id")
-        .eq("email", normalizedEmail)
-        .maybeSingle()
-      : { data: null as any };
-
-    let attributedTeamLeader: any = teamLeader;
-    if (emailInvite?.team_leader_id && emailInvite.team_leader_id !== (teamLeader as any).id) {
-      const { data: reservedTeamLeader } = await supabaseAdmin
-        .from("profiles")
-        .select("id, full_name, company_name, user_type, avatar_url, is_verified, referral_code, tl_welcome_message")
-        .eq("id", emailInvite.team_leader_id)
-        .maybeSingle();
-
-      if (reservedTeamLeader) {
-        attributedTeamLeader = reservedTeamLeader;
-      }
-    }
+    const nextPath = (currentUserProfile as any)?.user_type === "tour_operator" ? "/dashboard" : "/listings";
 
     const { data: existingRef } = await supabaseAdmin
       .from("referrals")
@@ -78,47 +60,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       .single();
 
     if (existingRef) {
-      return { status: "already_referred" as const, teamLeader, alreadyLoggedIn: true, code };
+      return { status: "already_referred" as const, teamLeader, alreadyLoggedIn: true, code, nextPath };
     }
-
-    // Link the user to the TL
-    await (supabaseAdmin.from("referrals") as any).insert({
-      team_leader_id: (attributedTeamLeader as any).id,
-      referred_user_id: userId,
-      referral_code_used: emailInvite ? "EMAIL_INVITE" : code,
-      status: "active",
-    });
-
-    if (emailInvite) {
-      await (supabaseAdmin.from("referral_invites") as any)
-        .update({
-          status: "accepted",
-          claimed_by: userId,
-          claimed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", emailInvite.id);
-    }
-
-    // Notify TL
-    const { data: referredUser } = await supabaseAdmin
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", userId)
-      .single();
-
-    await (supabaseAdmin.from("notifications") as any).insert({
-      user_id: (attributedTeamLeader as any).id,
-      type: "referral_signup",
-      title: "New referral!",
-      message: `${(referredUser as any)?.full_name || (referredUser as any)?.email || "Someone"} joined via your referral link.`,
-      data: { referred_user_id: userId, referral_code: emailInvite ? "EMAIL_INVITE" : code },
-    });
-
-    return { status: "linked" as const, teamLeader: attributedTeamLeader, alreadyLoggedIn: true, code };
+    return { status: "needs_new_registration" as const, teamLeader, alreadyLoggedIn: true, code, nextPath };
   }
 
-  return { status: "valid" as const, teamLeader, alreadyLoggedIn: false, code };
+  return { status: "valid" as const, teamLeader, alreadyLoggedIn: false, code, nextPath: "/listings" };
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -131,10 +78,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const fullName = formData.get("fullName") as string;
-  const userType = formData.get("userType") as string;
-  const companyName = formData.get("companyName") as string;
+  const userType = "private";
+  const companyName = null;
 
-  if (!email || !password || !fullName || !userType) {
+  if (!email || !password || !fullName) {
     return data({ error: "All fields are required" }, { status: 400 });
   }
 
@@ -170,7 +117,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       data: {
         full_name: fullName,
         user_type: userType,
-        company_name: userType === "tour_operator" ? companyName : null,
+        company_name: null,
       },
     },
   });
@@ -198,7 +145,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     email,
     full_name: fullName,
     user_type: userType,
-    company_name: userType === "tour_operator" && companyName ? companyName : null,
+    company_name: null,
     is_verified: false,
   });
 
@@ -234,16 +181,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
     data: { referred_user_id: authData.user.id, referral_code: emailInvite ? "EMAIL_INVITE" : code },
   });
 
+  const postSignupRedirect = "/listings";
+
   return createUserSession(
     authData.user.id,
     authData.session.access_token,
     authData.session.refresh_token,
-    "/dashboard"
+    postSignupRedirect
   );
 }
 
 export default function JoinReferral() {
-  const { status, teamLeader, code } = useLoaderData<typeof loader>();
+  const { status, teamLeader, code, nextPath } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
     | { error: string }
     | { success: boolean; emailConfirmationRequired: boolean; message: string }
@@ -280,32 +229,40 @@ export default function JoinReferral() {
             </svg>
           </div>
           <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">Already Connected</h1>
-          <p className="text-gray-500 mb-6">You're already connected to a Team Leader. Head to your dashboard!</p>
-          <Link to="/dashboard" className="btn-primary inline-block w-full py-3">
-            Go to Dashboard
+          <p className="text-gray-500 mb-6">You're already connected to a Team Leader.</p>
+          <Link to={nextPath} className="btn-primary inline-block w-full py-3">
+            {nextPath === "/dashboard" ? "Go to Dashboard" : "Browse Listings"}
           </Link>
         </div>
       </div>
     );
   }
 
-  // Just linked (logged-in user opened referral link)
-  if (status === "linked") {
+  // Logged-in users must create a new runner account for TL invite flow
+  if (status === "needs_new_registration") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
-          <div className="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-success-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">Welcome!</h1>
+          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">Create a new runner account</h1>
           <p className="text-gray-500 mb-6">
-            You've been connected to {(teamLeader as any)?.full_name || "your Team Leader"}'s community.
+            This invitation works only for new runner registrations. Log out and register a new runner account from this invite.
           </p>
-          <Link to="/dashboard" className="btn-primary inline-block w-full py-3">
-            Go to Dashboard
+          <Form method="post" action="/logout" className="mb-2">
+            <button type="submit" className="btn-primary inline-block w-full py-3">
+              Logout and continue
+            </button>
+          </Form>
+          <Link to={nextPath} className="btn-secondary inline-block w-full py-3">
+            Back
           </Link>
+          <p className="text-xs text-gray-400 mt-4">
+            Team Leader invitations are available for runner accounts only.
+          </p>
         </div>
       </div>
     );
@@ -395,35 +352,10 @@ export default function JoinReferral() {
                 <p className="mt-1 text-xs text-gray-500">At least 8 characters</p>
               </div>
 
-              <div>
-                <label className="label">I am a</label>
-                <div className="mt-2 grid grid-cols-2 gap-3">
-                  <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500">
-                    <input type="radio" name="userType" value="private" className="sr-only" defaultChecked />
-                    <span className="flex flex-1">
-                      <span className="flex flex-col">
-                        <span className="block text-sm font-medium text-gray-900">Runner</span>
-                        <span className="mt-1 text-xs text-gray-500">Individual runner</span>
-                      </span>
-                    </span>
-                  </label>
-                  <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500">
-                    <input type="radio" name="userType" value="tour_operator" className="sr-only" />
-                    <span className="flex flex-1">
-                      <span className="flex flex-col">
-                        <span className="block text-sm font-medium text-gray-900">Tour Operator</span>
-                        <span className="mt-1 text-xs text-gray-500">I sell packages</span>
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="companyName" className="label">
-                  Company name <span className="text-gray-400">(Tour Operators)</span>
-                </label>
-                <input id="companyName" name="companyName" type="text" className="input w-full" />
+              <input type="hidden" name="userType" value="private" />
+              <div className="rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-xs text-brand-700">
+                This invite creates a <strong>Runner</strong> account.
+                Tour Operator accounts can only be added by admins.
               </div>
 
               <button type="submit" className="btn-primary w-full py-3">

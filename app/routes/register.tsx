@@ -29,19 +29,17 @@ export async function action({ request }: ActionFunctionArgs) {
   const email = formData.get("email");
   const password = formData.get("password");
   const fullName = formData.get("fullName");
-  const userType = formData.get("userType");
-  const companyName = formData.get("companyName");
+  const userType = "private";
 
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
-    typeof fullName !== "string" ||
-    typeof userType !== "string"
+    typeof fullName !== "string"
   ) {
     return data({ error: "Invalid form submission" }, { status: 400 });
   }
 
-  if (!email || !password || !fullName || !userType) {
+  if (!email || !password || !fullName) {
     return data({ error: "All fields are required" }, { status: 400 });
   }
 
@@ -60,7 +58,7 @@ export async function action({ request }: ActionFunctionArgs) {
       data: {
         full_name: fullName,
         user_type: userType,
-        company_name: userType === "tour_operator" ? companyName : null,
+        company_name: null,
       },
     },
   });
@@ -91,8 +89,8 @@ export async function action({ request }: ActionFunctionArgs) {
     id: authData.user.id,
     email: email,
     full_name: fullName,
-    user_type: userType as "tour_operator" | "private",
-    company_name: userType === "tour_operator" && companyName ? (companyName as string) : null,
+    user_type: userType,
+    company_name: null,
     is_verified: false,
   } as any);
 
@@ -108,7 +106,7 @@ export async function action({ request }: ActionFunctionArgs) {
       .eq("email", normalizedEmail)
       .maybeSingle();
 
-    if (emailInvite) {
+    if (emailInvite && userType === "private") {
       const { data: existingReferral } = await supabaseAdmin
         .from("referrals")
         .select("id, team_leader_id")
@@ -281,60 +279,9 @@ export default function Register() {
               </p>
             </div>
 
-            <div>
-              <label className="label">I am a</label>
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500">
-                  <input
-                    type="radio"
-                    name="userType"
-                    value="tour_operator"
-                    className="sr-only"
-                    defaultChecked
-                  />
-                  <span className="flex flex-1">
-                    <span className="flex flex-col">
-                      <span className="block text-sm font-medium text-gray-900">
-                        Tour Operator
-                      </span>
-                      <span className="mt-1 text-xs text-gray-500">
-                        I sell marathon packages
-                      </span>
-                    </span>
-                  </span>
-                </label>
-                <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-brand-500 has-[:checked]:border-brand-500 has-[:checked]:ring-1 has-[:checked]:ring-brand-500">
-                  <input
-                    type="radio"
-                    name="userType"
-                    value="private"
-                    className="sr-only"
-                  />
-                  <span className="flex flex-1">
-                    <span className="flex flex-col">
-                      <span className="block text-sm font-medium text-gray-900">
-                        Private Runner
-                      </span>
-                      <span className="mt-1 text-xs text-gray-500">
-                        I'm an individual runner
-                      </span>
-                    </span>
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <div id="companyField">
-              <label htmlFor="companyName" className="label">
-                Company name{" "}
-                <span className="text-gray-400">(Tour Operators)</span>
-              </label>
-              <input
-                id="companyName"
-                name="companyName"
-                type="text"
-                className="input"
-              />
+            <input type="hidden" name="userType" value="private" />
+            <div className="rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-xs text-brand-700">
+              Standard signup creates a <strong>Runner</strong> account.
             </div>
 
             <div>
@@ -342,6 +289,13 @@ export default function Register() {
                 Create account
               </button>
             </div>
+
+            <p className="text-sm text-center text-gray-700">
+              Are you a tour operator, agency, organizer, or authorized reseller?{" "}
+              <Link to="/contact?subject=partnership" className="font-semibold text-brand-600 hover:text-brand-500">
+                Click here
+              </Link>
+            </p>
 
             <p className="text-xs text-gray-500 text-center">
               By signing up, you agree to our Terms of Service and Privacy

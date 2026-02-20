@@ -14,7 +14,10 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
-  return { user };
+  const url = new URL(request.url);
+  const requestedSubject = url.searchParams.get("subject");
+  const defaultSubject = requestedSubject === "partnership" ? "partnership" : "";
+  return { user, defaultSubject };
 }
 
 // Email validation regex
@@ -73,10 +76,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Contact() {
-  const { user } = useLoaderData<typeof loader>();
+  const { user, defaultSubject } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState(defaultSubject);
 
   const isSubmitting = navigation.state === "submitting";
 
