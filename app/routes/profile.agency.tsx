@@ -5,6 +5,7 @@ import { Form, useActionData, useLoaderData } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabase } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
+import { useI18n } from "~/hooks/useI18n";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Company Profile - runoot" }];
@@ -40,11 +41,11 @@ export async function action({ request }: ActionFunctionArgs) {
   const linkedin = formData.get("linkedin");
 
   if (typeof fullName !== "string" || !fullName) {
-    return data({ error: "Full name is required" }, { status: 400 });
+    return data({ errorKey: "full_name_required" as const }, { status: 400 });
   }
 
   if (typeof companyName !== "string" || !companyName) {
-    return data({ error: "Company name is required" }, { status: 400 });
+    return data({ errorKey: "company_name_required" as const }, { status: 400 });
   }
 
   const updateData: any = {
@@ -73,15 +74,28 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: error.message }, { status: 400 });
   }
 
-  return data({ success: true, message: "Profile updated successfully!" });
+  return data({ success: true, messageKey: "profile.success.profile_updated" as const });
 }
 
 export default function OperatorProfile() {
+  const { t } = useI18n();
   const { user } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
-    | { error: string }
-    | { success: boolean; message: string }
+    | { error: string; errorKey?: never }
+    | { errorKey: "full_name_required" | "company_name_required"; error?: never }
+    | { success: boolean; message: string; messageKey?: never }
+    | { success: boolean; messageKey: "profile.success.profile_updated"; message?: never }
     | undefined;
+  const successMessage =
+    actionData && "success" in actionData
+      ? ("messageKey" in actionData && actionData.messageKey ? t(actionData.messageKey) : actionData.message)
+      : "";
+  const errorMessage =
+    actionData && "errorKey" in actionData
+      ? t(`profile.agency.error.${actionData.errorKey}` as any)
+      : actionData && "error" in actionData
+      ? actionData.error
+      : "";
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -96,15 +110,15 @@ export default function OperatorProfile() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          <span className="text-sm font-medium">Back</span>
+          <span className="text-sm font-medium">{t("listings.back")}</span>
         </button>
 
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold text-gray-900">
-            Company Profile
+            {t("profile.agency.title")}
           </h1>
           <p className="mt-2 text-gray-600">
-            Manage your business information and build trust with buyers
+            {t("profile.agency.subtitle")}
           </p>
         </div>
 
@@ -112,26 +126,26 @@ export default function OperatorProfile() {
           <Form method="post" className="space-y-6">
             {actionData && "success" in actionData && actionData.success && (
               <div className="rounded-lg bg-success-50 p-4 text-sm text-success-700">
-                {"message" in actionData ? actionData.message : ""}
+                {successMessage}
               </div>
             )}
 
-            {actionData && "error" in actionData && actionData.error && (
+            {errorMessage && (
               <div className="rounded-lg bg-alert-50 p-4 text-sm text-alert-700">
-                {actionData.error}
+                {errorMessage}
               </div>
             )}
 
             {/* Account Info */}
             <div>
               <h2 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                Account Information
+                {t("profile.agency.account_info")}
               </h2>
               
               <div className="space-y-4">
                 <div>
                   <label htmlFor="email" className="label">
-                    Email address
+                    {t("profile.form.email_address")}
                   </label>
                   <input
                     id="email"
@@ -141,14 +155,14 @@ export default function OperatorProfile() {
                     className="input bg-gray-50 cursor-not-allowed"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Email cannot be changed
+                    {t("profile.agency.email_readonly")}
                   </p>
                 </div>
 
                 <div>
-                  <label className="label">Account type</label>
+                  <label className="label">{t("profile.form.account_type")}</label>
                   <div className="input bg-gray-50 cursor-not-allowed">
-                    Tour Operator
+                    {t("common.tour_operator")}
                   </div>
                 </div>
 
@@ -169,7 +183,7 @@ export default function OperatorProfile() {
                           />
                         </svg>
                         <span className="text-sm font-medium text-gray-900">
-                          Verified Company
+                          {t("profile.agency.verified_company")}
                         </span>
                       </>
                     ) : (
@@ -188,15 +202,15 @@ export default function OperatorProfile() {
                           />
                         </svg>
                         <span className="text-sm font-medium text-gray-900">
-                          Not Verified
+                          {t("dashboard.not_verified")}
                         </span>
                       </>
                     )}
                   </div>
                   <p className="mt-2 text-xs text-gray-600">
                     {user.is_verified
-                      ? "Your company has been verified. Buyers can trust your listings."
-                      : "Complete your profile and contact support to verify your company and gain buyer trust."}
+                      ? t("profile.agency.verified_help")
+                      : t("profile.agency.not_verified_help")}
                   </p>
                 </div>
               </div>
@@ -205,13 +219,13 @@ export default function OperatorProfile() {
             {/* Company Info */}
             <div className="pt-6 border-t border-gray-200">
               <h2 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                Company Information
+                {t("profile.agency.company_info")}
               </h2>
 
               <div className="space-y-4">
                 <div>
                   <label htmlFor="companyName" className="label">
-                    Company name *
+                    {t("profile.agency.company_name_required")}
                   </label>
                   <input
                     id="companyName"
@@ -225,7 +239,7 @@ export default function OperatorProfile() {
 
                 <div>
                   <label htmlFor="fullName" className="label">
-                    Contact person *
+                    {t("profile.agency.contact_person_required")}
                   </label>
                   <input
                     id="fullName"
@@ -239,7 +253,7 @@ export default function OperatorProfile() {
 
                 <div>
                   <label htmlFor="phone" className="label">
-                    Phone number
+                    {t("profile.form.phone_number")}
                   </label>
                   <input
                     id="phone"
@@ -253,7 +267,7 @@ export default function OperatorProfile() {
 
                 <div>
                   <label htmlFor="bio" className="label">
-                    Company description
+                    {t("profile.agency.company_description")}
                   </label>
                   <textarea
                     id="bio"
@@ -261,17 +275,17 @@ export default function OperatorProfile() {
                     rows={4}
                     className="input"
                     defaultValue={user.bio || ""}
-                    placeholder="Tell buyers about your company, experience, and services..."
+                    placeholder={t("profile.agency.company_description_placeholder")}
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Brief description visible to potential buyers
+                    {t("profile.agency.company_description_help")}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="country" className="label">
-                      Country
+                      {t("profile.form.country")}
                     </label>
                     <input
                       id="country"
@@ -279,12 +293,12 @@ export default function OperatorProfile() {
                       type="text"
                       className="input"
                       defaultValue={user.country || ""}
-                      placeholder="Italy"
+                      placeholder={t("profile.form.country_placeholder")}
                     />
                   </div>
                   <div>
                     <label htmlFor="city" className="label">
-                      City
+                      {t("profile.form.city")}
                     </label>
                     <input
                       id="city"
@@ -292,14 +306,14 @@ export default function OperatorProfile() {
                       type="text"
                       className="input"
                       defaultValue={user.city || ""}
-                      placeholder="Milan"
+                      placeholder={t("profile.form.city_placeholder")}
                     />
                   </div>
                 </div>
 
                 <div>
                   <label htmlFor="website" className="label">
-                    Company website
+                    {t("profile.agency.company_website")}
                   </label>
                   <input
                     id="website"
@@ -313,7 +327,7 @@ export default function OperatorProfile() {
 
                 <div>
                   <label htmlFor="languages" className="label">
-                    Languages spoken
+                    {t("profile.agency.languages_spoken")}
                   </label>
                   <input
                     id="languages"
@@ -321,10 +335,10 @@ export default function OperatorProfile() {
                     type="text"
                     className="input"
                     defaultValue={user.languages || ""}
-                    placeholder="Italian, English, Spanish"
+                    placeholder={t("profile.agency.languages_placeholder")}
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Separate with commas
+                    {t("profile.agency.languages_help")}
                   </p>
                 </div>
               </div>
@@ -333,13 +347,13 @@ export default function OperatorProfile() {
             {/* Business Details */}
             <div className="pt-6 border-t border-gray-200">
               <h2 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                Business Details
+                {t("profile.agency.business_details")}
               </h2>
 
               <div className="space-y-4">
                 <div>
                   <label htmlFor="yearsExperience" className="label">
-                    Years in business
+                    {t("profile.agency.years_business")}
                   </label>
                   <input
                     id="yearsExperience"
@@ -354,7 +368,7 @@ export default function OperatorProfile() {
 
                 <div>
                   <label htmlFor="specialties" className="label">
-                    Specialties / Services
+                    {t("profile.agency.specialties")}
                   </label>
                   <textarea
                     id="specialties"
@@ -362,7 +376,7 @@ export default function OperatorProfile() {
                     rows={3}
                     className="input"
                     defaultValue={user.specialties || ""}
-                    placeholder="Marathon packages, accommodation booking, group tours, race registration assistance..."
+                    placeholder={t("profile.agency.specialties_placeholder")}
                   />
                 </div>
               </div>
@@ -371,7 +385,7 @@ export default function OperatorProfile() {
             {/* Social Media */}
             <div className="pt-6 border-t border-gray-200">
               <h2 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                Social Media
+                {t("profile.social.title")}
               </h2>
 
               <div className="space-y-4">
@@ -396,7 +410,7 @@ export default function OperatorProfile() {
 
                 <div>
                   <label htmlFor="facebook" className="label">
-                    Facebook Page
+                    {t("profile.agency.facebook_page")}
                   </label>
                   <input
                     id="facebook"
@@ -410,7 +424,7 @@ export default function OperatorProfile() {
 
                 <div>
                   <label htmlFor="linkedin" className="label">
-                    LinkedIn Company Page
+                    {t("profile.agency.linkedin_company")}
                   </label>
                   <input
                     id="linkedin"
@@ -427,10 +441,10 @@ export default function OperatorProfile() {
             {/* Submit */}
             <div className="flex gap-4 pt-4 border-t border-gray-200">
               <button type="submit" className="btn-primary">
-                Save Changes
+                {t("profile.actions.save_changes")}
               </button>
               <a href="/dashboard" className="btn-secondary">
-                Cancel
+                {t("messages.cancel")}
               </a>
             </div>
           </Form>

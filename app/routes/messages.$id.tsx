@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useNavigation, useNavigate } from "react-router";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useRealtimeMessages } from "~/hooks/useRealtimeMessages";
@@ -125,7 +126,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const publicConversationId = params.id;
 
   if (!publicConversationId) {
-    return data({ error: "Conversation not found" }, { status: 404 });
+    return data({ errorKey: "conversation_not_found" as const }, { status: 404 });
   }
 
   const formData = await request.formData();
@@ -146,7 +147,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     (conversation.participant_1 !== userId &&
       conversation.participant_2 !== userId)
   ) {
-    return data({ error: "Unauthorized" }, { status: 403 });
+    return data({ errorKey: "unauthorized" as const }, { status: 403 });
   }
 
   const otherUserId = conversation.participant_1 === userId
@@ -163,7 +164,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     } as any);
 
     if (error && !error.message.includes("duplicate")) {
-      return data({ error: "Failed to block user" }, { status: 500 });
+      return data({ errorKey: "failed_block_user" as const }, { status: 500 });
     }
 
     return data({ success: true, action: "blocked" });
@@ -194,7 +195,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const content = formData.get("content");
 
   if (typeof content !== "string" || !content.trim()) {
-    return data({ error: "Message cannot be empty" }, { status: 400 });
+    return data({ errorKey: "empty_message" as const }, { status: 400 });
   }
 
   const { error } = await supabaseAdmin.from("messages").insert({
@@ -205,7 +206,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   } as any);
 
   if (error) {
-    return data({ error: "Failed to send message" }, { status: 500 });
+    return data({ errorKey: "failed_send_message" as const }, { status: 500 });
   }
 
   // If the listing owner is replying and conversation is not activated, activate it
@@ -223,6 +224,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function Conversation() {
+  const { t } = useI18n();
   const { user, conversation, isBlocked } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
@@ -308,6 +310,10 @@ export default function Conversation() {
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
   };
+  const errorMessage =
+    actionData && "errorKey" in actionData
+      ? t(`messages.error.${actionData.errorKey}` as any)
+      : null;
 
   return (
     <div className="flex-1 flex flex-col bg-white/95 backdrop-blur-sm md:rounded-r-lg overflow-hidden">
@@ -338,7 +344,7 @@ export default function Conversation() {
           {logoPath ? (
             <img
               src={logoPath}
-              alt={`${conversation.listing?.event?.name || 'Event'} logo`}
+              alt={`${conversation.listing?.event?.name || t("nav.event")} logo`}
               className="w-full h-full object-contain p-0.5"
               onError={() => {
                 // Try next format: png -> jpg -> webp -> null
@@ -356,7 +362,7 @@ export default function Conversation() {
 
         <div className="min-w-0 flex-1">
           <p className="font-medium text-gray-900 truncate flex items-center gap-1">
-            {otherUser?.company_name || otherUser?.full_name || "User"}
+            {otherUser?.company_name || otherUser?.full_name || t("messages.user")}
             {otherUser?.is_verified && (
               <svg
                 className="h-4 w-4 text-brand-500"
@@ -372,7 +378,7 @@ export default function Conversation() {
             )}
             {isBlocked && (
               <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full ml-2">
-                Blocked
+                {t("messages.blocked")}
               </span>
             )}
           </p>
@@ -413,7 +419,7 @@ export default function Conversation() {
                   <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                   </svg>
-                  {isBlocked ? "Unblock user" : "Block user"}
+                  {isBlocked ? t("messages.unblock_user") : t("messages.block_user")}
                 </button>
               </Form>
 
@@ -426,7 +432,7 @@ export default function Conversation() {
                 <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                Report
+                {t("messages.report")}
               </Link>
 
               <div className="border-t border-gray-100 my-1" />
@@ -443,7 +449,7 @@ export default function Conversation() {
                 <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                Delete conversation
+                {t("messages.delete_conversation")}
               </button>
             </div>
           )}
@@ -454,9 +460,9 @@ export default function Conversation() {
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-sm w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900">Delete conversation?</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{t("messages.delete_question")}</h3>
             <p className="mt-2 text-sm text-gray-600">
-              This conversation will be removed from your inbox. The other user will still be able to see it.
+              {t("messages.delete_text")}
             </p>
             <div className="mt-4 flex gap-3 justify-end">
               <button
@@ -464,12 +470,12 @@ export default function Conversation() {
                 onClick={() => setShowDeleteConfirm(false)}
                 className="btn-secondary"
               >
-                Cancel
+                {t("messages.cancel")}
               </button>
               <Form method="post">
                 <input type="hidden" name="intent" value="delete" />
                 <button type="submit" className="btn-primary bg-red-600 hover:bg-red-700">
-                  Delete
+                  {t("messages.delete")}
                 </button>
               </Form>
             </div>
@@ -534,10 +540,10 @@ export default function Conversation() {
                         </svg>
                       </div>
                       <p className="text-gray-800 font-medium">
-                        Your listing caught someone's eye
+                        {t("messages.listing_saved")}
                       </p>
                       <p className="text-gray-500 text-sm mt-1">
-                        This user saved your listing. Start a conversation.
+                        {t("messages.new_message")}
                       </p>
                     </div>
                   </div>
@@ -575,7 +581,7 @@ export default function Conversation() {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
                               </svg>
-                              <span>Translating...</span>
+                              <span>{t("messages.translating")}</span>
                             </div>
                           )}
                         </div>
@@ -624,8 +630,8 @@ export default function Conversation() {
                                 </svg>
                                 <span>
                                   {currentDisplayContent.showOriginal
-                                    ? "Show translation"
-                                    : "Auto-translated • Show original"
+                                    ? t("messages.show_translation")
+                                    : t("messages.show_original")
                                   }
                                 </span>
                               </button>
@@ -646,12 +652,12 @@ export default function Conversation() {
 
       {/* Campo risposta */}
       <div className="border-t border-gray-200 px-2 pt-4 pb-3 md:p-4 bg-white">
-        {actionData && "error" in actionData && (
-          <p className="text-sm text-red-600 mb-2">{actionData.error}</p>
+        {errorMessage && (
+          <p className="text-sm text-red-600 mb-2">{errorMessage}</p>
         )}
         {isBlocked ? (
           <p className="text-sm text-gray-500 text-center py-2">
-            You have blocked this user. Unblock to send messages.
+            {t("messages.blocked_send")}
           </p>
         ) : (
           <Form
@@ -669,7 +675,7 @@ export default function Conversation() {
             <textarea
               ref={textareaRef}
               name="content"
-              placeholder="Write a message... (Shift+Return for new line)"
+              placeholder={t("messages.write_placeholder")}
               autoComplete="off"
               required
               rows={1}

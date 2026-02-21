@@ -1,7 +1,15 @@
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
 import { Form, Link, useActionData } from "react-router";
+import { useI18n } from "~/hooks/useI18n";
 import { supabase } from "~/lib/supabase.server";
+
+type ForgotPasswordActionData = {
+  success?: boolean;
+  errorKey?: "invalid_email" | "reset_link_not_allowed" | "unable_send";
+  redirectTo?: string;
+  detail?: string;
+};
 
 export const meta: MetaFunction = () => {
   return [{ title: "Forgot Password - Runoot" }];
@@ -20,10 +28,9 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!email || !emailPattern.test(email)) {
-    return data({ error: "Please enter a valid email address." }, { status: 400 });
+    return data<ForgotPasswordActionData>({ errorKey: "invalid_email" }, { status: 400 });
   }
 
-  // Prefer explicit app URL in env to avoid proxy/host header mismatches.
   const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
   const redirectTo = `${appUrl}/reset-password`;
 
@@ -41,69 +48,69 @@ export async function action({ request }: ActionFunctionArgs) {
 
     const lowerMessage = (error.message || "").toLowerCase();
     if (lowerMessage.includes("redirect") || lowerMessage.includes("not allowed")) {
-      return data({
-        error: "Reset link URL not allowed. Add this URL in Supabase Auth Redirect URLs: " + redirectTo,
+      return data<ForgotPasswordActionData>({
+        errorKey: "reset_link_not_allowed",
+        redirectTo,
       }, { status: 400 });
     }
 
-    return data({
-      error: `Unable to send reset email right now. (${error.message})`,
+    return data<ForgotPasswordActionData>({
+      errorKey: "unable_send",
+      detail: error.message,
     }, { status: 400 });
   }
 
-  return data({
-    success: true,
-    message: "If an account exists for this email, you'll receive a password reset link shortly.",
-  });
+  return data<ForgotPasswordActionData>({ success: true });
 }
 
 export default function ForgotPassword() {
   const actionData = useActionData<typeof action>();
+  const { t } = useI18n();
 
   return (
-    <div className="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50">
+    <div className="flex min-h-full flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-center font-display text-3xl font-bold text-gray-900">
-          Reset your password
-        </h1>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Enter your email and we'll send you a reset link.
-        </p>
+        <h1 className="text-center font-display text-3xl font-bold text-gray-900">{t("auth.reset_password_title")}</h1>
+        <p className="mt-2 text-center text-sm text-gray-600">{t("auth.reset_password_subtitle")}</p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-sm rounded-xl sm:px-10 border border-gray-200">
-          {actionData && "success" in actionData && actionData.success ? (
-            <div className="rounded-lg bg-success-50 border border-success-200 p-4 text-sm text-success-700">
-              {actionData.message}
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-8 shadow-sm sm:px-10">
+          {actionData?.success ? (
+            <div className="rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-700">
+              {t("auth.reset_email_sent")}
             </div>
           ) : (
             <Form method="post" className="space-y-6">
-              {actionData && "error" in actionData && actionData.error && (
-                <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-                  {actionData.error}
+              {actionData?.errorKey && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {actionData.errorKey === "invalid_email" && t("auth.invalid_email")}
+                  {actionData.errorKey === "reset_link_not_allowed" && (
+                    <>
+                      {t("auth.reset_link_not_allowed")} {actionData.redirectTo}
+                    </>
+                  )}
+                  {actionData.errorKey === "unable_send" && (
+                    <>
+                      {t("auth.unable_send_reset")}
+                      {actionData.detail ? ` (${actionData.detail})` : ""}
+                    </>
+                  )}
                 </div>
               )}
               <div>
-                <label htmlFor="email" className="label">Email address</label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="input"
-                />
+                <label htmlFor="email" className="label">{t("auth.email")}</label>
+                <input id="email" name="email" type="email" autoComplete="email" required className="input" />
               </div>
               <button type="submit" className="btn-primary w-full">
-                Send reset link
+                {t("auth.send_reset_link")}
               </button>
             </Form>
           )}
 
           <div className="mt-6 text-center">
             <Link to="/login" className="text-sm font-medium text-brand-600 hover:text-brand-700">
-              Back to login
+              {t("auth.back_to_login")}
             </Link>
           </div>
         </div>

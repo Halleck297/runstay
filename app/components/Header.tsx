@@ -1,7 +1,11 @@
-import { Link, Form } from "react-router";
+import { Link, Form, useFetcher, useLocation } from "react-router";
 import { useEffect, useState, useRef } from "react";
 import type { Database } from "~/lib/database.types";
 import { useUnreadCount } from "~/hooks/useUnreadCount";
+import { useI18n } from "~/hooks/useI18n";
+import { LOCALE_LABELS } from "~/lib/locale";
+import type { SupportedLocale } from "~/lib/locale";
+import { LocaleSwitcher } from "~/components/LocaleSwitcher";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
   unreadCount?: number;
@@ -13,9 +17,13 @@ interface HeaderProps {
 }
 
 export function Header({ user }: HeaderProps) {
+  const { t } = useI18n();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>("en");
   const menuRef = useRef<HTMLDivElement>(null);
+  const localeFetcher = useFetcher<{ success?: boolean; locale?: string }>();
+  const location = useLocation();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -55,6 +63,38 @@ export function Header({ user }: HeaderProps) {
   });
   const hasAnyUnread = unreadMessages > 0;
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const htmlLang = document.documentElement.lang?.toLowerCase();
+    if (htmlLang && htmlLang in LOCALE_LABELS) {
+      setSelectedLocale(htmlLang as SupportedLocale);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (localeFetcher.state !== "idle" || !localeFetcher.data?.success) return;
+    if (typeof window === "undefined") return;
+
+    const localeCodes = Object.keys(LOCALE_LABELS);
+    const parts = location.pathname.split("/").filter(Boolean);
+    const hasLocalePrefix = parts.length > 0 && localeCodes.includes(parts[0]);
+    const strippedPath = hasLocalePrefix ? `/${parts.slice(1).join("/")}` : location.pathname;
+    const normalizedPath = strippedPath === "" ? "/" : strippedPath;
+    const localizedPath = `/${selectedLocale}${normalizedPath === "/" ? "" : normalizedPath}${location.search}`;
+    window.location.assign(localizedPath);
+  }, [localeFetcher.state, localeFetcher.data, location.pathname, location.search, selectedLocale]);
+
+  const handleLocaleChange = (locale: SupportedLocale) => {
+    setSelectedLocale(locale);
+    localeFetcher.submit(
+      {
+        locale,
+        redirectTo: `${location.pathname}${location.search}`,
+      },
+      { method: "post", action: "/api/locale" }
+    );
+  };
+
   return (
     <>
     <header className="hidden md:block sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
@@ -78,13 +118,13 @@ export function Header({ user }: HeaderProps) {
     to="/listings"
     className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
   >
-    Listings
+    {t("nav.listings")}
   </Link>
   <Link
     to="/contact"
     className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
   >
-    Contact
+    {t("nav.contact")}
   </Link>
 </nav>
 
@@ -92,6 +132,7 @@ export function Header({ user }: HeaderProps) {
 {user ? (
   <nav className="flex items-center">
     <div className="hidden md:flex items-center gap-6">
+      <LocaleSwitcher value={selectedLocale} onChange={handleLocaleChange} />
 
       {/* User menu dropdown - hidden on mobile, shown on desktop */}
 <div
@@ -139,7 +180,7 @@ export function Header({ user }: HeaderProps) {
     <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
     </svg>
-    <span className="flex-1">Dashboard</span>
+    <span className="flex-1">{t("nav.dashboard")}</span>
   </Link>
 )}
 
@@ -151,7 +192,7 @@ export function Header({ user }: HeaderProps) {
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                Profile
+                {t("nav.profile")}
               </Link>
 
               {/* My Listings - link condizionale */}
@@ -162,7 +203,7 @@ export function Header({ user }: HeaderProps) {
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
-                {user.user_type === "tour_operator" ? "My Listings" : "My Listing"}
+                {user.user_type === "tour_operator" ? t("nav.my_listings") : t("nav.my_listing")}
               </Link>
 
               <Link
@@ -173,7 +214,7 @@ export function Header({ user }: HeaderProps) {
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span className="flex-1">Messages</span>
+                <span className="flex-1">{t("nav.messages")}</span>
                 {/* Pallino rosso nel dropdown */}
                 {unreadMessages > 0 && (
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
@@ -190,20 +231,31 @@ export function Header({ user }: HeaderProps) {
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
-                Saved
+                {t("nav.saved")}
               </Link>
 
               {/* TL Dashboard - solo per Team Leaders */}
               {(user as any).is_team_leader && (
-                <Link
-                  to="/tl-dashboard"
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50"
-                >
-                  <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <span className="flex-1">TL Dashboard</span>
-                </Link>
+                <>
+                  <Link
+                    to="/tl-dashboard"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50"
+                  >
+                    <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span className="flex-1">{t("nav.tl_dashboard")}</span>
+                  </Link>
+                  <Link
+                    to="/tl-events"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-700 hover:bg-brand-50"
+                  >
+                    <svg className="h-5 w-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                    </svg>
+                    <span className="flex-1">{t("nav.new_event")}</span>
+                  </Link>
+                </>
               )}
 
               {/* Admin Dashboard - solo admin/superadmin */}
@@ -215,7 +267,7 @@ export function Header({ user }: HeaderProps) {
                   <svg className="h-5 w-5 text-alert-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15l8.66-5-8.66-5-8.66 5 8.66 5zm0 0v6m0-6L3.34 10M20.66 10L12 15" />
                   </svg>
-                  <span className="flex-1">Admin Dashboard</span>
+                  <span className="flex-1">{t("nav.admin_dashboard")}</span>
                 </Link>
               )}
 
@@ -231,7 +283,7 @@ export function Header({ user }: HeaderProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Settings
+                {t("nav.settings")}
               </Link>
 
               <Form method="post" action="/logout">
@@ -242,7 +294,7 @@ export function Header({ user }: HeaderProps) {
                   <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
-                  Logout
+                  {t("nav.logout")}
                 </button>
               </Form>
             </div>
@@ -250,25 +302,38 @@ export function Header({ user }: HeaderProps) {
         )}
       </div>
 
-      {/* Bottone New Listing - hidden on mobile */}
-      <Link
-        to="/listings/new"
-        className="btn-primary flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30 mr-6"
-      >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-        <span>New Listing</span>
-      </Link>
+      <div className="flex items-center gap-2 mr-6">
+        <Link
+          to="/listings/new"
+          className="btn-primary flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <span>{t("nav.new_listing")}</span>
+        </Link>
+        {(user as any)?.is_team_leader && (
+          <Link
+            to="/tl-events"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold bg-brand-600 text-white hover:bg-brand-700 shadow-lg shadow-brand-500/30"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>{t("nav.new_event")}</span>
+          </Link>
+        )}
+      </div>
     </div>
   </nav>
 ) : (
   <nav className="flex items-center gap-4">
+    <LocaleSwitcher value={selectedLocale} onChange={handleLocaleChange} />
     <Link to="/login" className="btn-secondary rounded-full">
-      Login
+      {t("nav.login")}
     </Link>
     <Link to="/register" className="btn-primary rounded-full shadow-lg shadow-accent-500/30">
-      Sign up
+      {t("nav.signup")}
     </Link>
   </nav>
 )}

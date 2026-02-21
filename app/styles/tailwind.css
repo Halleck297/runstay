@@ -33,7 +33,7 @@
   @media (max-width: 767px) {
     body {
       padding-top: 4rem;
-      padding-bottom: var(--mobile-nav-height);
+      padding-bottom: 0;
     }
   }
 

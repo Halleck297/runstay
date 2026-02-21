@@ -2,8 +2,10 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import { data, redirect } from "react-router";
 import { Form, useActionData, useLoaderData, Link, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
+import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
 import { Header } from "~/components/Header";
 import { EventPicker } from "~/components/EventPicker";
 import { HotelAutocomplete } from "~/components/HotelAutocomplete";
@@ -27,14 +29,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
 
   // Get the listing
-  const { data: listing, error } = await supabase
+  const listingQuery = supabase
     .from("listings")
     .select(`
       *,
       event:events(id, name, country, event_date)
-    `)
-    .eq("id", id!)
-    .single();
+    `);
+  const { data: listing, error } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
 
   if (error || !listing) {
     throw new Response("Listing not found", { status: 404 });
@@ -64,14 +65,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const { id } = params;
 
   // Verify ownership
-  const { data: existingListing } = await supabase
+  const existingListingQuery = supabase
     .from("listings")
-    .select("author_id")
-    .eq("id", id!)
-    .single();
+    .select("id, short_id, author_id");
+  const { data: existingListing } = await applyListingPublicIdFilter(existingListingQuery as any, id!).single();
 
   if (!existingListing || (existingListing as any).author_id !== (user as any).id) {
-    return data({ error: "Unauthorized" }, { status: 403 });
+    return data({ errorKey: "unauthorized" }, { status: 403 });
   }
 
   const formData = await request.formData();
@@ -113,7 +113,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   // Validation
   if (!listingType) {
-    return data({ error: "Please select a listing type" }, { status: 400 });
+    return data({ errorKey: "select_listing_type" }, { status: 400 });
   }
 
   // Validate user type limits
@@ -144,14 +144,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .single<{ id: string }>();
 
     if (eventError) {
-      return data({ error: "Failed to create event" }, { status: 400 });
+      return data({ errorKey: "failed_create_event" }, { status: 400 });
     }
 
     finalEventId = newEvent.id;
   }
 
   if (!finalEventId) {
-    return data({ error: "Please select or create an event" }, { status: 400 });
+    return data({ errorKey: "select_or_create_event" }, { status: 400 });
   }
 
   // Get event details for title
@@ -173,21 +173,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
     maxDate.setDate(maxDate.getDate() + 10);
 
     if (checkInDate < minDate || checkInDate > maxDate) {
-      return data({
-        error: "Check-in date must be within 10 days before or after the event date"
-      }, { status: 400 });
+      return data({ errorKey: "checkin_window" }, { status: 400 });
     }
 
     if (checkOutDate < minDate || checkOutDate > maxDate) {
-      return data({
-        error: "Check-out date must be within 10 days before or after the event date"
-      }, { status: 400 });
+      return data({ errorKey: "checkout_window" }, { status: 400 });
     }
 
     if (checkOutDate <= checkInDate) {
-      return data({
-        error: "Check-out date must be after check-in date"
-      }, { status: 400 });
+      return data({ errorKey: "checkout_after_checkin" }, { status: 400 });
     }
   }
 
@@ -230,7 +224,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
         if (hotelError || !newHotel) {
           console.error("Hotel creation error:", hotelError);
-          return data({ error: "Failed to create hotel" }, { status: 400 });
+          return data({ errorKey: "failed_create_hotel" }, { status: 400 });
         }
 
         finalHotelId = (newHotel as any).id;
@@ -273,14 +267,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
       associated_costs: associatedCosts ? parseFloat(associatedCosts) : null,
       cost_notes: costNotes || null,
     } as any)
-    .eq("id", id!);
+    .eq("id", (existingListing as any).id);
 
   if (error) {
     console.error("Listing update error:", error);
-    return data({ error: "Failed to update listing" }, { status: 400 });
+    return data({ errorKey: "failed_update_listing" }, { status: 400 });
   }
 
-  return redirect(`/listings/${id}`);
+  return redirect(`/listings/${getListingPublicId(existingListing as any)}`);
 }
 
 export default function EditListing() {
@@ -290,7 +284,23 @@ export default function EditListing() {
     actionData && "field" in actionData ? actionData.field : undefined;
   const actionErrorMessage =
     actionData && "error" in actionData ? actionData.error : undefined;
+  const actionErrorKey =
+    actionData && "errorKey" in actionData ? actionData.errorKey : undefined;
   const navigate = useNavigate();
+  const { t } = useI18n();
+  const resolvedActionErrorMessage = actionErrorKey
+    ? {
+        unauthorized: t("edit_listing.error.unauthorized"),
+        select_listing_type: t("edit_listing.error.select_listing_type"),
+        failed_create_event: t("edit_listing.error.failed_create_event"),
+        select_or_create_event: t("edit_listing.error.select_or_create_event"),
+        checkin_window: t("edit_listing.error.checkin_window"),
+        checkout_window: t("edit_listing.error.checkout_window"),
+        checkout_after_checkin: t("edit_listing.error.checkout_after_checkin"),
+        failed_create_hotel: t("edit_listing.error.failed_create_hotel"),
+        failed_update_listing: t("edit_listing.error.failed_update_listing"),
+      }[actionErrorKey as string]
+    : actionErrorMessage;
 
   const listingData = listing as any;
 
@@ -307,14 +317,14 @@ export default function EditListing() {
   useEffect(() => {
     const textarea = document.getElementById("description") as HTMLTextAreaElement;
     if (textarea && roomType === "other") {
-      textarea.setCustomValidity(textarea.value ? "" : "Required");
+      textarea.setCustomValidity(textarea.value ? "" : t("edit_listing.required_one_word"));
       const handleInput = () => {
-        textarea.setCustomValidity(textarea.value ? "" : "Required");
+        textarea.setCustomValidity(textarea.value ? "" : t("edit_listing.required_one_word"));
       };
       textarea.addEventListener("input", handleInput);
       return () => textarea.removeEventListener("input", handleInput);
     }
-  }, [roomType]);
+  }, [roomType, t]);
 
   // Date constraints
   const getDateConstraints = () => {
@@ -360,19 +370,19 @@ export default function EditListing() {
         <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
           <div className="mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-4 shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
             <Link
-              to={`/listings/${listingData.id}`}
+              to={`/listings/${getListingPublicId(listingData)}`}
               className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 underline"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Back to listing
+              {t("listings.back_to_listings")}
             </Link>
             <h1 className="font-display text-3xl font-bold text-gray-900">
-              Edit Listing
+              {t("listings.edit_listing")}
             </h1>
             <p className="mt-2 text-gray-600">
-              Update your listing details
+              {t("edit_listing.subtitle")}
             </p>
           </div>
 
@@ -380,7 +390,7 @@ export default function EditListing() {
           <Form method="post" className="space-y-8">
             {/* Listing Type */}
             <div>
-              <label className="label">What are you offering?</label>
+              <label className="label">{t("edit_listing.what_offering")}</label>
               <div className="mt-2 grid grid-cols-3 gap-3">
                 <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-blue-300 has-[:checked]:bg-blue-100 has-[:checked]:ring-2 has-[:checked]:ring-blue-500">
                   <input
@@ -395,7 +405,7 @@ export default function EditListing() {
                     <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
-                    <span className="mt-2 text-sm font-medium text-gray-900">Room Only</span>
+                    <span className="mt-2 text-sm font-medium text-gray-900">{t("edit_listing.room_only")}</span>
                   </span>
                 </label>
                 <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-purple-300 has-[:checked]:bg-purple-100 has-[:checked]:ring-2 has-[:checked]:ring-purple-500">
@@ -411,7 +421,7 @@ export default function EditListing() {
                     <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                     </svg>
-                    <span className="mt-2 text-sm font-medium text-gray-900">Bib Only</span>
+                    <span className="mt-2 text-sm font-medium text-gray-900">{t("edit_listing.bib_only")}</span>
                   </span>
                 </label>
                 <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-green-300 has-[:checked]:bg-green-100 has-[:checked]:ring-2 has-[:checked]:ring-green-500">
@@ -427,7 +437,7 @@ export default function EditListing() {
                     <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <span className="mt-2 text-sm font-medium text-gray-900">Room + Bib</span>
+                    <span className="mt-2 text-sm font-medium text-gray-900">{t("edit_listing.room_plus_bib")}</span>
                   </span>
                 </label>
               </div>
@@ -435,7 +445,7 @@ export default function EditListing() {
 
             {/* Event Selection */}
             <div>
-              <label className="label">Running Event</label>
+              <label className="label">{t("edit_listing.running_event")}</label>
               <EventPicker
                 events={events as any}
                 defaultEventId={listingData.event?.id}
@@ -449,10 +459,10 @@ export default function EditListing() {
             {/* Room Details */}
             {(listingType === "room" || listingType === "room_and_bib") && (
               <div className="space-y-4" id="roomFields">
-                <h3 className="font-medium text-gray-900 border-b pb-2">Room Details</h3>
+                <h3 className="font-medium text-gray-900 border-b pb-2">{t("edit_listing.room_details")}</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
-                    <label className="label">Hotel</label>
+                    <label className="label">{t("edit_listing.hotel")}</label>
                     <HotelAutocomplete
                       apiKey={googlePlacesApiKey}
                       eventCity={selectedEvent?.country}
@@ -465,9 +475,9 @@ export default function EditListing() {
                   <div></div>
                   <div>
                     <label htmlFor="roomCount" className="label">
-                      Number of rooms
+                      {t("edit_listing.number_rooms")}
                       {maxRooms !== null && (user as any).user_type === "tour_operator" && (
-                        <span className="text-xs text-gray-500 ml-2">(max {maxRooms} for your account)</span>
+                        <span className="text-xs text-gray-500 ml-2">({t("edit_listing.max_for_account")} {maxRooms})</span>
                       )}
                     </label>
                     {(user as any).user_type === "private" ? (
@@ -476,7 +486,7 @@ export default function EditListing() {
                           <div className={`flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "room" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
                             1
                           </div>
-                          <span className="text-sm text-gray-600">Private users can list<br />1 room only</span>
+                        <span className="text-sm text-gray-600">{t("edit_listing.private_room_limit")}</span>
                         </div>
                         <input type="hidden" name="roomCount" value="1" />
                       </>
@@ -488,7 +498,7 @@ export default function EditListing() {
                         min="1"
                         max={maxRooms || undefined}
                         defaultValue={listingData.room_count || ""}
-                        placeholder="e.g. 2"
+                        placeholder={t("edit_listing.example_two")}
                         className="input"
                       />
                     )}
@@ -501,11 +511,11 @@ export default function EditListing() {
                 />
 
                   <div className="mt-4">
-                    <label htmlFor="checkIn" className="label mb-3">Check-in</label>
+                    <label htmlFor="checkIn" className="label mb-3">{t("edit_listing.check_in")}</label>
                     <DatePicker
                       id="checkIn"
                       name="checkIn"
-                      placeholder="dd/mm/yyyy"
+                      placeholder={t("edit_listing.date_placeholder")}
                       defaultValue={listingData.check_in || undefined}
                       minDate={dateConstraints.min ? new Date(dateConstraints.min) : undefined}
                       maxDate={dateConstraints.max ? new Date(dateConstraints.max) : undefined}
@@ -513,17 +523,17 @@ export default function EditListing() {
                     />
                     {selectedEvent && (
                       <p className="mt-1 text-xs text-gray-500">
-                        Event date: {new Date(selectedEvent.event_date).toLocaleDateString()} (±7 days)
+                        {t("edit_listing.event_date")}: {new Date(selectedEvent.event_date).toLocaleDateString()} (±7 {t("edit_listing.days")})
                       </p>
                     )}
                   </div>
 
                   <div className="mt-4">
-                    <label htmlFor="checkOut" className="label mb-3">Check-out</label>
+                    <label htmlFor="checkOut" className="label mb-3">{t("edit_listing.check_out")}</label>
                     <DatePicker
                       id="checkOut"
                       name="checkOut"
-                      placeholder="dd/mm/yyyy"
+                      placeholder={t("edit_listing.date_placeholder")}
                       defaultValue={listingData.check_out || undefined}
                       minDate={checkInDate || (dateConstraints.min ? new Date(dateConstraints.min) : undefined)}
                       maxDate={dateConstraints.max ? new Date(dateConstraints.max) : undefined}
@@ -536,22 +546,21 @@ export default function EditListing() {
             {/* Bib Details */}
             {(listingType === "bib" || listingType === "room_and_bib") && (
               <div className="space-y-4" id="bibFields">
-                <h3 className="font-medium text-gray-900 border-b pb-2">Bib Transfer Details</h3>
+                <h3 className="font-medium text-gray-900 border-b pb-2">{t("edit_listing.bib_transfer_details")}</h3>
 
                 {(user as any).user_type === "private" && (
                   <div className={`rounded-lg p-4 ${listingType === "bib" ? "bg-purple-50 border border-purple-200" : "bg-green-50 border border-green-200"}`}>
                     <p className={`text-sm ${listingType === "bib" ? "text-purple-800" : "text-green-800"}`}>
-                      <strong>Important:</strong> runoot facilitates connections for legitimate
-                      bib transfers only. Direct sale of bibs may violate event regulations.
+                      <strong>{t("edit_listing.important")}:</strong> {t("edit_listing.private_bib_notice")}
                     </p>
                   </div>
                 )}
 
                 <div>
                   <label htmlFor="bibCount" className="label">
-                    Number of bibs
+                    {t("edit_listing.number_bibs")}
                     {maxBibs !== null && (user as any).user_type === "tour_operator" && (
-                      <span className="text-xs text-gray-500 ml-2">(max {maxBibs} for your account)</span>
+                        <span className="text-xs text-gray-500 ml-2">({t("edit_listing.max_for_account")} {maxBibs})</span>
                     )}
                   </label>
                   {(user as any).user_type === "private" ? (
@@ -560,7 +569,7 @@ export default function EditListing() {
                         <div className={`flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "bib" ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"}`}>
                           1
                         </div>
-                        <span className="text-sm text-gray-600">Private users can list 1 bib only</span>
+                        <span className="text-sm text-gray-600">{t("edit_listing.private_bib_limit")}</span>
                       </div>
                       <input type="hidden" name="bibCount" value="1" />
                     </>
@@ -572,7 +581,7 @@ export default function EditListing() {
                       min="1"
                       max={maxBibs || undefined}
                       defaultValue={listingData.bib_count || ""}
-                      placeholder="e.g. 1"
+                      placeholder={t("edit_listing.example_one")}
                       className="input w-full sm:w-48"
                     />
                   )}
@@ -580,16 +589,16 @@ export default function EditListing() {
 
                 <div>
                   <label htmlFor="transferType" className="label">
-                    Transfer Method <span className="text-red-500">*</span>
+                    {t("edit_listing.transfer_method")} <span className="text-red-500">*</span>
                   </label>
                   {(user as any).user_type === "private" ? (
                     <>
                       <div className="mt-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700">
-                        Official Organizer Name Change
+                        {t("edit_listing.official_transfer")}
                       </div>
                       <input type="hidden" name="transferType" value="official_process" />
                       <p className="mt-1 text-xs text-gray-500">
-                        How the bib will be transferred to the new participant
+                        {t("edit_listing.transfer_help")}
                       </p>
                     </>
                   ) : (
@@ -601,7 +610,7 @@ export default function EditListing() {
                         defaultValue={listingData.transfer_type || ""}
                         onChange={(e) => setTransferMethod(e.target.value as TransferMethod)}
                       >
-                        <option value="">Select transfer method</option>
+                        <option value="">{t("edit_listing.select_transfer_method")}</option>
                         {transferMethodOptions.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
@@ -609,7 +618,7 @@ export default function EditListing() {
                         ))}
                       </select>
                       <p className="mt-1 text-xs text-gray-500">
-                        How the bib will be transferred to the new participant
+                        {t("edit_listing.transfer_help")}
                       </p>
                     </>
                   )}
@@ -618,8 +627,7 @@ export default function EditListing() {
                 {visibleFields.showPackageInfo && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <p className="text-sm text-green-800">
-                      <strong>Package Transfer:</strong> The bib is included in your travel package.
-                      All costs are included in the package price.
+                      <strong>{t("edit_listing.package_transfer")}:</strong> {t("edit_listing.package_transfer_help")}
                     </p>
                   </div>
                 )}
@@ -629,9 +637,9 @@ export default function EditListing() {
             {/* Price */}
             {!((user as any).user_type === "private" && listingType === "bib") && (
               <div className="space-y-4">
-                <h3 className="font-medium text-gray-900 border-b pb-2">Price</h3>
+                <h3 className="font-medium text-gray-900 border-b pb-2">{t("edit_listing.price")}</h3>
                 <div>
-                  <label htmlFor="price" className="label mb-3">Amount</label>
+                  <label htmlFor="price" className="label mb-3">{t("edit_listing.amount")}</label>
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -639,7 +647,7 @@ export default function EditListing() {
                       name="price"
                       min="0"
                       step="0.01"
-                      placeholder="Empty = Contact for price"
+                      placeholder={t("edit_listing.empty_contact_price")}
                       className="input w-[205px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-sm placeholder:font-sans"
                       value={priceValue}
                       onChange={(e) => {
@@ -660,7 +668,7 @@ export default function EditListing() {
                 {priceValue && (listingType === "room" || listingType === "room_and_bib") && (
                   <div className="mt-4">
                     <input type="hidden" name="priceNegotiable" value={priceNegotiable === true ? "true" : "false"} />
-                    <span className="text-sm text-gray-700">Is the price negotiable?</span>
+                    <span className="text-sm text-gray-700">{t("edit_listing.price_negotiable")}</span>
                     <div className="flex gap-2 mt-2">
                       <button
                         type="button"
@@ -671,7 +679,7 @@ export default function EditListing() {
                             : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"
                         }`}
                       >
-                        Yes
+                        {t("edit_listing.yes")}
                       </button>
                       <button
                         type="button"
@@ -682,7 +690,7 @@ export default function EditListing() {
                             : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"
                         }`}
                       >
-                        No
+                        {t("edit_listing.no")}
                       </button>
                     </div>
                   </div>
@@ -693,9 +701,9 @@ export default function EditListing() {
             {/* Description */}
             <div>
               <label htmlFor="description" className="label">
-                {(user as any).user_type === "private" && listingType === "bib" ? "Notes" : "Additional details"}{" "}
+                {(user as any).user_type === "private" && listingType === "bib" ? t("edit_listing.notes") : t("edit_listing.additional_details")}{" "}
                 <span className={roomType === "other" ? "text-red-500" : "text-gray-400"}>
-                  {roomType === "other" ? "(required)" : "(optional)"}
+                  {roomType === "other" ? t("edit_listing.required") : t("edit_listing.optional")}
                 </span>
               </label>
               <textarea
@@ -703,7 +711,7 @@ export default function EditListing() {
                 name="description"
                 rows={4}
                 defaultValue={listingData.description || ""}
-                placeholder="Any other information runners should know..."
+                placeholder={t("edit_listing.additional_placeholder")}
                 className={`input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`}
                 required={roomType === "other"}
               />
@@ -715,14 +723,14 @@ export default function EditListing() {
                 <svg className="h-5 w-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                {actionErrorMessage}
+                {resolvedActionErrorMessage}
               </div>
             )}
 
             {/* Submit */}
             <div className="pt-4">
               <button type="submit" className="btn-primary w-full rounded-full">
-                Save Changes
+                {t("profile.actions.save_changes")}
               </button>
             </div>
           </Form>

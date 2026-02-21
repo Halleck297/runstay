@@ -12,7 +12,7 @@ export type UserRole = "user" | "admin" | "superadmin";
 export type ListingStatus = "pending" | "active" | "sold" | "expired" | "rejected";
 export type TransferType = "official_process" | "package" | "contact";
 export type Currency = "EUR" | "USD" | "GBP" | "JPY";
-export type ReferralStatus = "registered" | "active";
+export type ReferralStatus = "registered" | "active" | "inactive";
 export type NotificationType = "referral_signup" | "referral_active" | "tl_promoted" | "system" | "listing_approved" | "listing_rejected";
 // Estendi il tipo Profile con unreadCount (usato nel root loader)
 export type ProfileWithUnread = Database["public"]["Tables"]["profiles"]["Row"] & {
@@ -25,6 +25,7 @@ export interface Database {
       profiles: {
         Row: {
           id: string;
+          short_id: string;
           email: string;
           full_name: string | null;
           user_type: UserType;
@@ -59,6 +60,7 @@ export interface Database {
           is_team_leader: boolean;
           referral_code: string | null;
           tl_welcome_message: string | null;
+          last_login_at: string | null;
           // Admin tracking
           created_by_admin: string | null;
           created_at: string;
@@ -67,6 +69,7 @@ export interface Database {
 
         Insert: {
           id: string;
+          short_id?: string;
           email: string;
           full_name?: string | null;
           user_type?: UserType;
@@ -97,11 +100,13 @@ export interface Database {
           is_team_leader?: boolean;
           referral_code?: string | null;
           tl_welcome_message?: string | null;
+          last_login_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
+          short_id?: string;
           email?: string;
           full_name?: string | null;
           user_type?: UserType;
@@ -132,6 +137,7 @@ export interface Database {
           is_team_leader?: boolean;
           referral_code?: string | null;
           tl_welcome_message?: string | null;
+          last_login_at?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -140,9 +146,12 @@ export interface Database {
         Row: {
           id: string;
           name: string;
+          name_i18n: Json | null;
           slug: string | null;
           location: string | null;
+          location_i18n: Json | null;
           country: string;
+          country_i18n: Json | null;
           event_date: string;
           start_lat: number | null;
           start_lng: number | null;
@@ -154,9 +163,12 @@ export interface Database {
         Insert: {
           id?: string;
           name: string;
+          name_i18n?: Json | null;
           slug?: string | null;
           location?: string | null;
+          location_i18n?: Json | null;
           country: string;
+          country_i18n?: Json | null;
           event_date: string;
           start_lat?: number | null;
           start_lng?: number | null;
@@ -167,9 +179,12 @@ export interface Database {
         };
         Update: {
           name?: string;
+          name_i18n?: Json | null;
           slug?: string | null;
           location?: string | null;
+          location_i18n?: Json | null;
           country?: string;
+          country_i18n?: Json | null;
           event_date?: string;
           start_lat?: number | null;
           start_lng?: number | null;
@@ -184,8 +199,11 @@ export interface Database {
           id: string;
           place_id: string | null;
           name: string;
+          name_i18n: Json | null;
           city: string | null;
+          city_i18n: Json | null;
           country: string | null;
+          country_i18n: Json | null;
           website: string | null;
           lat: number | null;
           lng: number | null;
@@ -197,8 +215,11 @@ export interface Database {
           id?: string;
           place_id?: string | null;
           name: string;
+          name_i18n?: Json | null;
           city?: string | null;
+          city_i18n?: Json | null;
           country?: string | null;
+          country_i18n?: Json | null;
           website?: string | null;
           lat?: number | null;
           lng?: number | null;
@@ -209,8 +230,11 @@ export interface Database {
         Update: {
           place_id?: string | null;
           name?: string;
+          name_i18n?: Json | null;
           city?: string | null;
+          city_i18n?: Json | null;
           country?: string | null;
+          country_i18n?: Json | null;
           website?: string | null;
           lat?: number | null;
           lng?: number | null;
@@ -223,16 +247,22 @@ export interface Database {
       listings: {
   Row: {
     id: string;
+    short_id: string;
     author_id: string;
     event_id: string;
     listing_type: ListingType;
     title: string;
+    title_i18n: Json | null;
     description: string | null;
+    description_i18n: Json | null;
     hotel_name: string | null;
+    hotel_name_i18n: Json | null;
     hotel_website: string | null;
     hotel_place_id: string | null;
     hotel_city: string | null;
+    hotel_city_i18n: Json | null;
     hotel_country: string | null;
+    hotel_country_i18n: Json | null;
     hotel_stars: number | null;
     hotel_lat: number | null;
     hotel_lng: number | null;
@@ -267,17 +297,23 @@ export interface Database {
 
         Insert: {
   id?: string;
+  short_id?: string;
   author_id: string;
   event_id: string;
   listing_type: ListingType;
-  title: string;
-  description?: string | null;
-  hotel_name?: string | null;
+    title: string;
+    title_i18n?: Json | null;
+    description?: string | null;
+    description_i18n?: Json | null;
+    hotel_name?: string | null;
+    hotel_name_i18n?: Json | null;
   hotel_stars?: number | null;
   hotel_website?: string | null;
   hotel_place_id?: string | null;
-  hotel_city?: string | null;
-  hotel_country?: string | null;
+    hotel_city?: string | null;
+    hotel_city_i18n?: Json | null;
+    hotel_country?: string | null;
+    hotel_country_i18n?: Json | null;
   hotel_lat?: number | null; 
   hotel_lng?: number | null;
   hotel_rating?: number | null;
@@ -308,14 +344,20 @@ export interface Database {
 };
 
         Update: {
+  short_id?: string;
   listing_type?: ListingType;
-  title?: string;
-  description?: string | null;
-  hotel_name?: string | null;
+    title?: string;
+    title_i18n?: Json | null;
+    description?: string | null;
+    description_i18n?: Json | null;
+    hotel_name?: string | null;
+    hotel_name_i18n?: Json | null;
   hotel_website?: string | null;
   hotel_place_id?: string | null;
-  hotel_city?: string | null;
-  hotel_country?: string | null;
+    hotel_city?: string | null;
+    hotel_city_i18n?: Json | null;
+    hotel_country?: string | null;
+    hotel_country_i18n?: Json | null;
   hotel_lat?: number | null;
   hotel_lng?: number | null;
   hotel_rating?: number | null;
@@ -593,6 +635,8 @@ export interface Database {
           team_leader_id: string;
           email: string;
           status: "pending" | "accepted";
+          invite_type: "new_runner" | "existing_runner";
+          personal_message: string | null;
           claimed_by: string | null;
           claimed_at: string | null;
           created_at: string;
@@ -603,6 +647,8 @@ export interface Database {
           team_leader_id: string;
           email: string;
           status?: "pending" | "accepted";
+          invite_type?: "new_runner" | "existing_runner";
+          personal_message?: string | null;
           claimed_by?: string | null;
           claimed_at?: string | null;
           created_at?: string;
@@ -612,6 +658,8 @@ export interface Database {
           team_leader_id?: string;
           email?: string;
           status?: "pending" | "accepted";
+          invite_type?: "new_runner" | "existing_runner";
+          personal_message?: string | null;
           claimed_by?: string | null;
           claimed_at?: string | null;
           updated_at?: string;
@@ -642,6 +690,109 @@ export interface Database {
           email?: string;
           subject?: string | null;
           message?: string;
+        };
+        Relationships: [];
+      };
+      event_requests: {
+        Row: {
+          id: string;
+          team_leader_id: string;
+          status:
+            | "submitted"
+            | "quoting"
+            | "approved_for_event_draft"
+            | "draft_submitted"
+            | "published";
+          event_name: string;
+          event_location: string;
+          event_date: string;
+          request_type: "bib" | "hotel" | "package";
+          people_count: number;
+          public_note: string | null;
+          notes: string | null;
+          desired_deadline: string | null;
+          quote_summary: string | null;
+          selected_agency_name: string | null;
+          internal_admin_note: string | null;
+          tl_event_details: string | null;
+          published_listing_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_leader_id: string;
+          status?:
+            | "submitted"
+            | "quoting"
+            | "approved_for_event_draft"
+            | "draft_submitted"
+            | "published";
+          event_name: string;
+          event_location: string;
+          event_date: string;
+          request_type: "bib" | "hotel" | "package";
+          people_count: number;
+          public_note?: string | null;
+          notes?: string | null;
+          desired_deadline?: string | null;
+          quote_summary?: string | null;
+          selected_agency_name?: string | null;
+          internal_admin_note?: string | null;
+          tl_event_details?: string | null;
+          published_listing_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          team_leader_id?: string;
+          status?:
+            | "submitted"
+            | "quoting"
+            | "approved_for_event_draft"
+            | "draft_submitted"
+            | "published";
+          event_name?: string;
+          event_location?: string;
+          event_date?: string;
+          request_type?: "bib" | "hotel" | "package";
+          people_count?: number;
+          public_note?: string | null;
+          notes?: string | null;
+          desired_deadline?: string | null;
+          quote_summary?: string | null;
+          selected_agency_name?: string | null;
+          internal_admin_note?: string | null;
+          tl_event_details?: string | null;
+          published_listing_url?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_request_updates: {
+        Row: {
+          id: string;
+          event_request_id: string;
+          actor_id: string | null;
+          actor_role: string;
+          action: string;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_request_id: string;
+          actor_id?: string | null;
+          actor_role: string;
+          action: string;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          actor_role?: string;
+          action?: string;
+          note?: string | null;
         };
         Relationships: [];
       };

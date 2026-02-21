@@ -1,7 +1,7 @@
 // app/routes/admin.impersonate.tsx - Choose user to impersonate
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
-import { useLoaderData, useSearchParams, Form } from "react-router";
-import { requireAdmin, startImpersonation } from "~/lib/session.server";
+import { data, useActionData, useLoaderData, useSearchParams, Form } from "react-router";
+import { requireAdmin, startImpersonation, logAdminAction } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
 export const meta: MetaFunction = () => {
@@ -26,17 +26,82 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   const { data: users } = await query;
+  const userRows = users || [];
+  const userIds = userRows.map((u: any) => u.id).filter(Boolean);
 
-  return { admin, users: users || [] };
+  let mockIds = new Set<string>();
+  if (userIds.length > 0) {
+    const { data: mockRows } = await (supabaseAdmin as any)
+      .from("mock_accounts")
+      .select("user_id")
+      .in("user_id", userIds);
+    mockIds = new Set((mockRows || []).map((row: any) => String(row.user_id)));
+  }
+
+  const usersWithMockFlag = userRows.map((user: any) => ({
+    ...user,
+    is_mock: mockIds.has(String(user.id)),
+  }));
+
+  return { admin, users: usersWithMockFlag };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  await requireAdmin(request);
+  const admin = await requireAdmin(request);
   const formData = await request.formData();
+  const actionType = String(formData.get("_action") || "impersonate");
   const userId = formData.get("userId") as string;
 
   if (!userId) {
-    return { error: "No user selected" };
+    return data({ error: "No user selected" }, { status: 400 });
+  }
+
+  if (actionType === "deleteMock") {
+    const { data: targetUser } = await supabaseAdmin
+      .from("profiles")
+      .select("id, created_by_admin")
+      .eq("id", userId)
+      .single();
+
+    const { data: mockRow } = await (supabaseAdmin as any)
+      .from("mock_accounts")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!targetUser || !targetUser.created_by_admin || !mockRow?.user_id) {
+      return data({ error: "Only admin-created mock users can be deleted from here" }, { status: 403 });
+    }
+
+    const canDelete =
+      (admin as any).role === "superadmin" || (targetUser as any).created_by_admin === (admin as any).id;
+    if (!canDelete) {
+      return data({ error: "You can only delete your own mock users" }, { status: 403 });
+    }
+
+    await (supabaseAdmin.from("messages") as any).delete().eq("sender_id", userId);
+    await (supabaseAdmin.from("saved_listings") as any).delete().eq("user_id", userId);
+    await (supabaseAdmin.from("conversations") as any).delete().or(`participant_1.eq.${userId},participant_2.eq.${userId}`);
+    await (supabaseAdmin.from("listings") as any).delete().eq("author_id", userId);
+    await (supabaseAdmin.from("blocked_users") as any).delete().or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
+    await (supabaseAdmin.from("reports") as any).delete().eq("reporter_id", userId);
+    await (supabaseAdmin.from("admin_audit_log") as any).delete().or(`target_user_id.eq.${userId},admin_id.eq.${userId}`);
+    await (supabaseAdmin.from("tl_invite_tokens") as any).delete().or(`created_by.eq.${userId},used_by.eq.${userId}`);
+    await (supabaseAdmin.from("referral_invites") as any).delete().or(`team_leader_id.eq.${userId},claimed_by.eq.${userId}`);
+    const { error: profileDeleteError } = await (supabaseAdmin.from("profiles") as any).delete().eq("id", userId);
+    if (profileDeleteError) {
+      return data({ error: `Profile deletion failed: ${profileDeleteError.message}` }, { status: 500 });
+    }
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (authDeleteError && !/not found/i.test(authDeleteError.message || "")) {
+      return data({ error: `Auth deletion failed: ${authDeleteError.message}` }, { status: 500 });
+    }
+
+    await logAdminAction((admin as any).id, "mock_user_deleted", {
+      targetUserId: userId,
+    });
+
+    return data({ success: true, message: "Mock user deleted" });
   }
 
   // Server-side check: only allow impersonation of admin-created users
@@ -47,7 +112,7 @@ export async function action({ request }: ActionFunctionArgs) {
     .single();
 
   if (!targetUser || !(targetUser as any).created_by_admin) {
-    return { error: "You can only impersonate users created from the admin panel" };
+    return data({ error: "You can only impersonate users created from the admin panel" }, { status: 403 });
   }
 
   return startImpersonation(request, userId);
@@ -60,6 +125,7 @@ const userTypeLabels: Record<string, string> = {
 
 export default function AdminImpersonate() {
   const { admin, users } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const [searchParams] = useSearchParams();
 
   return (
@@ -90,6 +156,17 @@ export default function AdminImpersonate() {
       </div>
 
       {/* Search */}
+      {actionData && "error" in actionData && (
+        <div className="mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm">
+          {actionData.error}
+        </div>
+      )}
+      {actionData && "success" in actionData && actionData.success && (
+        <div className="mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm">
+          {(actionData as any).message || "Operation completed."}
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <Form method="get" className="flex gap-3">
           <input
@@ -128,6 +205,14 @@ export default function AdminImpersonate() {
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs text-gray-500">{user.email}</span>
+                    {Boolean((user as any).is_mock) && (
+                      <>
+                        <span className="text-xs text-gray-300">·</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                          Mock
+                        </span>
+                      </>
+                    )}
                     <span className="text-xs text-gray-300">·</span>
                     <span className="text-xs text-gray-500">{userTypeLabels[user.user_type]}</span>
                     {user.is_verified && (
@@ -147,19 +232,39 @@ export default function AdminImpersonate() {
               </div>
 
               {user.id !== (admin as any).id ? (
-                <Form method="post" className="flex-shrink-0 ml-4">
-                  <input type="hidden" name="userId" value={user.id} />
-                  <button
-                    type="submit"
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-navy-700 rounded-lg hover:bg-navy-800 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    Impersonate
-                  </button>
-                </Form>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                  <Form method="post">
+                    <input type="hidden" name="_action" value="impersonate" />
+                    <input type="hidden" name="userId" value={user.id} />
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-navy-700 rounded-lg hover:bg-navy-800 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Impersonate
+                    </button>
+                  </Form>
+                  {Boolean((user as any).is_mock) && (
+                    <Form
+                      method="post"
+                      onSubmit={(e) => {
+                        if (!confirm(`Delete mock user ${user.full_name || user.email}?`)) e.preventDefault();
+                      }}
+                    >
+                      <input type="hidden" name="_action" value="deleteMock" />
+                      <input type="hidden" name="userId" value={user.id} />
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </Form>
+                  )}
+                </div>
               ) : (
                 <span className="text-xs text-gray-400 flex-shrink-0 ml-4">You</span>
               )}

@@ -1,6 +1,8 @@
+import type { FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MetaFunction } from "react-router";
 import { Link, useNavigate } from "react-router";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useI18n } from "~/hooks/useI18n";
 import { getSupabaseBrowserClient } from "~/lib/supabase.client";
 
 export const meta: MetaFunction = () => {
@@ -11,6 +13,7 @@ type ResetState = "checking" | "ready" | "invalid" | "saving" | "success" | "err
 
 export default function ResetPassword() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const supabase = useMemo(() => (typeof window !== "undefined" ? getSupabaseBrowserClient() : null), []);
 
   const [state, setState] = useState<ResetState>("checking");
@@ -33,7 +36,7 @@ export default function ResetPassword() {
           const { error } = await client.auth.exchangeCodeForSession(window.location.href);
           if (error && mounted) {
             setState("invalid");
-            setMessage("This reset link is invalid or has expired.");
+            setMessage(t("auth.reset_link_invalid"));
             return;
           }
         }
@@ -49,7 +52,7 @@ export default function ResetPassword() {
           });
           if (error && mounted) {
             setState("invalid");
-            setMessage("This reset link is invalid or has expired.");
+            setMessage(t("auth.reset_link_invalid"));
             return;
           }
         }
@@ -60,13 +63,13 @@ export default function ResetPassword() {
             setState("ready");
           } else {
             setState("invalid");
-            setMessage("This reset link is invalid or has expired.");
+            setMessage(t("auth.reset_link_invalid"));
           }
         }
       } catch {
         if (mounted) {
           setState("invalid");
-          setMessage("Unable to validate reset link.");
+          setMessage(t("auth.unable_validate_reset_link"));
         }
       }
     }
@@ -76,7 +79,7 @@ export default function ResetPassword() {
     return () => {
       mounted = false;
     };
-  }, [supabase]);
+  }, [supabase, t]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -84,13 +87,13 @@ export default function ResetPassword() {
 
     if (password.length < 8) {
       setState("error");
-      setMessage("Password must be at least 8 characters.");
+      setMessage(t("auth.password_too_short"));
       return;
     }
 
     if (password !== confirmPassword) {
       setState("error");
-      setMessage("Passwords do not match.");
+      setMessage(t("auth.passwords_no_match"));
       return;
     }
 
@@ -100,13 +103,13 @@ export default function ResetPassword() {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       setState("error");
-      setMessage(error.message || "Failed to update password.");
+      setMessage(error.message || t("auth.failed_update_password"));
       return;
     }
 
     await supabase.auth.signOut();
     setState("success");
-    setMessage("Password updated successfully. Please sign in again.");
+    setMessage(t("auth.password_updated_success"));
 
     setTimeout(() => {
       navigate("/login");
@@ -114,35 +117,27 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50">
+    <div className="flex min-h-full flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-center font-display text-3xl font-bold text-gray-900">
-          Set new password
-        </h1>
+        <h1 className="text-center font-display text-3xl font-bold text-gray-900">{t("auth.set_new_password")}</h1>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-sm rounded-xl sm:px-10 border border-gray-200">
-          {state === "checking" && (
-            <p className="text-sm text-gray-600">Validating reset link...</p>
-          )}
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-8 shadow-sm sm:px-10">
+          {state === "checking" && <p className="text-sm text-gray-600">{t("auth.validating_reset_link")}</p>}
 
           {state === "invalid" && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-              {message}
-            </div>
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{message}</div>
           )}
 
           {(state === "ready" || state === "saving" || state === "error") && (
             <form onSubmit={handleSubmit} className="space-y-6">
               {message && state === "error" && (
-                <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-                  {message}
-                </div>
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{message}</div>
               )}
 
               <div>
-                <label htmlFor="password" className="label">New password</label>
+                <label htmlFor="password" className="label">{t("auth.new_password")}</label>
                 <input
                   id="password"
                   type="password"
@@ -156,7 +151,7 @@ export default function ResetPassword() {
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="label">Confirm password</label>
+                <label htmlFor="confirmPassword" className="label">{t("auth.confirm_password")}</label>
                 <input
                   id="confirmPassword"
                   type="password"
@@ -170,20 +165,18 @@ export default function ResetPassword() {
               </div>
 
               <button type="submit" className="btn-primary w-full" disabled={state === "saving"}>
-                {state === "saving" ? "Updating..." : "Update password"}
+                {state === "saving" ? t("auth.updating") : t("auth.update_password")}
               </button>
             </form>
           )}
 
           {state === "success" && (
-            <div className="rounded-lg bg-success-50 border border-success-200 p-4 text-sm text-success-700">
-              {message}
-            </div>
+            <div className="rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-700">{message}</div>
           )}
 
           <div className="mt-6 text-center">
             <Link to="/login" className="text-sm font-medium text-brand-600 hover:text-brand-700">
-              Back to login
+              {t("auth.back_to_login")}
             </Link>
           </div>
         </div>

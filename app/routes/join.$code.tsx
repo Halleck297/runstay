@@ -4,6 +4,7 @@ import { data, redirect } from "react-router";
 import { useLoaderData, useActionData, Form, Link } from "react-router";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { createUserSession, getUserId } from "~/lib/session.server";
+import { useI18n } from "~/hooks/useI18n";
 
 function normalizeEmail(value: string): string {
   return value
@@ -71,7 +72,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export async function action({ request, params }: ActionFunctionArgs) {
   const code = params.code as string;
   if (!code) {
-    return data({ error: "Invalid referral code" }, { status: 400 });
+    return data({ errorKey: "invalid_referral_code" as const }, { status: 400 });
   }
   const formData = await request.formData();
 
@@ -82,11 +83,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const companyName = null;
 
   if (!email || !password || !fullName) {
-    return data({ error: "All fields are required" }, { status: 400 });
+    return data({ errorKey: "all_fields_required" as const }, { status: 400 });
   }
 
   if (password.length < 8) {
-    return data({ error: "Password must be at least 8 characters" }, { status: 400 });
+    return data({ errorKey: "password_min" as const }, { status: 400 });
   }
 
   // Find the TL
@@ -98,7 +99,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .single();
 
   if (!teamLeader) {
-    return data({ error: "Invalid referral code" }, { status: 400 });
+    return data({ errorKey: "invalid_referral_code" as const }, { status: 400 });
   }
 
   const normalizedEmail = normalizeEmail(email);
@@ -127,7 +128,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   if (!authData.user) {
-    return data({ error: "Registration failed. Please try again." }, { status: 400 });
+    return data({ errorKey: "registration_failed" as const }, { status: 400 });
   }
 
   // Email confirmation required?
@@ -135,11 +136,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return data({
       success: true,
       emailConfirmationRequired: true,
-      message: "Please check your email to confirm your account before logging in.",
+      messageKey: "join_referral.check_email_body" as const,
     });
   }
 
   // Create profile
+  const now = new Date().toISOString();
   const { error: profileError } = await (supabaseAdmin.from("profiles") as any).insert({
     id: authData.user.id,
     email,
@@ -147,6 +149,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     user_type: userType,
     company_name: null,
     is_verified: false,
+    last_login_at: now,
   });
 
   if (profileError) {
@@ -166,8 +169,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .update({
         status: "accepted",
         claimed_by: authData.user.id,
-        claimed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        claimed_at: now,
+        updated_at: now,
       })
       .eq("id", emailInvite.id);
   }
@@ -192,11 +195,20 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function JoinReferral() {
+  const { t } = useI18n();
   const { status, teamLeader, code, nextPath } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
-    | { error: string }
-    | { success: boolean; emailConfirmationRequired: boolean; message: string }
+    | { error: string; errorKey?: never }
+    | { errorKey: "invalid_referral_code" | "all_fields_required" | "password_min" | "registration_failed"; error?: never }
+    | { success: boolean; emailConfirmationRequired: boolean; message: string; messageKey?: never }
+    | { success: boolean; emailConfirmationRequired: boolean; messageKey: "join_referral.check_email_body"; message?: never }
     | undefined;
+  const errorMessage =
+    actionData && "errorKey" in actionData
+      ? t(`join_referral.error.${actionData.errorKey}` as any)
+      : actionData && "error" in actionData
+      ? actionData.error
+      : null;
 
   // Invalid code
   if (status === "invalid") {
@@ -208,10 +220,10 @@ export default function JoinReferral() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">Invalid Referral Link</h1>
-          <p className="text-gray-500 mb-6">This referral link is not valid or the Team Leader no longer exists.</p>
+          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("join_referral.invalid_title")}</h1>
+          <p className="text-gray-500 mb-6">{t("join_referral.invalid_body")}</p>
           <Link to="/register" className="btn-primary inline-block w-full py-3">
-            Sign Up Normally
+            {t("join_referral.signup_normal")}
           </Link>
         </div>
       </div>
@@ -228,10 +240,10 @@ export default function JoinReferral() {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
           </div>
-          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">Already Connected</h1>
-          <p className="text-gray-500 mb-6">You're already connected to a Team Leader.</p>
+          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("join_referral.already_connected_title")}</h1>
+          <p className="text-gray-500 mb-6">{t("join_referral.already_connected_body")}</p>
           <Link to={nextPath} className="btn-primary inline-block w-full py-3">
-            {nextPath === "/dashboard" ? "Go to Dashboard" : "Browse Listings"}
+            {nextPath === "/dashboard" ? t("join_referral.go_dashboard") : t("join_referral.browse_listings")}
           </Link>
         </div>
       </div>
@@ -248,20 +260,20 @@ export default function JoinReferral() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">Create a new runner account</h1>
+          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("join_referral.new_runner_title")}</h1>
           <p className="text-gray-500 mb-6">
-            This invitation works only for new runner registrations. Log out and register a new runner account from this invite.
+            {t("join_referral.new_runner_body")}
           </p>
           <Form method="post" action="/logout" className="mb-2">
             <button type="submit" className="btn-primary inline-block w-full py-3">
-              Logout and continue
+              {t("join_referral.logout_continue")}
             </button>
           </Form>
           <Link to={nextPath} className="btn-secondary inline-block w-full py-3">
-            Back
+            {t("listings.back")}
           </Link>
           <p className="text-xs text-gray-400 mt-4">
-            Team Leader invitations are available for runner accounts only.
+            {t("join_referral.runner_only_note")}
           </p>
         </div>
       </div>
@@ -281,9 +293,9 @@ export default function JoinReferral() {
               {tl?.full_name?.charAt(0) || "T"}
             </span>
           </div>
-          <p className="text-sm text-gray-500 mb-1">You've been invited by</p>
+          <p className="text-sm text-gray-500 mb-1">{t("join_referral.invited_by")}</p>
           <h2 className="font-display text-xl font-bold text-gray-900">
-            {tl?.full_name || "Team Leader"}
+            {tl?.full_name || t("team_invite.team_leader")}
           </h2>
           {tl?.company_name && (
             <p className="text-sm text-gray-500">{tl.company_name}</p>
@@ -293,7 +305,7 @@ export default function JoinReferral() {
               <svg className="w-4 h-4 text-brand-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span className="text-xs text-brand-600 font-medium">Verified</span>
+              <span className="text-xs text-brand-600 font-medium">{t("dashboard.verified")}</span>
             </div>
           )}
           {tl?.tl_welcome_message && (
@@ -306,10 +318,10 @@ export default function JoinReferral() {
         {/* Registration form */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm py-8 px-4 sm:px-10">
           <h2 className="font-display text-2xl font-bold text-gray-900 text-center mb-2">
-            Join Runoot
+            {t("join_referral.join_title")}
           </h2>
           <p className="text-center text-sm text-gray-500 mb-6">
-            Create your free account to get started
+            {t("join_referral.join_subtitle")}
           </p>
 
           {/* Email confirmation message */}
@@ -320,52 +332,53 @@ export default function JoinReferral() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Check your email</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t("auth.check_email")}</h3>
               <p className="text-sm text-gray-600 mb-6">
-                {(actionData as any).message}
+                {"messageKey" in (actionData as any)
+                  ? t((actionData as any).messageKey)
+                  : (actionData as any).message}
               </p>
               <Link to="/login" className="btn-primary inline-block">
-                Go to login
+                {t("auth.go_to_login")}
               </Link>
             </div>
           ) : (
             <Form method="post" className="space-y-5">
-              {actionData && "error" in actionData && (
+              {errorMessage && (
                 <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-                  {(actionData as any).error}
+                  {errorMessage}
                 </div>
               )}
 
               <div>
-                <label htmlFor="fullName" className="label">Full name</label>
+                <label htmlFor="fullName" className="label">{t("profile.form.full_name")}</label>
                 <input id="fullName" name="fullName" type="text" autoComplete="name" required className="input w-full" />
               </div>
 
               <div>
-                <label htmlFor="email" className="label">Email address</label>
+                <label htmlFor="email" className="label">{t("auth.email")}</label>
                 <input id="email" name="email" type="email" autoComplete="email" required className="input w-full" />
               </div>
 
               <div>
-                <label htmlFor="password" className="label">Password</label>
+                <label htmlFor="password" className="label">{t("auth.password")}</label>
                 <input id="password" name="password" type="password" autoComplete="new-password" required minLength={8} className="input w-full" />
-                <p className="mt-1 text-xs text-gray-500">At least 8 characters</p>
+                <p className="mt-1 text-xs text-gray-500">{t("auth.password_min")}</p>
               </div>
 
               <input type="hidden" name="userType" value="private" />
               <div className="rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-xs text-brand-700">
-                This invite creates a <strong>Runner</strong> account.
-                Tour Operator accounts can only be added by admins.
+                {t("join_referral.runner_account_note")}
               </div>
 
               <button type="submit" className="btn-primary w-full py-3">
-                Create account
+                {t("join_referral.create_account")}
               </button>
 
               <p className="text-xs text-gray-500 text-center">
-                Already have an account?{" "}
+                {t("auth.have_account")}{" "}
                 <Link to="/login" className="font-medium text-brand-600 hover:text-brand-500">
-                  Sign in
+                  {t("auth.sign_in")}
                 </Link>
               </p>
             </Form>

@@ -1,4 +1,6 @@
 import { Link, useFetcher } from "react-router";
+import { getListingPublicId } from "~/lib/publicIds";
+import { useI18n } from "~/hooks/useI18n";
 
 const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
 
@@ -6,6 +8,7 @@ const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
 interface ListingCardCompactProps {
   listing: {
     id: string;
+    short_id?: string | null;
     listing_type: "room" | "bib" | "room_and_bib";
     hotel_name: string | null;
     room_count: number | null;
@@ -70,7 +73,8 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
 }
 
 export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false }: ListingCardCompactProps) {
-    const saveFetcher = useFetcher();
+  const { t } = useI18n();
+  const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData
     ? saveFetcher.formData.get("action") === "save"
     : isSaved;
@@ -123,7 +127,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
 
   return (
     <Link
-      to={isUserLoggedIn ? `/listings/${listing.id}` : "/login"}
+      to={isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login"}
       className={`${cardClass} relative`}
     >
       {/* Save button - absolute top right */}
@@ -209,7 +213,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
             <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className="font-medium">Race Day: {eventDateShort}</span>
+            <span className="font-medium">{t("listings.race_day")}: {eventDateShort}</span>
           </div>
         </div>
 

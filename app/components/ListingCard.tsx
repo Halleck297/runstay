@@ -1,9 +1,12 @@
 import { Link, useFetcher } from "react-router";
+import { getListingPublicId } from "~/lib/publicIds";
+import { useI18n } from "~/hooks/useI18n";
 
 
 interface ListingCardProps {
   listing: {
     id: string;
+    short_id?: string | null;
     title: string;
     listing_type: "room" | "bib" | "room_and_bib";
     hotel_name: string | null;
@@ -87,7 +90,8 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
 }
 
 export function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }: ListingCardProps) {
-    const saveFetcher = useFetcher();
+  const { t } = useI18n();
+  const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData
     ? saveFetcher.formData.get("action") === "save"
     : isSaved;
@@ -105,16 +109,16 @@ export function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }:
   // Sottotitolo dinamico basato sul tipo
 let subtitle = "";
 if (listing.listing_type === "bib") {
-  subtitle = listing.bib_count && listing.bib_count > 1
-    ? `${listing.bib_count} Bibs Available`
-    : "Bib Available";
+    subtitle = listing.bib_count && listing.bib_count > 1
+    ? `${listing.bib_count} Bibs`
+    : "Bib";
 } else if (listing.listing_type === "room") {
   const roomTypeText = listing.room_type ? formatRoomType(listing.room_type) : "Room";
   subtitle = listing.room_count && listing.room_count > 1
     ? `${listing.room_count} ${roomTypeText}s Available`
     : `${roomTypeText} Available`;
 } else {
-  subtitle = "Package Available (Room + Bib)";
+  subtitle = "Room + Bib";
 }
 
   // Determina badge e colore
@@ -140,7 +144,7 @@ if (listing.listing_type === "bib") {
 
   return (
     <Link
-      to={isUserLoggedIn ? `/listings/${listing.id}` : "/login"}
+      to={isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login"}
       className={cardClass}
     >
       {/* Sezione Immagine */}
@@ -170,7 +174,7 @@ if (listing.listing_type === "bib") {
           </span>
           {isLM && (
             <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 shadow-sm">
-              Last Minute
+              LM
             </span>
           )}
         </div>
@@ -233,7 +237,7 @@ if (listing.listing_type === "bib") {
         <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <span className="font-medium">Race Day: {eventDate}</span>
+        <span className="font-medium">{t("listings.race_day")}: {eventDate}</span>
       </div>
 
       {/* Content section - flex-grow to fill available space */}

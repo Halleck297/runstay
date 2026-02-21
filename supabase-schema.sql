@@ -19,6 +19,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations;
 -- Profiles (extends Supabase auth.users)
 CREATE TABLE public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  short_id TEXT GENERATED ALWAYS AS (substring(replace(id::text, '-', '') from 1 for 12)) STORED UNIQUE,
   email TEXT NOT NULL,
   full_name TEXT,
   user_type TEXT NOT NULL DEFAULT 'private' CHECK (user_type IN ('tour_operator', 'private')),
@@ -131,6 +132,7 @@ CREATE TABLE public.hotels (
 -- Listings
 CREATE TABLE public.listings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  short_id TEXT GENERATED ALWAYS AS (substring(replace(id::text, '-', '') from 1 for 12)) STORED UNIQUE,
   author_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   listing_type TEXT NOT NULL CHECK (listing_type IN ('room', 'bib', 'room_and_bib')),

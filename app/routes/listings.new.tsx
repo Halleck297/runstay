@@ -4,12 +4,16 @@ import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { getListingPublicId } from "~/lib/publicIds";
 import { Header } from "~/components/Header";
+import { ControlPanelLayout } from "~/components/ControlPanelLayout";
+import { tourOperatorNavItems } from "~/components/panelNav";
 import { EventPicker } from "~/components/EventPicker";
 import { HotelAutocomplete } from "~/components/HotelAutocomplete";
 import { DatePicker } from "~/components/DatePicker";
 import { RoomTypeDropdown } from "~/components/RoomTypeDropdown";
 import { CurrencyPicker } from "~/components/CurrencyPicker";
+import { useI18n } from "~/hooks/useI18n";
 import {
   getMaxLimit,
   getTransferMethodOptions,
@@ -87,7 +91,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Validation
   if (!listingType) {
-    return data({ error: "Please select a listing type" }, { status: 400 });
+    return data({ errorKey: "select_listing_type" as const }, { status: 400 });
   }
 
   // Validate user type limits
@@ -104,7 +108,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Validate event is selected
   if (!eventId) {
-    return data({ error: "Please select an event", field: "event" }, { status: 400 });
+    return data({ errorKey: "select_event" as const, field: "event" }, { status: 400 });
   }
 
   const finalEventId = eventId;
@@ -118,12 +122,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
       // Validate hotel is required for room listings
   if ((listingType === "room" || listingType === "room_and_bib") && !hotelName) {
-    return data({ error: "Please select or add a hotel", field: "hotel" }, { status: 400 });
+    return data({ errorKey: "select_or_add_hotel" as const, field: "hotel" }, { status: 400 });
   }
 
   // Validate room type is required for room listings
   if ((listingType === "room" || listingType === "room_and_bib") && !roomType) {
-    return data({ error: "Please select a room type", field: "roomType" }, { status: 400 });
+    return data({ errorKey: "select_room_type" as const, field: "roomType" }, { status: 400 });
   }
 
   // Validate check-in/check-out dates (±10 days from event)
@@ -141,21 +145,21 @@ export async function action({ request }: ActionFunctionArgs) {
     // Validate check-in
     if (checkInDate < minDate || checkInDate > maxDate) {
       return data({ 
-        error: "Check-in date must be within 10 days before or after the event date" 
+        errorKey: "checkin_window" as const
       }, { status: 400 });
     }
     
     // Validate check-out
     if (checkOutDate < minDate || checkOutDate > maxDate) {
       return data({ 
-        error: "Check-out date must be within 10 days before or after the event date" 
+        errorKey: "checkout_window" as const
       }, { status: 400 });
     }
     
     // Validate check-out is after check-in
     if (checkOutDate <= checkInDate) {
       return data({ 
-        error: "Check-out date must be after check-in date" 
+        errorKey: "checkout_after_checkin" as const
       }, { status: 400 });
     }
   }
@@ -204,7 +208,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
                 if (hotelError || !newHotel) {
           console.error("Hotel creation error:", hotelError);
-          return data({ error: "Failed to create hotel" }, { status: 400 });
+          return data({ errorKey: "failed_create_hotel" as const }, { status: 400 });
         }
 
         finalHotelId = (newHotel as any).id;
@@ -272,24 +276,30 @@ export async function action({ request }: ActionFunctionArgs) {
 
     status: "pending",
     }as any)
-    .select()
-    .single<{ id: string }>();
+    .select("id, short_id")
+    .single<{ id: string; short_id: string | null }>();
 
   if (error) {
     console.error("Listing creation error:", error);
-    return data({ error: "Failed to create listing" }, { status: 400 });
+    return data({ errorKey: "failed_create_listing" as const }, { status: 400 });
   }
 
-  return data({ success: true, listingId: listing.id });
+  return data({ success: true, listingId: getListingPublicId(listing as any) });
 }
 
 export default function NewListing() {
+  const { t } = useI18n();
   const { user, events, googlePlacesApiKey } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const actionErrorField =
     actionData && "field" in actionData ? actionData.field : undefined;
-  const actionErrorMessage =
-    actionData && "error" in actionData ? actionData.error : undefined;
+  const actionErrorMessage = (() => {
+    if (actionData && "errorKey" in actionData) {
+      return t(`create_listing.error.${actionData.errorKey}` as any);
+    }
+    if (actionData && "error" in actionData) return actionData.error;
+    return undefined;
+  })();
   const createdActionData =
     actionData && "success" in actionData && actionData.success && "listingId" in actionData
       ? actionData
@@ -319,14 +329,14 @@ export default function NewListing() {
 useEffect(() => {
   const textarea = document.getElementById("description") as HTMLTextAreaElement;
   if (textarea && roomType === "other") {
-    textarea.setCustomValidity(textarea.value ? "" : "Required");
+    textarea.setCustomValidity(textarea.value ? "" : t("edit_listing.required_one_word"));
     const handleInput = () => {
-      textarea.setCustomValidity(textarea.value ? "" : "Required");
+      textarea.setCustomValidity(textarea.value ? "" : t("edit_listing.required_one_word"));
     };
     textarea.addEventListener("input", handleInput);
     return () => textarea.removeEventListener("input", handleInput);
   }
-}, [roomType]);
+}, [roomType, t]);
 
   // Calcola date min/max basate sull'evento (±7 giorni)
   const getDateConstraints = () => {
@@ -360,10 +370,8 @@ useEffect(() => {
     listingType as "bib" | "room_and_bib"
   );
 
-  return (
-    <div className="min-h-full bg-gray-50">
-      <Header user={user} />
-
+  const pageBody = (
+    <>
       {/* Container con immagine di sfondo ai lati */}
       <div
         className="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed"
@@ -372,10 +380,10 @@ useEffect(() => {
         <main className="mx-auto max-w-2xl px-4 py-8 pb-8 md:pb-8 sm:px-6 lg:px-8">
           <div className="mb-6 md:mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-3 md:p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
             <h1 className="font-display text-xl md:text-3xl font-bold text-gray-900">
-              Create a Listing
+              {t("create_listing.title")}
             </h1>
             <p className="mt-1 md:mt-2 text-sm md:text-base text-gray-600">
-              Share your available rooms or bibs with the community
+              {t("create_listing.subtitle")}
             </p>
           </div>
 
@@ -383,7 +391,7 @@ useEffect(() => {
           <Form method="post" className="space-y-8" onSubmit={() => setFormSubmitted(true)}>
             {/* Listing Type */}
             <div>
-              <label className="label">What are you offering?</label>
+              <label className="label">{t("edit_listing.what_offering")}</label>
               <div className="mt-2 grid grid-cols-3 gap-3">
                 <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-blue-300 has-[:checked]:bg-blue-100 has-[:checked]:ring-2 has-[:checked]:ring-blue-500">
                   <input
@@ -409,7 +417,7 @@ useEffect(() => {
                       />
                     </svg>
                     <span className="mt-2 text-sm font-medium text-gray-900">
-                      Room Only
+                      {t("edit_listing.room_only")}
                     </span>
                   </span>
                 </label>
@@ -436,7 +444,7 @@ useEffect(() => {
                       />
                     </svg>
                     <span className="mt-2 text-sm font-medium text-gray-900">
-                      Bib Only
+                      {t("edit_listing.bib_only")}
                     </span>
                   </span>
                 </label>
@@ -463,7 +471,7 @@ useEffect(() => {
                       />
                     </svg>
                     <span className="mt-2 text-sm font-medium text-gray-900">
-                      Room + Bib
+                      {t("edit_listing.room_plus_bib")}
                     </span>
                   </span>
                 </label>
@@ -475,7 +483,7 @@ useEffect(() => {
             {/* Event Selection with Modal */}
             <div className="space-y-4">
               <h3 className="font-medium text-gray-900 border-b pb-2">
-                Running Event
+                {t("edit_listing.running_event")}
               </h3>
               <EventPicker
                 events={events as any}
@@ -491,11 +499,11 @@ useEffect(() => {
             {(listingType === "room" || listingType === "room_and_bib") && (
             <div className="space-y-4" id="roomFields">
               <h3 className="font-medium text-gray-900 border-b pb-2">
-                Room Details
+                {t("edit_listing.room_details")}
               </h3>
               <div className="grid gap-4 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
-                  <label className="label">Hotel</label>
+                  <label className="label">{t("edit_listing.hotel")}</label>
                                    <HotelAutocomplete
                     apiKey={googlePlacesApiKey}
                     eventCity={selectedEvent?.country}
@@ -511,9 +519,9 @@ useEffect(() => {
   <div> </div>              
                 <div>
                 <label htmlFor="roomCount" className="label mb-3">
-                   Number of rooms
+                   {t("edit_listing.number_rooms")}
                   {maxRooms !== null && user.user_type === "tour_operator" && (
-                  <span className="text-xs text-gray-500 ml-2">(max {maxRooms} for your account)</span>
+                  <span className="text-xs text-gray-500 ml-2">({t("edit_listing.max_for_account")} {maxRooms})</span>
                   )}
                   </label>
                   {user.user_type === "private" ? (
@@ -522,7 +530,7 @@ useEffect(() => {
                    <div className={`flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "room" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
                     1
                     </div>
-                    <span className="text-sm text-gray-600">Private users can list<br />1 room only</span>
+                    <span className="text-sm text-gray-600">{t("edit_listing.private_room_limit")}</span>
                    </div>
                    <input type="hidden" name="roomCount" value="1" />
                    </>
@@ -533,7 +541,7 @@ useEffect(() => {
                       name="roomCount"
                       min="1"
                       max={maxRooms || undefined}
-                    placeholder="e.g. 2"
+                    placeholder={t("edit_listing.example_two")}
                    className="input"
                   />
                    )}
@@ -547,31 +555,31 @@ useEffect(() => {
 
                 <div className="mt-4">
                   <label htmlFor="checkIn" className="label mb-3">
-                    Check-in
+                    {t("edit_listing.check_in")}
                   </label>
                   <DatePicker
                     id="checkIn"
                     name="checkIn"
-                    placeholder="dd/mm/yyyy"
+                    placeholder={t("edit_listing.date_placeholder")}
                     minDate={dateConstraints.min ? new Date(dateConstraints.min) : undefined}
                     maxDate={dateConstraints.max ? new Date(dateConstraints.max) : undefined}
                     onChange={(date) => setCheckInDate(date)}
                   />
                   {selectedEvent && (
                     <p className="mt-1 text-xs text-gray-500">
-                      Event date: {new Date(selectedEvent.event_date).toLocaleDateString()} (±7 days)
+                      {t("edit_listing.event_date")}: {new Date(selectedEvent.event_date).toLocaleDateString()} (±7 {t("edit_listing.days")})
                     </p>
                   )}
                 </div>
 
                 <div className="mt-4">
                   <label htmlFor="checkOut" className="label mb-3">
-                    Check-out
+                    {t("edit_listing.check_out")}
                   </label>
                   <DatePicker
                     id="checkOut"
                     name="checkOut"
-                    placeholder="dd/mm/yyyy"
+                    placeholder={t("edit_listing.date_placeholder")}
                     minDate={checkInDate || (dateConstraints.min ? new Date(dateConstraints.min) : undefined)}
                     maxDate={dateConstraints.max ? new Date(dateConstraints.max) : undefined}
                   />
@@ -583,24 +591,23 @@ useEffect(() => {
             {(listingType === "bib" || listingType === "room_and_bib") && (
 <div className="space-y-4" id="bibFields">
   <h3 className="font-medium text-gray-900 border-b pb-2">
-    Bib Transfer Details
+    {t("edit_listing.bib_transfer_details")}
   </h3>
   
   {/* Disclaimer - solo per utenti privati */}
   {user.user_type === "private" && (
     <div className={`rounded-lg p-4 ${listingType === "bib" ? "bg-purple-50 border border-purple-200" : "bg-green-50 border border-green-200"}`}>
       <p className={`text-sm ${listingType === "bib" ? "text-purple-800" : "text-green-800"}`}>
-        <strong>Important:</strong> runoot facilitates connections for legitimate
-        bib transfers only. Direct sale of bibs may violate event regulations.
+        <strong>{t("edit_listing.important")}:</strong> {t("edit_listing.private_bib_notice")}
       </p>
     </div>
   )}
   
   <div>
   <label htmlFor="bibCount" className="label">
-    Number of bibs
+    {t("edit_listing.number_bibs")}
     {maxBibs !== null && user.user_type === "tour_operator" && (
-      <span className="text-xs text-gray-500 ml-2">(max {maxBibs} for your account)</span>
+      <span className="text-xs text-gray-500 ml-2">({t("edit_listing.max_for_account")} {maxBibs})</span>
     )}
   </label>
   {user.user_type === "private" ? (
@@ -609,7 +616,7 @@ useEffect(() => {
         <div className={`flex h-12 w-12 items-center justify-center rounded-lg font-bold text-2xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] ${listingType === "bib" ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"}`}>
           1
         </div>
-        <span className="text-sm text-gray-600">Private users can list 1 bib only</span>
+        <span className="text-sm text-gray-600">{t("edit_listing.private_bib_limit")}</span>
       </div>
       <input type="hidden" name="bibCount" value="1" />
     </>
@@ -620,7 +627,7 @@ useEffect(() => {
       name="bibCount"
       min="1"
       max={maxBibs || undefined}
-      placeholder="e.g. 1"
+      placeholder={t("edit_listing.example_one")}
       className="input w-full sm:w-48"
     />
   )}
@@ -629,16 +636,16 @@ useEffect(() => {
   
     <div>
     <label htmlFor="transferType" className="label">
-      Transfer Method <span className="text-red-500">*</span>
+      {t("edit_listing.transfer_method")} <span className="text-red-500">*</span>
     </label>
     {user.user_type === "private" ? (
       <>
         <div className="mt-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700">
-          Official Organizer Name Change
+          {t("edit_listing.official_transfer")}
         </div>
         <input type="hidden" name="transferType" value="official_process" />
         <p className="mt-1 text-xs text-gray-500">
-          How the bib will be transferred to the new participant
+          {t("edit_listing.transfer_help")}
         </p>
       </>
     ) : (
@@ -649,7 +656,7 @@ useEffect(() => {
           className="input"
           onChange={(e) => setTransferMethod(e.target.value as TransferMethod)}
         >
-          <option value="">Select transfer method</option>
+          <option value="">{t("edit_listing.select_transfer_method")}</option>
           {transferMethodOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -657,7 +664,7 @@ useEffect(() => {
           ))}
         </select>
         <p className="mt-1 text-xs text-gray-500">
-          How the bib will be transferred to the new participant
+          {t("edit_listing.transfer_help")}
         </p>
       </>
     )}
@@ -668,7 +675,7 @@ useEffect(() => {
   {visibleFields.showAssociatedCosts && (
     <div>
       <label htmlFor="associatedCosts" className="label">
-        Associated Costs (€) <span className="text-gray-400">(optional)</span>
+        {t("create_listing.associated_costs")} <span className="text-gray-400">{t("edit_listing.optional")}</span>
       </label>
       <input
         type="number"
@@ -676,11 +683,11 @@ useEffect(() => {
         name="associatedCosts"
         min="0"
         step="0.01"
-        placeholder="e.g. 50"
+        placeholder={t("create_listing.example_fifty")}
         className="input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       <p className="mt-1 text-xs text-gray-500">
-        Official name change fee from the event organizer (if applicable)
+        {t("create_listing.associated_costs_help")}
       </p>
     </div>
   )}
@@ -689,8 +696,7 @@ useEffect(() => {
   {visibleFields.showPackageInfo && (
     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
       <p className="text-sm text-green-800">
-        <strong>Package Transfer:</strong> The bib is included in your travel package.
-        All costs are included in the package price.
+        <strong>{t("edit_listing.package_transfer")}:</strong> {t("edit_listing.package_transfer_help")}
       </p>
     </div>
   )}
@@ -701,11 +707,11 @@ useEffect(() => {
             {!(user.user_type === "private" && listingType === "bib") && (
               <div className="space-y-4">
                 <h3 className="font-medium text-gray-900 border-b pb-2">
-                  Price
+                  {t("edit_listing.price")}
                 </h3>
                 <div>
                   <label htmlFor="price" className="label mb-3">
-                    Amount
+                    {t("edit_listing.amount")}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -731,7 +737,7 @@ useEffect(() => {
                     />
                   </div>
                   <p className="mt-1.5 text-sm text-gray-500">
-                    Leave empty = Contact for price
+                    {t("edit_listing.empty_contact_price")}
                   </p>
                 </div>
 
@@ -739,7 +745,7 @@ useEffect(() => {
                 {priceValue && (listingType === "room" || listingType === "room_and_bib") && (
                   <div className="mt-4">
                     <input type="hidden" name="priceNegotiable" value={priceNegotiable === true ? "true" : "false"} />
-                    <span className="text-sm text-gray-700">Is the price negotiable?</span>
+                    <span className="text-sm text-gray-700">{t("edit_listing.price_negotiable")}</span>
                     <div className="flex gap-2 mt-2">
                       <button
                         type="button"
@@ -750,7 +756,7 @@ useEffect(() => {
                             : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"
                         }`}
                       >
-                        Yes
+                        {t("edit_listing.yes")}
                       </button>
                       <button
                         type="button"
@@ -761,7 +767,7 @@ useEffect(() => {
                             : "bg-white text-gray-700 shadow-sm hover:ring-2 hover:ring-green-300"
                         }`}
                       >
-                        No
+                        {t("edit_listing.no")}
                       </button>
                     </div>
                   </div>
@@ -772,16 +778,16 @@ useEffect(() => {
             {/* Description */}
             <div>
               <label htmlFor="description" className="label">
-  {user.user_type === "private" && listingType === "bib" ? "Notes" : "Additional details"}{" "}
+  {user.user_type === "private" && listingType === "bib" ? t("edit_listing.notes") : t("edit_listing.additional_details")}{" "}
   <span className={roomType === "other" ? "text-red-500" : "text-gray-400"}>
-    {roomType === "other" ? "(required)" : "(optional)"}
+    {roomType === "other" ? t("edit_listing.required") : t("edit_listing.optional")}
   </span>
 </label>
              <textarea
   id="description"
   name="description"
   rows={4}
-  placeholder="Any other information runners should know..."
+  placeholder={t("edit_listing.additional_placeholder")}
   className={`input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`}
   required={roomType === "other"}
 />
@@ -800,7 +806,7 @@ useEffect(() => {
             {/* Submit */}
             <div className="flex gap-4 pt-4">
               <button type="submit" className="btn-primary flex-1 rounded-full">
-                Create Listing
+                {t("create_listing.submit")}
               </button>
             </div>
           </Form>
@@ -854,12 +860,12 @@ useEffect(() => {
 
               {/* Title */}
               <h2 className="font-display text-2xl font-bold text-gray-900 mb-2">
-                Listing Submitted!
+                {t("create_listing.success_title")}
               </h2>
 
               {/* Message */}
               <p className="text-gray-600 mb-8">
-                Your listing has been submitted and is pending review. We'll notify you once it's approved and visible to other users.
+                {t("create_listing.success_body")}
               </p>
 
               {/* Buttons */}
@@ -868,7 +874,7 @@ useEffect(() => {
                   onClick={() => navigate(`/listings/${createdListingId}`)}
                   className="btn-primary w-full py-3 rounded-full"
                 >
-                  View Your Listing
+                  {t("create_listing.view_listing")}
                 </button>
                 {user.user_type === "tour_operator" && (
                   <button
@@ -878,7 +884,7 @@ useEffect(() => {
                     }}
                     className="btn bg-gray-100 text-gray-700 hover:bg-gray-200 w-full py-3 rounded-full"
                   >
-                    Go to Dashboard
+                    {t("create_listing.go_dashboard")}
                   </button>
                 )}
               </div>
@@ -886,6 +892,31 @@ useEffect(() => {
           </div>
         </div>
       )}
+    </>
+  );
+
+  if (user.user_type === "tour_operator") {
+    return (
+      <ControlPanelLayout
+        panelLabel={t("dashboard.panel_label")}
+        mobileTitle={t("dashboard.mobile_title")}
+        homeTo="/dashboard"
+        user={{
+          fullName: user.full_name,
+          email: user.email,
+          roleLabel: t("dashboard.role_tour_operator"),
+        }}
+        navItems={tourOperatorNavItems}
+      >
+        <div className="min-h-full bg-gray-50">{pageBody}</div>
+      </ControlPanelLayout>
+    );
+  }
+
+  return (
+    <div className="min-h-full bg-gray-50">
+      <Header user={user} />
+      {pageBody}
     </div>
   );
 }

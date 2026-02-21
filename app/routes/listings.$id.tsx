@@ -2,8 +2,11 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useFetcher } from "react-router";
 import { useState } from "react";
+import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
-import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { supabaseAdmin } from "~/lib/supabase.server";
+import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
+import { detectPreferredLocale, getLocaleFromProfileLanguages, localizeListing } from "~/lib/locale";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 
@@ -13,9 +16,10 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await getUser(request);
+  const locale = getLocaleFromProfileLanguages((user as any)?.languages) ?? detectPreferredLocale(request);
   const { id } = params;
 
-  const { data: listing, error } = await supabase
+  const listingQuery = supabaseAdmin
     .from("listings")
     .select(
       `
@@ -23,11 +27,20 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, email),
       event:events(id, name, slug, country, event_date)
     `
-    )
-    .eq("id", id!)
-    .single();
+    );
+  const { data: listing, error } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
 
   if (error || !listing) {
+    throw new Response("Listing not found", { status: 404 });
+  }
+
+  // Explicit visibility rules (mirror marketplace policy in app logic):
+  // - Active listing: visible
+  // - Owner can always view own listing
+  // - Otherwise not found
+  const currentUserId = (user as any)?.id as string | undefined;
+  const canView = listing.status === "active" || (currentUserId && listing.author_id === currentUserId);
+  if (!canView) {
     throw new Response("Listing not found", { status: 404 });
   }
 
@@ -35,17 +48,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   let isSaved = false;
   if (user) {
     const userId = (user as any).id as string;
-    const { data: savedListing } = await (supabase as any)
+    const { data: savedListing } = await (supabaseAdmin as any)
       .from("saved_listings")
       .select("id")
       .eq("user_id", userId)
-      .eq("listing_id", id!)
+      .eq("listing_id", listing.id)
       .single();
     
     isSaved = !!savedListing;
   }
 
-  return { user, listing, isSaved };
+  return { user, listing: localizeListing(listing as any, locale), isSaved };
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -61,11 +74,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const actionType = formData.get("_action") as string;
 
   // Get the listing to find the author
-  const { data: listing } = await supabaseAdmin
+  const listingQuery = supabaseAdmin
     .from("listings")
-    .select("author_id")
-    .eq("id", id!)
-    .single<{ author_id: string }>();
+    .select("id, author_id");
+  const { data: listing } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
 
   if (!listing) {
     return data({ error: "Listing not found" }, { status: 404 });
@@ -87,7 +99,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const { error } = await supabaseAdmin
       .from("listings")
       .delete()
-      .eq("id", id!);
+      .eq("id", listing.id);
 
     if (error) {
       return data({ error: "Failed to delete listing" }, { status: 500 });
@@ -149,6 +161,7 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
 }
 
 export default function ListingDetail() {
+  const { t } = useI18n();
   const { user, listing, isSaved } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [showSafety, setShowSafety] = useState(false);
@@ -209,7 +222,7 @@ export default function ListingDetail() {
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Back to listings
+              {t("listings.back_to_listings")}
             </Link>
           </div>
 
@@ -248,7 +261,7 @@ export default function ListingDetail() {
             {(listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && (
               <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 pb-3 mb-6 border-b border-gray-200">
-                  Hotel & Location
+                  {t("listings.hotel_location")}
                 </h3>
 
                 <div className="space-y-5">
@@ -780,20 +793,20 @@ export default function ListingDetail() {
                 {/* Desktop only - su mobile usiamo il pulsante sticky in fondo */}
                 {listingData.status === "active" && !isOwner && (
                   <Link
-                    to={`/listings/${listingData.id}/contact`}
+      to={`/listings/${getListingPublicId(listingData)}/contact`}
                     className="btn-primary w-full text-base py-3.5 font-semibold rounded-full shadow-lg shadow-brand-500/25 hidden md:block text-center"
                   >
-                    Contact {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || 'Seller'}
+                    {t("listings.contact")} {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || "Seller"}
                   </Link>
                 )}
 
                 {isOwner && (
                   <div className="space-y-3">
                     <Link
-                      to={`/listings/${listingData.id}/edit`}
+                      to={`/listings/${getListingPublicId(listingData)}/edit`}
                       className="btn-secondary w-full block text-center"
                     >
-                      Edit Listing
+                      {t("listings.edit_listing")}
                     </Link>
                     <Form method="post" onSubmit={(e) => {
                       if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) {
@@ -805,7 +818,7 @@ export default function ListingDetail() {
                         type="submit"
                         className="w-full px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors"
                       >
-                        Delete Listing
+                      {t("listings.delete_listing")}
                       </button>
                     </Form>
                   </div>
@@ -813,10 +826,10 @@ export default function ListingDetail() {
 
                 {!user && listingData.status === "active" && (
                   <Link
-                    to={`/login?redirectTo=/listings/${listingData.id}`}
+                    to={`/login?redirectTo=/listings/${getListingPublicId(listingData)}`}
                     className="btn-primary w-full block text-center py-3.5 font-semibold shadow-lg shadow-brand-500/25"
                   >
-                    Login to Contact
+                    {t("listings.login_to_contact")}
                   </Link>
                 )}
               </div>
@@ -880,10 +893,10 @@ export default function ListingDetail() {
         {listingData.status === "active" && !isOwner && (
           <div className="fixed bottom-16 left-0 right-0 px-8 py-2.5 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] md:hidden z-30">
             <Link
-              to={`/listings/${listingData.id}/contact`}
+              to={`/listings/${getListingPublicId(listingData)}/contact`}
               className="btn-primary w-full text-sm py-2.5 font-semibold rounded-full shadow-lg shadow-brand-500/25 block text-center"
             >
-              Contact {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || 'Seller'}
+              {t("listings.contact")} {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || "Seller"}
             </Link>
           </div>
         )}

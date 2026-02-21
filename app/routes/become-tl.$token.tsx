@@ -4,6 +4,7 @@ import { data, redirect } from "react-router";
 import { useLoaderData, useActionData, Form, Link } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { useI18n } from "~/hooks/useI18n";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Become a Team Leader - Runoot" }];
@@ -51,11 +52,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const tokenValue = params.token;
 
   if (!tokenValue) {
-    return data({ error: "No token provided" }, { status: 400 });
+    return data({ errorKey: "no_token" as const }, { status: 400 });
   }
 
   if ((user as any).is_team_leader) {
-    return data({ error: "You are already a Team Leader" }, { status: 400 });
+    return data({ errorKey: "already_tl" as const }, { status: 400 });
   }
 
   // Verify token again
@@ -66,15 +67,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .single();
 
   if (!tokenData) {
-    return data({ error: "Invalid token" }, { status: 400 });
+    return data({ errorKey: "invalid_token" as const }, { status: 400 });
   }
 
   if ((tokenData as any).used_by) {
-    return data({ error: "This token has already been used" }, { status: 400 });
+    return data({ errorKey: "token_used" as const }, { status: 400 });
   }
 
   if ((tokenData as any).expires_at && new Date((tokenData as any).expires_at) < new Date()) {
-    return data({ error: "This token has expired" }, { status: 400 });
+    return data({ errorKey: "token_expired" as const }, { status: 400 });
   }
 
   // Generate referral code
@@ -121,8 +122,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function BecomeTL() {
+  const { t } = useI18n();
   const { status, user } = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
+  const actionData = useActionData<typeof action>() as { errorKey?: string } | undefined;
+  const actionError =
+    actionData?.errorKey ? t(`tl_invite.error.${actionData.errorKey}` as any) : null;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
@@ -136,26 +140,25 @@ export default function BecomeTL() {
                 </svg>
               </div>
               <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">
-                Become a Team Leader
+                {t("tl_invite.title")}
               </h1>
               <p className="text-gray-500 mb-6">
-                You've been invited to become a Team Leader on Runoot!
-                As a TL, you'll get a personal referral link to invite runners and track your community.
+                {t("tl_invite.subtitle")}
               </p>
 
-              {actionData && "error" in actionData && (
+              {actionError && (
                 <div className="mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm">
-                  {(actionData as any).error}
+                  {actionError}
                 </div>
               )}
 
               <Form method="post">
                 <button type="submit" className="btn-primary w-full text-base py-3">
-                  Accept Invite
+                  {t("tl_invite.accept")}
                 </button>
               </Form>
               <p className="text-xs text-gray-400 mt-4">
-                Logged in as {(user as any).full_name || (user as any).email}
+                {t("tl_invite.logged_as")} {(user as any).full_name || (user as any).email}
               </p>
             </>
           )}
@@ -168,13 +171,13 @@ export default function BecomeTL() {
                 </svg>
               </div>
               <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">
-                You're Already a Team Leader!
+                {t("tl_invite.already_title")}
               </h1>
               <p className="text-gray-500 mb-6">
-                You already have Team Leader status. Head to your dashboard to manage your community.
+                {t("tl_invite.already_body")}
               </p>
               <Link to="/tl-dashboard" className="btn-primary inline-block w-full py-3">
-                Go to TL Dashboard
+                {t("tl_invite.go_dashboard")}
               </Link>
             </>
           )}
@@ -187,13 +190,13 @@ export default function BecomeTL() {
                 </svg>
               </div>
               <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">
-                Invalid Token
+                {t("tl_invite.invalid_title")}
               </h1>
               <p className="text-gray-500 mb-6">
-                This invite link is not valid. Please contact the admin for a new one.
+                {t("tl_invite.invalid_body")}
               </p>
               <Link to="/" className="btn-secondary inline-block w-full py-3">
-                Go Home
+                {t("not_found.go_home")}
               </Link>
             </>
           )}
@@ -206,13 +209,13 @@ export default function BecomeTL() {
                 </svg>
               </div>
               <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">
-                Token Already Used
+                {t("tl_invite.used_title")}
               </h1>
               <p className="text-gray-500 mb-6">
-                This invite link has already been used by someone else. Please contact the admin for a new one.
+                {t("tl_invite.used_body")}
               </p>
               <Link to="/" className="btn-secondary inline-block w-full py-3">
-                Go Home
+                {t("not_found.go_home")}
               </Link>
             </>
           )}
@@ -225,13 +228,13 @@ export default function BecomeTL() {
                 </svg>
               </div>
               <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">
-                Token Expired
+                {t("tl_invite.expired_title")}
               </h1>
               <p className="text-gray-500 mb-6">
-                This invite link has expired. Please contact the admin for a new one.
+                {t("tl_invite.expired_body")}
               </p>
               <Link to="/" className="btn-secondary inline-block w-full py-3">
-                Go Home
+                {t("not_found.go_home")}
               </Link>
             </>
           )}

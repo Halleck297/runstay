@@ -1,8 +1,11 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData } from "react-router";
+import { useI18n } from "~/hooks/useI18n";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { createUserSession, getUserId } from "~/lib/session.server";
+import { buildLocaleCookie, LOCALE_LABELS, isSupportedLocale } from "~/lib/locale";
+import type { SupportedLocale } from "~/lib/locale";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Sign Up - Runoot" }];
@@ -29,19 +32,29 @@ export async function action({ request }: ActionFunctionArgs) {
   const email = formData.get("email");
   const password = formData.get("password");
   const fullName = formData.get("fullName");
+  const country = formData.get("country");
+  const language = formData.get("language");
   const userType = "private";
 
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
-    typeof fullName !== "string"
+    typeof fullName !== "string" ||
+    typeof country !== "string" ||
+    typeof language !== "string"
   ) {
     return data({ error: "Invalid form submission" }, { status: 400 });
   }
 
-  if (!email || !password || !fullName) {
+  if (!email || !password || !fullName || !language) {
     return data({ error: "All fields are required" }, { status: 400 });
   }
+
+  if (!isSupportedLocale(language.toLowerCase())) {
+    return data({ error: "Invalid language selected" }, { status: 400 });
+  }
+
+  const normalizedLanguage = language.toLowerCase() as SupportedLocale;
 
   if (password.length < 8) {
     return data(
@@ -85,13 +98,17 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // Create profile (only if session exists, meaning email is confirmed or confirmation disabled)
+  const now = new Date().toISOString();
   const { error: profileError } = await supabase.from("profiles").insert({
     id: authData.user.id,
     email: email,
     full_name: fullName,
     user_type: userType,
+    country: country.trim() || null,
+    languages: normalizedLanguage,
     company_name: null,
-    is_verified: false,
+    is_verified: Boolean(authData.user.email_confirmed_at),
+    last_login_at: now,
   } as any);
 
   if (profileError) {
@@ -99,8 +116,6 @@ export async function action({ request }: ActionFunctionArgs) {
     // Auth user created but profile failed - still log them in
   } else {
     const normalizedEmail = normalizeEmail(email);
-    const now = new Date().toISOString();
-
     const { data: emailInvite } = await (supabaseAdmin.from("referral_invites") as any)
       .select("id, team_leader_id")
       .eq("email", normalizedEmail)
@@ -149,11 +164,15 @@ export async function action({ request }: ActionFunctionArgs) {
     authData.user.id,
     authData.session.access_token,
     authData.session.refresh_token,
-    "/dashboard"
+    "/dashboard",
+    {
+      additionalSetCookies: [buildLocaleCookie(normalizedLanguage)],
+    }
   );
 }
 
 export default function Register() {
+  const { t } = useI18n();
   const actionData = useActionData<typeof action>() as 
     | { error: string }
     | { success: boolean; emailConfirmationRequired: boolean; message: string }
@@ -180,15 +199,15 @@ export default function Register() {
           </div>
         </Link>
         <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-gray-900">
-          Create your account
+          {t("auth.create_account")}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Already have an account?{" "}
+          {t("auth.have_account")}{" "}
           <Link
             to="/login"
             className="font-medium text-brand-600 hover:text-brand-500"
           >
-            Sign in
+            {t("auth.sign_in")}
           </Link>
         </p>
       </div>
@@ -213,7 +232,7 @@ export default function Register() {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Check your email
+                {t("auth.check_email")}
               </h3>
               <p className="text-sm text-gray-600 mb-6">
                 {"message" in actionData ? actionData.message : "Please check your email to confirm your account."}
@@ -222,7 +241,7 @@ export default function Register() {
                 to="/login"
                 className="btn-primary inline-block"
               >
-                Go to login
+                {t("auth.go_to_login")}
               </Link>
             </div>
           ) : (
@@ -249,7 +268,7 @@ export default function Register() {
 
             <div>
               <label htmlFor="email" className="label">
-                Email address
+                {t("auth.email")}
               </label>
               <input
                 id="email"
@@ -262,8 +281,40 @@ export default function Register() {
             </div>
 
             <div>
+              <label htmlFor="country" className="label">
+                Country
+              </label>
+              <input
+                id="country"
+                name="country"
+                type="text"
+                autoComplete="country-name"
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="language" className="label">
+                Preferred language
+              </label>
+              <select
+                id="language"
+                name="language"
+                defaultValue="en"
+                required
+                className="input"
+              >
+                {Object.entries(LOCALE_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label htmlFor="password" className="label">
-                Password
+                {t("auth.password")}
               </label>
               <input
                 id="password"
@@ -275,7 +326,7 @@ export default function Register() {
                 className="input"
               />
               <p className="mt-1 text-xs text-gray-500">
-                At least 8 characters
+                {t("auth.password_min")}
               </p>
             </div>
 

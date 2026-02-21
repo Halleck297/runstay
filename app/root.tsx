@@ -1,7 +1,16 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, Link } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, Link, redirect, data } from "react-router";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
+import { useEffect, useState } from "react";
 import { getUser, getAccessToken, getImpersonationContext } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import {
+  buildLocaleCookie,
+  detectPreferredLocale,
+  getLocaleFromCookie,
+  getLocaleFromPathname,
+  getLocaleFromProfileLanguages,
+  LOCALE_COOKIE_NAME,
+} from "~/lib/locale";
 import CookieBanner from "~/components/CookieBanner";
 import { MobileNav } from "~/components/MobileNav";
 import "./styles/tailwind.css";
@@ -23,7 +32,22 @@ export const links: LinksFunction = () => [
 ];
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  const url = new URL(request.url);
   const user = await getUser(request);
+  const localeFromPath = getLocaleFromPathname(url.pathname);
+  const localeFromProfile = getLocaleFromProfileLanguages((user as any)?.languages);
+  const locale = localeFromPath ?? localeFromProfile ?? detectPreferredLocale(request);
+  const currentCookieLocale = getLocaleFromCookie(request.headers.get("Cookie"));
+  const shouldSetLocaleCookie = currentCookieLocale !== locale;
+
+  if (url.pathname === "/") {
+    return redirect(`/${locale}${url.search}`, {
+      headers: {
+        "Set-Cookie": buildLocaleCookie(locale),
+      },
+    });
+  }
+
   const accessToken = await getAccessToken(request);
 
   // Se l'utente è loggato, conta i messaggi non letti + notifiche
@@ -66,15 +90,26 @@ export async function loader({ request }: LoaderFunctionArgs) {
     console.error("Impersonation context error:", e);
   }
 
-  return {
-    user: user ? { ...user, unreadCount, unreadNotifications } : null,
-    impersonation,
-    ENV: {
-      SUPABASE_URL: process.env.SUPABASE_URL!,
-      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY!,
-      ACCESS_TOKEN: accessToken,
+  return data(
+    {
+      user: user ? { ...user, unreadCount, unreadNotifications } : null,
+      impersonation,
+      locale,
+      localeCookieName: LOCALE_COOKIE_NAME,
+      ENV: {
+        SUPABASE_URL: process.env.SUPABASE_URL!,
+        SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY!,
+        ACCESS_TOKEN: accessToken,
+      },
     },
-  };
+    shouldSetLocaleCookie
+      ? {
+          headers: {
+            "Set-Cookie": buildLocaleCookie(locale),
+          },
+        }
+      : undefined
+  );
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -103,6 +138,9 @@ export function ErrorBoundary() {
   const message = isNotFound
     ? "The page you requested could not be found."
     : "An unexpected error occurred. Please try again.";
+  const isAdminPath = typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
+  const primaryLink = isAdminPath ? "/admin" : "/";
+  const primaryLabel = isAdminPath ? "Back to admin" : "Go to home";
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-16">
@@ -116,8 +154,8 @@ export function ErrorBoundary() {
         )}
 
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link to="/" className="btn-primary w-full sm:w-auto">
-            Go to home
+          <Link to={primaryLink} className="btn-primary w-full sm:w-auto">
+            {primaryLabel}
           </Link>
           <button
             type="button"
@@ -135,18 +173,29 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
-  const { user, impersonation, ENV } = useLoaderData<typeof loader>();
+  const { user, impersonation, ENV, locale, localeCookieName } = useLoaderData<typeof loader>();
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.lang = locale;
+    document.documentElement.dataset.locale = locale;
+  }, [locale]);
 
   return (
     <>
       <script
         dangerouslySetInnerHTML={{
-          __html: `window.ENV = ${JSON.stringify(ENV)}`,
+          __html: `window.ENV = ${JSON.stringify(ENV)};window.__LOCALE__=${JSON.stringify(locale)};window.__LOCALE_COOKIE__=${JSON.stringify(localeCookieName)};`,
         }}
       />
       {/* Impersonation Banner */}
-      {impersonation?.isImpersonating && impersonation.targetUser && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-alert-500 text-white px-4 py-2 flex items-center justify-center gap-3 text-sm font-medium shadow-lg">
+      {hydrated && impersonation?.isImpersonating && impersonation.targetUser && (
+        <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-alert-500 text-white px-4 py-2 flex items-center justify-center gap-3 text-sm font-medium shadow-lg">
           <span className="flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

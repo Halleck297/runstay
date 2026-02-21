@@ -11,8 +11,11 @@
     "build": "react-router build",
     "dev": "react-router dev",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "i18n:autotranslate": "node scripts/i18n-autotranslate.mjs",
     "start": "react-router-serve ./build/server/index.js",
-    "typecheck": "react-router typegen && tsc"
+    "typecheck": "react-router typegen && tsc",
+    "check": "npm run typecheck && npm run i18n:check"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.0.2",

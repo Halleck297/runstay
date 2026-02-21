@@ -1,5 +1,5 @@
 import { createCookieSessionStorage, redirect } from "react-router";
-import { supabase, supabaseAdmin } from "./supabase.server";
+import { getSupabaseClient, supabase, supabaseAdmin } from "./supabase.server";
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -22,17 +22,22 @@ export async function createUserSession(
   userId: string,
   accessToken: string,
   refreshToken: string,
-  redirectTo: string
+  redirectTo: string,
+  options?: { additionalSetCookies?: string[] }
 ) {
   const session = await storage.getSession();
   session.set("userId", userId);
   session.set("accessToken", accessToken);
   session.set("refreshToken", refreshToken);
 
+  const setCookies = [await storage.commitSession(session), ...(options?.additionalSetCookies || [])];
+  const headers = new Headers();
+  for (const cookie of setCookies) {
+    headers.append("Set-Cookie", cookie);
+  }
+
   return redirect(redirectTo, {
-    headers: {
-      "Set-Cookie": await storage.commitSession(session),
-    },
+    headers,
   });
 }
 
@@ -150,6 +155,41 @@ export async function requireUser(request: Request) {
 
   if (!profile) {
     throw await logout(request);
+  }
+
+  // Keep profile verification aligned with Supabase auth email verification status.
+  // This mirrors common auth flows where verification flips after email confirm.
+  if (!(profile as any).is_verified) {
+    const accessToken = await getAccessToken(request);
+    if (accessToken) {
+      const tokenClient = getSupabaseClient(accessToken);
+      const { data: authUserData } = await tokenClient.auth.getUser();
+      const emailConfirmedAt = authUserData.user?.email_confirmed_at;
+
+      if (emailConfirmedAt) {
+        await (supabaseAdmin.from("profiles") as any)
+          .update({ is_verified: true })
+          .eq("id", userId);
+        (profile as any).is_verified = true;
+      }
+    }
+  }
+
+  // Runner referral activity lifecycle:
+  // if no login for 15+ days, mark referral as inactive and force re-login.
+  if ((profile as any).user_type === "private") {
+    const lastLoginAt = (profile as any).last_login_at || (profile as any).created_at;
+    if (lastLoginAt) {
+      const lastLoginTs = new Date(lastLoginAt).getTime();
+      const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
+      if (!Number.isNaN(lastLoginTs) && Date.now() - lastLoginTs > FIFTEEN_DAYS_MS) {
+        await (supabaseAdmin.from("referrals") as any)
+          .update({ status: "inactive" })
+          .eq("referred_user_id", userId)
+          .eq("status", "active");
+        throw await logout(request);
+      }
+    }
   }
 
   return profile;

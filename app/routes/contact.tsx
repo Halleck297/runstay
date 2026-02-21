@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react
 import { data } from "react-router";
 import { useLoaderData, useActionData, Form, useNavigation } from "react-router";
 import { useState } from "react";
+import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -76,6 +77,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Contact() {
+  const { t } = useI18n();
   const { user, defaultSubject } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
@@ -98,15 +100,15 @@ export default function Contact() {
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back
+            {t("contact.back")}
           </button>
 
           <div className="mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
             <h1 className="font-display text-3xl font-bold text-gray-900">
-              Contact Us
+              {t("contact.title")}
             </h1>
             <p className="mt-2 text-gray-600">
-              Send us a message and we'll get back to you
+              {t("contact.subtitle")}
             </p>
           </div>
 
@@ -126,13 +128,13 @@ export default function Contact() {
                 />
               </svg>
               <h2 className="mt-4 text-xl font-semibold text-gray-900">
-                Thank you!
+                {t("contact.thank_you")}
               </h2>
               <p className="mt-2 text-gray-600">
-                Your message has been received. We'll get back to you soon.
+                {t("contact.received")}
               </p>
               <a href="/" className="mt-6 btn-primary rounded-full inline-block">
-                Back to Home
+                {t("contact.back_home")}
               </a>
             </div>
           ) : (
@@ -147,12 +149,12 @@ export default function Contact() {
                 {/* Name - only for non-logged-in users */}
                 {!user && (
                   <div>
-                    <label className="label">Name *</label>
+                    <label className="label">{t("contact.name")} *</label>
                     <input
                       type="text"
                       name="name"
                       className="input shadow-sm"
-                      placeholder="Your name"
+                      placeholder={t("contact.name_placeholder")}
                       required
                       minLength={2}
                     />
@@ -162,12 +164,12 @@ export default function Contact() {
                 {/* Email - only for non-logged-in users */}
                 {!user && (
                   <div>
-                    <label className="label">Email *</label>
+                    <label className="label">{t("contact.email")} *</label>
                     <input
                       type="email"
                       name="email"
                       className="input shadow-sm"
-                      placeholder="your@email.com"
+                      placeholder={t("contact.email_placeholder")}
                       required
                     />
                   </div>
@@ -182,17 +184,17 @@ export default function Contact() {
 
                 {/* Message - always shown */}
                 <div>
-                  <label className="label text-base mb-6">Message *</label>
+                  <label className="label text-base mb-6">{t("contact.message")} *</label>
                   <textarea
                     name="message"
                     rows={5}
                     className="input shadow-md"
-                    placeholder="How can we help you?"
+                    placeholder={t("contact.message_placeholder")}
                     required
                     minLength={10}
                   />
                   <p className="mt-1 text-sm text-gray-500">
-                    Minimum 10 characters
+                    {t("contact.message_min")}
                   </p>
                 </div>
 
@@ -203,7 +205,7 @@ export default function Contact() {
                     className="btn-primary rounded-full w-full shadow-lg shadow-accent-500/30"
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? "Sending..." : "Send Message"}
+                    {isSubmitting ? t("contact.sending") : t("contact.send_message")}
                   </button>
                 </div>
               </Form>

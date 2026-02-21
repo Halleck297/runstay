@@ -1,4 +1,5 @@
 import type { MetaFunction } from "react-router";
+import { useI18n } from "~/hooks/useI18n";
 
 export const meta: MetaFunction = () => {
   return [
@@ -10,6 +11,7 @@ export const meta: MetaFunction = () => {
 export default function PrivacyPolicy() {
   const lastUpdated = "29 Gennaio 2025";
   const companyEmail = "privacy@runoot.com"; // Da personalizzare
+  const { locale, t } = useI18n();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -17,15 +19,21 @@ export default function PrivacyPolicy() {
       <header className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <a href="/" className="text-brand-600 hover:text-brand-700 text-sm">
-            ← Torna alla Home
+            ← {t("legal.back_home")}
           </a>
-          <h1 className="text-3xl font-bold text-gray-900 mt-4">Privacy Policy</h1>
-          <p className="text-gray-500 mt-2">Ultimo aggiornamento: {lastUpdated}</p>
+          <h1 className="text-3xl font-bold text-gray-900 mt-4">{t("legal.privacy_title")}</h1>
+          <p className="text-gray-500 mt-2">{t("legal.last_updated")}: {lastUpdated}</p>
         </div>
       </header>
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {locale !== "it" && (
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <p className="font-semibold">{t("legal.notice_title")}</p>
+            <p className="mt-1">{t("legal.notice_body")}</p>
+          </div>
+        )}
         <div className="bg-white rounded-lg shadow-sm p-8 space-y-8">
 
           {/* 1. Introduzione */}
@@ -545,11 +553,11 @@ export default function PrivacyPolicy() {
 
         {/* Footer links */}
         <div className="mt-8 text-center text-sm text-gray-500">
-          <a href="/cookie-policy" className="hover:text-brand-600">Cookie Policy</a>
+          <a href="/cookie-policy" className="hover:text-brand-600">{t("legal.cookie_policy")}</a>
           <span className="mx-2">•</span>
-          <a href="/terms" className="hover:text-brand-600">Termini di Servizio</a>
+          <a href="/terms" className="hover:text-brand-600">{t("legal.terms_of_service")}</a>
           <span className="mx-2">•</span>
-          <a href="/" className="hover:text-brand-600">Torna alla Home</a>
+          <a href="/" className="hover:text-brand-600">{t("legal.back_home")}</a>
         </div>
       </main>
     </div>

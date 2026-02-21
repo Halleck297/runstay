@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useSearchParams } from "react-router";
+import { useI18n } from "~/hooks/useI18n";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { createUserSession, getUserId, getUser } from "~/lib/session.server";
 
@@ -45,6 +46,19 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: "Login failed" }, { status: 400 });
   }
 
+  const now = new Date().toISOString();
+  await (supabaseAdmin.from("profiles") as any)
+    .update({
+      last_login_at: now,
+      is_verified: Boolean(authData.user.email_confirmed_at),
+    })
+    .eq("id", authData.user.id);
+
+  await (supabaseAdmin.from("referrals") as any)
+    .update({ status: "active" })
+    .eq("referred_user_id", authData.user.id)
+    .in("status", ["registered", "inactive"]);
+
   // Get user profile to determine redirect
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -69,6 +83,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Login() {
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const actionData = useActionData<typeof action>();
   const redirectTo = searchParams.get("redirectTo") || "";
@@ -94,15 +109,15 @@ export default function Login() {
           </div>
         </Link>
         <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-gray-900">
-          Welcome back
+          {t("auth.welcome_back")}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Don't have an account?{" "}
+          {t("auth.no_account")}{" "}
           <Link
             to="/register"
             className="font-medium text-brand-600 hover:text-brand-500"
           >
-            Sign up
+            {t("nav.signup")}
           </Link>
         </p>
       </div>
@@ -120,7 +135,7 @@ export default function Login() {
 
             <div>
               <label htmlFor="email" className="label">
-                Email address
+                {t("auth.email")}
               </label>
               <input
                 id="email"
@@ -134,7 +149,7 @@ export default function Login() {
 
             <div>
               <label htmlFor="password" className="label">
-                Password
+                {t("auth.password")}
               </label>
               <input
                 id="password"
@@ -146,14 +161,14 @@ export default function Login() {
               />
               <div className="mt-2 text-right">
                 <Link to="/forgot-password" className="text-xs font-medium text-brand-600 hover:text-brand-700">
-                  Forgot password?
+                  {t("auth.forgot_password")} 
                 </Link>
               </div>
             </div>
 
             <div>
               <button type="submit" className="btn-primary w-full">
-                Sign in
+                {t("auth.sign_in")}
               </button>
             </div>
           </Form>
@@ -165,7 +180,7 @@ export default function Login() {
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="bg-white px-2 text-gray-500">
-                  Or continue with
+                  {t("auth.or_continue_with")}
                 </span>
               </div>
             </div>
@@ -194,7 +209,7 @@ export default function Login() {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                     />
                   </svg>
-                  Continue with Google
+                  {t("auth.continue_google")}
                 </button>
               </Form>
             </div>

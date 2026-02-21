@@ -1,12 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-
-const SUBJECT_OPTIONS = [
-  { value: "general", label: "General inquiry" },
-  { value: "bug", label: "Bug report" },
-  { value: "feature", label: "Feature request" },
-  { value: "partnership", label: "Partnership / Business" },
-  { value: "other", label: "Other" },
-];
+import { useI18n } from "~/hooks/useI18n";
 
 interface SubjectDropdownProps {
   value: string;
@@ -15,6 +8,14 @@ interface SubjectDropdownProps {
 }
 
 export function SubjectDropdown({ value, onChange, hasError }: SubjectDropdownProps) {
+  const { t } = useI18n();
+  const SUBJECT_OPTIONS = [
+    { value: "general", label: t("contact.subject.general") },
+    { value: "bug", label: t("contact.subject.bug") },
+    { value: "feature", label: t("contact.subject.feature") },
+    { value: "partnership", label: t("contact.subject.partnership") },
+    { value: "other", label: t("contact.subject.other") },
+  ];
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +35,7 @@ export function SubjectDropdown({ value, onChange, hasError }: SubjectDropdownPr
 
   return (
     <div ref={dropdownRef} className="relative">
-      <label className="label text-base mb-6">Subject *</label>
+      <label className="label text-base mb-6">{t("contact.subject")} *</label>
 
       {/* Hidden input for form submission */}
       <input type="hidden" name="subject" value={value} />
@@ -47,7 +48,7 @@ export function SubjectDropdown({ value, onChange, hasError }: SubjectDropdownPr
           hasError ? "ring-1 ring-red-500" : ""
         } ${!value ? "text-gray-400" : "text-gray-900"}`}
       >
-        <span>{selectedOption?.label || "Select a subject..."}</span>
+        <span>{selectedOption?.label || t("contact.subject_placeholder")}</span>
         <svg
           className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
           fill="none"

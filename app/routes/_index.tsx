@@ -1,8 +1,10 @@
 import type { MetaFunction, LoaderFunctionArgs } from "react-router";
 import { Link, useLoaderData, useNavigate, Form } from "react-router";
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { detectPreferredLocale, getLocaleFromProfileLanguages, localizeListing, localizeEvent } from "~/lib/locale";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
@@ -27,6 +29,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
+  const locale = getLocaleFromProfileLanguages((user as any)?.languages) ?? detectPreferredLocale(request);
 
   // Home listings:
   // - authenticated: normal RLS query
@@ -45,7 +48,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(3);
-    listings = data || [];
+    listings = (data || []).map((listing: any) => localizeListing(listing, locale));
   } else {
     const { data } = await (supabaseAdmin as any)
       .from("listings")
@@ -69,7 +72,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       .order("created_at", { ascending: false })
       .limit(3);
 
-    listings = (data || []).map((listing: any) => ({
+    listings = (data || []).map((listing: any) => localizeListing({
       ...listing,
       title: listing.event?.name || "Listing",
       price: null,
@@ -83,7 +86,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         user_type: "private",
         is_verified: false,
       },
-    }));
+    }, locale));
   }
 
   // Get saved listing IDs for this user
@@ -103,11 +106,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select("id, name, country, event_date")
     .order("event_date", { ascending: true });
 
-    return { user, listings, savedListingIds, events: events || [] };
+    const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
+    return { user, listings, savedListingIds, events: localizedEvents };
 
 }
 
 export default function Index() {
+    const { t } = useI18n();
     const { user, listings, savedListingIds, events } = useLoaderData<typeof loader>();
     const navigate = useNavigate();
     const searchRef = useRef<HTMLDivElement>(null);
@@ -177,15 +182,15 @@ export default function Index() {
   };
 
   return (
-    <div className="min-h-full">
+    <div className="min-h-screen flex flex-col">
       <Header user={user} />
-
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/hero.jpg')] bg-cover bg-center" />
-        <div className="absolute inset-0 bg-brand-800/70" />
-        <div className="relative mx-auto max-w-7xl px-4 py-32 sm:py-40 lg:py-48 sm:px-6 lg:px-8">
-          <div className="text-center">
+      <main className="flex-1">
+        {/* Hero Section */}
+        <section className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-[url('/hero.jpg')] bg-cover bg-center" />
+          <div className="absolute inset-0 bg-brand-800/70" />
+          <div className="relative mx-auto max-w-7xl px-4 py-32 sm:py-40 lg:py-48 sm:px-6 lg:px-8">
+            <div className="text-center">
             <h1 className="font-display text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl [text-shadow:0_4px_20px_rgba(0,0,0,0.7)]">
               <span className="block">Don't Let</span>
               <span className="block">
@@ -209,9 +214,9 @@ export default function Index() {
               </span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-xl sm:text-2xl text-white [text-shadow:0_4px_16px_rgba(0,0,0,0.6)]">
-              <span className="font-bold">Your race, your community.</span>
+              <span className="font-bold">{t("home.hero.subtitle1")}</span>
               <br />
-              Exchange rooms and bibs directly with runners like you.
+              {t("home.hero.subtitle2")}
             </p>
 
             {/* Search Bar */}
@@ -238,7 +243,7 @@ export default function Index() {
                     type="search"
                     name="search"
                     autoComplete="off"
-                    placeholder="Search by event name or location..."
+                    placeholder={t("home.search.placeholder")}
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -277,54 +282,55 @@ export default function Index() {
               </Form>
             </div>
 
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
 
-      {/* Recent Listings */}
-{listings.length > 0 && (
-  <section className="pt-8 pb-20 md:py-20 bg-gray-50">
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col md:flex-row items-center justify-between">
-        <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center md:text-left">
-          Recent Listings
-        </h2>
-        {/* View all - hidden on mobile, shown in header on desktop */}
-        <Link
-          to={user ? "/listings" : "/login"}
-          className="hidden md:inline-block px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
-        >
-          View all
-        </Link>
-      </div>
+        {/* Recent Listings */}
+        {listings.length > 0 && (
+          <section className="pt-8 pb-20 md:py-20 bg-gray-50">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <div className="flex flex-col md:flex-row items-center justify-between">
+                <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center md:text-left">
+                  {t("home.recent_listings")}
+                </h2>
+                {/* View all - hidden on mobile, shown in header on desktop */}
+                <Link
+                  to={user ? "/listings" : "/login"}
+                  className="hidden md:inline-block px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
+                >
+                  {t("home.view_all")}
+                </Link>
+              </div>
 
-      {/* Desktop: Grid di card */}
-      <div className="mt-8 hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {listings.map((listing: any) => (
-          <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} />
-        ))}
-      </div>
+              {/* Desktop: Grid di card */}
+              <div className="mt-8 hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {listings.map((listing: any) => (
+                  <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} />
+                ))}
+              </div>
 
-      {/* Mobile: Lista verticale compatta */}
-      <div className="mt-6 flex flex-col gap-3 md:hidden">
-        {listings.map((listing: any) => (
-          <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} />
-        ))}
-      </div>
+              {/* Mobile: Lista verticale compatta */}
+              <div className="mt-6 flex flex-col gap-3 md:hidden">
+                {listings.map((listing: any) => (
+                  <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} />
+                ))}
+              </div>
 
-      {/* Mobile: View all button centered below cards */}
-      <div className="mt-4 flex justify-center md:hidden">
-        <Link
-          to={user ? "/listings" : "/login"}
-          className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
-        >
-          View all
-        </Link>
-      </div>
-    </div>
-  </section>
-)}
+              {/* Mobile: View all button centered below cards */}
+              <div className="mt-4 flex justify-center md:hidden">
+                <Link
+                  to={user ? "/listings" : "/login"}
+                  className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
+                >
+                  {t("home.view_all")}
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
 
 
       <FooterLight />

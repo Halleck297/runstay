@@ -1,7 +1,7 @@
-// app/routes/notifications.tsx - Notifications page
-import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
-import { useLoaderData, Form, Link } from "react-router";
+import { Form, Link, useLoaderData } from "react-router";
+import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -46,7 +46,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     default:
-      return data({ error: "Unknown action" }, { status: 400 });
+      return data({ error: "unknown_action" }, { status: 400 });
   }
 }
 
@@ -83,45 +83,42 @@ const typeIcons: Record<string, { bg: string; icon: string; color: string }> = {
   },
 };
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, t: (key: any) => string): string {
   const now = new Date();
   const date = new Date(dateStr);
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  if (seconds < 60) return t("notifications.just_now");
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${t("notifications.ago")}`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${t("notifications.ago")}`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ${t("notifications.ago")}`;
   return date.toLocaleDateString();
 }
 
 export default function Notifications() {
   const { notifications } = useLoaderData<typeof loader>();
+  const { t } = useI18n();
 
   const unreadCount = notifications.filter((n: any) => !n.read_at).length;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="mx-auto max-w-2xl px-4 py-8">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-gray-900">Notifications</h1>
-          {unreadCount > 0 && (
-            <p className="text-sm text-gray-500 mt-1">{unreadCount} unread</p>
-          )}
+          <h1 className="font-display text-2xl font-bold text-gray-900 md:text-3xl">{t("notifications.title")}</h1>
+          {unreadCount > 0 && <p className="mt-1 text-sm text-gray-500">{unreadCount} {t("notifications.unread")}</p>}
         </div>
         {unreadCount > 0 && (
           <Form method="post">
             <input type="hidden" name="_action" value="markAllRead" />
-            <button type="submit" className="text-sm text-brand-600 hover:text-brand-700 font-medium">
-              Mark all read
+            <button type="submit" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+              {t("notifications.mark_all_read")}
             </button>
           </Form>
         )}
       </div>
 
-      {/* Notifications list */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <div className="divide-y divide-gray-100">
           {notifications.length > 0 ? (
             notifications.map((notif: any) => {
@@ -137,38 +134,27 @@ export default function Notifications() {
               const isUnread = !notif.read_at;
 
               return (
-                <div
-                  key={notif.id}
-                  className={`p-4 flex items-start gap-3 ${isUnread ? "bg-brand-50/30" : ""}`}
-                >
-                  {/* Icon */}
-                  <div className={`w-9 h-9 rounded-full ${typeStyle.bg} flex items-center justify-center flex-shrink-0`}>
-                    <svg className={`w-4.5 h-4.5 ${typeStyle.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div key={notif.id} className={`flex items-start gap-3 p-4 ${isUnread ? "bg-brand-50/30" : ""}`}>
+                  <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${typeStyle.bg}`}>
+                    <svg className={`h-4.5 w-4.5 ${typeStyle.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={typeStyle.icon} />
                     </svg>
                   </div>
 
-                  {/* Content */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className={`text-sm ${isUnread ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>
                           {notif.title}
                         </p>
-                        <p className="text-sm text-gray-500 mt-0.5">{notif.message}</p>
+                        <p className="mt-0.5 text-sm text-gray-500">{notif.message}</p>
                         {notifData?.conversation_id ? (
-                          <Link
-                            to={`/messages?c=${notifData.conversation_id}`}
-                            className="text-xs text-brand-600 hover:text-brand-700 font-medium mt-1 inline-block"
-                          >
-                            Open conversation →
+                          <Link to={`/messages?c=${notifData.conversation_id}`} className="mt-1 inline-block text-xs font-medium text-brand-600 hover:text-brand-700">
+                            {t("notifications.open_conversation")} →
                           </Link>
                         ) : notifData?.listing_id ? (
-                          <Link
-                            to={`/listings/${notifData.listing_id}`}
-                            className="text-xs text-brand-600 hover:text-brand-700 font-medium mt-1 inline-block"
-                          >
-                            View listing →
+                          <Link to={`/listings/${notifData.listing_id}`} className="mt-1 inline-block text-xs font-medium text-brand-600 hover:text-brand-700">
+                            {t("notifications.view_listing")} →
                           </Link>
                         ) : null}
                       </div>
@@ -176,25 +162,21 @@ export default function Notifications() {
                         <Form method="post" className="flex-shrink-0">
                           <input type="hidden" name="_action" value="markRead" />
                           <input type="hidden" name="notificationId" value={notif.id} />
-                          <button
-                            type="submit"
-                            className="w-2.5 h-2.5 rounded-full bg-brand-500 hover:bg-brand-600 transition-colors"
-                            title="Mark as read"
-                          />
+                          <button type="submit" className="h-2.5 w-2.5 rounded-full bg-brand-500 transition-colors hover:bg-brand-600" title={t("notifications.mark_as_read")} />
                         </Form>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">{timeAgo(notif.created_at)}</p>
+                    <p className="mt-1 text-xs text-gray-400">{timeAgo(notif.created_at, t)}</p>
                   </div>
                 </div>
               );
             })
           ) : (
             <div className="p-8 text-center">
-              <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="mx-auto mb-3 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              <p className="text-sm text-gray-500">No notifications yet</p>
+              <p className="text-sm text-gray-500">{t("notifications.empty")}</p>
             </div>
           )}
         </div>

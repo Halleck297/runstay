@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import { data } from "react-router";
 import { useSearchParams } from "react-router";
 import Conversation, { action as conversationAction, loader as conversationLoader } from "./messages.$id";
+import { useI18n } from "~/hooks/useI18n";
 
 
 export const meta: MetaFunction = () => {
@@ -27,7 +28,7 @@ export async function action(args: ActionFunctionArgs) {
   const conversationPublicId = url.searchParams.get("c");
 
   if (!conversationPublicId) {
-    return data({ error: "No conversation selected" }, { status: 400 });
+    return data({ errorKey: "no_conversation_selected" as const }, { status: 400 });
   }
 
   return conversationAction({
@@ -37,6 +38,7 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function MessagesIndex() {
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const conversationPublicId = searchParams.get("c");
 
@@ -63,10 +65,10 @@ export default function MessagesIndex() {
           />
         </svg>
         <h2 className="mt-4 text-lg font-medium text-gray-900">
-          Select a conversation
+          {t("messages.select_conversation")}
         </h2>
         <p className="mt-2 text-sm text-gray-500">
-          Choose a conversation from the list to start messaging
+          {t("messages.select_conversation_help")}
         </p>
       </div>
     </div>

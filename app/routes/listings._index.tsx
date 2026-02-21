@@ -1,8 +1,10 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useLoaderData, useSearchParams, Form, useNavigate } from "react-router";
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { detectPreferredLocale, getLocaleFromProfileLanguages, localizeEvent, localizeListing } from "~/lib/locale";
 import type { ListingType } from "~/lib/database.types";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
@@ -17,6 +19,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
+  const locale = getLocaleFromProfileLanguages((user as any)?.languages) ?? detectPreferredLocale(request);
   const url = new URL(request.url);
 
   const type = url.searchParams.get("type");
@@ -50,7 +53,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // Filter by search (event name or location) - client side for simplicity
-  let filteredListings = listings || [];
+  let filteredListings = (listings || []).map((listing: any) => localizeListing(listing, locale));
   if (search) {
     const searchLower = search.toLowerCase();
     filteredListings = filteredListings.filter(
@@ -79,11 +82,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select("id, name, country, event_date")
     .order("event_date", { ascending: true });
 
-  return { user, listings: filteredListings, savedListingIds, events: events || [] };
+  const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
+  return { user, listings: filteredListings, savedListingIds, events: localizedEvents };
 
 }
 
 export default function Listings() {
+  const { t } = useI18n();
   const { user, listings, savedListingIds, events } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -184,10 +189,10 @@ export default function Listings() {
           {/* Page header with Search and Filters */}
           <div className="relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md px-3 py-4 sm:p-6">
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left">
-              Browse Listings
+              {t("listings.title")}
             </h1>
             <p className="hidden sm:block mt-2 text-gray-600 mb-8">
-              Find available rooms and bibs for upcoming marathons
+              {t("listings.subtitle")}
             </p>
             <div className="sm:hidden mb-6" />
 
@@ -213,7 +218,7 @@ export default function Listings() {
                   id="listing-search"
                   name="search"
                   autoComplete="off"
-                  placeholder="Search event name..."
+                  placeholder={t("listings.search.placeholder")}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
