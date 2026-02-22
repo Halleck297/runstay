@@ -14,6 +14,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const localeValue = formData.get("locale");
   const redirectToValue = formData.get("redirectTo");
+  const persistValue = formData.get("persist");
 
   if (typeof localeValue !== "string" || !isSupportedLocale(localeValue.toLowerCase())) {
     return data(
@@ -27,11 +28,12 @@ export async function action({ request }: ActionFunctionArgs) {
     typeof redirectToValue === "string" && redirectToValue.startsWith("/")
       ? `${stripLocaleFromPathname(redirectToValue)}`
       : null;
+  const persist = persistValue === "1" || persistValue === "true";
 
   const userId = await getUserId(request);
-  if (userId) {
+  if (userId && persist) {
     await (supabaseAdmin.from("profiles") as any)
-      .update({ languages: locale })
+      .update({ preferred_language: locale })
       .eq("id", userId);
   }
 
@@ -39,6 +41,7 @@ export async function action({ request }: ActionFunctionArgs) {
     {
       success: true,
       locale,
+      persist,
       redirectTo,
     },
     {

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
-import { detectPreferredLocale, getLocaleFromProfileLanguages, localizeEvent, localizeListing } from "~/lib/locale";
+import { localizeEvent, localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import type { ListingType } from "~/lib/database.types";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
@@ -19,7 +19,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
-  const locale = getLocaleFromProfileLanguages((user as any)?.languages) ?? detectPreferredLocale(request);
+  const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
   const url = new URL(request.url);
 
   const type = url.searchParams.get("type");

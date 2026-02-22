@@ -33,7 +33,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const country = formData.get("country");
   const city = formData.get("city");
   const website = formData.get("website");
-  const languages = formData.get("languages");
+  const languagesSpoken = formData.get("languages_spoken");
   const yearsExperience = formData.get("yearsExperience");
   const specialties = formData.get("specialties");
   const instagram = formData.get("instagram");
@@ -56,7 +56,7 @@ export async function action({ request }: ActionFunctionArgs) {
     country: (country as string) || null,
     city: (city as string) || null,
     website: (website as string) || null,
-    languages: (languages as string) || null,
+    languages_spoken: (languagesSpoken as string) || null,
     years_experience: yearsExperience ? parseInt(yearsExperience as string) : null,
     specialties: (specialties as string) || null,
     instagram: (instagram as string) || null,
@@ -326,15 +326,15 @@ export default function OperatorProfile() {
                 </div>
 
                 <div>
-                  <label htmlFor="languages" className="label">
+                  <label htmlFor="languages_spoken" className="label">
                     {t("profile.agency.languages_spoken")}
                   </label>
                   <input
-                    id="languages"
-                    name="languages"
+                    id="languages_spoken"
+                    name="languages_spoken"
                     type="text"
                     className="input"
-                    defaultValue={user.languages || ""}
+                    defaultValue={(user as any).languages_spoken || ""}
                     placeholder={t("profile.agency.languages_placeholder")}
                   />
                   <p className="mt-1 text-xs text-gray-500">

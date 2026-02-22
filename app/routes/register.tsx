@@ -105,7 +105,7 @@ export async function action({ request }: ActionFunctionArgs) {
     full_name: fullName,
     user_type: userType,
     country: country.trim() || null,
-    languages: normalizedLanguage,
+    preferred_language: normalizedLanguage,
     company_name: null,
     is_verified: Boolean(authData.user.email_confirmed_at),
     last_login_at: now,

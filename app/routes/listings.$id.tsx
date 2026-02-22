@@ -6,7 +6,7 @@ import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
-import { detectPreferredLocale, getLocaleFromProfileLanguages, localizeListing } from "~/lib/locale";
+import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 
@@ -16,7 +16,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await getUser(request);
-  const locale = getLocaleFromProfileLanguages((user as any)?.languages) ?? detectPreferredLocale(request);
+  const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
   const { id } = params;
 
   const listingQuery = supabaseAdmin

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
-import { detectPreferredLocale, getLocaleFromProfileLanguages, localizeListing, localizeEvent } from "~/lib/locale";
+import { localizeListing, localizeEvent, resolveLocaleForRequest } from "~/lib/locale";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
@@ -29,7 +29,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
-  const locale = getLocaleFromProfileLanguages((user as any)?.languages) ?? detectPreferredLocale(request);
+  const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
 
   // Home listings:
   // - authenticated: normal RLS query

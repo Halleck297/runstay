@@ -84,11 +84,31 @@ export function detectPreferredLocale(request: Request): SupportedLocale {
   const fromPath = getLocaleFromPathname(url.pathname);
   if (fromPath) return fromPath;
 
+  const fromHeader = getLocaleFromAcceptLanguage(request.headers.get("Accept-Language"));
+  if (fromHeader) return fromHeader;
+
   const fromCookie = getLocaleFromCookie(request.headers.get("Cookie"));
   if (fromCookie) return fromCookie;
 
+  return DEFAULT_LOCALE;
+}
+
+export function resolveLocaleForRequest(
+  request: Request,
+  preferredLanguage: string | null | undefined
+): SupportedLocale {
+  const url = new URL(request.url);
+  const fromPath = getLocaleFromPathname(url.pathname);
+  if (fromPath) return fromPath;
+
+  const fromProfile = getLocaleFromPreferredLanguage(preferredLanguage);
+  if (fromProfile) return fromProfile;
+
   const fromHeader = getLocaleFromAcceptLanguage(request.headers.get("Accept-Language"));
   if (fromHeader) return fromHeader;
+
+  const fromCookie = getLocaleFromCookie(request.headers.get("Cookie"));
+  if (fromCookie) return fromCookie;
 
   return DEFAULT_LOCALE;
 }
@@ -97,7 +117,7 @@ export function buildLocaleCookie(locale: SupportedLocale): string {
   return `${LOCALE_COOKIE_NAME}=${locale}; Path=/; Max-Age=${ONE_YEAR_IN_SECONDS}; SameSite=Lax`;
 }
 
-export function getLocaleFromProfileLanguages(value: string | null | undefined): SupportedLocale | null {
+export function getLocaleFromPreferredLanguage(value: string | null | undefined): SupportedLocale | null {
   if (!value) return null;
 
   const candidates = value
@@ -111,6 +131,10 @@ export function getLocaleFromProfileLanguages(value: string | null | undefined):
   }
 
   return null;
+}
+
+export function getLocaleFromProfileLanguages(value: string | null | undefined): SupportedLocale | null {
+  return getLocaleFromPreferredLanguage(value);
 }
 
 function readLocalizedValue(

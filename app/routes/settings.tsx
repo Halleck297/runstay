@@ -54,7 +54,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const { error } = await (supabaseAdmin.from("profiles") as any)
       .update({
         country: country.trim() || null,
-        languages: normalizedLanguage,
+        preferred_language: normalizedLanguage,
       })
       .eq("id", userId);
 
@@ -160,7 +160,7 @@ export default function Settings() {
                   <select
                     id="language"
                     name="language"
-                    defaultValue={(user as any).languages?.split(",")[0] || "en"}
+                    defaultValue={(user as any).preferred_language || "en"}
                     className="input"
                   >
                     {Object.entries(LOCALE_LABELS).map(([code, label]) => (

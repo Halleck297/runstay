@@ -3,9 +3,10 @@ import { useEffect, useState, useRef } from "react";
 import type { Database } from "~/lib/database.types";
 import { useUnreadCount } from "~/hooks/useUnreadCount";
 import { useI18n } from "~/hooks/useI18n";
-import { LOCALE_LABELS } from "~/lib/locale";
+import { getLocaleFromPreferredLanguage, isSupportedLocale, LOCALE_LABELS } from "~/lib/locale";
 import type { SupportedLocale } from "~/lib/locale";
 import { LocaleSwitcher } from "~/components/LocaleSwitcher";
+import { LocalePersistPrompt } from "~/components/LocalePersistPrompt";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
   unreadCount?: number;
@@ -16,14 +17,29 @@ interface HeaderProps {
   user: Profile | null;
 }
 
+const LOCALE_PERSIST_PROMPT_KEY = "runoot_locale_persist_prompt";
+
 export function Header({ user }: HeaderProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>("en");
+  const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>(locale);
+  const [pendingLocale, setPendingLocale] = useState<SupportedLocale | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const localeFetcher = useFetcher<{ success?: boolean; locale?: string }>();
   const location = useLocation();
+  const preferredLocale = getLocaleFromPreferredLanguage((user as any)?.preferred_language);
+
+  const submitLocaleChange = (nextLocale: SupportedLocale, persist: "0" | "1") => {
+    localeFetcher.submit(
+      {
+        locale: nextLocale,
+        persist,
+        redirectTo: `${location.pathname}${location.search}`,
+      },
+      { method: "post", action: "/api/locale" }
+    );
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -64,12 +80,20 @@ export function Header({ user }: HeaderProps) {
   const hasAnyUnread = unreadMessages > 0;
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    const htmlLang = document.documentElement.lang?.toLowerCase();
-    if (htmlLang && htmlLang in LOCALE_LABELS) {
-      setSelectedLocale(htmlLang as SupportedLocale);
-    }
-  }, [location.pathname]);
+    setSelectedLocale(locale);
+  }, [locale]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const queuedLocale = window.sessionStorage.getItem(LOCALE_PERSIST_PROMPT_KEY);
+    if (!isSupportedLocale(queuedLocale)) return;
+    if (queuedLocale !== locale) return;
+
+    window.sessionStorage.removeItem(LOCALE_PERSIST_PROMPT_KEY);
+    if (preferredLocale === queuedLocale) return;
+    setPendingLocale(queuedLocale);
+  }, [locale, preferredLocale, user]);
 
   useEffect(() => {
     if (localeFetcher.state !== "idle" || !localeFetcher.data?.success) return;
@@ -80,19 +104,25 @@ export function Header({ user }: HeaderProps) {
     const hasLocalePrefix = parts.length > 0 && localeCodes.includes(parts[0]);
     const strippedPath = hasLocalePrefix ? `/${parts.slice(1).join("/")}` : location.pathname;
     const normalizedPath = strippedPath === "" ? "/" : strippedPath;
-    const localizedPath = `/${selectedLocale}${normalizedPath === "/" ? "" : normalizedPath}${location.search}`;
+    const resolvedLocale =
+      localeFetcher.data?.locale && localeFetcher.data.locale in LOCALE_LABELS
+        ? (localeFetcher.data.locale as SupportedLocale)
+        : selectedLocale;
+    const localizedPath = `/${resolvedLocale}${normalizedPath === "/" ? "" : normalizedPath}${location.search}`;
     window.location.assign(localizedPath);
   }, [localeFetcher.state, localeFetcher.data, location.pathname, location.search, selectedLocale]);
 
   const handleLocaleChange = (locale: SupportedLocale) => {
+    if (typeof window !== "undefined") {
+      if (user && preferredLocale !== locale) {
+        window.sessionStorage.setItem(LOCALE_PERSIST_PROMPT_KEY, locale);
+      } else {
+        window.sessionStorage.removeItem(LOCALE_PERSIST_PROMPT_KEY);
+      }
+    }
+
     setSelectedLocale(locale);
-    localeFetcher.submit(
-      {
-        locale,
-        redirectTo: `${location.pathname}${location.search}`,
-      },
-      { method: "post", action: "/api/locale" }
-    );
+    submitLocaleChange(locale, "0");
   };
 
   return (
@@ -132,7 +162,26 @@ export function Header({ user }: HeaderProps) {
 {user ? (
   <nav className="flex items-center">
     <div className="hidden md:flex items-center gap-6">
-      <LocaleSwitcher value={selectedLocale} onChange={handleLocaleChange} />
+      <div className="relative">
+        <LocaleSwitcher value={selectedLocale} onChange={handleLocaleChange} />
+        <LocalePersistPrompt
+          open={pendingLocale !== null}
+          className="right-0 left-auto"
+          languageLabel={pendingLocale ? LOCALE_LABELS[pendingLocale] : ""}
+          onClose={() => {
+            setPendingLocale(null);
+          }}
+          onKeepTemporary={() => {
+            setPendingLocale(null);
+          }}
+          onMakeDefault={() => {
+            if (!pendingLocale) return;
+            setSelectedLocale(pendingLocale);
+            submitLocaleChange(pendingLocale, "1");
+            setPendingLocale(null);
+          }}
+        />
+      </div>
 
       {/* User menu dropdown - hidden on mobile, shown on desktop */}
 <div

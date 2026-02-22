@@ -3,7 +3,7 @@ import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-router";
 import { useEffect, useRef } from "react";
 import { useI18n } from "~/hooks/useI18n";
-import { detectPreferredLocale, localizeListing } from "~/lib/locale";
+import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
 import { requireUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
@@ -18,7 +18,7 @@ type ContactActionData =
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  const locale = detectPreferredLocale(request);
+  const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
   const userId = (user as any).id as string;
   const { id } = params;
 

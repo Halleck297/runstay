@@ -53,7 +53,8 @@ export interface Database {
           facebook: string | null;
           linkedin: string | null;
           website: string | null;
-          languages: string | null;
+          preferred_language: string | null;
+          languages_spoken: string | null;
           years_experience: number | null;
           specialties: string | null;
           // Team Leader
@@ -94,7 +95,8 @@ export interface Database {
           facebook?: string | null;
           linkedin?: string | null;
           website?: string | null;
-          languages?: string | null;
+          preferred_language?: string | null;
+          languages_spoken?: string | null;
           years_experience?: number | null;
           specialties?: string | null;
           is_team_leader?: boolean;
@@ -131,7 +133,8 @@ export interface Database {
           facebook?: string | null;
           linkedin?: string | null;
           website?: string | null;
-          languages?: string | null;
+          preferred_language?: string | null;
+          languages_spoken?: string | null;
           years_experience?: number | null;
           specialties?: string | null;
           is_team_leader?: boolean;

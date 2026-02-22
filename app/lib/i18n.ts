@@ -296,6 +296,11 @@ export type TranslationKey =
   | "settings.country"
   | "settings.preferred_language"
   | "settings.save_preferences"
+  | "settings.locale_prompt.title"
+  | "settings.locale_prompt.body"
+  | "settings.locale_prompt.keep_temporary"
+  | "settings.locale_prompt.save_default"
+  | "settings.locale_prompt.close"
   | "settings.blocked_users"
   | "settings.unblocked_success"
   | "settings.unknown_user"
@@ -949,6 +954,11 @@ const en: Record<TranslationKey, string> = {
   "settings.country": "Country",
   "settings.preferred_language": "Preferred language",
   "settings.save_preferences": "Save preferences",
+  "settings.locale_prompt.title": "Set as default language?",
+  "settings.locale_prompt.body": "Do you want this language as your default for future visits?",
+  "settings.locale_prompt.keep_temporary": "No",
+  "settings.locale_prompt.save_default": "Save default",
+  "settings.locale_prompt.close": "Close",
   "settings.blocked_users": "Blocked Users",
   "settings.unblocked_success": "User has been unblocked successfully.",
   "settings.unknown_user": "Unknown user",
@@ -1603,6 +1613,11 @@ const it: Partial<Record<TranslationKey, string>> = {
   "settings.country": "Paese",
   "settings.preferred_language": "Lingua preferita",
   "settings.save_preferences": "Salva preferenze",
+  "settings.locale_prompt.title": "Impostare come lingua predefinita?",
+  "settings.locale_prompt.body": "Vuoi usare questa lingua come predefinita per le prossime visite?",
+  "settings.locale_prompt.keep_temporary": "No",
+  "settings.locale_prompt.save_default": "Salva default",
+  "settings.locale_prompt.close": "Chiudi",
   "settings.blocked_users": "Utenti bloccati",
   "settings.unblocked_success": "Utente sbloccato con successo.",
   "settings.unknown_user": "Utente sconosciuto",
@@ -2257,6 +2272,11 @@ const es: Partial<Record<TranslationKey, string>> = {
   "settings.country": "País",
   "settings.preferred_language": "Idioma preferido",
   "settings.save_preferences": "Guardar preferencias",
+  "settings.locale_prompt.title": "Establecer como idioma predeterminado?",
+  "settings.locale_prompt.body": "Quieres usar este idioma como predeterminado para futuras visitas?",
+  "settings.locale_prompt.keep_temporary": "No",
+  "settings.locale_prompt.save_default": "Guardar default",
+  "settings.locale_prompt.close": "Cerrar",
   "settings.blocked_users": "Usuarios bloqueados",
   "settings.unblocked_success": "El usuario ha sido desbloqueado exitosamente.",
   "settings.unknown_user": "Usuario desconocido",
@@ -2911,6 +2931,11 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "settings.country": "Pays",
   "settings.preferred_language": "Langue préférée",
   "settings.save_preferences": "Enregistrer les préférences",
+  "settings.locale_prompt.title": "Definir comme langue par defaut ?",
+  "settings.locale_prompt.body": "Voulez-vous utiliser cette langue comme valeur par defaut pour les prochaines visites ?",
+  "settings.locale_prompt.keep_temporary": "No",
+  "settings.locale_prompt.save_default": "Sauver par defaut",
+  "settings.locale_prompt.close": "Fermer",
   "settings.blocked_users": "Utilisateurs bloqués",
   "settings.unblocked_success": "L'utilisateur a été débloqué avec succès.",
   "settings.unknown_user": "Utilisateur inconnu",
@@ -3565,6 +3590,11 @@ const de: Partial<Record<TranslationKey, string>> = {
   "settings.country": "Land",
   "settings.preferred_language": "Bevorzugte Sprache",
   "settings.save_preferences": "Einstellungen speichern",
+  "settings.locale_prompt.title": "Als Standardsprache festlegen?",
+  "settings.locale_prompt.body": "Mochtest du diese Sprache fur zukunftige Besuche als Standard verwenden?",
+  "settings.locale_prompt.keep_temporary": "No",
+  "settings.locale_prompt.save_default": "Als Standard speichern",
+  "settings.locale_prompt.close": "Schliessen",
   "settings.blocked_users": "Blockierte Benutzer",
   "settings.unblocked_success": "Der Benutzer wurde erfolgreich entsperrt.",
   "settings.unknown_user": "Unbekannter Benutzer",
@@ -4219,6 +4249,11 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "settings.country": "Land",
   "settings.preferred_language": "Voorkeurstaal",
   "settings.save_preferences": "Voorkeuren opslaan",
+  "settings.locale_prompt.title": "Als standaardtaal instellen?",
+  "settings.locale_prompt.body": "Wil je deze taal als standaard gebruiken voor toekomstige bezoeken?",
+  "settings.locale_prompt.keep_temporary": "No",
+  "settings.locale_prompt.save_default": "Opslaan als standaard",
+  "settings.locale_prompt.close": "Sluiten",
   "settings.blocked_users": "Geblokkeerde gebruikers",
   "settings.unblocked_success": "De gebruiker is succesvol gedeblokkeerd.",
   "settings.unknown_user": "Onbekende gebruiker",
@@ -4873,6 +4908,11 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "settings.country": "País",
   "settings.preferred_language": "Idioma preferido",
   "settings.save_preferences": "Salvar preferências",
+  "settings.locale_prompt.title": "Definir como idioma padrao?",
+  "settings.locale_prompt.body": "Deseja usar este idioma como padrao para as proximas visitas?",
+  "settings.locale_prompt.keep_temporary": "No",
+  "settings.locale_prompt.save_default": "Guardar padrao",
+  "settings.locale_prompt.close": "Fechar",
   "settings.blocked_users": "Usuários bloqueados",
   "settings.unblocked_success": "O usuário foi desbloqueado com sucesso.",
   "settings.unknown_user": "Usuário desconhecido",

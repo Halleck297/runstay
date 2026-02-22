@@ -1,15 +1,13 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, Link, redirect, data } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, Link, redirect, data, useRouteLoaderData } from "react-router";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { useEffect, useState } from "react";
 import { getUser, getAccessToken, getImpersonationContext } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import {
   buildLocaleCookie,
-  detectPreferredLocale,
   getLocaleFromCookie,
-  getLocaleFromPathname,
-  getLocaleFromProfileLanguages,
   LOCALE_COOKIE_NAME,
+  resolveLocaleForRequest,
 } from "~/lib/locale";
 import CookieBanner from "~/components/CookieBanner";
 import { MobileNav } from "~/components/MobileNav";
@@ -34,9 +32,7 @@ export const links: LinksFunction = () => [
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const user = await getUser(request);
-  const localeFromPath = getLocaleFromPathname(url.pathname);
-  const localeFromProfile = getLocaleFromProfileLanguages((user as any)?.languages);
-  const locale = localeFromPath ?? localeFromProfile ?? detectPreferredLocale(request);
+  const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
   const currentCookieLocale = getLocaleFromCookie(request.headers.get("Cookie"));
   const shouldSetLocaleCookie = currentCookieLocale !== locale;
 
@@ -113,8 +109,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const rootData = useRouteLoaderData("root") as { locale?: string } | undefined;
+  const htmlLang = rootData?.locale ?? "en";
+
   return (
-    <html lang="en" className="h-full">
+    <html lang={htmlLang} className="h-full">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

@@ -1,0 +1,33 @@
+Used keys (non-admin): 616
+Placeholder mismatches: 0
+Empty values: 0
+
+IT same as EN on used keys: 12
+  profile.* translated: 95/101
+  settings.* translated: 30/32
+  dashboard.* translated: 28/29
+
+ES same as EN on used keys: 10
+  profile.* translated: 97/101
+  settings.* translated: 32/32
+  dashboard.* translated: 28/29
+
+FR same as EN on used keys: 25
+  profile.* translated: 93/101
+  settings.* translated: 30/32
+  dashboard.* translated: 27/29
+
+DE same as EN on used keys: 18
+  profile.* translated: 95/101
+  settings.* translated: 32/32
+  dashboard.* translated: 27/29
+
+NL same as EN on used keys: 22
+  profile.* translated: 93/101
+  settings.* translated: 31/32
+  dashboard.* translated: 28/29
+
+PT same as EN on used keys: 12
+  profile.* translated: 96/101
+  settings.* translated: 32/32
+  dashboard.* translated: 29/29

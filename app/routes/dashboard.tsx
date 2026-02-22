@@ -4,7 +4,7 @@ import { ControlPanelLayout } from "~/components/ControlPanelLayout";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
 import { tourOperatorNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
-import { detectPreferredLocale, localizeListing } from "~/lib/locale";
+import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -14,7 +14,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  const locale = detectPreferredLocale(request);
+  const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
 
   if (user.user_type !== "tour_operator") {
     return redirect("/listings");

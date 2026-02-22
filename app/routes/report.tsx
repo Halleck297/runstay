@@ -3,7 +3,7 @@ import { data } from "react-router";
 import { Form, useActionData, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import { Header } from "~/components/Header";
 import { useI18n } from "~/hooks/useI18n";
-import { detectPreferredLocale, localizeListing } from "~/lib/locale";
+import { resolveLocaleForRequest, localizeListing } from "~/lib/locale";
 import type { TranslationKey } from "~/lib/i18n";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -18,7 +18,7 @@ type ReportActionData =
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
-  const locale = detectPreferredLocale(request);
+  const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
   const url = new URL(request.url);
 
   const type = url.searchParams.get("type") || "other";
