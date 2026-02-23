@@ -357,7 +357,7 @@ export async function action({ request }: ActionFunctionArgs) {
         const sendResult = await sendTemplatedEmail({
           to: email,
           templateId: "referral_invite",
-          locale: (user as any).language || null,
+          locale: (user as any).preferred_language || null,
           payload: {
             inviterName: (user as any).full_name || "Your Team Leader",
             referralLink,
@@ -416,7 +416,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const sendResult = await sendTemplatedEmail({
         to: invite.email,
         templateId: "referral_invite",
-        locale: (user as any).language || null,
+        locale: (user as any).preferred_language || null,
         payload: {
           inviterName: (user as any).full_name || "Your Team Leader",
           referralLink,
@@ -522,6 +522,7 @@ export default function TLDashboard() {
         fullName: (user as any).full_name,
         email: (user as any).email,
         roleLabel: t("tl.role_label"),
+        avatarUrl: (user as any).avatar_url,
       }}
       navItems={teamLeaderNavItems}
     >

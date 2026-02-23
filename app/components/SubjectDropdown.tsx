@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigation } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
 
 interface SubjectDropdownProps {
@@ -9,6 +10,9 @@ interface SubjectDropdownProps {
 
 export function SubjectDropdown({ value, onChange, hasError }: SubjectDropdownProps) {
   const { t } = useI18n();
+  const navigation = useNavigation();
+  const labelId = "contact-subject-label";
+  const menuId = "contact-subject-menu";
   const SUBJECT_OPTIONS = [
     { value: "general", label: t("contact.subject.general") },
     { value: "bug", label: t("contact.subject.bug") },
@@ -31,11 +35,17 @@ export function SubjectDropdown({ value, onChange, hasError }: SubjectDropdownPr
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (navigation.state !== "idle") {
+      setIsOpen(false);
+    }
+  }, [navigation.state]);
+
   const selectedOption = SUBJECT_OPTIONS.find((opt) => opt.value === value);
 
   return (
     <div ref={dropdownRef} className="relative">
-      <label className="label text-base mb-6">{t("contact.subject")} *</label>
+      <label id={labelId} className="label text-base mb-6">{t("contact.subject")} *</label>
 
       {/* Hidden input for form submission */}
       <input type="hidden" name="subject" value={value} />
@@ -44,6 +54,15 @@ export function SubjectDropdown({ value, onChange, hasError }: SubjectDropdownPr
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setIsOpen(false);
+          }
+        }}
+        aria-labelledby={labelId}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={menuId}
         className={`input shadow-md backdrop-blur-sm w-full text-left flex items-center justify-between gap-3 ${
           hasError ? "ring-1 ring-red-500" : ""
         } ${!value ? "text-gray-400" : "text-gray-900"}`}
@@ -61,11 +80,18 @@ export function SubjectDropdown({ value, onChange, hasError }: SubjectDropdownPr
 
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg bg-white shadow-[0_4px_16px_rgba(0,0,0,0.15)] border border-gray-100 py-1 max-h-60 overflow-auto">
+        <div
+          id={menuId}
+          role="listbox"
+          aria-labelledby={labelId}
+          className="absolute z-50 mt-1 w-full rounded-lg bg-white shadow-[0_4px_16px_rgba(0,0,0,0.15)] border border-gray-100 py-1 max-h-60 overflow-auto"
+        >
           {SUBJECT_OPTIONS.map((option) => (
             <button
               key={option.value}
               type="button"
+              role="option"
+              aria-selected={value === option.value}
               onClick={() => {
                 onChange(option.value);
                 setIsOpen(false);

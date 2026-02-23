@@ -167,8 +167,8 @@ export async function action({ request }: ActionFunctionArgs) {
   // Auto-generate title based on listing type and event
   const listingTypeText = 
     listingType === "room" ? "Rooms" :
-    listingType === "bib" ? "Bibs" :
-    "Rooms + Bibs";
+    listingType === "bib" ? "Race Entry" :
+    "Package";
 
   const autoTitle = `${listingTypeText} for ${eventData?.name || "Marathon"}`;
   
@@ -317,6 +317,28 @@ export default function NewListing() {
   const [priceValue, setPriceValue] = useState<string>("");
   const [priceNegotiable, setPriceNegotiable] = useState<boolean | null>(null);
 
+  // Keep listing type stable across browser refresh/back-forward restores.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const savedType = window.sessionStorage.getItem("new_listing_type");
+    if (savedType === "room" || savedType === "bib" || savedType === "room_and_bib") {
+      setListingType(savedType);
+      return;
+    }
+
+    const checkedInput = document.querySelector<HTMLInputElement>('input[name="listingType"]:checked');
+    const checkedValue = checkedInput?.value;
+    if (checkedValue === "room" || checkedValue === "bib" || checkedValue === "room_and_bib") {
+      setListingType(checkedValue);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem("new_listing_type", listingType);
+  }, [listingType]);
+
   // Show success modal when listing is created
   useEffect(() => {
     if (createdActionData?.listingId) {
@@ -399,7 +421,7 @@ useEffect(() => {
                     name="listingType"
                     value="room"
                     className="sr-only"
-                    defaultChecked
+                    checked={listingType === "room"}
                     onChange={(e) => setListingType(e.target.value as "room")}
                   />
                   <span className="flex flex-1 flex-col items-center text-center">
@@ -427,6 +449,7 @@ useEffect(() => {
                     name="listingType"
                     value="bib"
                     className="sr-only"
+                    checked={listingType === "bib"}
                     onChange={(e) => setListingType(e.target.value as "bib")}
                   />
                   <span className="flex flex-1 flex-col items-center text-center">
@@ -454,6 +477,7 @@ useEffect(() => {
                     name="listingType"
                     value="room_and_bib"
                     className="sr-only"
+                    checked={listingType === "room_and_bib"}
                     onChange={(e) => setListingType(e.target.value as "room_and_bib")}
                   />
                   <span className="flex flex-1 flex-col items-center text-center">
@@ -555,7 +579,7 @@ useEffect(() => {
 
                 <div className="mt-4">
                   <label htmlFor="checkIn" className="label mb-3">
-                    {t("edit_listing.check_in")}
+                    Check-in
                   </label>
                   <DatePicker
                     id="checkIn"
@@ -574,7 +598,7 @@ useEffect(() => {
 
                 <div className="mt-4">
                   <label htmlFor="checkOut" className="label mb-3">
-                    {t("edit_listing.check_out")}
+                    Check-out
                   </label>
                   <DatePicker
                     id="checkOut"
@@ -603,7 +627,7 @@ useEffect(() => {
     </div>
   )}
   
-  <div>
+  <div className={(user.user_type === "private") ? "mt-6" : ""}>
   <label htmlFor="bibCount" className="label">
     {t("edit_listing.number_bibs")}
     {maxBibs !== null && user.user_type === "tour_operator" && (
@@ -644,9 +668,6 @@ useEffect(() => {
           {t("edit_listing.official_transfer")}
         </div>
         <input type="hidden" name="transferType" value="official_process" />
-        <p className="mt-1 text-xs text-gray-500">
-          {t("edit_listing.transfer_help")}
-        </p>
       </>
     ) : (
       <>
@@ -663,9 +684,6 @@ useEffect(() => {
             </option>
           ))}
         </select>
-        <p className="mt-1 text-xs text-gray-500">
-          {t("edit_listing.transfer_help")}
-        </p>
       </>
     )}
   </div>
@@ -706,11 +724,8 @@ useEffect(() => {
             {/* Price - nascondi per privati con bib only */}
             {!(user.user_type === "private" && listingType === "bib") && (
               <div className="space-y-4">
-                <h3 className="font-medium text-gray-900 border-b pb-2">
-                  {t("edit_listing.price")}
-                </h3>
                 <div>
-                  <label htmlFor="price" className="label mb-3">
+                  <label htmlFor="price" className="label mb-3 text-sm md:text-base font-semibold">
                     {t("edit_listing.amount")}
                   </label>
                   <div className="flex gap-2">
@@ -905,6 +920,7 @@ useEffect(() => {
           fullName: user.full_name,
           email: user.email,
           roleLabel: t("dashboard.role_tour_operator"),
+          avatarUrl: user.avatar_url,
         }}
         navItems={tourOperatorNavItems}
       >

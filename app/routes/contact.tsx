@@ -1,8 +1,11 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
 import { useLoaderData, useActionData, Form, useNavigation } from "react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
+import { translate } from "~/lib/i18n";
+import { resolveLocaleForRequest } from "~/lib/locale";
+import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -13,12 +16,53 @@ export const meta: MetaFunction = () => {
   return [{ title: "Contact Us - Runoot" }];
 };
 
+const ALLOWED_SUBJECTS = ["general", "bug", "feature", "partnership", "other"] as const;
+type AllowedSubject = (typeof ALLOWED_SUBJECTS)[number];
+const CONTACT_RATE_LIMIT_WINDOW_MINUTES = 15;
+const CONTACT_RATE_LIMIT_MAX_MESSAGES = 3;
+const CONTACT_MIN_SUBMIT_SECONDS = 5;
+
+function extractEmailAddress(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  const match = trimmed.match(/<([^>]+)>/);
+  return (match?.[1] || trimmed).trim() || null;
+}
+
+function isAllowedSubject(value: string | null): value is AllowedSubject {
+  return !!value && ALLOWED_SUBJECTS.includes(value as AllowedSubject);
+}
+
+async function isRateLimited(userId: string | null, email: string | null) {
+  const windowStart = new Date(Date.now() - CONTACT_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
+  let query = supabaseAdmin
+    .from("contact_messages")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", windowStart);
+
+  if (userId) {
+    query = query.eq("user_id", userId);
+  } else if (email) {
+    query = query.eq("email", email);
+  } else {
+    return false;
+  }
+
+  const { count, error } = await query;
+  if (error) {
+    console.error("Contact rate-limit check failed:", error);
+    return false;
+  }
+
+  return (count ?? 0) >= CONTACT_RATE_LIMIT_MAX_MESSAGES;
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const url = new URL(request.url);
   const requestedSubject = url.searchParams.get("subject");
-  const defaultSubject = requestedSubject === "partnership" ? "partnership" : "";
-  return { user, defaultSubject };
+  const defaultSubject = isAllowedSubject(requestedSubject) ? requestedSubject : "";
+  return { user, defaultSubject, formStartedAt: Date.now() };
 }
 
 // Email validation regex
@@ -26,37 +70,61 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await getUser(request);
+  const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
+  const tServer = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const formData = await request.formData();
 
   const name = (formData.get("name") as string)?.trim();
   const email = (formData.get("email") as string)?.trim();
   const subject = (formData.get("subject") as string)?.trim();
   const message = (formData.get("message") as string)?.trim();
+  const website = (formData.get("website") as string)?.trim();
+  const formStartedAtRaw = (formData.get("form_started_at") as string)?.trim();
+
+  // Honeypot: bots often fill hidden fields. Silently accept to avoid signal.
+  if (website) {
+    return data({ success: true });
+  }
+
+  const formStartedAt = Number(formStartedAtRaw);
+  const minElapsedMs = CONTACT_MIN_SUBMIT_SECONDS * 1000;
+  if (!Number.isFinite(formStartedAt) || Date.now() - formStartedAt < minElapsedMs) {
+    return data(
+      { error: tServer("contact.error.failed_send"), resetForm: true, formStartedAt: Date.now() },
+      { status: 400 }
+    );
+  }
 
   // Validation for non-logged-in users
   if (!user) {
     if (!name || name.length < 2) {
-      return data({ error: "Please provide your name (at least 2 characters)" }, { status: 400 });
+      return data({ error: tServer("contact.error.name_min"), field: "name" }, { status: 400 });
     }
 
     if (!email) {
-      return data({ error: "Please provide your email" }, { status: 400 });
+      return data({ error: tServer("contact.error.email_required"), field: "email" }, { status: 400 });
     }
 
     // Validate email format with regex
     if (!emailRegex.test(email)) {
-      return data({ error: "Please provide a valid email address" }, { status: 400 });
+      return data({ error: tServer("contact.error.email_invalid"), field: "email" }, { status: 400 });
     }
   }
 
   // Validate subject
-  if (!subject) {
-    return data({ error: "Please select a subject" }, { status: 400 });
+  if (!subject || !isAllowedSubject(subject)) {
+    return data({ error: tServer("contact.error.subject_required"), field: "subject" }, { status: 400 });
   }
 
   // Validate message
   if (!message || message.length < 10) {
-    return data({ error: "Please provide a message (at least 10 characters)" }, { status: 400 });
+    return data({ error: tServer("contact.error.message_min"), field: "message" }, { status: 400 });
+  }
+
+  const requesterId = user ? (user as any).id ?? null : null;
+  const requesterEmail = user ? ((user as any).email as string | null) : email;
+  if (await isRateLimited(requesterId, requesterEmail ?? null)) {
+    return data({ error: tServer("contact.error.rate_limited") }, { status: 429 });
   }
 
   // Save to database
@@ -70,7 +138,48 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (error) {
     console.error("Contact form error:", error);
-    return data({ error: "Failed to send message. Please try again." }, { status: 500 });
+    return data({ error: tServer("contact.error.failed_send") }, { status: 500 });
+  }
+
+  const contactInbox = extractEmailAddress(
+    process.env.CONTACT_NOTIFICATION_EMAIL ||
+    process.env.SUPPORT_EMAIL ||
+    process.env.RESEND_FROM_EMAIL ||
+    null
+  );
+
+  if (contactInbox) {
+    const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+    const senderName = user ? ((user as any).full_name as string | null) || "Registered user" : name || "Guest user";
+    const senderEmail = user ? ((user as any).email as string | null) || "unknown" : email || "unknown";
+    const senderUserId = user ? ((user as any).id as string | null) : null;
+    const normalizedSubject = subject || "other";
+
+    const emailResult = await sendTemplatedEmail({
+      to: contactInbox,
+      templateId: "platform_notification",
+      locale: "en",
+      payload: {
+        title: `New contact message (${normalizedSubject})`,
+        message: [
+          `Name: ${senderName}`,
+          `Email: ${senderEmail}`,
+          senderUserId ? `User ID: ${senderUserId}` : "User ID: guest",
+          `Subject: ${normalizedSubject}`,
+          "",
+          "Message:",
+          message,
+        ].join("\n"),
+        ctaLabel: "Open contact page",
+        ctaUrl: `${appUrl}/contact`,
+      },
+    });
+
+    if (!emailResult.ok) {
+      console.error("Contact email notification failed:", emailResult.error);
+    }
+  } else {
+    console.warn("Contact email notification skipped: no CONTACT_NOTIFICATION_EMAIL/SUPPORT_EMAIL/RESEND_FROM_EMAIL configured.");
   }
 
   return data({ success: true });
@@ -78,24 +187,38 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function Contact() {
   const { t } = useI18n();
-  const { user, defaultSubject } = useLoaderData<typeof loader>();
+  const { user, defaultSubject, formStartedAt: initialFormStartedAt } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const [subject, setSubject] = useState(defaultSubject);
+  const [formKey, setFormKey] = useState(0);
+  const [formStartedAt, setFormStartedAt] = useState(initialFormStartedAt);
 
   const isSubmitting = navigation.state === "submitting";
 
+  useEffect(() => {
+    if (actionData && "resetForm" in actionData && actionData.resetForm) {
+      const nextFormStartedAt =
+        "formStartedAt" in actionData && typeof actionData.formStartedAt === "number"
+          ? actionData.formStartedAt
+          : Date.now();
+      setFormKey((prev) => prev + 1);
+      setSubject(defaultSubject);
+      setFormStartedAt(nextFormStartedAt);
+    }
+  }, [actionData, defaultSubject]);
+
   return (
-    <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
-      <div className="min-h-screen bg-gray-50/85">
+    <div className="min-h-screen bg-[url('/contact.jpg')] bg-cover bg-center bg-fixed">
+      <div className="min-h-screen bg-gray-50/40 flex flex-col">
         <Header user={user} />
 
-        <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-1 w-full">
           {/* Back button */}
           <button
             type="button"
             onClick={() => window.history.back()}
-            className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/85 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm backdrop-blur-sm transition hover:bg-white"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -145,7 +268,13 @@ export default function Contact() {
                 </div>
               )}
 
-              <Form method="post" className="space-y-6">
+              <Form key={formKey} method="post" className="space-y-6">
+                <div className="sr-only" aria-hidden="true">
+                  <label htmlFor="website">Website</label>
+                  <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+                </div>
+                <input type="hidden" name="form_started_at" value={formStartedAt} />
+
                 {/* Name - only for non-logged-in users */}
                 {!user && (
                   <div>
@@ -179,7 +308,7 @@ export default function Contact() {
                 <SubjectDropdown
                   value={subject}
                   onChange={setSubject}
-                  hasError={actionData && "error" in actionData && actionData.error?.includes("subject")}
+                  hasError={!!(actionData && "field" in actionData && actionData.field === "subject")}
                 />
 
                 {/* Message - always shown */}
@@ -202,7 +331,7 @@ export default function Contact() {
                 <div>
                   <button
                     type="submit"
-                    className="btn-primary rounded-full w-full shadow-lg shadow-accent-500/30"
+                    className="btn-primary rounded-full px-8 py-2.5 shadow-lg shadow-accent-500/30"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? t("contact.sending") : t("contact.send_message")}

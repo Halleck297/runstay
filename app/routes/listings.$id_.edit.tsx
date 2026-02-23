@@ -4,7 +4,7 @@ import { Form, useActionData, useLoaderData, Link, useNavigate } from "react-rou
 import { useState, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
-import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { supabaseAdmin } from "~/lib/supabase.server";
 import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
 import { Header } from "~/components/Header";
 import { EventPicker } from "~/components/EventPicker";
@@ -29,7 +29,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
 
   // Get the listing
-  const listingQuery = supabase
+  const listingQuery = supabaseAdmin
     .from("listings")
     .select(`
       *,
@@ -47,7 +47,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   // Get existing events for autocomplete
-  const { data: events } = await supabase
+  const { data: events } = await supabaseAdmin
     .from("events")
     .select("*")
     .order("event_date", { ascending: true });
@@ -65,7 +65,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const { id } = params;
 
   // Verify ownership
-  const existingListingQuery = supabase
+  const existingListingQuery = supabaseAdmin
     .from("listings")
     .select("id, short_id, author_id");
   const { data: existingListing } = await applyListingPublicIdFilter(existingListingQuery as any, id!).single();
@@ -132,7 +132,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   let finalEventId = eventId;
 
   if (!eventId && newEventName && newEventDate) {
-    const { data: newEvent, error: eventError } = await supabase
+    const { data: newEvent, error: eventError } = await supabaseAdmin
       .from("events")
       .insert({
         name: newEventName,
@@ -155,7 +155,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   // Get event details for title
-  const { data: eventData } = await supabase
+  const { data: eventData } = await supabaseAdmin
     .from("events")
     .select("name, event_date")
     .eq("id", finalEventId)
@@ -188,8 +188,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Auto-generate title
   const listingTypeText =
     listingType === "room" ? "Rooms" :
-    listingType === "bib" ? "Bibs" :
-    "Rooms + Bibs";
+    listingType === "bib" ? "Race Entry" :
+    "Package";
 
   const autoTitle = `${listingTypeText} for ${eventData?.name || "Marathon"}`;
 
@@ -556,7 +556,7 @@ export default function EditListing() {
                   </div>
                 )}
 
-                <div>
+                <div className={(user as any).user_type === "private" ? "mt-6" : ""}>
                   <label htmlFor="bibCount" className="label">
                     {t("edit_listing.number_bibs")}
                     {maxBibs !== null && (user as any).user_type === "tour_operator" && (
@@ -597,9 +597,6 @@ export default function EditListing() {
                         {t("edit_listing.official_transfer")}
                       </div>
                       <input type="hidden" name="transferType" value="official_process" />
-                      <p className="mt-1 text-xs text-gray-500">
-                        {t("edit_listing.transfer_help")}
-                      </p>
                     </>
                   ) : (
                     <>
@@ -617,9 +614,6 @@ export default function EditListing() {
                           </option>
                         ))}
                       </select>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {t("edit_listing.transfer_help")}
-                      </p>
                     </>
                   )}
                 </div>
@@ -637,9 +631,8 @@ export default function EditListing() {
             {/* Price */}
             {!((user as any).user_type === "private" && listingType === "bib") && (
               <div className="space-y-4">
-                <h3 className="font-medium text-gray-900 border-b pb-2">{t("edit_listing.price")}</h3>
                 <div>
-                  <label htmlFor="price" className="label mb-3">{t("edit_listing.amount")}</label>
+                  <label htmlFor="price" className="label mb-3 text-sm md:text-base font-semibold">{t("edit_listing.amount")}</label>
                   <div className="flex gap-2">
                     <input
                       type="number"

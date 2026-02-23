@@ -44,6 +44,8 @@ interface UseRealtimeConversationsOptions {
 }
 
 const FALLBACK_POLL_INTERVAL = 15000;
+const REFRESH_DEBOUNCE_MS = 400;
+const MIN_SYNC_INTERVAL_MS = 1200;
 const shouldDisableRealtime =
   typeof window !== "undefined" &&
   window.location.hostname === "localhost" &&
@@ -59,6 +61,8 @@ export function useRealtimeConversations({
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const pendingSyncRef = useRef(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSyncAtRef = useRef(0);
 
   useEffect(() => {
     setConversations(initialConversations);
@@ -75,6 +79,7 @@ export function useRealtimeConversations({
     if (fetcher.state !== "idle") return;
 
     pendingSyncRef.current = false;
+    lastSyncAtRef.current = Date.now();
     fetcher.load("/api/conversations");
   }, [fetcher, fetcher.state]);
 
@@ -88,12 +93,39 @@ export function useRealtimeConversations({
     const supabase = getSupabaseBrowserClient();
     setIsConnected(false);
 
-    const requestSync = () => {
+    const runSync = () => {
+      if (document.visibilityState !== "visible") {
+        pendingSyncRef.current = true;
+        return;
+      }
+
       if (fetcher.state !== "idle") {
         pendingSyncRef.current = true;
         return;
       }
+
+      const now = Date.now();
+      const elapsed = now - lastSyncAtRef.current;
+      if (elapsed < MIN_SYNC_INTERVAL_MS) {
+        pendingSyncRef.current = true;
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => {
+          if (fetcher.state === "idle") {
+            pendingSyncRef.current = false;
+            lastSyncAtRef.current = Date.now();
+            fetcher.load("/api/conversations");
+          }
+        }, MIN_SYNC_INTERVAL_MS - elapsed);
+        return;
+      }
+
+      lastSyncAtRef.current = now;
       fetcher.load("/api/conversations");
+    };
+
+    const requestSync = () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(runSync, REFRESH_DEBOUNCE_MS);
     };
 
     const channel = supabase
@@ -142,6 +174,10 @@ export function useRealtimeConversations({
 
     return () => {
       setIsConnected(false);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;

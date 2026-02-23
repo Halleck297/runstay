@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { requireSuperAdmin } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
+import { normalizeEmailLocale } from "~/lib/email/types";
 
 const STATUS_OPTIONS = [
   "submitted",
@@ -23,6 +24,63 @@ function formatDateStable(value: string) {
   const month = String(d.getUTCMonth() + 1).padStart(2, "0");
   const year = d.getUTCFullYear();
   return `${day}/${month}/${year}`;
+}
+
+function getPublishedEventEmailCopy(localeInput: string | null | undefined, eventName: string) {
+  const locale = normalizeEmailLocale(localeInput);
+  const copy = {
+    en: {
+      referralTitle: "New Team Event Published",
+      referralMessage: `${eventName} is now available in listings.`,
+      teamLeaderTitle: "Your event is now published",
+      teamLeaderMessage: `${eventName} has been approved and is now live in listings.`,
+      cta: "Open listing",
+    },
+    it: {
+      referralTitle: "Nuovo evento del Team pubblicato",
+      referralMessage: `${eventName} e ora disponibile negli annunci.`,
+      teamLeaderTitle: "Il tuo evento e ora pubblicato",
+      teamLeaderMessage: `${eventName} e stato approvato ed e ora online negli annunci.`,
+      cta: "Apri annuncio",
+    },
+    de: {
+      referralTitle: "Neues Team-Event veroffentlicht",
+      referralMessage: `${eventName} ist jetzt in den Angeboten verfugbar.`,
+      teamLeaderTitle: "Dein Event ist jetzt veroffentlicht",
+      teamLeaderMessage: `${eventName} wurde freigegeben und ist jetzt in den Angeboten sichtbar.`,
+      cta: "Angebot offnen",
+    },
+    fr: {
+      referralTitle: "Nouvel evenement d'equipe publie",
+      referralMessage: `${eventName} est maintenant disponible dans les annonces.`,
+      teamLeaderTitle: "Votre evenement est maintenant publie",
+      teamLeaderMessage: `${eventName} a ete approuve et est maintenant en ligne dans les annonces.`,
+      cta: "Ouvrir l'annonce",
+    },
+    es: {
+      referralTitle: "Nuevo evento del equipo publicado",
+      referralMessage: `${eventName} ya esta disponible en listados.`,
+      teamLeaderTitle: "Tu evento ya esta publicado",
+      teamLeaderMessage: `${eventName} ha sido aprobado y ya esta activo en listados.`,
+      cta: "Abrir listado",
+    },
+    nl: {
+      referralTitle: "Nieuw teamevenement gepubliceerd",
+      referralMessage: `${eventName} is nu beschikbaar in advertenties.`,
+      teamLeaderTitle: "Je evenement is nu gepubliceerd",
+      teamLeaderMessage: `${eventName} is goedgekeurd en staat nu live in advertenties.`,
+      cta: "Advertentie openen",
+    },
+    pt: {
+      referralTitle: "Novo evento do time publicado",
+      referralMessage: `${eventName} agora esta disponivel nos anuncios.`,
+      teamLeaderTitle: "Seu evento agora esta publicado",
+      teamLeaderMessage: `${eventName} foi aprovado e agora esta ativo nos anuncios.`,
+      cta: "Abrir anuncio",
+    },
+  } as const;
+
+  return copy[locale];
 }
 
 function getUpdateAuthorMeta(update: any) {
@@ -174,26 +232,27 @@ export async function action({ request }: ActionFunctionArgs) {
     if (referralIds.length > 0) {
       const { data: referralProfiles } = await supabaseAdmin
         .from("profiles")
-        .select("id, email")
+        .select("id, email, preferred_language")
         .in("id", referralIds);
 
       for (const profile of referralProfiles || []) {
+        const emailCopy = getPublishedEventEmailCopy((profile as any).preferred_language, existing.event_name);
         await (supabaseAdmin.from("notifications") as any).insert({
           user_id: profile.id,
           type: "system",
-          title: "New Team Event Published",
-          message: `${existing.event_name} has been published in listings.`,
+          title: emailCopy.referralTitle,
+          message: emailCopy.referralMessage,
           data: { kind: "team_event_published", event_request_id: requestId, listing_url: listingUrl },
         });
 
         await sendTemplatedEmail({
           to: profile.email,
           templateId: "platform_notification",
-          locale: null,
+          locale: (profile as any).preferred_language || null,
           payload: {
-            title: "New Team Event Published",
-            message: `${existing.event_name} is now available in listings.`,
-            ctaLabel: "Open listing",
+            title: emailCopy.referralTitle,
+            message: emailCopy.referralMessage,
+            ctaLabel: emailCopy.cta,
             ctaUrl: listingUrl,
           },
         });
@@ -202,19 +261,20 @@ export async function action({ request }: ActionFunctionArgs) {
 
     const { data: tlProfile } = await supabaseAdmin
       .from("profiles")
-      .select("email")
+      .select("email, preferred_language")
       .eq("id", existing.team_leader_id)
       .maybeSingle();
 
     if (tlProfile?.email) {
+      const emailCopy = getPublishedEventEmailCopy((tlProfile as any).preferred_language, existing.event_name);
       await sendTemplatedEmail({
         to: tlProfile.email,
         templateId: "platform_notification",
-        locale: null,
+        locale: (tlProfile as any).preferred_language || null,
         payload: {
-          title: "Your event is now published",
-          message: `${existing.event_name} has been approved and is now live in listings.`,
-          ctaLabel: "Open listing",
+          title: emailCopy.teamLeaderTitle,
+          message: emailCopy.teamLeaderMessage,
+          ctaLabel: emailCopy.cta,
           ctaUrl: listingUrl,
         },
       });

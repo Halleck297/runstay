@@ -101,20 +101,26 @@ export function resolveLocaleForRequest(
   const fromPath = getLocaleFromPathname(url.pathname);
   if (fromPath) return fromPath;
 
+  // Respect active locale chosen in UI (cookie) during navigation.
+  const fromCookie = getLocaleFromCookie(request.headers.get("Cookie"));
+  if (fromCookie) return fromCookie;
+
   const fromProfile = getLocaleFromPreferredLanguage(preferredLanguage);
   if (fromProfile) return fromProfile;
 
   const fromHeader = getLocaleFromAcceptLanguage(request.headers.get("Accept-Language"));
   if (fromHeader) return fromHeader;
 
-  const fromCookie = getLocaleFromCookie(request.headers.get("Cookie"));
-  if (fromCookie) return fromCookie;
-
   return DEFAULT_LOCALE;
 }
 
-export function buildLocaleCookie(locale: SupportedLocale): string {
-  return `${LOCALE_COOKIE_NAME}=${locale}; Path=/; Max-Age=${ONE_YEAR_IN_SECONDS}; SameSite=Lax`;
+export function buildLocaleCookie(
+  locale: SupportedLocale,
+  options?: { persistent?: boolean }
+): string {
+  const persistent = options?.persistent ?? true;
+  const maxAgePart = persistent ? `; Max-Age=${ONE_YEAR_IN_SECONDS}` : "";
+  return `${LOCALE_COOKIE_NAME}=${locale}; Path=/${maxAgePart}; SameSite=Lax`;
 }
 
 export function getLocaleFromPreferredLanguage(value: string | null | undefined): SupportedLocale | null {

@@ -74,6 +74,7 @@ export default function TLSettingsPage() {
         fullName: (user as any).full_name,
         email: (user as any).email,
         roleLabel: t("tl.role_label"),
+        avatarUrl: (user as any).avatar_url,
       }}
       navItems={teamLeaderNavItems}
     >

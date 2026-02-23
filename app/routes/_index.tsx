@@ -1,6 +1,6 @@
 import type { MetaFunction, LoaderFunctionArgs } from "react-router";
 import { Link, useLoaderData, useNavigate, Form } from "react-router";
-import { useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
@@ -10,19 +10,13 @@ import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
 
-const HERO_ROTATING_WORDS = [
-  { subject: "Rooms", subjectColor: "text-brand-200", verb: "Empty" },
-  { subject: "Bibs", subjectColor: "text-purple-300", verb: "Wasted" },
-];
-
-
 export const meta: MetaFunction = () => {
   return [
-    { title: "Runoot - Room & Bibs Exchange Marketplace" },
+    { title: "Runoot - Exchange Marketplace" },
     {
       name: "description",
       content:
-        "Exchange unsold hotel rooms and bibs for running events. Connect tour operators and runners.",
+        "Exchange unsold race travel inventory for running events. Connect tour operators and runners.",
     },
   ];
 };
@@ -31,63 +25,21 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
 
-  // Home listings:
-  // - authenticated: normal RLS query
-  // - anonymous: admin query with sanitized preview fields only
-  let listings: any[] = [];
-  if (user) {
-    const { data } = await supabase
-      .from("listings")
-      .select(
-        `
-        *,
-        author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified),
-        event:events(id, name, slug, country, event_date)
+  // Recent listings on home must be consistent for all users.
+  const { data: homeListings } = await (supabaseAdmin as any)
+    .from("listings")
+    .select(
       `
-      )
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(3);
-    listings = (data || []).map((listing: any) => localizeListing(listing, locale));
-  } else {
-    const { data } = await (supabaseAdmin as any)
-      .from("listings")
-      .select(
-        `
-        id,
-        listing_type,
-        hotel_name,
-        hotel_stars,
-        hotel_rating,
-        room_count,
-        room_type,
-        bib_count,
-        check_in,
-        check_out,
-        created_at,
-        event:events(id, name, slug, country, event_date)
-      `
-      )
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(3);
+      *,
+      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
+      event:events(id, name, slug, country, event_date)
+    `
+    )
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(3);
 
-    listings = (data || []).map((listing: any) => localizeListing({
-      ...listing,
-      title: listing.event?.name || "Listing",
-      price: null,
-      price_negotiable: false,
-      transfer_type: null,
-      associated_costs: null,
-      author: {
-        id: "",
-        full_name: null,
-        company_name: null,
-        user_type: "private",
-        is_verified: false,
-      },
-    }, locale));
-  }
+  const listings = (homeListings || []).map((listing: any) => localizeListing(listing, locale));
 
   // Get saved listing IDs for this user
   let savedListingIds: string[] = [];
@@ -125,7 +77,13 @@ export default function Index() {
     const [verbIndex, setVerbIndex] = useState(0);
     const [subjectAnimating, setSubjectAnimating] = useState(false);
     const [verbAnimating, setVerbAnimating] = useState(false);
-    const words = HERO_ROTATING_WORDS;
+    const words = useMemo(
+      () => [
+        { subject: t("home.hero.word.rooms"), subjectColor: "text-brand-200", verb: t("home.hero.word.empty") },
+        { subject: t("home.hero.word.bibs"), subjectColor: "text-purple-300", verb: t("home.hero.word.wasted") },
+      ],
+      [t]
+    );
 
     useEffect(() => {
       const interval = setInterval(() => {
@@ -192,7 +150,7 @@ export default function Index() {
           <div className="relative mx-auto max-w-7xl px-4 py-32 sm:py-40 lg:py-48 sm:px-6 lg:px-8">
             <div className="text-center">
             <h1 className="font-display text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl [text-shadow:0_4px_20px_rgba(0,0,0,0.7)]">
-              <span className="block">Don't Let</span>
+              <span className="block">{t("home.hero.title.top")}</span>
               <span className="block">
                 <span
                   className={`inline-block ${words[subjectIndex].subjectColor} transition-all duration-500 ${
@@ -202,7 +160,7 @@ export default function Index() {
                   {words[subjectIndex].subject}
                 </span>
               </span>
-              <span className="block">Go</span>
+              <span className="block">{t("home.hero.title.middle")}</span>
               <span className="block">
                 <span
                   className={`inline-block text-accent-400 transition-all duration-500 ${
@@ -307,14 +265,14 @@ export default function Index() {
               {/* Desktop: Grid di card */}
               <div className="mt-8 hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {listings.map((listing: any) => (
-                  <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} />
+                  <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} currentUserId={(user as any)?.id ?? null} />
                 ))}
               </div>
 
               {/* Mobile: Lista verticale compatta */}
               <div className="mt-6 flex flex-col gap-3 md:hidden">
                 {listings.map((listing: any) => (
-                  <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} />
+                  <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} currentUserId={(user as any)?.id ?? null} />
                 ))}
               </div>
 

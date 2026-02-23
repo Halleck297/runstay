@@ -6,7 +6,7 @@ import { useI18n } from "~/hooks/useI18n";
 import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
 import { requireUser } from "~/lib/session.server";
-import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { supabaseAdmin } from "~/lib/supabase.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: `Contact Seller - ${(data as any)?.listing?.event?.name || "Runoot"}` }];
@@ -22,12 +22,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const userId = (user as any).id as string;
   const { id } = params;
 
-  const listingQuery = supabase
+  const listingQuery = supabaseAdmin
     .from("listings")
     .select(`
       *,
       title_i18n,
-      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified),
+      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
       event:events(id, name, name_i18n, slug, country, country_i18n, event_date)
     `);
   const { data: rawListing, error } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
@@ -60,7 +60,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
   }
 
-  const { data: userProfile } = await supabase
+  const { data: userProfile } = await supabaseAdmin
     .from("profiles")
     .select("full_name, company_name")
     .eq("id", userId)
@@ -218,8 +218,17 @@ export default function ContactSeller() {
       <div className="mx-auto max-w-2xl px-4 py-6">
         <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-700">
-              {listing.author.company_name?.charAt(0) || listing.author.full_name?.charAt(0) || "?"}
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-semibold text-brand-700">
+              {listing.author.avatar_url ? (
+                <img
+                  src={listing.author.avatar_url}
+                  alt={listing.author.company_name || listing.author.full_name || "User avatar"}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                listing.author.company_name?.charAt(0) || listing.author.full_name?.charAt(0) || "?"
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">

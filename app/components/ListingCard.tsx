@@ -28,6 +28,7 @@ interface ListingCardProps {
       company_name: string | null;
       user_type: "tour_operator" | "private";
       is_verified: boolean;
+      avatar_url?: string | null;
     };
     event: {
       id: string;
@@ -39,28 +40,22 @@ interface ListingCardProps {
   };
   isUserLoggedIn?: boolean;
   isSaved?: boolean;
+  currentUserId?: string | null;
 }
 
-// Helper: genera titolo automatico
-function generateTitle(listing: ListingCardProps['listing']): string {
-  const eventName = listing.event.name;
-  
-  if (listing.listing_type === "bib") {
-    return `${eventName} – Bib Available`;
-  } else if (listing.listing_type === "room") {
-    return `${eventName} – Room Available`;
-  } else {
-    return `${eventName} – Package`;
-  }
+function getLastMinuteThreshold(listingType: "room" | "bib" | "room_and_bib"): number {
+  if (listingType === "room") return 15;
+  return 21;
 }
 
-// Helper: calcola se è Last Minute (≤ 21 giorni)
-function isLastMinute(eventDate: string): boolean {
+// Helper: calcola se è Last Minute (soglia variabile per tipo)
+function isLastMinute(eventDate: string, listingType: "room" | "bib" | "room_and_bib"): boolean {
   const today = new Date();
   const event = new Date(eventDate);
   const diffTime = event.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays <= 21 && diffDays >= 0;
+  const thresholdDays = getLastMinuteThreshold(listingType);
+  return diffDays <= thresholdDays && diffDays >= 0;
 }
 
 // Helper: formatta room type
@@ -89,12 +84,13 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
     .replace(/^-|-$/g, '');
 }
 
-export function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }: ListingCardProps) {
+export function ListingCard({ listing, isUserLoggedIn = true, isSaved = false, currentUserId = null }: ListingCardProps) {
   const { t } = useI18n();
   const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData
     ? saveFetcher.formData.get("action") === "save"
     : isSaved;
+  const canSaveListing = isUserLoggedIn && !!currentUserId && listing.author.id !== currentUserId;
 
   const eventDate = new Date(listing.event.event_date).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -102,7 +98,7 @@ export function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }:
   });
 
   const mainTitle = listing.event.name;
-  const isLM = isLastMinute(listing.event.event_date);
+  const isLM = isLastMinute(listing.event.event_date, listing.listing_type);
   const isTourOperator = listing.author.user_type === "tour_operator";
   const needsNameChange = listing.transfer_type === "official_process";
 
@@ -110,15 +106,15 @@ export function ListingCard({ listing, isUserLoggedIn = true, isSaved = false }:
 let subtitle = "";
 if (listing.listing_type === "bib") {
     subtitle = listing.bib_count && listing.bib_count > 1
-    ? `${listing.bib_count} Bibs`
-    : "Bib";
+    ? `${listing.bib_count} ${t("common.bibs")}`
+    : t("common.bib");
 } else if (listing.listing_type === "room") {
   const roomTypeText = listing.room_type ? formatRoomType(listing.room_type) : "Room";
   subtitle = listing.room_count && listing.room_count > 1
     ? `${listing.room_count} ${roomTypeText}s Available`
     : `${roomTypeText} Available`;
 } else {
-  subtitle = "Room + Bib";
+  subtitle = t("edit_listing.room_plus_bib");
 }
 
   // Determina badge e colore
@@ -126,7 +122,7 @@ if (listing.listing_type === "bib") {
   let badgeColor = "";
   
   if (listing.listing_type === "bib") {
-    badgeText = "Bib";
+    badgeText = t("common.bib");
     badgeColor = "bg-purple-100 text-purple-700";
   } else if (listing.listing_type === "room") {
     badgeText = "Hotel";
@@ -169,18 +165,16 @@ if (listing.listing_type === "bib") {
 
         {/* Badge sovrapposti all'immagine */}
         <div className="absolute top-3 left-3 flex gap-2">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-medium shadow-sm ${badgeColor}`}>
+          <span className={`px-3 py-1.5 rounded-full text-sm font-semibold shadow-[0_4px_10px_rgba(0,0,0,0.22)] ${badgeColor}`}>
             {badgeText}
           </span>
           {isLM && (
-            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 shadow-sm">
-              LM
-            </span>
+            <span className="px-3 py-1.5 rounded-full text-sm font-semibold bg-orange-100 text-orange-700 shadow-[0_4px_10px_rgba(0,0,0,0.22)]">Last Minute</span>
           )}
         </div>
 
         {/* Save button sovrapposto all'immagine */}
-        {isUserLoggedIn && (
+        {canSaveListing && (
           <saveFetcher.Form
             method="post"
             action="/api/saved"
@@ -255,7 +249,7 @@ if (listing.listing_type === "bib") {
               {listing.bib_count || 1}
             </p>
             <p className="text-sm text-gray-600 mb-2">
-              {listing.bib_count && listing.bib_count > 1 ? "Bibs Available" : "Bib Available"}
+              {listing.bib_count && listing.bib_count > 1 ? `${t("common.bibs")} Available` : `${t("common.bib")} Available`}
             </p>
             {needsNameChange && (
               <span className="inline-flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
@@ -367,7 +361,7 @@ if (listing.listing_type === "bib") {
                 {/* Bib info */}
                 <div className="p-2 bg-gray-50 rounded-lg text-center">
                   <p className="text-sm font-semibold text-gray-900">
-                    {listing.bib_count || 1} {listing.bib_count && listing.bib_count > 1 ? "Bibs" : "Bib"}
+                    {listing.bib_count || 1} {listing.bib_count && listing.bib_count > 1 ? t("common.bibs") : t("common.bib")}
                   </p>
                   {needsNameChange && (
                     <p className="text-xs text-orange-600 mt-1">Name change req.</p>
@@ -386,10 +380,19 @@ if (listing.listing_type === "bib") {
           <>
             {/* Author */}
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
-                {listing.author.company_name?.charAt(0) ||
+              <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+                {listing.author.avatar_url ? (
+                  <img
+                    src={listing.author.avatar_url}
+                    alt={listing.author.company_name || listing.author.full_name || "User avatar"}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  listing.author.company_name?.charAt(0) ||
                   listing.author.full_name?.charAt(0) ||
-                  "?"}
+                  "?"
+                )}
               </div>
               <div>
                <div className="flex items-center gap-1">
@@ -407,7 +410,7 @@ if (listing.listing_type === "bib") {
   )}
 </div>
 <p className="text-xs text-gray-500">
-  {listing.author.user_type === "tour_operator" ? "Tour Operator" : "Private user"}
+  {listing.author.user_type === "tour_operator" ? "Tour Operator" : "Runner"}
   {listing.author.is_verified && " • Verified"}
 </p>
 

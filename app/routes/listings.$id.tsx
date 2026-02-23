@@ -24,7 +24,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .select(
       `
       *,
-      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, email),
+      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, email, avatar_url),
       event:events(id, name, slug, country, event_date)
     `
     );
@@ -114,18 +114,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
   return data({ error: "Invalid action" }, { status: 400 });
 }
 
-const typeLabels = {
-  room: "Room only",
-  bib: "Bib only",
-  room_and_bib: "Package",
-};
-
-const typeColors = {
-  room: "bg-blue-100 text-blue-700 border-blue-200",
-  bib: "bg-purple-100 text-purple-700 border-purple-200",
-  room_and_bib: "bg-green-100 text-green-700 border-green-200",
-};
-
 // Helper per formattare room type
 function formatRoomType(roomType: string | null): string {
   if (!roomType) return "Room";
@@ -172,6 +160,8 @@ export default function ListingDetail() {
   
   const listingData = listing as any;
   const userData = user as any;
+  const bibLabel = t("common.bib");
+  const bibsLabel = t("common.bibs");
   
   const eventDate = new Date(listingData.event.event_date);
   const eventDateFormatted = eventDate.toLocaleDateString("en-GB", {
@@ -197,7 +187,7 @@ export default function ListingDetail() {
       : 0;
     subtitle = `${formatRoomType(listingData.room_type)} · ${nights > 0 ? `${nights} nights` : "Race weekend"}`;
   } else if (listingData.listing_type === "bib") {
-    subtitle = `${listingData.bib_count || 1} bib${(listingData.bib_count || 1) > 1 ? "s" : ""} available`;
+    subtitle = `${listingData.bib_count || 1} ${(listingData.bib_count || 1) > 1 ? bibsLabel : bibLabel} available`;
   } else {
     subtitle = "Complete race weekend package";
   }
@@ -413,7 +403,7 @@ export default function ListingDetail() {
             {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && (
               <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                  Bib Transfer Details
+                  {bibLabel} Transfer Details
                 </h3>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
@@ -423,9 +413,9 @@ export default function ListingDetail() {
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-gray-500 mb-1">Available bibs</p>
+                      <p className="text-sm text-gray-500 mb-1">Available {bibsLabel.toLowerCase()}</p>
                       <p className="font-semibold text-gray-900">
-                        {listingData.bib_count || 1} bib{(listingData.bib_count || 1) > 1 ? "s" : ""}
+                        {listingData.bib_count || 1} {(listingData.bib_count || 1) > 1 ? bibsLabel : bibLabel}
                       </p>
                     </div>
                   </div>
@@ -510,7 +500,7 @@ export default function ListingDetail() {
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0">1</span>
                       <div>
                         <p className="font-medium text-gray-900">Check race transfer policy</p>
-                        <p className="text-sm text-gray-600">Visit the official race website to verify if bib transfers are allowed and the deadline.</p>
+                        <p className="text-sm text-gray-600">Visit the official race website to verify if {bibsLabel.toLowerCase()} transfers are allowed and the deadline.</p>
                       </div>
                     </li>
                     <li className="flex gap-3">
@@ -524,7 +514,7 @@ export default function ListingDetail() {
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0">3</span>
                       <div>
                         <p className="font-medium text-gray-900">Receive confirmation</p>
-                        <p className="text-sm text-gray-600">Wait for official confirmation from the race organizer that the bib is now registered in your name.</p>
+                        <p className="text-sm text-gray-600">Wait for official confirmation from the race organizer that the {bibLabel.toLowerCase()} is now registered in your name.</p>
                       </div>
                     </li>
                     <li className="flex gap-3">
@@ -537,7 +527,7 @@ export default function ListingDetail() {
                   </ol>
                   <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-sm text-amber-800">
-                      <span className="font-medium">Important:</span> Never run with someone else's bib without an official transfer. This violates race rules and insurance coverage.
+                      <span className="font-medium">Important:</span> Never run with someone else's {bibLabel.toLowerCase()} without an official transfer. This violates race rules and insurance coverage.
                     </p>
                   </div>
                 </div>
@@ -553,14 +543,14 @@ export default function ListingDetail() {
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0">1</span>
                       <div>
                         <p className="font-medium text-gray-900">Verify package contents</p>
-                        <p className="text-sm text-gray-600">Confirm exactly what's included: hotel dates, room type, race bib, and any extras.</p>
+                        <p className="text-sm text-gray-600">Confirm exactly what's included: hotel dates, room type, race {bibLabel.toLowerCase()}, and any extras.</p>
                       </div>
                     </li>
                     <li className="flex gap-3">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0">2</span>
                       <div>
-                        <p className="font-medium text-gray-900">Start bib transfer first</p>
-                        <p className="text-sm text-gray-600">The race bib transfer often has strict deadlines. The seller should initiate this through the official organizer.</p>
+                        <p className="font-medium text-gray-900">Start {bibLabel.toLowerCase()} transfer first</p>
+                        <p className="text-sm text-gray-600">The race {bibLabel.toLowerCase()} transfer often has strict deadlines. The seller should initiate this through the official organizer.</p>
                       </div>
                     </li>
                     <li className="flex gap-3">
@@ -587,7 +577,7 @@ export default function ListingDetail() {
                   </ol>
                   <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <span className="font-medium">Tip:</span> For packages, consider splitting the payment — partial after bib confirmation, remainder after hotel confirmation.
+                      <span className="font-medium">Tip:</span> For packages, consider splitting the payment — partial after {bibLabel.toLowerCase()} confirmation, remainder after hotel confirmation.
                     </p>
                   </div>
                 </div>
@@ -613,8 +603,8 @@ export default function ListingDetail() {
                     {listingData.listing_type === "room"
                       ? "Room Only"
                       : listingData.listing_type === "bib"
-                      ? "Bib Only"
-                      : "Room + Bib"}
+                      ? t("edit_listing.bib_only")
+                      : t("edit_listing.room_plus_bib")}
                   </span>
 
                   {user && !isOwner && listingData.status === "active" && (
@@ -708,10 +698,19 @@ export default function ListingDetail() {
               {/* Seller */}
               <div className="px-5 py-4 border-b border-gray-100">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0">
-                    {listingData.author.company_name?.charAt(0) ||
+                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0">
+                    {listingData.author.avatar_url ? (
+                      <img
+                        src={listingData.author.avatar_url}
+                        alt={listingData.author.company_name || listingData.author.full_name || "User avatar"}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      listingData.author.company_name?.charAt(0) ||
                       listingData.author.full_name?.charAt(0) ||
-                      "?"}
+                      "?"
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
@@ -727,7 +726,7 @@ export default function ListingDetail() {
                     <p className="text-xs text-gray-500">
                       {listingData.author.user_type === "tour_operator"
                         ? "Tour Operator"
-                        : "Private Seller"}
+                        : "Runner"}
                       {listingData.author.is_verified && " · Verified"}
                     </p>
                   </div>

@@ -36,6 +36,7 @@ interface UseTranslationOptions {
 export function useTranslation({ userId, messages, enabled = true }: UseTranslationOptions) {
   const [translations, setTranslations] = useState<TranslationState>({});
   const [browserLanguage, setBrowserLanguage] = useState<string>("en");
+  const [showOriginalAll, setShowOriginalAll] = useState(false);
   const pendingTranslations = useRef<Set<string>>(new Set());
 
   // Rileva lingua del browser
@@ -173,6 +174,10 @@ export function useTranslation({ userId, messages, enabled = true }: UseTranslat
     }));
   }, []);
 
+  const toggleShowOriginalAll = useCallback(() => {
+    setShowOriginalAll((prev) => !prev);
+  }, []);
+
   // Restituisce il contenuto da mostrare per un messaggio
   const getDisplayContent = useCallback(
     (message: Message) => {
@@ -222,8 +227,8 @@ export function useTranslation({ userId, messages, enabled = true }: UseTranslat
         };
       }
 
-      // Se l'utente vuole vedere l'originale
-      if (state.showOriginal) {
+      // Se l'utente vuole vedere l'originale (globale o per-messaggio)
+      if (showOriginalAll || state.showOriginal) {
         return {
           content: message.content,
           isTranslated: false,
@@ -246,14 +251,16 @@ export function useTranslation({ userId, messages, enabled = true }: UseTranslat
         translatedContent: state.translatedContent,
       };
     },
-    [translations, userId]
+    [translations, userId, showOriginalAll]
   );
 
   return {
     translations,
     browserLanguage,
+    showOriginalAll,
     translateMessage,
     toggleShowOriginal,
+    toggleShowOriginalAll,
     getDisplayContent,
   };
 }

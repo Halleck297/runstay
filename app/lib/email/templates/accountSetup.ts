@@ -27,6 +27,16 @@ const copy = {
     intro: "Un admin de Runoot ha creado tu cuenta.",
     cta: "Configurar contrasena",
   },
+  nl: {
+    title: "Je Runoot-account is klaar",
+    intro: "Een Runoot-admin heeft je account aangemaakt.",
+    cta: "Wachtwoord instellen",
+  },
+  pt: {
+    title: "Sua conta Runoot esta pronta",
+    intro: "Um admin do Runoot criou sua conta.",
+    cta: "Definir senha",
+  },
 } as const;
 
 export interface AccountSetupPayload {

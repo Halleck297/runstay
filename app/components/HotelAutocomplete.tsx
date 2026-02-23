@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useI18n } from "~/hooks/useI18n";
 
 interface Hotel {
   placeId: string;
@@ -29,6 +30,7 @@ interface HotelAutocompleteProps {
 }
 
 export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, defaultHotelName, hasError }: HotelAutocompleteProps) {
+  const { t } = useI18n();
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(() => {
     if (defaultHotelName) {
       return {
@@ -289,7 +291,11 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
                 value={inputValue}
                 onChange={handleInputChange}
                 onFocus={() => inputValue && setIsOpen(true)}
-                placeholder={eventCity ? `Search hotels in ${eventCity}...` : "Search hotel name or city..."}
+                placeholder={
+                  eventCity
+                    ? t("edit_listing.search_hotels_in_city").replace("{city}", eventCity)
+                    : t("edit_listing.search_hotel_name")
+                }
                 className={`w-full pl-10 pr-4 py-3 border rounded-xl text-base bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors ${
                   hasError ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
                 }`}
@@ -311,7 +317,7 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
                 {eventCity && suggestions.some(s => isInEventCity(s)) && (
                   <div className="px-3 py-2 bg-brand-50 border-b border-brand-100">
                     <p className="text-xs font-medium text-brand-700">
-                      Hotels in {eventCity}
+                      {t("edit_listing.hotels_in_city").replace("{city}", eventCity)}
                     </p>
                   </div>
                 )}
@@ -328,7 +334,7 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
                       {showSeparator && (
                         <div className="px-3 py-2 bg-gray-50 border-t border-b border-gray-100">
                           <p className="text-xs font-medium text-gray-500">
-                            Other locations
+                            {t("edit_listing.other_locations")}
                           </p>
                         </div>
                       )}
@@ -358,7 +364,7 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
                           </div>
                           {inCity && (
                             <span className="flex-shrink-0 px-2 py-0.5 bg-brand-100 text-brand-700 text-xs font-medium rounded-full">
-                              Event city
+                              {t("edit_listing.event_city")}
                             </span>
                           )}
                         </div>
@@ -373,7 +379,7 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
             {isOpen && inputValue && suggestions.length === 0 && !isLoading && (
               <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-4">
                 <p className="text-sm text-gray-500 text-center">
-                  No hotels found. Try a different search or add manually.
+                  {t("edit_listing.no_hotels_found")}
                 </p>
               </div>
             )}
@@ -386,7 +392,7 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Can't find your hotel? Contact us
+            {t("edit_listing.cant_find_hotel")}
           </a>
 
           {/* Manual hotel form - commented for future use
@@ -504,7 +510,7 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
             onClick={handleChange}
             className="text-sm text-brand-600 hover:text-brand-700 font-medium flex-shrink-0"
           >
-            Change
+            {t("edit_listing.change")}
           </button>
         </div>
       )}

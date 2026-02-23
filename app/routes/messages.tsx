@@ -10,7 +10,6 @@ import { ControlPanelLayout } from "~/components/ControlPanelLayout";
 import { teamLeaderNavItems } from "~/components/panelNav";
 import { useRealtimeConversations } from "~/hooks/useRealtimeConversations";
 import { useI18n } from "~/hooks/useI18n";
-import { getAvatarClasses } from "~/lib/avatarColors";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
@@ -23,22 +22,50 @@ export async function loader({ request }: LoaderFunctionArgs) {
       `
       *,
       listing:listings(id, title, listing_type, author_id),
-      participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type),
-      participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type),
+      participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, avatar_url),
+      participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, avatar_url),
       messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
     `
     )
     .or(`participant_1.eq.${userId},participant_2.eq.${userId}`)
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false, foreignTable: "messages" })
+    .limit(1, { foreignTable: "messages" });
+
+  const conversationIds = (allConversations || []).map((conv: any) => conv.id);
+  const unreadCountByConversation: Record<string, number> = {};
+  if (conversationIds.length > 0) {
+    const { data: unreadRows } = await supabaseAdmin
+      .from("messages")
+      .select("conversation_id")
+      .in("conversation_id", conversationIds)
+      .neq("sender_id", userId)
+      .is("read_at", null);
+
+    for (const row of unreadRows || []) {
+      const conversationId = (row as any).conversation_id as string;
+      unreadCountByConversation[conversationId] = (unreadCountByConversation[conversationId] || 0) + 1;
+    }
+  }
 
   // Filter out non-activated conversations for non-owners
   // Non-activated convos are only visible to the listing owner
-  const conversations = (allConversations || []).filter((conv: any) => {
-    // If activated, show to everyone
-    if (conv.activated) return true;
-    // If not activated, only show to listing owner
-    return conv.listing?.author_id === userId;
-  });
+  const conversations = (allConversations || [])
+    .filter((conv: any) => {
+      const isDeletedForCurrentUser =
+        (conv.participant_1 === userId && conv.deleted_by_1) ||
+        (conv.participant_2 === userId && conv.deleted_by_2);
+      if (isDeletedForCurrentUser) return false;
+
+      // If activated, show to everyone
+      if (conv.activated) return true;
+      // If not activated, only show to listing owner
+      return conv.listing?.author_id === userId;
+    })
+    .map((conv: any) => ({
+      ...conv,
+      unread_count: unreadCountByConversation[conv.id] || 0,
+    }));
 
   // Auto-redirect to most recent conversation ONLY on desktop
   // On mobile, we want to show the conversation list first
@@ -53,30 +80,36 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return { user, conversations: conversations || [] };
 }
 
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "now";
-  if (diffMins < 60) return `${diffMins}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  if (diffDays < 7) return `${diffDays}d`;
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const year = String(date.getUTCFullYear());
-  return `${day}/${month}/${year}`;
-}
-
 export default function MessagesLayout() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user, conversations: initialConversations } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const params = useParams();
   const activeConversationId = searchParams.get("c") || params.id;
+
+  const formatTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffSeconds < 60) return t("notifications.just_now");
+
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return rtf.format(-diffMinutes, "minute");
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return rtf.format(-diffHours, "hour");
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return rtf.format(-diffDays, "day");
+
+    return date.toLocaleDateString(locale, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
   // Use realtime conversations hook
   const { conversations } = useRealtimeConversations({
@@ -89,20 +122,20 @@ export default function MessagesLayout() {
       className="flex-1 overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
       style={{ backgroundImage: "url('/messages.webp')" }}
     >
-      <div className="h-full bg-gray-50/70">
+      <div className="h-full bg-accent-500/20">
         <div className="mx-auto max-w-7xl h-full px-0 md:px-4 lg:px-8 py-0 md:py-8">
-        <div className="flex h-full md:rounded-lg shadow-xl overflow-hidden">
+        <div className="flex h-full md:rounded-3xl shadow-xl overflow-hidden">
 
       {/* Colonna sinistra: Lista conversazioni */}
       {/* Mobile: mostra solo quando NON c'è conversazione attiva */}
       {/* Desktop: mostra sempre */}
       <aside
-        className={`w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-sm md:rounded-l-lg flex flex-col overflow-hidden border-r border-gray-200 ${
+        className={`w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-[2px] md:rounded-l-3xl flex flex-col overflow-hidden border-r border-gray-200 ${
           activeConversationId ? "hidden md:flex" : "flex"
         }`}
       >
         {/* Header lista */}
-        <div className="p-4 border-b border-gray-200 flex items-center h-[72px]">
+        <div className="p-4 border-b border-gray-200 bg-white/95 flex items-center h-[72px]">
           <h1 className="font-display text-xl font-bold text-gray-900">
             {t("messages.title")}
           </h1>
@@ -125,40 +158,51 @@ export default function MessagesLayout() {
                 );
                 const lastMessage = sortedMessages[0];
 
-                const unreadCount = conv.messages?.filter(
-                  (m: any) => m.sender_id !== (user as any).id && !m.read_at
-                ).length;
+                const unreadCount =
+                  typeof conv.unread_count === "number"
+                    ? conv.unread_count
+                    : conv.messages?.filter(
+                        (m: any) => m.sender_id !== (user as any).id && !m.read_at
+                      ).length;
 
                 const convPublicId = conv.short_id || conv.id;
                 const isActive = convPublicId === activeConversationId;
+                const unreadLabel = unreadCount > 99 ? "99+" : String(unreadCount);
 
                 return (
                   <Link
                     key={conv.id}
                     to={`/messages?c=${convPublicId}`}
-                    className={`flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors ${
-                      isActive ? "bg-gray-100" : ""
+                    className={`relative flex items-center gap-3 p-4 hover:bg-gray-50 transition-all duration-200 ease-out ${
+                      isActive ? "bg-white shadow-sm" : "md:hover:-translate-y-[1px] md:hover:shadow-sm"
                     }`}
                   >
+                    {isActive && (
+                      <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-accent-500 transition-all duration-200" />
+                    )}
+
                     {/* Avatar */}
-                    <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-full font-semibold flex-shrink-0 ${
-                        isActive
-                          ? "bg-brand-500 text-white"
-                          : getAvatarClasses(otherUser?.id || "", otherUser?.user_type)
-                      }`}
-                    >
-                      {otherUser?.company_name?.charAt(0) ||
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gray-100 font-semibold text-gray-700 flex-shrink-0">
+                      {otherUser?.avatar_url ? (
+                        <img
+                          src={otherUser.avatar_url}
+                          alt={otherUser?.company_name || otherUser?.full_name || t("messages.user")}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        otherUser?.company_name?.charAt(0) ||
                         otherUser?.full_name?.charAt(0) ||
-                        "?"}
+                        "?"
+                      )}
                     </div>
 
                     {/* Content */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p
-                          className={`font-medium truncate text-sm ${
-                            unreadCount > 0 ? "text-gray-900" : "text-gray-600"
+                          className={`truncate text-sm font-semibold ${
+                            unreadCount > 0 ? "text-gray-900" : "text-gray-700"
                           }`}
                         >
                           {otherUser?.company_name ||
@@ -166,20 +210,20 @@ export default function MessagesLayout() {
                             t("messages.user")}
                         </p>
                         {lastMessage && (
-                          <span className="text-xs text-gray-400 flex-shrink-0">
+                          <span className={`text-xs flex-shrink-0 ${unreadCount > 0 ? "text-gray-500" : "text-gray-400"}`}>
                             {formatTimeAgo(lastMessage.created_at)}
                           </span>
                         )}
                       </div>
 
-                      <p className="text-xs text-gray-500 truncate">
+                      <p className="mt-0.5 text-xs text-gray-400 truncate">
                         {conv.listing?.title || t("messages.listing")}
                       </p>
 
                       {lastMessage && (
                         <p
-                          className={`text-sm truncate mt-0.5 ${
-                            unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"
+                          className={`text-sm truncate mt-1 leading-5 ${
+                            unreadCount > 0 ? "text-gray-800 font-medium" : "text-gray-500"
                           }`}
                         >
                           {lastMessage.sender_id === (user as any).id ? (
@@ -198,9 +242,11 @@ export default function MessagesLayout() {
                       )}
                     </div>
 
-                    {/* Unread badge - rosso senza numero, sparisce se conversazione attiva */}
+                    {/* Unread badge - numerico, sparisce se conversazione attiva */}
                     {unreadCount > 0 && !isActive && (
-                      <div className="h-3 w-3 rounded-full bg-red-500 flex-shrink-0" />
+                      <div className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-semibold leading-none flex items-center justify-center flex-shrink-0 transition-transform duration-200 md:hover:scale-105">
+                        {unreadLabel}
+                      </div>
                     )}
                   </Link>
                 );
@@ -262,6 +308,7 @@ export default function MessagesLayout() {
           fullName: (user as any).full_name as string | null | undefined,
           email: (user as any).email as string | null | undefined,
           roleLabel: "team leader",
+          avatarUrl: (user as any).avatar_url as string | null | undefined,
         }}
         navItems={teamLeaderNavItems}
       >

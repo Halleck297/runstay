@@ -25,7 +25,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select(`
       *,
       event:events(id, name, name_i18n, slug, country, country_i18n, event_date),
-      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified)
+      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url)
     `)
     .eq("author_id", user.id)
     .order("created_at", { ascending: false });
@@ -106,6 +106,7 @@ export default function Dashboard() {
         fullName: user.full_name,
         email: user.email,
         roleLabel: t("dashboard.role_tour_operator"),
+        avatarUrl: user.avatar_url,
       }}
       navItems={panelNavItems}
     >
@@ -209,7 +210,7 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {listings.slice(0, 3).map((listing: any) => (
                   <div key={listing.id} className="relative">
-                    <ListingCardCompact listing={listing} isUserLoggedIn={true} />
+                    <ListingCardCompact listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
                     <div className="absolute right-3 top-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusColors[listing.status as keyof typeof statusColors]}`}>
                         {translateStatus(listing.status)}
@@ -333,7 +334,7 @@ export default function Dashboard() {
                 <div className="space-y-3 p-4">
                   {listings.slice(0, 5).map((listing: any) => (
                     <div key={listing.id} className="relative">
-                      <ListingCardCompact listing={listing} isUserLoggedIn={true} />
+                      <ListingCardCompact listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
                       <div className="absolute right-3 top-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm ${statusColors[listing.status as keyof typeof statusColors]}`}>
                           {translateStatus(listing.status)}
@@ -405,8 +406,17 @@ export default function Dashboard() {
           <div className="card mt-8 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
-                  {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
+                  {user.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt={user.full_name || user.email}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-gray-900">{user.full_name || user.email}</p>

@@ -24,6 +24,7 @@ interface ListingCardCompactProps {
       company_name: string | null;
       user_type: "tour_operator" | "private";
       is_verified: boolean;
+      avatar_url?: string | null;
     };
     event: {
       id: string;
@@ -35,15 +36,22 @@ interface ListingCardCompactProps {
   };
   isUserLoggedIn?: boolean;
   isSaved?: boolean;
+  currentUserId?: string | null;
 }
 
-// Helper: calcola se è Last Minute (≤ 21 giorni)
-function isLastMinute(eventDate: string): boolean {
+function getLastMinuteThreshold(listingType: "room" | "bib" | "room_and_bib"): number {
+  if (listingType === "room") return 15;
+  return 21;
+}
+
+// Helper: calcola se è Last Minute (soglia variabile per tipo)
+function isLastMinute(eventDate: string, listingType: "room" | "bib" | "room_and_bib"): boolean {
   const today = new Date();
   const event = new Date(eventDate);
   const diffTime = event.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays <= 21 && diffDays >= 0;
+  const thresholdDays = getLastMinuteThreshold(listingType);
+  return diffDays <= thresholdDays && diffDays >= 0;
 }
 
 // Helper: formatta room type (versione breve)
@@ -72,34 +80,35 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
     .replace(/^-|-$/g, '');
 }
 
-export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false }: ListingCardCompactProps) {
+export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false, currentUserId = null }: ListingCardCompactProps) {
   const { t } = useI18n();
   const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData
     ? saveFetcher.formData.get("action") === "save"
     : isSaved;
+  const canSaveListing = isUserLoggedIn && !!currentUserId && listing.author.id !== currentUserId;
 
   const eventDateShort = new Date(listing.event.event_date).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
   });
 
-  const isLM = isLastMinute(listing.event.event_date);
+  const isLM = isLastMinute(listing.event.event_date, listing.listing_type);
   const isTourOperator = listing.author.user_type === "tour_operator";
 
   // Sottotitolo compatto
   let subtitle = "";
   if (listing.listing_type === "bib") {
     subtitle = listing.bib_count && listing.bib_count > 1
-      ? `${listing.bib_count} Bibs`
-      : "Bib";
+      ? `${listing.bib_count} ${t("common.bibs")}`
+      : t("common.bib");
   } else if (listing.listing_type === "room") {
     const roomTypeText = listing.room_type ? formatRoomTypeShort(listing.room_type) : "Room";
     subtitle = listing.room_count && listing.room_count > 1
       ? `${listing.room_count} ${roomTypeText}s`
       : roomTypeText;
   } else {
-    subtitle = "Room + Bib";
+    subtitle = t("edit_listing.room_plus_bib");
   }
 
   // Badge colore
@@ -131,7 +140,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
       className={`${cardClass} relative`}
     >
       {/* Save button - absolute top right */}
-      {isUserLoggedIn && (
+      {canSaveListing && (
         <div className="absolute top-3 right-3 z-10">
           <saveFetcher.Form
             method="post"
@@ -183,12 +192,10 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
           {/* Header row: Badges */}
           <div className="flex items-center gap-2 mb-2">
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`}>
-              {listing.listing_type === "bib" ? "Bib" : listing.listing_type === "room" ? "Hotel" : "Package"}
+              {listing.listing_type === "bib" ? t("common.bib") : listing.listing_type === "room" ? "Hotel" : "Package"}
             </span>
             {isLM && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-accent-100 text-accent-700">
-                LM
-              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-accent-100 text-accent-700">Last Minute</span>
             )}
           </div>
 
@@ -238,10 +245,19 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
           <>
             {/* Left: Seller con avatar */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs font-medium flex-shrink-0">
-                {listing.author.company_name?.charAt(0) ||
+              <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 text-xs font-medium flex-shrink-0">
+                {listing.author.avatar_url ? (
+                  <img
+                    src={listing.author.avatar_url}
+                    alt={listing.author.company_name || listing.author.full_name || "User avatar"}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  listing.author.company_name?.charAt(0) ||
                   listing.author.full_name?.charAt(0) ||
-                  "?"}
+                  "?"
+                )}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1">
@@ -259,7 +275,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
                   )}
                 </div>
                 <p className="text-[10px] text-gray-500">
-                  {listing.author.user_type === "tour_operator" ? "Tour Operator" : "Private"}
+                  {listing.author.user_type === "tour_operator" ? "Tour Operator" : "Runner"}
                 </p>
               </div>
             </div>

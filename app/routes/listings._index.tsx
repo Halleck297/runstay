@@ -26,12 +26,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const search = url.searchParams.get("search");
 
 
-  let query = supabase
+  let query = (supabaseAdmin as any)
     .from("listings")
     .select(
       `
       *,
-      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified),
+      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
       event:events(id, name, slug, country, event_date)
     `
     )
@@ -97,6 +97,7 @@ export default function Listings() {
   const currentType = searchParams.get("type") || "all";
   const currentSearch = searchParams.get("search") || "";
   const currentSort = searchParams.get("sort") || "newest";
+  const hasActiveSearch = currentSearch.trim().length > 0;
 
   const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -180,6 +181,17 @@ export default function Listings() {
     navigate(`/listings?${params.toString()}`);
   };
 
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setShowSuggestions(false);
+
+    const params = new URLSearchParams();
+    if (currentType !== "all") params.set("type", currentType);
+
+    const nextQuery = params.toString();
+    navigate(nextQuery ? `/listings?${nextQuery}` : "/listings");
+  };
+
   return (
     <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
       <div className="min-h-screen bg-gray-50/60 md:bg-gray-50/85 flex flex-col">
@@ -187,97 +199,113 @@ export default function Listings() {
 
         <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
           {/* Page header with Search and Filters */}
-          <div className="relative z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md px-3 py-4 sm:p-6">
+          <div className="relative z-10 mb-8 rounded-2xl bg-white/75 backdrop-blur-sm shadow-md px-4 py-5 sm:p-6">
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left">
               {t("listings.title")}
             </h1>
-            <p className="hidden sm:block mt-2 text-gray-600 mb-8">
+            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center sm:text-left mb-6 sm:mb-8">
               {t("listings.subtitle")}
             </p>
-            <div className="sm:hidden mb-6" />
 
-            {/* Search Bar with Autocomplete */}
-            <Form method="get" name="listing-search" className="mb-6">
-              <input type="hidden" name="type" value={currentType} />
-              <div className="relative max-w-xl" ref={searchRef}>
-                <svg
-                  className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
+              {/* Search Bar with Autocomplete */}
+              <Form method="get" name="listing-search" className="w-full lg:w-[44%] xl:w-[48%]">
+                <input type="hidden" name="type" value={currentType} />
+                <div className="relative w-full" ref={searchRef}>
+                  <svg
+                    className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <input
+                    type="search"
+                    id="listing-search"
+                    name="search"
+                    autoComplete="off"
+                    placeholder={t("listings.search.placeholder")}
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    className="block w-full rounded-full border-0 pl-12 pr-24 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-md ring-1 ring-gray-200"
                   />
-                </svg>
-                <input
-                  type="search"
-                  id="listing-search"
-                  name="search"
-                  autoComplete="off"
-                  placeholder={t("listings.search.placeholder")}
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setShowSuggestions(true);
-                  }}
-                  onFocus={() => setShowSuggestions(true)}
-                  className="block w-full rounded-full border-0 pl-12 pr-20 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-colors shadow-md ring-1 ring-gray-200"
-                />
-                <button
-                  type="submit"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-5 py-2 bg-accent-500 text-white text-sm font-medium rounded-full hover:bg-accent-600 transition-all"
-                >
-                  Search
-                </button>
+                  {hasActiveSearch ? (
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-all"
+                    >
+                      {t("listings.cancel_search")}
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-accent-500 text-white text-sm font-medium rounded-full hover:bg-accent-600 transition-all"
+                    >
+                      Search
+                    </button>
+                  )}
 
-                {/* Autocomplete Dropdown */}
-                {showSuggestions && filteredEvents.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
-                    {filteredEvents.map((event: any) => (
-                      <button
-                        key={event.id}
-                        type="button"
-                        onClick={() => handleSuggestionClick(event.name)}
-                        className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                  {/* Autocomplete Dropdown */}
+                  {showSuggestions && filteredEvents.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-200 z-20 overflow-hidden">
+                      {filteredEvents.map((event: any) => (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={() => handleSuggestionClick(event.name)}
+                          className="w-full px-4 py-3.5 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                        >
+                          <p className="font-medium text-gray-900">{event.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {event.country} • {new Date(event.event_date).toLocaleDateString()}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Form>
+
+              {/* Category Filter Buttons + Sort Dropdown */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 overflow-x-auto pb-1 lg:pb-0">
+                  <div className="flex items-center gap-2.5 min-w-max">
+                    {[
+                      { value: "all", label: "All" },
+                      { value: "room", label: "Hotel" },
+                      { value: "bib", label: t("common.bibs") },
+                      { value: "room_and_bib", label: "Package" },
+                    ].map((category) => (
+                      <a
+                        key={category.value}
+                        href={category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`}
+                        className={`px-3.5 py-2.5 sm:px-4 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                          currentType === category.value
+                            ? "bg-brand-500 text-white shadow-sm"
+                            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                        }`}
                       >
-                        <p className="font-medium text-gray-900">{event.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {event.country} • {new Date(event.event_date).toLocaleDateString()}
-                        </p>
-                      </button>
+                        {category.label}
+                      </a>
                     ))}
                   </div>
-                )}
+                </div>
+
+                <div className="shrink-0">
+                  <SortDropdown value={sortBy} onChange={setSortBy} />
+                </div>
               </div>
-            </Form>
-
-            {/* Category Filter Buttons + Sort Dropdown */}
-            <div className="flex flex-wrap items-center gap-2">
-              {[
-                { value: "all", label: "All" },
-                { value: "room", label: "Hotel" },
-                { value: "bib", label: "Bibs" },
-                { value: "room_and_bib", label: "Package" },
-              ].map((category) => (
-                <a
-                  key={category.value}
-                  href={category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`}
-                  className={`px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${
-                    currentType === category.value
-                      ? "bg-brand-500 text-white"
-                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  {category.label}
-                </a>
-              ))}
-
-              {/* Sort Dropdown */}
-              <SortDropdown value={sortBy} onChange={setSortBy} />
             </div>
           </div>
 
@@ -292,6 +320,7 @@ export default function Listings() {
           listing={listing}
           isUserLoggedIn={!!user}
           isSaved={(savedListingIds || []).includes(listing.id)}
+          currentUserId={(user as any)?.id ?? null}
         />
       ))}
     </div>
@@ -304,6 +333,7 @@ export default function Listings() {
           listing={listing}
           isUserLoggedIn={!!user}
           isSaved={(savedListingIds || []).includes(listing.id)}
+          currentUserId={(user as any)?.id ?? null}
         />
       ))}
     </div>

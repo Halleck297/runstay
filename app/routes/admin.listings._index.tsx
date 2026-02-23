@@ -24,7 +24,7 @@ const STATUS_FILTERS = [
 const TYPE_FILTERS = [
   { id: "", label: "All types" },
   { id: "room", label: "Hotel" },
-  { id: "bib", label: "Bib" },
+  { id: "bib", label: "Race Entry" },
   { id: "room_and_bib", label: "Package" },
 ] as const;
 
@@ -144,7 +144,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 const listingTypeLabels: Record<string, { label: string; color: string }> = {
   room: { label: "Hotel", color: "bg-blue-100 text-blue-700" },
-  bib: { label: "Bib", color: "bg-purple-100 text-purple-700" },
+  bib: { label: "Race Entry", color: "bg-purple-100 text-purple-700" },
   room_and_bib: { label: "Package", color: "bg-green-100 text-green-700" },
 };
 

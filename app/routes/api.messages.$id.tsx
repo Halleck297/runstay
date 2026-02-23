@@ -8,6 +8,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const userId = (user as any).id as string;
   const publicConversationId = params.id;
+  const url = new URL(request.url);
+  const beforeParam = url.searchParams.get("before");
+  const limitParam = Number(url.searchParams.get("limit") || 50);
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 100) : 50;
 
   if (!publicConversationId) {
     return data({ messages: [] }, { status: 400 });
@@ -16,7 +20,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   // Verify user is participant
   const conversationQuery = supabaseAdmin
     .from("conversations")
-    .select("id, participant_1, participant_2");
+    .select("id, participant_1, participant_2, deleted_by_1, deleted_by_2");
   const { data: conversation } = await applyConversationPublicIdFilter(
     conversationQuery as any,
     publicConversationId
@@ -27,22 +31,42 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     return data({ messages: [] }, { status: 403 });
   }
 
+  const isDeletedForCurrentUser =
+    (conversation.participant_1 === userId && conversation.deleted_by_1) ||
+    (conversation.participant_2 === userId && conversation.deleted_by_2);
+  if (isDeletedForCurrentUser) {
+    return data({ messages: [] }, { status: 404 });
+  }
+
   // Get all messages for this conversation
-  const { data: messages, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("messages")
-    .select("id, conversation_id, sender_id, content, created_at, read_at, message_type")
-    .eq("conversation_id", conversation.id)
-    .order("created_at", { ascending: true });
+    .select("id, conversation_id, sender_id, content, created_at, read_at, message_type, detected_language, translated_content, translated_to")
+    .eq("conversation_id", conversation.id);
+
+  if (beforeParam) {
+    query = query.lt("created_at", beforeParam);
+  }
+
+  const { data: messagesRaw, error } = await query
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
   if (error) {
     console.error("Error fetching messages:", error);
     return data({ messages: [] }, { status: 500 });
   }
 
+  const messages = [...(messagesRaw || [])].sort(
+    (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
   // Mark unread messages as read
-  const unreadIds = messages
-    ?.filter(m => m.sender_id !== userId && !m.read_at)
-    .map(m => m.id) || [];
+  const unreadIds = beforeParam
+    ? []
+    : messages
+        ?.filter(m => m.sender_id !== userId && !m.read_at)
+        .map(m => m.id) || [];
 
   if (unreadIds.length > 0) {
     await supabaseAdmin
@@ -59,5 +83,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     });
   }
 
-  return data({ messages: messages || [] });
+  let hasOlderMessages = false;
+  if (messages.length > 0) {
+    const oldestMessageAt = messages[0].created_at;
+    const { count: olderCount } = await supabaseAdmin
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversation.id)
+      .lt("created_at", oldestMessageAt);
+    hasOlderMessages = (olderCount || 0) > 0;
+  }
+
+  return data({ messages: messages || [], hasOlderMessages });
 }

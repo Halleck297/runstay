@@ -1,18 +1,18 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { Form, Link, useActionData, useLoaderData, useNavigation, useNavigate } from "react-router";
+import { Form, Link, useActionData, useFetcher, useLoaderData, useNavigation, useNavigate } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useRealtimeMessages } from "~/hooks/useRealtimeMessages";
 import { useTranslation } from "~/hooks/useTranslation";
-import { getAvatarClasses } from "~/lib/avatarColors";
 import { applyConversationPublicIdFilter } from "~/lib/conversation.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Conversation - Runoot" }];
 };
+const MESSAGE_PAGE_SIZE = 50;
 
 // Helper: genera slug dal nome evento (fallback se slug è null)
 function getEventSlug(event: { name: string; slug: string | null } | null): string {
@@ -45,9 +45,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       `
       *,
       listing:listings(id, title, listing_type, status, event:events(id, name, slug)),
-      participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified),
-      participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified),
-      messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
+      participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
+      participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified, avatar_url)
     `
     );
 
@@ -67,36 +66,64 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Unauthorized", { status: 403 });
   }
 
+  const isDeletedForCurrentUser =
+    (conversation.participant_1 === userId && conversation.deleted_by_1) ||
+    (conversation.participant_2 === userId && conversation.deleted_by_2);
+  if (isDeletedForCurrentUser) {
+    throw new Response("Conversation not found", { status: 404 });
+  }
+
   // Check if user already blocked the other participant
   const otherUserId = conversation.participant_1 === userId 
     ? conversation.participant_2 
     : conversation.participant_1;
 
-  const { data: blockData } = await supabaseAdmin
-    .from("blocked_users")
-    .select("id")
-    .eq("blocker_id", userId)
-    .eq("blocked_id", otherUserId)
-    .single();
+  const [blockedByMeResult, blockedByOtherResult] = await Promise.all([
+    supabaseAdmin
+      .from("blocked_users")
+      .select("id")
+      .eq("blocker_id", userId)
+      .eq("blocked_id", otherUserId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("blocked_users")
+      .select("id")
+      .eq("blocker_id", otherUserId)
+      .eq("blocked_id", userId)
+      .maybeSingle(),
+  ]);
 
-  const isBlocked = !!blockData;
+  const isBlocked = !!blockedByMeResult.data;
+  const isBlockedByOther = !!blockedByOtherResult.data;
 
-  const unreadMessageIds = conversation.messages
-    ?.filter((m: any) => m.sender_id !== userId && !m.read_at)
+  const { data: latestMessages } = await supabaseAdmin
+    .from("messages")
+    .select("id, conversation_id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to")
+    .eq("conversation_id", conversation.id)
+    .order("created_at", { ascending: false })
+    .limit(MESSAGE_PAGE_SIZE);
+
+  const loadedMessages = [...(latestMessages || [])].sort(
+    (a: any, b: any) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
+  const unreadMessageIds = loadedMessages
+    .filter((m: any) => m.sender_id !== userId && !m.read_at)
     .map((m: any) => m.id);
 
-  if (unreadMessageIds?.length > 0) {
+  if (unreadMessageIds.length > 0) {
     const now = new Date().toISOString();
-    conversation.messages = conversation.messages.map((m: any) => {
-      if (unreadMessageIds.includes(m.id)) {
-        return { ...m, read_at: now };
-      }
-      return m;
-    });
 
     await (supabaseAdmin.from("messages") as any)
       .update({ read_at: now })
       .in("id", unreadMessageIds);
+
+    for (const message of loadedMessages as any[]) {
+      if (unreadMessageIds.includes(message.id)) {
+        message.read_at = now;
+      }
+    }
   }
 
   // Keep menu badges in sync: opening a conversation consumes related "new message" notifications
@@ -108,15 +135,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .filter("data->>conversation_id", "eq", conversation.id)
     .is("read_at", null);
 
-  const sortedMessages = [...(conversation.messages || [])].sort(
-    (a: any, b: any) =>
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
+  let hasOlderMessages = false;
+  if (loadedMessages.length > 0) {
+    const oldestLoadedAt = loadedMessages[0].created_at;
+    const { count: olderCount } = await supabaseAdmin
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversation.id)
+      .lt("created_at", oldestLoadedAt);
+    hasOlderMessages = (olderCount || 0) > 0;
+  }
 
   return {
     user,
-    conversation: { ...conversation, messages: sortedMessages },
+    conversation: { ...conversation, messages: loadedMessages },
     isBlocked,
+    isBlockedByOther,
+    hasOlderMessages,
   };
 }
 
@@ -135,7 +170,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Get conversation to verify participation
   const conversationQuery = supabaseAdmin
     .from("conversations")
-    .select("id, participant_1, participant_2, listing_id, activated, listing:listings(author_id, title)")
+    .select("id, participant_1, participant_2, deleted_by_1, deleted_by_2, listing_id, activated, listing:listings(author_id, title)")
     ;
   const { data: conversation } = await applyConversationPublicIdFilter(
     conversationQuery as any,
@@ -150,11 +185,35 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return data({ errorKey: "unauthorized" as const }, { status: 403 });
   }
 
+  const isDeletedForCurrentUser =
+    (conversation.participant_1 === userId && conversation.deleted_by_1) ||
+    (conversation.participant_2 === userId && conversation.deleted_by_2);
+  if (isDeletedForCurrentUser) {
+    return data({ errorKey: "conversation_not_found" as const }, { status: 404 });
+  }
+
   const otherUserId = conversation.participant_1 === userId
     ? conversation.participant_2
     : conversation.participant_1;
 
   const isListingOwner = conversation.listing?.author_id === userId;
+
+  const [blockedByMeResult, blockedByOtherResult] = await Promise.all([
+    supabaseAdmin
+      .from("blocked_users")
+      .select("id")
+      .eq("blocker_id", userId)
+      .eq("blocked_id", otherUserId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("blocked_users")
+      .select("id")
+      .eq("blocker_id", otherUserId)
+      .eq("blocked_id", userId)
+      .maybeSingle(),
+  ]);
+  const isBlockedByMe = !!blockedByMeResult.data;
+  const isBlockedByOther = !!blockedByOtherResult.data;
 
   // Handle different actions
   if (intent === "block") {
@@ -194,6 +253,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Default: send message
   const content = formData.get("content");
 
+  if (isBlockedByMe || isBlockedByOther) {
+    return data({ errorKey: "blocked_send" as const }, { status: 403 });
+  }
+
   if (typeof content !== "string" || !content.trim()) {
     return data({ errorKey: "empty_message" as const }, { status: 400 });
   }
@@ -225,15 +288,17 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
 export default function Conversation() {
   const { t } = useI18n();
-  const { user, conversation, isBlocked } = useLoaderData<typeof loader>();
+  const { user, conversation, isBlocked, isBlockedByOther, hasOlderMessages: initialHasOlderMessages } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const navigate = useNavigate();
+  const olderMessagesFetcher = useFetcher<{ messages: any[]; hasOlderMessages?: boolean }>();
   const formRef = useRef<HTMLFormElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [hasOlderMessages, setHasOlderMessages] = useState(initialHasOlderMessages);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isSubmitting = navigation.state === "submitting";
@@ -255,9 +320,10 @@ export default function Conversation() {
     initialMessages: conversation.messages || [],
     currentUserId: userId,
   });
+  const conversationApiId = conversation.short_id || conversation.id;
 
   // Use translation hook for automatic message translation
-  const { getDisplayContent, toggleShowOriginal } = useTranslation({
+  const { getDisplayContent, showOriginalAll, toggleShowOriginalAll } = useTranslation({
     userId,
     messages: realtimeMessages,
     enabled: true,
@@ -306,19 +372,47 @@ export default function Conversation() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [realtimeMessages]);
 
+  useEffect(() => {
+    setHasOlderMessages(initialHasOlderMessages);
+  }, [conversation.id, initialHasOlderMessages]);
+
+  useEffect(() => {
+    if (olderMessagesFetcher.state !== "idle") return;
+    if (!olderMessagesFetcher.data?.messages) return;
+
+    const olderMessages = olderMessagesFetcher.data.messages || [];
+    if (olderMessages.length > 0) {
+      setMessages((current) => {
+        const existingIds = new Set(current.map((m: any) => m.id));
+        const merged = [...olderMessages.filter((m: any) => !existingIds.has(m.id)), ...current];
+        return merged.sort(
+          (a: any, b: any) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      });
+    }
+
+    if (typeof olderMessagesFetcher.data.hasOlderMessages === "boolean") {
+      setHasOlderMessages(olderMessagesFetcher.data.hasOlderMessages);
+    }
+  }, [olderMessagesFetcher.data, olderMessagesFetcher.state, setMessages]);
+
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
   };
+  const hasGlobalTranslationToggle = realtimeMessages.some((message: any) => getDisplayContent(message).canToggle);
   const errorMessage =
     actionData && "errorKey" in actionData
-      ? t(`messages.error.${actionData.errorKey}` as any)
+      ? actionData.errorKey === "blocked_send"
+        ? (isBlockedByOther ? t("messages.blocked_by_other_send") : t("messages.blocked_send"))
+        : t(`messages.error.${actionData.errorKey}` as any)
       : null;
 
   return (
-    <div className="flex-1 flex flex-col bg-white/95 backdrop-blur-sm md:rounded-r-lg overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white/95 backdrop-blur-[2px] md:rounded-r-3xl overflow-hidden">
       {/* Header conversazione */}
-      <div className="flex items-center gap-4 p-4 border-b border-gray-200 h-[72px]">
+      <div className="flex items-center gap-4 p-4 border-b border-gray-200 bg-white/95 h-[72px]">
         {/* Back button (mobile only) */}
         <Link
           to="/messages"
@@ -361,33 +455,41 @@ export default function Conversation() {
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-gray-900 truncate flex items-center gap-1">
-            {otherUser?.company_name || otherUser?.full_name || t("messages.user")}
-            {otherUser?.is_verified && (
-              <svg
-                className="h-4 w-4 text-brand-500"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <div className="min-w-0 flex items-center gap-1">
+              <p className="text-[15px] md:text-base font-semibold text-gray-900 truncate">
+                {otherUser?.company_name || otherUser?.full_name || t("messages.user")}
+              </p>
+              {otherUser?.is_verified && (
+                <svg
+                  className="h-4 w-4 text-brand-500 flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+              {isBlocked && (
+                <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full ml-1 flex-shrink-0">
+                  {t("messages.blocked")}
+                </span>
+              )}
+            </div>
+            <Link
+              to={`/listings/${conversation.listing?.id}`}
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-gray-100 transition-colors"
+              title={conversation.listing?.title || ""}
+            >
+              <svg className="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-            )}
-            {isBlocked && (
-              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full ml-2">
-                {t("messages.blocked")}
-              </span>
-            )}
-          </p>
-          <Link
-            to={`/listings/${conversation.listing?.id}`}
-            className="text-sm text-brand-600 hover:text-brand-700 truncate block"
-          >
-            {conversation.listing?.title}
-          </Link>
+              <span className="truncate">{conversation.listing?.title || t("messages.listing")}</span>
+            </Link>
+          </div>
         </div>
 
         {/* Menu 3 puntini */}
@@ -395,7 +497,7 @@ export default function Conversation() {
           <button
             type="button"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="p-3 -m-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-3 -m-1 text-gray-900 hover:text-black hover:bg-gray-100 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors duration-150"
           >
             <svg
               className="h-5 w-5"
@@ -408,7 +510,7 @@ export default function Conversation() {
 
           {/* Dropdown menu */}
           {isMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 origin-top-right transition-all duration-150">
               {/* Block/Unblock */}
               <Form method="post">
                 <input type="hidden" name="intent" value={isBlocked ? "unblock" : "block"} />
@@ -485,7 +587,25 @@ export default function Conversation() {
 
       {/* Area messaggi scrollabile */}
       <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-4">
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {hasOlderMessages && (
+            <div className="pt-4 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  const oldestMessage = realtimeMessages?.[0];
+                  if (!oldestMessage?.created_at) return;
+                  const before = encodeURIComponent(oldestMessage.created_at);
+                  olderMessagesFetcher.load(`/api/messages/${conversationApiId}?before=${before}&limit=${MESSAGE_PAGE_SIZE}`);
+                }}
+                disabled={olderMessagesFetcher.state !== "idle"}
+                className="rounded-full border border-gray-300 bg-white px-4 py-2 text-xs md:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200 md:hover:-translate-y-[1px] md:hover:shadow-sm disabled:opacity-60"
+              >
+                {olderMessagesFetcher.state !== "idle" ? t("messages.loading_older") : t("messages.load_older")}
+              </button>
+            </div>
+          )}
+
           {realtimeMessages?.map((message: any, index: number) => {
             const isOwnMessage = message.sender_id === userId;
             const messageDate = new Date(message.created_at);
@@ -505,19 +625,13 @@ export default function Conversation() {
               : Infinity;
             const showTimestamp = !prevMessageFromSameSender || timeDiffMinutes > 5 || showDateSeparator;
 
-            // Show translation indicator only once per group of consecutive translated messages from same sender
             const currentDisplayContent = getDisplayContent(message);
-            const prevDisplayContent = prevMessage ? getDisplayContent(prevMessage) : null;
-            const prevWasTranslatedFromSameSender = prevMessageFromSameSender &&
-              prevDisplayContent?.canToggle &&
-              !showTimestamp; // Reset on new timestamp group
-            const showTranslationIndicator = currentDisplayContent.canToggle && !prevWasTranslatedFromSameSender;
 
             return (
               <div key={message.id}>
                 {/* Date separator */}
                 {showDateSeparator && (
-                  <div className="flex items-center gap-4 my-6">
+                  <div className="flex items-center gap-4 my-4">
                     <div className="flex-1 h-px bg-gray-200" />
                     <span className="text-xs text-gray-400 font-medium">
                       {messageDate.toLocaleDateString([], {
@@ -532,7 +646,7 @@ export default function Conversation() {
 
                 {/* Heart notification message */}
                 {isHeartMessage ? (
-                  <div className="flex justify-center my-6">
+                  <div className="flex justify-center my-4">
                     <div className="border border-gray-200 bg-white rounded-2xl px-6 py-4 text-center max-w-sm shadow-sm">
                       <div className="flex justify-center mb-2">
                         <svg className="h-8 w-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
@@ -553,10 +667,19 @@ export default function Conversation() {
                       <div className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}>
                         {/* Avatar for received messages */}
                         {!isOwnMessage && (
-                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold mr-2 ${getAvatarClasses(otherUser?.id || "", otherUser?.user_type)}`}>
-                            {otherUser?.company_name?.charAt(0) ||
+                          <div className="mr-2 flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
+                            {otherUser?.avatar_url ? (
+                              <img
+                                src={otherUser.avatar_url}
+                                alt={otherUser?.company_name || otherUser?.full_name || t("messages.user")}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              otherUser?.company_name?.charAt(0) ||
                               otherUser?.full_name?.charAt(0) ||
-                              "?"}
+                              "?"
+                            )}
                           </div>
                         )}
 
@@ -565,9 +688,9 @@ export default function Conversation() {
                           <div
                             className={`rounded-2xl px-4 py-2.5 ${
                               isOwnMessage
-                                ? "bg-accent-100 text-gray-900 rounded-br-md"
-                                : "bg-gray-200 text-gray-900 rounded-bl-md"
-                            }`}
+                                ? "bg-accent-100/90 border border-accent-200 text-gray-900 rounded-br-lg shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                                : "bg-white border border-gray-200 text-gray-900 rounded-bl-lg shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+                            } transition-colors duration-200`}
                           >
                           {/* Message content */}
                           <p className="whitespace-pre-wrap break-words">
@@ -587,7 +710,7 @@ export default function Conversation() {
                         </div>
 
                         {/* Timestamp and translation toggle - outside bubble */}
-                        {(showTimestamp || isOwnMessage || showTranslationIndicator) && (
+                        {(showTimestamp || isOwnMessage) && (
                           <div
                             className={`flex items-center gap-2 text-xs mt-1 px-1 ${
                               isOwnMessage ? "flex-row-reverse" : "flex-row"
@@ -618,24 +741,7 @@ export default function Conversation() {
                               </span>
                             )}
 
-                            {/* Translation toggle */}
-                            {showTranslationIndicator && (
-                              <button
-                                type="button"
-                                onClick={() => toggleShowOriginal(message.id)}
-                                className="flex items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                              >
-                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                                </svg>
-                                <span>
-                                  {currentDisplayContent.showOriginal
-                                    ? t("messages.show_translation")
-                                    : t("messages.show_original")
-                                  }
-                                </span>
-                              </button>
-                            )}
+                            {/* Translation toggle moved to composer area */}
                           </div>
                         )}
                         </div>
@@ -651,13 +757,47 @@ export default function Conversation() {
       </div>
 
       {/* Campo risposta */}
-      <div className="border-t border-gray-200 px-2 pt-4 pb-3 md:p-4 bg-white">
+      <div
+        className={
+          hasGlobalTranslationToggle
+            ? "px-2 pt-0 pb-3 md:px-4 md:pt-0 md:pb-4 bg-white/95 backdrop-blur-[2px] shadow-[0_-6px_14px_rgba(15,23,42,0.05)]"
+            : "border-t border-gray-200 px-2 pt-4 pb-3 md:p-4 bg-white/95 backdrop-blur-[2px] shadow-[0_-6px_14px_rgba(15,23,42,0.05)]"
+        }
+      >
+        {hasGlobalTranslationToggle && (
+          <div className="-mx-2 md:-mx-4 mb-3">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={toggleShowOriginalAll}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  toggleShowOriginalAll();
+                }
+              }}
+              className={`w-full border-y px-4 py-2.5 text-center text-xs font-medium transition-all duration-200 cursor-pointer select-none active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 ${
+                showOriginalAll
+                  ? "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100"
+                  : "border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                </svg>
+                <span>{showOriginalAll ? t("messages.show_translation") : t("messages.show_original")}</span>
+              </span>
+            </div>
+          </div>
+        )}
+
         {errorMessage && (
           <p className="text-sm text-red-600 mb-2">{errorMessage}</p>
         )}
-        {isBlocked ? (
+        {isBlocked || isBlockedByOther ? (
           <p className="text-sm text-gray-500 text-center py-2">
-            {t("messages.blocked_send")}
+            {isBlockedByOther ? t("messages.blocked_by_other_send") : t("messages.blocked_send")}
           </p>
         ) : (
           <Form
@@ -679,7 +819,7 @@ export default function Conversation() {
               autoComplete="off"
               required
               rows={1}
-              className="input flex-1 resize-none py-2 md:py-3 px-3 md:px-4 min-h-[40px] md:min-h-[48px] max-h-[150px] overflow-hidden rounded-2xl"
+              className="input flex-1 resize-none py-2 md:py-3 px-3 md:px-4 min-h-[40px] md:min-h-[48px] max-h-[150px] overflow-hidden rounded-full"
               disabled={isSubmitting}
               onChange={handleTextareaChange}
               onKeyDown={(event) => {
@@ -693,11 +833,11 @@ export default function Conversation() {
                 }
               }}
             />
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn-primary px-2 md:px-4 h-10 md:h-12 flex items-center justify-center rounded-2xl"
-            >
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="btn-primary px-2 md:px-4 h-10 md:h-12 flex items-center justify-center rounded-full transition-all duration-200 md:hover:-translate-y-[1px] md:hover:shadow-md disabled:transform-none"
+              >
               {isSubmitting ? (
                 <svg
                   className="animate-spin h-5 w-5"

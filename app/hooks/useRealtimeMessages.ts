@@ -67,9 +67,19 @@ export function useRealtimeMessages({
     if (!fetcher.data?.messages || fetcher.state !== "idle") return;
 
     const serverMessages = sortByCreatedAt(fetcher.data.messages);
+    const serverIds = new Set(serverMessages.map((m) => m.id));
+    const oldestServerTs = serverMessages.length
+      ? new Date(serverMessages[0].created_at).getTime()
+      : null;
 
     setMessages((currentMessages) => {
       const tempMessages = currentMessages.filter((m) => m.id.startsWith("temp-"));
+      const persistedOlderMessages = currentMessages.filter((m) => {
+        if (m.id.startsWith("temp-")) return false;
+        if (serverIds.has(m.id)) return false;
+        if (oldestServerTs === null) return true;
+        return new Date(m.created_at).getTime() < oldestServerTs;
+      });
 
       const unconfirmedTempMessages = tempMessages.filter((tempMsg) => {
         const isConfirmed = serverMessages.some(
@@ -80,7 +90,7 @@ export function useRealtimeMessages({
         return !isConfirmed;
       });
 
-      return sortByCreatedAt([...serverMessages, ...unconfirmedTempMessages]);
+      return sortByCreatedAt([...serverMessages, ...persistedOlderMessages, ...unconfirmedTempMessages]);
     });
   }, [fetcher.data, fetcher.state]);
 

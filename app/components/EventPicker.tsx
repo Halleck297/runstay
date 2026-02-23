@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { useI18n } from "~/hooks/useI18n";
 
 interface Event {
   id: string;
@@ -17,6 +18,7 @@ interface EventPickerProps {
 }
 
 export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }: EventPickerProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(() => {
@@ -49,7 +51,7 @@ export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }:
           onClick={() => setIsOpen(true)}
           className={`input text-left text-gray-500 hover:border-brand-500 ${hasError ? "border-red-500 ring-1 ring-red-500" : ""}`}
         >
-          Choose your event...
+          {t("edit_listing.event_picker_placeholder")}
         </button>
       ) : (
         <div className="flex items-center justify-between rounded-lg border border-green-500 bg-green-50 p-4">
@@ -59,7 +61,7 @@ export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }:
             </svg>
             <div>
               <p className="text-sm font-medium text-gray-900">
-                Event: {selectedEvent.name}
+                {t("edit_listing.event_label")}: {selectedEvent.name}
               </p>
               <p className="text-xs text-gray-600">
                 {selectedEvent.country} • {new Date(selectedEvent.event_date).getFullYear()}
@@ -71,7 +73,7 @@ export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }:
             onClick={() => setIsOpen(true)}
             className="text-sm text-brand-600 hover:text-brand-700 font-medium"
           >
-            Change
+            {t("edit_listing.change")}
           </button>
         </div>
       )}
@@ -92,7 +94,7 @@ export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }:
               <div className="border-b border-gray-200 px-6 py-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900">
-                    Choose your event
+                    {t("edit_listing.event_picker_title")}
                   </h2>
                   <button
                     type="button"
@@ -109,7 +111,7 @@ export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }:
                 <div className="mt-4">
                   <input
                     type="text"
-                    placeholder="Search by event name or country..."
+                    placeholder={t("edit_listing.event_search_placeholder")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="input"
@@ -153,10 +155,10 @@ export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }:
                       />
                     </svg>
                     <p className="mt-4 text-sm font-medium text-gray-900">
-                      Can't find your event?
+                      {t("edit_listing.cant_find_event")}
                     </p>
                     <p className="mt-2 text-sm text-gray-600">
-                      Contact us and we'll add it for you
+                      {t("edit_listing.cant_find_event_help")}
                     </p>
                     <Link
                       to="/contact"
@@ -165,7 +167,7 @@ export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }:
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
-                      Contact Us
+                      {t("contact.title")}
                     </Link>
                   </div>
                 )}

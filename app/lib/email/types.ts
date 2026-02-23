@@ -1,4 +1,4 @@
-export type EmailLocale = "en" | "it" | "de" | "fr" | "es";
+export type EmailLocale = "en" | "it" | "de" | "fr" | "es" | "nl" | "pt";
 
 export type EmailTemplateId =
   | "referral_invite"
@@ -20,5 +20,7 @@ export function normalizeEmailLocale(locale?: string | null): EmailLocale {
   if (normalized.startsWith("de")) return "de";
   if (normalized.startsWith("fr")) return "fr";
   if (normalized.startsWith("es")) return "es";
+  if (normalized.startsWith("nl")) return "nl";
+  if (normalized.startsWith("pt")) return "pt";
   return "en";
 }

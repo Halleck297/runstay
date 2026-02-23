@@ -129,7 +129,7 @@ export function validateListingLimits(
   if (bibCount && rules.maxBibs !== null && bibCount > rules.maxBibs) {
     return {
       valid: false,
-      error: `${userType === "private" ? "Private users" : "Your account type"} can exchange maximum ${rules.maxBibs} bib${rules.maxBibs > 1 ? "s" : ""}`
+      error: `${userType === "private" ? "Private users" : "Your account type"} can exchange maximum ${rules.maxBibs} ${rules.maxBibs > 1 ? "entries" : "entry"}`
     };
   }
 

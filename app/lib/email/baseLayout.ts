@@ -6,6 +6,8 @@ const footerByLocale: Record<EmailLocale, string> = {
   de: "Sie erhalten diese E-Mail aufgrund Ihrer Aktivitaet auf Runoot.",
   fr: "Vous recevez cet e-mail en raison de votre activite sur Runoot.",
   es: "Recibes este correo por tu actividad en Runoot.",
+  nl: "Je ontvangt deze e-mail vanwege je activiteit op Runoot.",
+  pt: "Voce esta recebendo este e-mail por causa da sua atividade no Runoot.",
 };
 
 export function escapeHtml(value: string): string {

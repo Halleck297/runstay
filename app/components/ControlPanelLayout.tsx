@@ -23,6 +23,7 @@ type ControlPanelLayoutProps = {
     fullName?: string | null;
     email?: string | null;
     roleLabel?: string | null;
+    avatarUrl?: string | null;
   };
   navItems: PanelNavItem[];
   children: ReactNode;
@@ -40,7 +41,7 @@ export function ControlPanelLayout({
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const adminInitial =
+  const userInitial =
     user.fullName?.trim()?.charAt(0) ||
     user.email?.trim()?.charAt(0)?.toUpperCase() ||
     "?";
@@ -115,8 +116,17 @@ export function ControlPanelLayout({
 
         <div className="p-4 border-t border-navy-700">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-sm font-bold">
-              {adminInitial}
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-500 flex items-center justify-center text-white text-sm font-bold">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.fullName || user.email || t("common.user")}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                userInitial
+              )}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium text-white truncate">

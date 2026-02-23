@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "~/hooks/useI18n";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
@@ -15,6 +16,7 @@ interface SortDropdownProps {
 }
 
 export function SortDropdown({ value, onChange }: SortDropdownProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -38,10 +40,10 @@ export function SortDropdown({ value, onChange }: SortDropdownProps) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors"
+        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors whitespace-nowrap"
       >
         <svg
-          className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-500"
+          className="h-4 w-4 text-gray-500"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -53,8 +55,9 @@ export function SortDropdown({ value, onChange }: SortDropdownProps) {
             d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
           />
         </svg>
+        <span className="hidden lg:inline text-sm">{t("listings.sort_by")}</span>
         <svg
-          className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

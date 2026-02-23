@@ -8,6 +8,7 @@ import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
 import { teamLeaderNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
+import { normalizeEmailLocale } from "~/lib/email/types";
 
 const STATUS_LABELS: Record<string, string> = {
   submitted: "tl_events.status.submitted",
@@ -26,6 +27,119 @@ function formatDateStable(value: string) {
   const month = String(d.getUTCMonth() + 1).padStart(2, "0");
   const year = d.getUTCFullYear();
   return `${day}/${month}/${year}`;
+}
+
+function getTlEventRequestEmailCopy(localeInput: string | null | undefined) {
+  const locale = normalizeEmailLocale(localeInput);
+  const copy = {
+    en: {
+      title: "Event request received",
+      intro: "We received your new event request.",
+      summary: "Event summary:",
+      event: "Event",
+      location: "Location",
+      date: "Date",
+      type: "Type",
+      people: "People",
+      deadline: "Desired deadline",
+      publicNote: "Public announcement note",
+      quotingNotes: "Quoting notes",
+      outro: "Our team is already working to get you the best quotations by requesting offers from our partner agencies.",
+      cta: "Open Create Event",
+    },
+    it: {
+      title: "Richiesta evento ricevuta",
+      intro: "Abbiamo ricevuto la tua nuova richiesta evento.",
+      summary: "Riepilogo evento:",
+      event: "Evento",
+      location: "Localita",
+      date: "Data",
+      type: "Tipo",
+      people: "Persone",
+      deadline: "Scadenza desiderata",
+      publicNote: "Nota annuncio pubblico",
+      quotingNotes: "Note per i preventivi",
+      outro: "Il nostro team sta gia lavorando per ottenere i migliori preventivi richiedendo offerte alle agenzie partner.",
+      cta: "Apri Crea Evento",
+    },
+    de: {
+      title: "Event-Anfrage erhalten",
+      intro: "Wir haben deine neue Event-Anfrage erhalten.",
+      summary: "Event-Zusammenfassung:",
+      event: "Event",
+      location: "Ort",
+      date: "Datum",
+      type: "Typ",
+      people: "Personen",
+      deadline: "Gewuenschte Frist",
+      publicNote: "Hinweis fuer oeffentliche Ankuendigung",
+      quotingNotes: "Notizen fuer Angebote",
+      outro: "Unser Team arbeitet bereits daran, die besten Angebote von unseren Partneragenturen einzuholen.",
+      cta: "Event erstellen oeffnen",
+    },
+    fr: {
+      title: "Demande d'evenement recue",
+      intro: "Nous avons recu votre nouvelle demande d'evenement.",
+      summary: "Resume de l'evenement :",
+      event: "Evenement",
+      location: "Lieu",
+      date: "Date",
+      type: "Type",
+      people: "Personnes",
+      deadline: "Echeance souhaitee",
+      publicNote: "Note d'annonce publique",
+      quotingNotes: "Notes pour les devis",
+      outro: "Notre equipe travaille deja pour obtenir les meilleures offres de nos agences partenaires.",
+      cta: "Ouvrir Creer un evenement",
+    },
+    es: {
+      title: "Solicitud de evento recibida",
+      intro: "Hemos recibido tu nueva solicitud de evento.",
+      summary: "Resumen del evento:",
+      event: "Evento",
+      location: "Ubicacion",
+      date: "Fecha",
+      type: "Tipo",
+      people: "Personas",
+      deadline: "Fecha limite deseada",
+      publicNote: "Nota del anuncio publico",
+      quotingNotes: "Notas para cotizacion",
+      outro: "Nuestro equipo ya esta trabajando para conseguir las mejores cotizaciones solicitando ofertas a nuestras agencias asociadas.",
+      cta: "Abrir Crear Evento",
+    },
+    nl: {
+      title: "Evenementaanvraag ontvangen",
+      intro: "We hebben je nieuwe evenementaanvraag ontvangen.",
+      summary: "Samenvatting van het evenement:",
+      event: "Evenement",
+      location: "Locatie",
+      date: "Datum",
+      type: "Type",
+      people: "Personen",
+      deadline: "Gewenste deadline",
+      publicNote: "Openbare aankondigingsnotitie",
+      quotingNotes: "Offertenotities",
+      outro: "Ons team werkt al aan de beste offertes door aanbiedingen op te vragen bij onze partnerbureaus.",
+      cta: "Open Evenement Aanmaken",
+    },
+    pt: {
+      title: "Solicitacao de evento recebida",
+      intro: "Recebemos sua nova solicitacao de evento.",
+      summary: "Resumo do evento:",
+      event: "Evento",
+      location: "Local",
+      date: "Data",
+      type: "Tipo",
+      people: "Pessoas",
+      deadline: "Prazo desejado",
+      publicNote: "Nota de anuncio publico",
+      quotingNotes: "Notas para cotacao",
+      outro: "Nossa equipe ja esta trabalhando para conseguir as melhores cotacoes solicitando ofertas das agencias parceiras.",
+      cta: "Abrir Criar Evento",
+    },
+  } as const;
+
+  return copy[locale];
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -93,32 +207,33 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+    const emailCopy = getTlEventRequestEmailCopy((user as any).preferred_language);
     const summaryLines = [
-      `Event: ${eventName}`,
-      `Location: ${eventLocation}`,
-      `Date: ${formatDateStable(eventDate)}`,
-      `Type: ${requestType}`,
-      `People: ${peopleCountRaw}`,
-      desiredDeadline ? `Desired deadline: ${formatDateStable(desiredDeadline)}` : null,
-      publicNote ? `Public announcement note: ${publicNote}` : null,
-      quotingNotes ? `Quoting notes: ${quotingNotes}` : null,
+      `${emailCopy.event}: ${eventName}`,
+      `${emailCopy.location}: ${eventLocation}`,
+      `${emailCopy.date}: ${formatDateStable(eventDate)}`,
+      `${emailCopy.type}: ${requestType}`,
+      `${emailCopy.people}: ${peopleCountRaw}`,
+      desiredDeadline ? `${emailCopy.deadline}: ${formatDateStable(desiredDeadline)}` : null,
+      publicNote ? `${emailCopy.publicNote}: ${publicNote}` : null,
+      quotingNotes ? `${emailCopy.quotingNotes}: ${quotingNotes}` : null,
     ].filter(Boolean);
 
     const emailResult = await sendTemplatedEmail({
       to: (user as any).email,
       templateId: "platform_notification",
-      locale: null,
+      locale: (user as any).preferred_language || null,
       payload: {
-        title: "Event request received",
+        title: emailCopy.title,
         message: [
-          "We received your new event request.",
+          emailCopy.intro,
           "",
-          "Event summary:",
+          emailCopy.summary,
           ...summaryLines,
           "",
-          "Our team is already working to get you the best quotations by requesting offers from our partner agencies.",
+          emailCopy.outro,
         ].join("\n"),
-        ctaLabel: "Open Create Event",
+        ctaLabel: emailCopy.cta,
         ctaUrl: `${appUrl}/tl-events`,
       },
     });
@@ -220,6 +335,7 @@ export default function TLEventsPage() {
         fullName: (user as any).full_name,
         email: (user as any).email,
         roleLabel: t("tl.role_label"),
+        avatarUrl: (user as any).avatar_url,
       }}
       navItems={teamLeaderNavItems}
     >

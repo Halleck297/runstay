@@ -46,7 +46,7 @@ export async function action({ request }: ActionFunctionArgs) {
     },
     {
       headers: {
-        "Set-Cookie": buildLocaleCookie(locale),
+        "Set-Cookie": buildLocaleCookie(locale, { persistent: persist }),
       },
     }
   );

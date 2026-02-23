@@ -114,8 +114,8 @@ export async function action({ request }: ActionFunctionArgs) {
 
 const listingTypeLabels: Record<string, string> = {
   room: "Room",
-  bib: "Bib",
-  room_and_bib: "Room + Bib",
+  bib: "Race Entry",
+  room_and_bib: "Room + Entry",
 };
 
 const listingTypeColors: Record<string, string> = {
@@ -280,7 +280,7 @@ export default function AdminPending() {
                 )}
                 {listing.bib_count && (
                   <span className="bg-gray-50 px-2 py-1 rounded">
-                    {listing.bib_count} bib{listing.bib_count > 1 ? "s" : ""}
+                    {listing.bib_count} {listing.bib_count > 1 ? "entries" : "entry"}
                   </span>
                 )}
                 {listing.transfer_type && (

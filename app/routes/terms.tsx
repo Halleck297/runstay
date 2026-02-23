@@ -96,7 +96,7 @@ export default function TermsOfService() {
               </li>
               <li className="flex items-start">
                 <span className="text-brand-600 mr-2 font-bold">•</span>
-                <span><strong>"Pettorale" o "Bib"</strong>: numero di gara che consente la partecipazione a un evento podistico.</span>
+                <span><strong>"Pettorale"</strong>: numero di gara che consente la partecipazione a un evento podistico.</span>
               </li>
               <li className="flex items-start">
                 <span className="text-brand-600 mr-2 font-bold">•</span>
@@ -262,7 +262,7 @@ export default function TermsOfService() {
               </li>
               <li className="flex items-start">
                 <span className="text-brand-600 mr-2">•</span>
-                <strong>Solo Pettorale:</strong> offerta di numero di gara (bib) per un evento podistico
+                <strong>Solo Pettorale:</strong> offerta di numero di gara (pettorale) per un evento podistico
               </li>
               <li className="flex items-start">
                 <span className="text-brand-600 mr-2">•</span>

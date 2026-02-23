@@ -108,7 +108,7 @@ function BarChart({ items }: { items: { label: string; value: number; color: str
 
 const listingTypeLabels: Record<string, string> = {
   room: "Hotel",
-  bib: "Bib",
+  bib: "Race Entry",
   room_and_bib: "Package",
 };
 
@@ -236,7 +236,7 @@ export default function AdminDashboard() {
           <BarChart
             items={[
               { label: "Hotel Rooms", value: stats.roomListings, color: "bg-blue-500" },
-              { label: "Bibs", value: stats.bibListings, color: "bg-purple-500" },
+              { label: "Race Entries", value: stats.bibListings, color: "bg-purple-500" },
               { label: "Packages", value: stats.packageListings, color: "bg-success-500" },
             ]}
           />

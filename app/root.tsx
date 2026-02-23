@@ -1,8 +1,10 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, Link, redirect, data, useRouteLoaderData } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, redirect, data, useRouteLoaderData } from "react-router";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { useEffect, useState } from "react";
 import { getUser, getAccessToken, getImpersonationContext } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { NotFoundPage } from "~/components/NotFoundPage";
+import { ServerErrorPage } from "~/components/ServerErrorPage";
 import {
   buildLocaleCookie,
   getLocaleFromCookie,
@@ -133,42 +135,12 @@ export function ErrorBoundary() {
   const error = useRouteError();
   const isNotFound = isRouteErrorResponse(error) && error.status === 404;
   const statusCode = isRouteErrorResponse(error) ? error.status : 500;
-  const title = isNotFound ? "Page not found" : "Something went wrong";
-  const message = isNotFound
-    ? "The page you requested could not be found."
-    : "An unexpected error occurred. Please try again.";
-  const isAdminPath = typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
-  const primaryLink = isAdminPath ? "/admin" : "/";
-  const primaryLabel = isAdminPath ? "Back to admin" : "Go to home";
 
-  return (
-    <main className="min-h-screen bg-gray-50 px-4 py-16">
-      <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-sm font-semibold tracking-wide text-alert-600">{statusCode}</p>
-        <h1 className="mt-2 font-display text-3xl font-bold text-gray-900">{title}</h1>
-        <p className="mt-3 text-gray-600">{message}</p>
+  if (isNotFound) {
+    return <NotFoundPage />;
+  }
 
-        {isRouteErrorResponse(error) && error.statusText && (
-          <p className="mt-2 text-sm text-gray-500">{error.statusText}</p>
-        )}
-
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link to={primaryLink} className="btn-primary w-full sm:w-auto">
-            {primaryLabel}
-          </Link>
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== "undefined") window.location.reload();
-            }}
-            className="btn-secondary w-full sm:w-auto"
-          >
-            Reload page
-          </button>
-        </div>
-      </div>
-    </main>
-  );
+  return <ServerErrorPage statusCode={statusCode} />;
 }
 
 export default function App() {

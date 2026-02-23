@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { data, Link } from "react-router";
-import { useI18n } from "~/hooks/useI18n";
+import { data } from "react-router";
+import { NotFoundPage } from "~/components/NotFoundPage";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Page Not Found - Runoot" }];
@@ -11,26 +11,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return data({ pathname: url.pathname }, { status: 404 });
 }
 
-export default function NotFoundPage() {
-  const { t } = useI18n();
-  return (
-    <main className="min-h-[70vh] flex items-center justify-center px-4 py-16">
-      <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-sm font-semibold tracking-wide text-alert-600">404</p>
-        <h1 className="mt-2 font-display text-3xl font-bold text-gray-900">{t("not_found.title")}</h1>
-        <p className="mt-3 text-gray-600">
-          {t("not_found.description")}
-        </p>
-
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link to="/" className="btn-primary w-full sm:w-auto">
-            {t("not_found.go_home")}
-          </Link>
-          <Link to="/listings" className="btn-secondary w-full sm:w-auto">
-            {t("not_found.browse_listings")}
-          </Link>
-        </div>
-      </div>
-    </main>
-  );
+export default function CatchAllNotFoundRoute() {
+  return <NotFoundPage />;
 }

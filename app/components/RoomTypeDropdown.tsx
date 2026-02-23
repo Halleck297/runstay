@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "~/hooks/useI18n";
 
 const ROOM_TYPES = [
-  { value: "single", label: "Single" },
-  { value: "double", label: "Double" },
-  { value: "twin", label: "Twin" },
-  { value: "twin_shared", label: "Twin Shared" },
-  { value: "double_single_use", label: "Double Single Use" },
-  { value: "triple", label: "Triple" },
-  { value: "quadruple", label: "Quadruple" },
-  { value: "other", label: "Other * (specify)" },
+  { value: "single" },
+  { value: "double" },
+  { value: "double_single_use" },
+  { value: "twin" },
+  { value: "twin_shared" },
+  { value: "triple" },
+  { value: "quadruple" },
+  { value: "other" },
 ];
 
 interface RoomTypeDropdownProps {
@@ -18,6 +19,7 @@ interface RoomTypeDropdownProps {
 }
 
 export function RoomTypeDropdown({ value, onChange, hasError }: RoomTypeDropdownProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -34,10 +36,13 @@ export function RoomTypeDropdown({ value, onChange, hasError }: RoomTypeDropdown
   }, []);
 
   const selectedOption = ROOM_TYPES.find((opt) => opt.value === value);
+  const selectedLabel = selectedOption
+    ? t(`edit_listing.room_type_option.${selectedOption.value}` as any)
+    : t("edit_listing.select_room_type");
 
   return (
     <div ref={dropdownRef} className="relative">
-      <label className="label mb-3">Room type</label>
+      <label className="label mb-3">{t("edit_listing.room_type")}</label>
 
       {/* Hidden input for form submission */}
       <input type="hidden" name="roomType" value={value} />
@@ -50,7 +55,7 @@ export function RoomTypeDropdown({ value, onChange, hasError }: RoomTypeDropdown
           hasError ? "ring-1 ring-red-500" : ""
         } ${!value ? "text-gray-400" : "text-gray-900"}`}
       >
-        <span>{selectedOption?.label || "Select type"}</span>
+        <span>{selectedLabel}</span>
         <svg
           className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
           fill="none"
@@ -78,7 +83,7 @@ export function RoomTypeDropdown({ value, onChange, hasError }: RoomTypeDropdown
                   : "text-gray-700"
               }`}
             >
-              {option.label}
+              {t(`edit_listing.room_type_option.${option.value}` as any)}
             </button>
           ))}
         </div>
