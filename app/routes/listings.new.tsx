@@ -924,13 +924,13 @@ useEffect(() => {
         }}
         navItems={tourOperatorNavItems}
       >
-        <div className="min-h-full bg-gray-50">{pageBody}</div>
+        <div className="min-h-full">{pageBody}</div>
       </ControlPanelLayout>
     );
   }
 
   return (
-    <div className="min-h-full bg-gray-50">
+    <div className="min-h-full">
       <Header user={user} />
       {pageBody}
     </div>

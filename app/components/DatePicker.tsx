@@ -1,4 +1,6 @@
 import { useState, forwardRef, useEffect } from "react";
+import { enUS, it, es, fr, de, nl, pt } from "date-fns/locale";
+import { useI18n } from "~/hooks/useI18n";
 
 interface DatePickerProps {
   name: string;
@@ -19,6 +21,7 @@ export function DatePicker({
   defaultValue,
   onChange,
 }: DatePickerProps) {
+  const { locale } = useI18n();
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
     if (defaultValue) {
       return new Date(defaultValue);
@@ -27,11 +30,32 @@ export function DatePicker({
   });
   const [ReactDatePicker, setReactDatePicker] = useState<any>(null);
   const [isClient, setIsClient] = useState(false);
+  const datePickerLocale =
+    locale === "it"
+      ? "it"
+      : locale === "es"
+        ? "es"
+        : locale === "fr"
+          ? "fr"
+          : locale === "de"
+            ? "de"
+            : locale === "nl"
+              ? "nl"
+              : locale === "pt"
+                ? "pt"
+                : "en";
 
   // Dynamically import react-datepicker only on client side
   useEffect(() => {
     setIsClient(true);
     import("react-datepicker").then((mod) => {
+      mod.registerLocale("en", enUS);
+      mod.registerLocale("it", it);
+      mod.registerLocale("es", es);
+      mod.registerLocale("fr", fr);
+      mod.registerLocale("de", de);
+      mod.registerLocale("nl", nl);
+      mod.registerLocale("pt", pt);
       setReactDatePicker(() => mod.default);
     });
     // Import CSS
@@ -129,6 +153,7 @@ export function DatePicker({
         onChange={handleChange}
         minDate={minDate}
         maxDate={maxDate}
+        locale={datePickerLocale}
         dateFormat="dd/MM/yyyy"
         placeholderText={placeholder}
         customInput={<CustomInput />}

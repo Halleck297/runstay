@@ -56,7 +56,7 @@ export function ControlPanelLayout({
   }, []);
 
   return (
-    <div className="min-h-screen md:h-screen bg-gray-100 flex">
+    <div className="min-h-screen md:h-screen flex">
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
@@ -147,7 +147,7 @@ export function ControlPanelLayout({
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 md:h-screen">
+      <div className="flex-1 flex flex-col min-w-0 md:h-screen bg-slate-50 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.14)_1px,transparent_0)] bg-[size:18px_18px]">
         <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => setSidebarOpen(true)}

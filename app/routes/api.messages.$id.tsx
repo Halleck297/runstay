@@ -14,7 +14,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 100) : 50;
 
   if (!publicConversationId) {
-    return data({ messages: [] }, { status: 400 });
+    return data({ messages: [], conversationId: null }, { status: 400 });
   }
 
   // Verify user is participant
@@ -28,14 +28,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (!conversation ||
       (conversation.participant_1 !== userId && conversation.participant_2 !== userId)) {
-    return data({ messages: [] }, { status: 403 });
+    return data({ messages: [], conversationId: null }, { status: 403 });
   }
 
   const isDeletedForCurrentUser =
     (conversation.participant_1 === userId && conversation.deleted_by_1) ||
     (conversation.participant_2 === userId && conversation.deleted_by_2);
   if (isDeletedForCurrentUser) {
-    return data({ messages: [] }, { status: 404 });
+    return data({ messages: [], conversationId: null }, { status: 404 });
   }
 
   // Get all messages for this conversation
@@ -54,7 +54,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (error) {
     console.error("Error fetching messages:", error);
-    return data({ messages: [] }, { status: 500 });
+    return data({ messages: [], conversationId: conversation.id }, { status: 500 });
   }
 
   const messages = [...(messagesRaw || [])].sort(
@@ -94,5 +94,5 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     hasOlderMessages = (olderCount || 0) > 0;
   }
 
-  return data({ messages: messages || [], hasOlderMessages });
+  return data({ messages: messages || [], hasOlderMessages, conversationId: conversation.id });
 }

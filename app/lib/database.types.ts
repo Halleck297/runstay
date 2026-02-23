@@ -156,6 +156,7 @@ export interface Database {
           country: string;
           country_i18n: Json | null;
           event_date: string;
+          card_image_url: string | null;
           start_lat: number | null;
           start_lng: number | null;
           finish_lat: number | null;
@@ -173,6 +174,7 @@ export interface Database {
           country: string;
           country_i18n?: Json | null;
           event_date: string;
+          card_image_url?: string | null;
           start_lat?: number | null;
           start_lng?: number | null;
           finish_lat?: number | null;
@@ -189,6 +191,7 @@ export interface Database {
           country?: string;
           country_i18n?: Json | null;
           event_date?: string;
+          card_image_url?: string | null;
           start_lat?: number | null;
           start_lng?: number | null;
           finish_lat?: number | null;
@@ -701,10 +704,12 @@ export interface Database {
           id: string;
           team_leader_id: string;
           status:
-            | "submitted"
+            | "under_review"
             | "quoting"
-            | "approved_for_event_draft"
-            | "draft_submitted"
+            | "changes_requested"
+            | "approved"
+            | "scheduled"
+            | "rejected"
             | "published";
           event_name: string;
           event_location: string;
@@ -719,6 +724,14 @@ export interface Database {
           internal_admin_note: string | null;
           tl_event_details: string | null;
           published_listing_url: string | null;
+          selected_quote_id: string | null;
+          selected_quote_at: string | null;
+          event_image_url: string | null;
+          event_image_path: string | null;
+          tl_last_seen_update_at: string | null;
+          admin_last_seen_update_at: string | null;
+          archived_at: string | null;
+          archived_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -726,10 +739,12 @@ export interface Database {
           id?: string;
           team_leader_id: string;
           status?:
-            | "submitted"
+            | "under_review"
             | "quoting"
-            | "approved_for_event_draft"
-            | "draft_submitted"
+            | "changes_requested"
+            | "approved"
+            | "scheduled"
+            | "rejected"
             | "published";
           event_name: string;
           event_location: string;
@@ -744,16 +759,26 @@ export interface Database {
           internal_admin_note?: string | null;
           tl_event_details?: string | null;
           published_listing_url?: string | null;
+          selected_quote_id?: string | null;
+          selected_quote_at?: string | null;
+          event_image_url?: string | null;
+          event_image_path?: string | null;
+          tl_last_seen_update_at?: string | null;
+          admin_last_seen_update_at?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           team_leader_id?: string;
           status?:
-            | "submitted"
+            | "under_review"
             | "quoting"
-            | "approved_for_event_draft"
-            | "draft_submitted"
+            | "changes_requested"
+            | "approved"
+            | "scheduled"
+            | "rejected"
             | "published";
           event_name?: string;
           event_location?: string;
@@ -768,6 +793,83 @@ export interface Database {
           internal_admin_note?: string | null;
           tl_event_details?: string | null;
           published_listing_url?: string | null;
+          selected_quote_id?: string | null;
+          selected_quote_at?: string | null;
+          event_image_url?: string | null;
+          event_image_path?: string | null;
+          tl_last_seen_update_at?: string | null;
+          admin_last_seen_update_at?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_request_quotes: {
+        Row: {
+          id: string;
+          event_request_id: string;
+          agency_name: string;
+          package_title: string | null;
+          total_price: number;
+          currency: string;
+          summary: string | null;
+          includes: string | null;
+          excludes: string | null;
+          cancellation_policy: string | null;
+          payment_terms: string | null;
+          valid_until: string | null;
+          attachment_url: string | null;
+          attachment_path: string | null;
+          attachment_name: string | null;
+          attachment_mime: string | null;
+          is_recommended: boolean;
+          is_selected: boolean;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_request_id: string;
+          agency_name: string;
+          package_title?: string | null;
+          total_price: number;
+          currency?: string;
+          summary?: string | null;
+          includes?: string | null;
+          excludes?: string | null;
+          cancellation_policy?: string | null;
+          payment_terms?: string | null;
+          valid_until?: string | null;
+          attachment_url?: string | null;
+          attachment_path?: string | null;
+          attachment_name?: string | null;
+          attachment_mime?: string | null;
+          is_recommended?: boolean;
+          is_selected?: boolean;
+          display_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          agency_name?: string;
+          package_title?: string | null;
+          total_price?: number;
+          currency?: string;
+          summary?: string | null;
+          includes?: string | null;
+          excludes?: string | null;
+          cancellation_policy?: string | null;
+          payment_terms?: string | null;
+          valid_until?: string | null;
+          attachment_url?: string | null;
+          attachment_path?: string | null;
+          attachment_name?: string | null;
+          attachment_mime?: string | null;
+          is_recommended?: boolean;
+          is_selected?: boolean;
+          display_order?: number;
           updated_at?: string;
         };
         Relationships: [];

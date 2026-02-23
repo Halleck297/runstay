@@ -4,14 +4,16 @@ import { Form, Link, useActionData, useLoaderData } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
-import { teamLeaderNavItems } from "~/components/panelNav";
+import { buildTeamLeaderNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
+import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
 
 export const meta: MetaFunction = () => [{ title: "Team Leader Settings - Runoot" }];
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   if (!(user as any).is_team_leader) return redirect("/listings");
+  const eventNotificationSummary = await getTlEventNotificationSummary((user as any).id);
 
   const userId = (user as any).id as string;
   const { data: blockedUsers } = await supabaseAdmin
@@ -20,12 +22,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       id,
       blocked_id,
       created_at,
-      blocked:profiles!blocked_users_blocked_id_fkey(id, full_name, company_name, email)
+      blocked:profiles!blocked_users_blocked_id_fkey(id, full_name, company_name, email, avatar_url)
     `)
     .eq("blocker_id", userId)
     .order("created_at", { ascending: false });
 
-  return { user, blockedUsers: blockedUsers || [] };
+  return { user, blockedUsers: blockedUsers || [], eventUnreadCount: eventNotificationSummary.totalUnread };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -54,7 +56,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function TLSettingsPage() {
   const { t } = useI18n();
-  const { user, blockedUsers } = useLoaderData<typeof loader>();
+  const { user, blockedUsers, eventUnreadCount } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
     | { error?: string; success?: boolean; message?: string; errorKey?: never; messageKey?: never }
     | { errorKey?: "only_team_leader" | "invalid_action"; success?: boolean; error?: never; message?: never; messageKey?: never }
@@ -76,13 +78,13 @@ export default function TLSettingsPage() {
         roleLabel: t("tl.role_label"),
         avatarUrl: (user as any).avatar_url,
       }}
-      navItems={teamLeaderNavItems}
+      navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
     >
-      <div className="min-h-full bg-gray-50">
-        <main className="max-w-4xl mx-auto px-4 py-8 pb-24 md:pb-8">
-          <div className="mb-8">
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-gray-900">{t("settings.title")}</h1>
-            <p className="text-gray-500">{t("tl_settings.subtitle")}</p>
+      <div className="min-h-full">
+        <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+          <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+            <h1 className="font-display text-2xl font-bold text-gray-900">{t("settings.title")}</h1>
+            <p className="mt-1 text-gray-600">{t("tl_settings.subtitle")}</p>
           </div>
 
           {actionError && (
@@ -94,7 +96,7 @@ export default function TLSettingsPage() {
 
           <h3 className="font-display font-semibold text-gray-900 text-lg mb-3">{t("settings.account")}</h3>
           <div className="grid grid-cols-1 gap-4 mb-6">
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm transition-colors hover:border-gray-300">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-500">{t("settings.email")}</label>
@@ -103,7 +105,7 @@ export default function TLSettingsPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm transition-colors hover:border-gray-300">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("settings.change_password")}</label>
@@ -117,14 +119,23 @@ export default function TLSettingsPage() {
           </div>
 
           <h3 className="font-display font-semibold text-gray-900 text-lg mb-3">{t("settings.blocked_users")}</h3>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm transition-colors hover:border-gray-300 mb-6">
             {blockedUsers.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {blockedUsers.map((block: any) => (
                   <div key={block.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600 font-semibold">
-                        {block.blocked?.company_name?.charAt(0) || block.blocked?.full_name?.charAt(0) || "?"}
+                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 font-semibold">
+                        {block.blocked?.avatar_url ? (
+                          <img
+                            src={block.blocked.avatar_url}
+                            alt={block.blocked?.company_name || block.blocked?.full_name || t("settings.unknown_user")}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          block.blocked?.company_name?.charAt(0) || block.blocked?.full_name?.charAt(0) || "?"
+                        )}
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">
@@ -152,7 +163,7 @@ export default function TLSettingsPage() {
 
           <h3 className="font-display font-semibold text-gray-900 text-lg mb-3">{t("settings.support")}</h3>
           <div className="grid grid-cols-1 gap-4 mb-6">
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm transition-colors hover:border-gray-300">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("settings.contact_us")}</label>

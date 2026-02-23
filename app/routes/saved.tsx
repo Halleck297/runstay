@@ -168,17 +168,25 @@ function SavedListingCard({
         : "bg-green-100 text-green-700";
 
   const eventSlug = getEventSlug(listing.event || { name: "event", slug: null });
+  const defaultEventImage = `/events/${eventSlug}.jpg`;
+  const primaryEventImage = listing?.event?.card_image_url || defaultEventImage;
 
   return (
     <article className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white/90 shadow-[0_10px_28px_rgba(15,23,42,0.18)] transition-all duration-200 hover:-translate-y-[1px] hover:shadow-[0_14px_34px_rgba(15,23,42,0.24)]">
       <Link to={`/listings/${getListingPublicId(listing)}`} className="block">
         <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
           <img
-            src={`/events/${eventSlug}.jpg`}
+            src={primaryEventImage}
             alt={listing?.event?.name || "Event"}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
+              const fallbackAbsolute = new URL(defaultEventImage, window.location.origin).href;
+              if (!target.dataset.triedFallback && target.src !== fallbackAbsolute) {
+                target.dataset.triedFallback = "true";
+                target.src = defaultEventImage;
+                return;
+              }
               target.style.display = "none";
             }}
           />
@@ -302,7 +310,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         status,
         created_at,
         author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
-        event:events(id, name, name_i18n, slug, country, country_i18n, event_date)
+        event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
       )
     `)
     .eq("user_id", userId)

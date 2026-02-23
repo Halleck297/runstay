@@ -6,6 +6,9 @@ type PanelNavKeyItem = {
   labelKey: TranslationKey;
   icon: ReactNode;
   exact?: boolean;
+  badgeCount?: number;
+  badgeTone?: "accent" | "brand";
+  hideBadgeWhenActive?: boolean;
 };
 
 export const teamLeaderNavItems: PanelNavKeyItem[] = [
@@ -57,6 +60,18 @@ export const teamLeaderNavItems: PanelNavKeyItem[] = [
     ),
   },
 ];
+
+export function buildTeamLeaderNavItems(eventUnreadCount: number): PanelNavKeyItem[] {
+  return teamLeaderNavItems.map((item) => {
+    if (item.to !== "/tl-events") return item;
+    return {
+      ...item,
+      badgeCount: eventUnreadCount,
+      badgeTone: "accent",
+      hideBadgeWhenActive: false,
+    };
+  });
+}
 
 export const tourOperatorNavItems: PanelNavKeyItem[] = [
   {

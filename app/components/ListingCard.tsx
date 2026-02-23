@@ -36,6 +36,7 @@ interface ListingCardProps {
       slug: string | null;
       country: string;
       event_date: string;
+      card_image_url?: string | null;
     };
   };
   isUserLoggedIn?: boolean;
@@ -101,6 +102,9 @@ export function ListingCard({ listing, isUserLoggedIn = true, isSaved = false, c
   const isLM = isLastMinute(listing.event.event_date, listing.listing_type);
   const isTourOperator = listing.author.user_type === "tour_operator";
   const needsNameChange = listing.transfer_type === "official_process";
+  const eventSlug = getEventSlug(listing.event);
+  const defaultEventImage = `/events/${eventSlug}.jpg`;
+  const primaryEventImage = listing.event.card_image_url || defaultEventImage;
 
   // Sottotitolo dinamico basato sul tipo
 let subtitle = "";
@@ -146,12 +150,17 @@ if (listing.listing_type === "bib") {
       {/* Sezione Immagine */}
       <div className="relative">
         <img
-          src={`/events/${getEventSlug(listing.event)}.jpg`}
+          src={primaryEventImage}
           alt={listing.event.name}
           className="w-full aspect-video object-cover"
           onError={(e) => {
-            // Fallback se l'immagine non esiste
             const target = e.target as HTMLImageElement;
+            const fallbackAbsolute = new URL(defaultEventImage, window.location.origin).href;
+            if (!target.dataset.triedFallback && target.src !== fallbackAbsolute) {
+              target.dataset.triedFallback = "true";
+              target.src = defaultEventImage;
+              return;
+            }
             target.style.display = 'none';
             const fallback = target.nextElementSibling as HTMLElement;
             if (fallback) fallback.style.display = 'flex';

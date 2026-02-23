@@ -71,13 +71,13 @@ export function Header({ user }: HeaderProps) {
     };
   }, [isMenuOpen]);
 
-  const { unreadMessages } = useUnreadCount({
+  const { unreadMessages, unreadNotifications } = useUnreadCount({
     userId: user?.id || "",
     initialMessages: (user as any)?.unreadCount ?? 0,
     initialNotifications: (user as any)?.unreadNotifications ?? 0,
     enabled: isDesktop,
   });
-  const hasAnyUnread = unreadMessages > 0;
+  const hasAnyUnread = unreadMessages + unreadNotifications > 0;
 
   useEffect(() => {
     setSelectedLocale(locale);

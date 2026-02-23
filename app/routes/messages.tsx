@@ -7,14 +7,18 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
-import { teamLeaderNavItems } from "~/components/panelNav";
+import { buildTeamLeaderNavItems } from "~/components/panelNav";
 import { useRealtimeConversations } from "~/hooks/useRealtimeConversations";
 import { useI18n } from "~/hooks/useI18n";
+import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const userId = (user as any).id as string;
   const url = new URL(request.url);
+  const eventNotificationSummary = (user as any).is_team_leader
+    ? await getTlEventNotificationSummary(userId)
+    : { totalUnread: 0 };
 
   const { data: allConversations } = await supabaseAdmin
     .from("conversations")
@@ -77,12 +81,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return redirect(`/messages?c=${(conversations[0] as any).short_id || (conversations[0] as any).id}`);
   }
 
-  return { user, conversations: conversations || [] };
+  return { user, conversations: conversations || [], eventUnreadCount: eventNotificationSummary.totalUnread };
 }
 
 export default function MessagesLayout() {
   const { t, locale } = useI18n();
-  const { user, conversations: initialConversations } = useLoaderData<typeof loader>();
+  const { user, conversations: initialConversations, eventUnreadCount } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const params = useParams();
   const activeConversationId = searchParams.get("c") || params.id;
@@ -118,13 +122,9 @@ export default function MessagesLayout() {
   });
 
   const messagesContent = (
-    <div
-      className="flex-1 overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
-      style={{ backgroundImage: "url('/messages.webp')" }}
-    >
-      <div className="h-full bg-accent-500/20">
-        <div className="mx-auto max-w-7xl h-full px-0 md:px-4 lg:px-8 py-0 md:py-8">
-        <div className="flex h-full md:rounded-3xl shadow-xl overflow-hidden">
+    <div className="flex-1 overflow-hidden">
+      <div className="mx-auto h-full max-w-7xl px-0 py-0 md:px-4 md:py-8 lg:px-8">
+        <div className="flex h-full overflow-hidden border border-gray-200/80 bg-white/85 shadow-xl backdrop-blur-[2px] md:rounded-3xl">
 
       {/* Colonna sinistra: Lista conversazioni */}
       {/* Mobile: mostra solo quando NON c'è conversazione attiva */}
@@ -293,8 +293,7 @@ export default function MessagesLayout() {
         <Outlet context={{ user, conversations }} />
       </main>
         </div>
-        </div>
-        </div>
+      </div>
       </div>
   );
 
@@ -310,9 +309,9 @@ export default function MessagesLayout() {
           roleLabel: "team leader",
           avatarUrl: (user as any).avatar_url as string | null | undefined,
         }}
-        navItems={teamLeaderNavItems}
+        navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
       >
-        <div className="messages-page h-full flex flex-col bg-gray-50">
+        <div className="messages-page h-full flex flex-col">
           {messagesContent}
         </div>
       </ControlPanelLayout>
@@ -320,7 +319,7 @@ export default function MessagesLayout() {
   }
 
   return (
-    <div className="messages-page h-[calc(100dvh-4rem)] md:h-screen flex flex-col bg-gray-50">
+    <div className="messages-page h-[calc(100dvh-4rem)] md:h-screen flex flex-col bg-slate-50 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.14)_1px,transparent_0)] bg-[size:18px_18px]">
       <Header user={user} />
       {messagesContent}
     </div>

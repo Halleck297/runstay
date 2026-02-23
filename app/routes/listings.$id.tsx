@@ -25,7 +25,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       `
       *,
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, email, avatar_url),
-      event:events(id, name, slug, country, event_date)
+      event:events(id, name, slug, country, event_date, card_image_url)
     `
     );
   const { data: listing, error } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
@@ -58,7 +58,20 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     isSaved = !!savedListing;
   }
 
-  return { user, listing: localizeListing(listing as any, locale), isSaved };
+  const listingPublicId = getListingPublicId(listing as any);
+  const { data: linkedEventRequest } = await (supabaseAdmin as any)
+    .from("event_requests")
+    .select("id")
+    .ilike("published_listing_url", `%/listings/${listingPublicId}`)
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    user,
+    listing: localizeListing(listing as any, locale),
+    isSaved,
+    isEventListing: !!linkedEventRequest,
+  };
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -150,7 +163,7 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
 
 export default function ListingDetail() {
   const { t } = useI18n();
-  const { user, listing, isSaved } = useLoaderData<typeof loader>();
+  const { user, listing, isSaved, isEventListing } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [showSafety, setShowSafety] = useState(false);
   const saveFetcher = useFetcher();
@@ -177,7 +190,12 @@ export default function ListingDetail() {
   });
 
   const isOwner = userData?.id === listingData.author_id;
+  const isAdminViewer = userData?.role === "admin" || userData?.role === "superadmin";
   const daysUntil = getDaysUntilEvent(listingData.event.event_date);
+  const eventSlug = getEventSlug(listingData.event);
+  const bannerFallback = `/banners/${eventSlug}.jpg`;
+  const eventsFallback = `/events/${eventSlug}.jpg`;
+  const bannerPrimary = listingData.event.card_image_url || bannerFallback;
 
   // Genera sottotitolo contestuale
   let subtitle = "";
@@ -219,21 +237,26 @@ export default function ListingDetail() {
           {/* Event Image Banner */}
           <div className="rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.15)] mb-6">
             <img
-              src={`/banners/${getEventSlug(listingData.event)}.jpg`}
+              src={bannerPrimary}
               alt={listingData.event.name}
               className="w-full aspect-[3/1] object-cover"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                // Try fallback to /events/ folder
-                if (!target.dataset.triedFallback) {
-                  target.dataset.triedFallback = "true";
-                  target.src = `/events/${getEventSlug(listingData.event)}.jpg`;
-                } else {
-                  // Show gradient fallback
-                  target.style.display = 'none';
-                  const fallback = target.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = 'flex';
+                const bannerAbsolute = new URL(bannerFallback, window.location.origin).href;
+                const eventsAbsolute = new URL(eventsFallback, window.location.origin).href;
+                if (target.src !== bannerAbsolute && !target.dataset.triedBannerFallback) {
+                  target.dataset.triedBannerFallback = "true";
+                  target.src = bannerFallback;
+                  return;
                 }
+                if (target.src !== eventsAbsolute && !target.dataset.triedEventsFallback) {
+                  target.dataset.triedEventsFallback = "true";
+                  target.src = eventsFallback;
+                  return;
+                }
+                target.style.display = 'none';
+                const fallback = target.nextElementSibling as HTMLElement;
+                if (fallback) fallback.style.display = 'flex';
               }}
             />
             <div className="w-full aspect-[3/1] bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center" style={{ display: 'none' }}>
@@ -447,50 +470,80 @@ export default function ListingDetail() {
             )}
 
             {/* How to Complete Transaction */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
-              <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                How to Complete This Transaction
-              </h3>
+            {isEventListing ? (
+              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
+                <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
+                  How to Proceed
+                </h3>
+                <ol className="space-y-3">
+                  <li className="flex gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">1</span>
+                    <div>
+                      <p className="font-medium text-gray-900">Confirm package details</p>
+                      <p className="text-sm text-gray-600">Review inclusions, dates, and participant details with the organizer.</p>
+                    </div>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">2</span>
+                    <div>
+                      <p className="font-medium text-gray-900">Share required participant info</p>
+                      <p className="text-sm text-gray-600">Provide runner data needed for registrations, rooming, and logistics.</p>
+                    </div>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">3</span>
+                    <div>
+                      <p className="font-medium text-gray-900">Receive final confirmation</p>
+                      <p className="text-sm text-gray-600">The organizer will confirm your slot and send operational details.</p>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            ) : (
+              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
+                <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
+                  How to Complete This Transaction
+                </h3>
 
-              {listingData.listing_type === "room" && (
-                <div className="space-y-4">
-                  <p className="text-gray-600">
-                    Follow these steps after agreeing with the seller:
-                  </p>
-                  <ol className="space-y-3">
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">1</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Confirm booking details</p>
-                        <p className="text-sm text-gray-600">Verify check-in/out dates, room type, and hotel name with the seller.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">2</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Arrange name change</p>
-                        <p className="text-sm text-gray-600">The seller will contact the hotel to transfer the reservation to your name. Some hotels may charge a fee.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">3</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Get written confirmation</p>
-                        <p className="text-sm text-gray-600">Request the updated booking confirmation directly from the hotel with your name.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">4</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Complete payment</p>
-                        <p className="text-sm text-gray-600">Pay the seller only after receiving the hotel confirmation. Use PayPal or bank transfer for safety.</p>
-                      </div>
-                    </li>
-                  </ol>
-                </div>
-              )}
+                {listingData.listing_type === "room" && (
+                  <div className="space-y-4">
+                    <p className="text-gray-600">
+                      Follow these steps after agreeing with the seller:
+                    </p>
+                    <ol className="space-y-3">
+                      <li className="flex gap-3">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">1</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Confirm booking details</p>
+                          <p className="text-sm text-gray-600">Verify check-in/out dates, room type, and hotel name with the seller.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">2</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Arrange name change</p>
+                          <p className="text-sm text-gray-600">The seller will contact the hotel to transfer the reservation to your name. Some hotels may charge a fee.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">3</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Get written confirmation</p>
+                          <p className="text-sm text-gray-600">Request the updated booking confirmation directly from the hotel with your name.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">4</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Complete payment</p>
+                          <p className="text-sm text-gray-600">Pay the seller only after receiving the hotel confirmation. Use PayPal or bank transfer for safety.</p>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+                )}
 
-              {listingData.listing_type === "bib" && (
+                {listingData.listing_type === "bib" && (
                 <div className="space-y-4">
                   <p className="text-gray-600">
                     Follow these steps after agreeing with the seller:
@@ -533,7 +586,7 @@ export default function ListingDetail() {
                 </div>
               )}
 
-              {listingData.listing_type === "room_and_bib" && (
+                {listingData.listing_type === "room_and_bib" && (
                 <div className="space-y-4">
                   <p className="text-gray-600">
                     This is a complete package. Follow these steps after agreeing with the seller:
@@ -581,8 +634,9 @@ export default function ListingDetail() {
                     </p>
                   </div>
                 </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sidebar - sticky */}
@@ -823,6 +877,17 @@ export default function ListingDetail() {
                   </div>
                 )}
 
+                {isEventListing && isAdminViewer && (
+                  <div className="mt-3">
+                    <Link
+                      to={`/admin/events/new?listingId=${getListingPublicId(listingData)}`}
+                      className="btn-secondary w-full block text-center rounded-full"
+                    >
+                      Edit Event Listing
+                    </Link>
+                  </div>
+                )}
+
                 {!user && listingData.status === "active" && (
                   <Link
                     to={`/login?redirectTo=/listings/${getListingPublicId(listingData)}`}
@@ -834,57 +899,58 @@ export default function ListingDetail() {
               </div>
             </div>
 
-            {/* Safety tips - Accordion */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] overflow-hidden">
-              <button
-                onClick={() => setShowSafety(!showSafety)}
-                className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  <span className="font-medium text-gray-900">Safety & Payments</span>
-                </div>
-                <svg
-                  className={`h-5 w-5 text-gray-400 transition-transform ${showSafety ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+            {!isEventListing && (
+              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] overflow-hidden">
+                <button
+                  onClick={() => setShowSafety(!showSafety)}
+                  className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              
-              {showSafety && (
-                <div className="px-4 pb-4">
-                  <ul className="text-sm text-gray-700 space-y-2 mt-3">
-                    <li className="flex items-start gap-2">
-                      <span className="text-brand-500 flex-shrink-0">•</span>
-                      <span>Always verify seller identity before payment</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-brand-500 flex-shrink-0">•</span>
-                      <span>Use secure payment methods (PayPal, bank transfer)</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-brand-500 flex-shrink-0">•</span>
-                      <span>Get written confirmation of all details</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-brand-500 flex-shrink-0">•</span>
-                      <span>Report suspicious activity immediately</span>
-                    </li>
-                  </ul>
-                  <Link
-                    to="/safety"
-                    className="mt-3 inline-block text-sm text-brand-600 hover:text-brand-700 font-medium"
+                  <div className="flex items-center gap-2">
+                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span className="font-medium text-gray-900">Safety & Payments</span>
+                  </div>
+                  <svg
+                    className={`h-5 w-5 text-gray-400 transition-transform ${showSafety ? "rotate-180" : ""}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
                   >
-                    Read full safety guidelines →
-                  </Link>
-                </div>
-              )}
-            </div>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showSafety && (
+                  <div className="px-4 pb-4">
+                    <ul className="text-sm text-gray-700 space-y-2 mt-3">
+                      <li className="flex items-start gap-2">
+                        <span className="text-brand-500 flex-shrink-0">•</span>
+                        <span>Always verify seller identity before payment</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-brand-500 flex-shrink-0">•</span>
+                        <span>Use secure payment methods (PayPal, bank transfer)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-brand-500 flex-shrink-0">•</span>
+                        <span>Get written confirmation of all details</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-brand-500 flex-shrink-0">•</span>
+                        <span>Report suspicious activity immediately</span>
+                      </li>
+                    </ul>
+                    <Link
+                      to="/safety"
+                      className="mt-3 inline-block text-sm text-brand-600 hover:text-brand-700 font-medium"
+                    >
+                      Read full safety guidelines →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

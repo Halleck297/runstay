@@ -55,7 +55,7 @@ export function useRealtimeMessages({
 }: UseRealtimeMessagesOptions) {
   const [messages, setMessages] = useState<Message[]>(sortByCreatedAt(initialMessages));
   const [isConnected, setIsConnected] = useState(false);
-  const fetcher = useFetcher<{ messages: Message[] }>();
+  const fetcher = useFetcher<{ messages: Message[]; conversationId?: string | null }>();
 
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -65,6 +65,7 @@ export function useRealtimeMessages({
 
   useEffect(() => {
     if (!fetcher.data?.messages || fetcher.state !== "idle") return;
+    if (fetcher.data.conversationId && fetcher.data.conversationId !== conversationId) return;
 
     const serverMessages = sortByCreatedAt(fetcher.data.messages);
     const serverIds = new Set(serverMessages.map((m) => m.id));

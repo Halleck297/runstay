@@ -24,7 +24,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .from("listings")
     .select(`
       *,
-      event:events(id, name, name_i18n, slug, country, country_i18n, event_date),
+      event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url),
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url)
     `)
     .eq("author_id", user.id)

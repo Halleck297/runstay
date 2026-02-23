@@ -28,7 +28,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       *,
       title_i18n,
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
-      event:events(id, name, name_i18n, slug, country, country_i18n, event_date)
+      event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
     `);
   const { data: rawListing, error } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
 

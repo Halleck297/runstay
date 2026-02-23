@@ -14,16 +14,6 @@ export const meta: MetaFunction = () => {
 };
 const MESSAGE_PAGE_SIZE = 50;
 
-// Helper: genera slug dal nome evento (fallback se slug è null)
-function getEventSlug(event: { name: string; slug: string | null } | null): string {
-  if (!event) return "";
-  if (event.slug) return event.slug;
-  return event.name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const userId = (user as any).id as string;
@@ -309,11 +299,6 @@ export default function Conversation() {
       ? conversation.participant2
       : conversation.participant1;
 
-  // Event logo path - try multiple formats
-  const eventSlug = getEventSlug(conversation.listing?.event);
-  const [logoFormat, setLogoFormat] = useState<'png' | 'jpg' | 'webp' | null>('png');
-  const logoPath = logoFormat ? `/logos/${eventSlug}.${logoFormat}` : null;
-
   // Use realtime messages hook - pass messages directly, hook handles deduplication
   const { messages: realtimeMessages, setMessages } = useRealtimeMessages({
     conversationId: conversation.id,
@@ -401,7 +386,10 @@ export default function Conversation() {
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
   };
-  const hasGlobalTranslationToggle = realtimeMessages.some((message: any) => getDisplayContent(message).canToggle);
+  const hasTranslatableMessages = realtimeMessages.some(
+    (message: any) => message.sender_id !== userId && message.message_type !== "heart"
+  );
+  const showGlobalTranslationToggle = true;
   const errorMessage =
     actionData && "errorKey" in actionData
       ? actionData.errorKey === "blocked_send"
@@ -410,9 +398,9 @@ export default function Conversation() {
       : null;
 
   return (
-    <div className="flex-1 flex flex-col bg-white/95 backdrop-blur-[2px] md:rounded-r-3xl overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white/85 backdrop-blur-[1px] md:rounded-r-3xl overflow-hidden">
       {/* Header conversazione */}
-      <div className="flex items-center gap-4 p-4 border-b border-gray-200 bg-white/95 h-[72px]">
+      <div className="flex items-center gap-4 p-4 border-b border-gray-200 bg-white/85 h-[72px]">
         {/* Back button (mobile only) */}
         <Link
           to="/messages"
@@ -432,27 +420,6 @@ export default function Conversation() {
             />
           </svg>
         </Link>
-
-        {/* Event logo */}
-        <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-          {logoPath ? (
-            <img
-              src={logoPath}
-              alt={`${conversation.listing?.event?.name || t("nav.event")} logo`}
-              className="w-full h-full object-contain p-0.5"
-              onError={() => {
-                // Try next format: png -> jpg -> webp -> null
-                if (logoFormat === 'png') setLogoFormat('jpg');
-                else if (logoFormat === 'jpg') setLogoFormat('webp');
-                else setLogoFormat(null);
-              }}
-            />
-          ) : (
-            <span className="text-xs font-semibold text-gray-400">
-              {conversation.listing?.event?.name?.substring(0, 2).toUpperCase() || '?'}
-            </span>
-          )}
-        </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -646,19 +613,14 @@ export default function Conversation() {
 
                 {/* Heart notification message */}
                 {isHeartMessage ? (
-                  <div className="flex justify-center my-4">
-                    <div className="border border-gray-200 bg-white rounded-2xl px-6 py-4 text-center max-w-sm shadow-sm">
-                      <div className="flex justify-center mb-2">
-                        <svg className="h-8 w-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                        </svg>
-                      </div>
-                      <p className="text-gray-800 font-medium">
-                        {t("messages.listing_saved")}
-                      </p>
-                      <p className="text-gray-500 text-sm mt-1">
-                        {t("messages.new_message")}
-                      </p>
+                  <div className="my-4 flex justify-center">
+                    <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-4 py-2 text-sm shadow-sm">
+                      <svg className="h-4 w-4 flex-shrink-0 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                      </svg>
+                      <span className="truncate text-gray-700">
+                        {t("messages.listing_saved")} · {t("messages.start_conversation")}
+                      </span>
                     </div>
                   </div>
                 ) : (
@@ -689,7 +651,7 @@ export default function Conversation() {
                             className={`rounded-2xl px-4 py-2.5 ${
                               isOwnMessage
                                 ? "bg-accent-100/90 border border-accent-200 text-gray-900 rounded-br-lg shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-                                : "bg-white border border-gray-200 text-gray-900 rounded-bl-lg shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+                                : "bg-white/92 border border-gray-200 text-gray-900 rounded-bl-lg shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
                             } transition-colors duration-200`}
                           >
                           {/* Message content */}
@@ -759,34 +721,47 @@ export default function Conversation() {
       {/* Campo risposta */}
       <div
         className={
-          hasGlobalTranslationToggle
-            ? "px-2 pt-0 pb-3 md:px-4 md:pt-0 md:pb-4 bg-white/95 backdrop-blur-[2px] shadow-[0_-6px_14px_rgba(15,23,42,0.05)]"
-            : "border-t border-gray-200 px-2 pt-4 pb-3 md:p-4 bg-white/95 backdrop-blur-[2px] shadow-[0_-6px_14px_rgba(15,23,42,0.05)]"
+          showGlobalTranslationToggle
+            ? "px-2 pt-0 pb-3 md:px-4 md:pt-0 md:pb-4 bg-white/88 backdrop-blur-[1px] shadow-[0_-6px_14px_rgba(15,23,42,0.05)]"
+            : "border-t border-gray-200 px-2 pt-4 pb-3 md:p-4 bg-white/88 backdrop-blur-[1px] shadow-[0_-6px_14px_rgba(15,23,42,0.05)]"
         }
       >
-        {hasGlobalTranslationToggle && (
+        {showGlobalTranslationToggle && (
           <div className="-mx-2 md:-mx-4 mb-3">
             <div
               role="button"
               tabIndex={0}
-              onClick={toggleShowOriginalAll}
+              aria-disabled={!hasTranslatableMessages}
+              onClick={() => {
+                if (!hasTranslatableMessages) return;
+                toggleShowOriginalAll();
+              }}
               onKeyDown={(event) => {
+                if (!hasTranslatableMessages) return;
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   toggleShowOriginalAll();
                 }
               }}
-              className={`w-full border-y px-4 py-2.5 text-center text-xs font-medium transition-all duration-200 cursor-pointer select-none active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 ${
-                showOriginalAll
+              className={`w-full border-y px-4 py-2.5 text-center text-xs font-medium transition-all duration-200 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 ${
+                !hasTranslatableMessages
+                  ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
+                  : showOriginalAll
                   ? "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100"
-                  : "border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  : "cursor-pointer active:scale-[0.995] border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
               <span className="inline-flex items-center gap-1.5">
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                 </svg>
-                <span>{showOriginalAll ? t("messages.show_translation") : t("messages.show_original")}</span>
+                <span>
+                  {hasTranslatableMessages
+                    ? showOriginalAll
+                      ? t("messages.show_translation")
+                      : t("messages.show_original")
+                    : t("messages.show_original")}
+                </span>
               </span>
             </div>
           </div>

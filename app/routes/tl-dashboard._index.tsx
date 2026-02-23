@@ -7,8 +7,9 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { useEffect, useState } from "react";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
-import { teamLeaderNavItems } from "~/components/panelNav";
+import { buildTeamLeaderNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
+import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
 
 const MAX_BATCH_INVITES = 10;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -46,6 +47,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (!(user as any).is_team_leader) {
     throw redirect("/dashboard");
   }
+  const eventNotificationSummary = await getTlEventNotificationSummary((user as any).id);
 
   // Fetch referrals with user details
   const { data: referrals } = await supabaseAdmin
@@ -61,7 +63,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (referralIds.length > 0) {
     const { data: profiles } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, email, user_type, is_verified, created_at")
+      .select("id, full_name, email, user_type, is_verified, created_at, avatar_url")
       .in("id", referralIds);
 
     if (profiles) {
@@ -160,6 +162,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       newInLast30Days,
     },
     weeklyData,
+    eventUnreadCount: eventNotificationSummary.totalUnread,
   };
 }
 
@@ -453,6 +456,7 @@ export default function TLDashboard() {
     inviteResult,
     stats,
     weeklyData,
+    eventUnreadCount,
   } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
     | { error?: string; success?: boolean; message?: string; errorKey?: never; messageKey?: never }
@@ -524,10 +528,10 @@ export default function TLDashboard() {
         roleLabel: t("tl.role_label"),
         avatarUrl: (user as any).avatar_url,
       }}
-      navItems={teamLeaderNavItems}
+      navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
     >
-      <div className="min-h-full bg-gray-50">
-      <main className="max-w-4xl mx-auto px-4 py-8 pb-24 md:pb-8">
+      <div className="min-h-full">
+      <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
       {inviteSuccessCount !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 px-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-gray-200">
@@ -554,13 +558,11 @@ export default function TLDashboard() {
       )}
 
       {/* Page header */}
-      <div className="mb-8">
-        <div className="mb-2">
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-gray-900">
-            {t("tl_dashboard.title")}
-          </h1>
-          <p className="text-gray-500">{t("tl_dashboard.subtitle")}</p>
-        </div>
+      <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+        <h1 className="font-display text-2xl font-bold text-gray-900">
+          {t("tl_dashboard.title")}
+        </h1>
+        <p className="mt-1 text-gray-600">{t("tl_dashboard.subtitle")}</p>
       </div>
 
       {/* Action feedback */}
@@ -574,15 +576,15 @@ export default function TLDashboard() {
       )}
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-brand-600 to-brand-500 rounded-xl p-5 border border-brand-600 shadow-sm text-white">
+        <div className="bg-gradient-to-br from-brand-600 to-brand-500 rounded-2xl p-5 border border-brand-600 shadow-sm text-white">
           <p className="text-xs uppercase tracking-wide text-brand-100">{t("tl_dashboard.total_referred")}</p>
           <p className="text-4xl font-bold mt-1">{stats.totalReferrals}</p>
         </div>
-        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
           <p className="text-xs text-gray-500 uppercase tracking-wide">{t("tl_dashboard.new_last_30")}</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">{stats.newInLast30Days}</p>
         </div>
-        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
           <p className="text-xs text-gray-500 uppercase tracking-wide">{t("tl_dashboard.active_referrals")}</p>
           <p className="text-3xl font-bold text-brand-600 mt-1">{stats.activeReferrals}</p>
         </div>
@@ -592,7 +594,7 @@ export default function TLDashboard() {
       </p>
 
       {/* Growth chart */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.growth_trend")}</h2>
           <span className="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-medium">
@@ -603,7 +605,7 @@ export default function TLDashboard() {
           {t("tl_dashboard.growth_legend")}
         </p>
 
-        <div className="relative h-52 border border-gray-100 rounded-xl bg-gradient-to-b from-gray-50 to-white p-3 overflow-hidden">
+        <div className="relative h-52 border border-gray-100 rounded-2xl bg-gradient-to-b from-gray-50 to-white p-3 overflow-hidden">
           <div className="absolute inset-3 flex flex-col justify-between pointer-events-none z-0">
             {yTicks.map((tick, index) => (
               <div key={index} className="border-t border-dashed border-gray-200 relative">
@@ -647,7 +649,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Referral Link */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-6">
         <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.referral_link_title")}</h2>
         <p className="text-sm text-gray-500 mb-4">{t("tl_dashboard.referral_link_help")}</p>
 
@@ -688,7 +690,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Invite by email */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-6">
         <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.invite_by_email")}</h2>
 
         <Form method="post" className="space-y-3">
@@ -731,7 +733,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Reserved emails */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.reserved_emails")}</h2>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -841,7 +843,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Welcome message */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-6">
         <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.welcome_message")}</h2>
         <p className="text-sm text-gray-500 mb-4">
           {t("tl_dashboard.welcome_message_help")}
@@ -863,7 +865,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Referrals list */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.your_referrals")}</h2>
         </div>
@@ -874,8 +876,17 @@ export default function TLDashboard() {
               return (
                 <div key={ref.id} className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-semibold flex-shrink-0 text-sm">
-                      {refUser?.full_name?.charAt(0) || refUser?.email?.charAt(0)?.toUpperCase() || "?"}
+                    <div className="w-9 h-9 rounded-full overflow-hidden bg-brand-100 flex items-center justify-center text-brand-700 font-semibold flex-shrink-0 text-sm">
+                      {refUser?.avatar_url ? (
+                        <img
+                          src={refUser.avatar_url}
+                          alt={refUser?.full_name || refUser?.email || t("settings.unknown_user")}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        refUser?.full_name?.charAt(0) || refUser?.email?.charAt(0)?.toUpperCase() || "?"
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
