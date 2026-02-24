@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { requireAdmin, logAdminAction, startImpersonation } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { getProfilePublicId } from "~/lib/publicIds";
+import { isSuperAdmin } from "~/lib/user-access";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Users - Admin - Runoot" }];
@@ -26,7 +27,7 @@ const CATEGORY_OPTIONS = [
   { value: "admin", label: "Admin" },
   { value: "team_leader", label: "Team Leader" },
   { value: "tour_operator", label: "Tour Operator" },
-  { value: "user", label: "User" },
+  { value: "private", label: "User" },
 ] as const;
 type UserCategory = (typeof CATEGORY_OPTIONS)[number]["value"];
 
@@ -46,12 +47,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (search) {
     query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company_name.ilike.%${search}%`);
   }
-  if (segment === "superadmins") query = query.eq("role", "superadmin");
-  if (segment === "admins") query = query.eq("role", "admin");
-  if (segment === "team_leaders") query = query.eq("is_team_leader", true);
+  if (segment === "superadmins") query = query.eq("user_type", "superadmin");
+  if (segment === "admins") query = query.eq("user_type", "admin");
+  if (segment === "team_leaders") query = query.eq("user_type", "team_leader");
   if (segment === "tour_operators") query = query.eq("user_type", "tour_operator");
   if (segment === "simple_users") {
-    query = query.eq("role", "user").eq("user_type", "private").eq("is_team_leader", false);
+    query = query.eq("user_type", "private");
   }
 
   const { data: users, count } = await query;
@@ -109,40 +110,32 @@ export async function action({ request }: ActionFunctionArgs) {
       const userId = formData.get("userId") as string;
       const category = formData.get("category") as UserCategory;
 
-      const allowedCategories: UserCategory[] = ["superadmin", "admin", "team_leader", "tour_operator", "user"];
+      const allowedCategories: UserCategory[] = ["superadmin", "admin", "team_leader", "tour_operator", "private"];
       if (!allowedCategories.includes(category)) {
         return data({ error: "Invalid category" }, { status: 400 });
       }
 
-      const isSuperAdmin = (admin as any).role === "superadmin";
-      if (!isSuperAdmin && !["team_leader", "user"].includes(category)) {
+      const adminIsSuperAdmin = isSuperAdmin(admin);
+      if (!adminIsSuperAdmin && !["team_leader", "private"].includes(category)) {
         return data({ error: "Only superadmins can set this category" }, { status: 403 });
       }
 
       const updateData: any = {};
       switch (category) {
         case "superadmin":
-          updateData.role = "superadmin";
-          updateData.is_team_leader = false;
+          updateData.user_type = "superadmin";
           break;
         case "admin":
-          updateData.role = "admin";
-          updateData.is_team_leader = false;
+          updateData.user_type = "admin";
           break;
         case "team_leader":
-          updateData.role = "user";
-          updateData.user_type = "private";
-          updateData.is_team_leader = true;
+          updateData.user_type = "team_leader";
           break;
         case "tour_operator":
-          updateData.role = "user";
           updateData.user_type = "tour_operator";
-          updateData.is_team_leader = false;
           break;
-        case "user":
-          updateData.role = "user";
+        case "private":
           updateData.user_type = "private";
-          updateData.is_team_leader = false;
           break;
       }
 
@@ -196,11 +189,11 @@ export async function action({ request }: ActionFunctionArgs) {
         .maybeSingle();
       const isMock = Boolean(mockRow?.user_id);
 
-      const isSuperAdmin = (admin as any).role === "superadmin";
+      const adminIsSuperAdmin = isSuperAdmin(admin);
       const isCreatorDeletingOwnMock =
         isMock && (targetUser as any).created_by_admin === (admin as any).id;
 
-      if (!isSuperAdmin && !isCreatorDeletingOwnMock) {
+      if (!adminIsSuperAdmin && !isCreatorDeletingOwnMock) {
         return data({ error: "Only superadmins can delete users. Admins can delete only their own mock users." }, { status: 403 });
       }
 
@@ -240,29 +233,29 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 function getRowAccent(user: any) {
-  if (user.role === "superadmin") return "bg-red-50/30";
-  if (user.role === "admin") return "bg-purple-50/30";
-  if (user.is_team_leader) return "bg-indigo-50/30";
+  if (user.user_type === "superadmin") return "bg-red-50/30";
+  if (user.user_type === "admin") return "bg-purple-50/30";
+  if (user.user_type === "team_leader") return "bg-indigo-50/30";
   if (user.user_type === "tour_operator") return "bg-blue-50/30";
   return "";
 }
 
 function getUserCategoryValue(user: any): UserCategory {
-  if (user.role === "superadmin") return "superadmin";
-  if (user.role === "admin") return "admin";
-  if (user.is_team_leader) return "team_leader";
+  if (user.user_type === "superadmin") return "superadmin";
+  if (user.user_type === "admin") return "admin";
+  if (user.user_type === "team_leader") return "team_leader";
   if (user.user_type === "tour_operator") return "tour_operator";
-  return "user";
+  return "private";
 }
 
 function getUserCategoryBadge(user: any) {
-  if (user.role === "superadmin") {
+  if (user.user_type === "superadmin") {
     return { label: "Superadmin", className: "bg-red-100 text-red-700" };
   }
-  if (user.role === "admin") {
+  if (user.user_type === "admin") {
     return { label: "Admin", className: "bg-purple-100 text-purple-700" };
   }
-  if (user.is_team_leader) {
+  if (user.user_type === "team_leader") {
     return { label: "Team Leader", className: "bg-indigo-100 text-indigo-700" };
   }
   if (user.user_type === "tour_operator") {
@@ -283,6 +276,8 @@ function formatDateStable(value: string) {
 export default function AdminUsers() {
   const { admin, users, totalCount, currentPage, totalPages, activeSegment, initialSearch } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const adminIsSuperAdmin = isSuperAdmin(admin);
+  const adminId = (admin as any).id;
   const [searchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(initialSearch || "");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -333,15 +328,17 @@ export default function AdminUsers() {
           <h1 className="font-display text-2xl md:text-3xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-500 mt-1">{totalCount} total users</p>
         </div>
-        <Link
-          to="/admin/users/new"
-          className="btn-primary rounded-full inline-flex items-center gap-2 self-start"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Create User
-        </Link>
+        <div className="flex flex-wrap items-center gap-2 self-start">
+          <Link
+            to="/admin/users/new"
+            className="btn-primary rounded-full inline-flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create User
+          </Link>
+        </div>
       </div>
 
       {/* Action feedback */}
@@ -519,9 +516,9 @@ export default function AdminUsers() {
                               className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700"
                               onChange={(e) => e.target.form?.requestSubmit()}
                             >
-                              {((admin as any).role === "superadmin"
+                              {(adminIsSuperAdmin
                                 ? CATEGORY_OPTIONS
-                                : CATEGORY_OPTIONS.filter((opt) => ["team_leader", "user"].includes(opt.value))
+                                : CATEGORY_OPTIONS.filter((opt) => ["team_leader", "private"].includes(opt.value))
                               ).map((opt) => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
                               ))}
@@ -530,7 +527,7 @@ export default function AdminUsers() {
                         </div>
                       </details>
 
-                      {(((admin as any).role === "superadmin") || (user.is_mock && user.created_by_admin === (admin as any).id)) && user.id !== (admin as any).id ? (
+                      {(adminIsSuperAdmin || (user.is_mock && user.created_by_admin === adminId)) && user.id !== adminId ? (
                         <Form method="post" className="inline" onSubmit={(e) => { if (!confirm(`Delete ${user.full_name || user.email}? This cannot be undone.`)) e.preventDefault(); }}>
                           <input type="hidden" name="_action" value="deleteUser" />
                           <input type="hidden" name="userId" value={user.id} />
@@ -631,9 +628,9 @@ export default function AdminUsers() {
                           className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700"
                           onChange={(e) => e.target.form?.requestSubmit()}
                         >
-                          {((admin as any).role === "superadmin"
+                          {(adminIsSuperAdmin
                             ? CATEGORY_OPTIONS
-                            : CATEGORY_OPTIONS.filter((opt) => ["team_leader", "user"].includes(opt.value))
+                            : CATEGORY_OPTIONS.filter((opt) => ["team_leader", "private"].includes(opt.value))
                           ).map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
@@ -641,7 +638,7 @@ export default function AdminUsers() {
                       </Form>
                     </div>
                   </details>
-                  {(((admin as any).role === "superadmin") || (user.is_mock && user.created_by_admin === (admin as any).id)) && user.id !== (admin as any).id ? (
+                  {(adminIsSuperAdmin || (user.is_mock && user.created_by_admin === adminId)) && user.id !== adminId ? (
                     <Form method="post" className="inline" onSubmit={(e) => { if (!confirm(`Delete ${user.full_name || user.email}?`)) e.preventDefault(); }}>
                       <input type="hidden" name="_action" value="deleteUser" />
                       <input type="hidden" name="userId" value={user.id} />

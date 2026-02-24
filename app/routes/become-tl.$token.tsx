@@ -5,6 +5,7 @@ import { useLoaderData, useActionData, Form, Link } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useI18n } from "~/hooks/useI18n";
+import { isTeamLeader } from "~/lib/user-access";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Become a Team Leader - Runoot" }];
@@ -19,7 +20,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   // Already a TL?
-  if ((user as any).is_team_leader) {
+  if (isTeamLeader(user)) {
     return { status: "already_tl" as const, user, token: null };
   }
 
@@ -55,7 +56,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return data({ errorKey: "no_token" as const }, { status: 400 });
   }
 
-  if ((user as any).is_team_leader) {
+  if (isTeamLeader(user)) {
     return data({ errorKey: "already_tl" as const }, { status: 400 });
   }
 
@@ -96,7 +97,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Promote to TL
   await (supabaseAdmin.from("profiles") as any)
     .update({
-      is_team_leader: true,
+      user_type: "team_leader",
       referral_code: code,
     })
     .eq("id", (user as any).id);

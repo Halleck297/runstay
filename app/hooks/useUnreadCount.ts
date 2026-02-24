@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 interface UseUnreadCountOptions {
   userId: string;
   initialMessages: number;
-  initialNotifications: number;
   enabled?: boolean;
 }
 
@@ -12,16 +11,13 @@ const POLL_INTERVAL_MS = 15000;
 export function useUnreadCount({
   userId,
   initialMessages,
-  initialNotifications,
   enabled = true,
 }: UseUnreadCountOptions) {
   const [unreadMessages, setUnreadMessages] = useState(initialMessages);
-  const [unreadNotifications, setUnreadNotifications] = useState(initialNotifications);
 
   useEffect(() => {
     setUnreadMessages(initialMessages);
-    setUnreadNotifications(initialNotifications);
-  }, [initialMessages, initialNotifications]);
+  }, [initialMessages]);
 
   useEffect(() => {
     if (!enabled || !userId || typeof window === "undefined") return;
@@ -36,11 +32,9 @@ export function useUnreadCount({
         if (!response.ok) return;
         const payload = (await response.json()) as {
           unreadMessages?: number;
-          unreadNotifications?: number;
         };
         if (!disposed) {
           setUnreadMessages(payload.unreadMessages || 0);
-          setUnreadNotifications(payload.unreadNotifications || 0);
         }
       } catch {
         // Ignore transient network errors; next poll will retry
@@ -67,9 +61,7 @@ export function useUnreadCount({
 
   return {
     unreadMessages,
-    unreadNotifications,
-    unreadCount: unreadMessages + unreadNotifications,
+    unreadCount: unreadMessages,
     setUnreadMessages,
-    setUnreadNotifications,
   };
 }

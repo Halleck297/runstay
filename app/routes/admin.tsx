@@ -3,6 +3,7 @@ import { Outlet, useLoaderData } from "react-router";
 import { requireAdmin } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
+import { getUserRoleLabel, isSuperAdmin } from "~/lib/user-access";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const admin = await requireAdmin(request);
@@ -41,6 +42,15 @@ const baseNavItems = [
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+  },
+  {
+    to: "/admin/to-accounts",
+    label: "TO Accounts",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M5 21V7l8-4 6 3v15M9 9h.01M9 13h.01M9 17h.01M13 9h.01M13 13h.01M13 17h.01M17 9h.01M17 13h.01M17 17h.01" />
       </svg>
     ),
   },
@@ -106,7 +116,7 @@ export default function AdminLayout() {
   const { admin, pendingCount, eventRequestsOpenCount } = useLoaderData<typeof loader>();
 
   const navItems = baseNavItems
-    .filter((item: any) => !item.superadminOnly || (admin as any)?.role === "superadmin")
+    .filter((item: any) => !item.superadminOnly || isSuperAdmin(admin))
     .map((item: any) => {
       if (item.to === "/admin/pending") {
         return { ...item, badgeCount: pendingCount, badgeTone: "accent" as const };
@@ -130,7 +140,7 @@ export default function AdminLayout() {
       user={{
         fullName: (admin as any)?.full_name as string | null | undefined,
         email: (admin as any)?.email as string | null | undefined,
-        roleLabel: (admin as any)?.role as string | null | undefined,
+        roleLabel: getUserRoleLabel(admin),
       }}
       navItems={navItems}
     >

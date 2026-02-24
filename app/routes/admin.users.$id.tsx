@@ -21,9 +21,9 @@ function formatDateTimeStable(value: string) {
 }
 
 function userCategory(user: any) {
-  if (user.role === "superadmin") return "Superadmin";
-  if (user.role === "admin") return "Admin";
-  if (user.is_team_leader) return "Team Leader";
+  if (user.user_type === "superadmin") return "Superadmin";
+  if (user.user_type === "admin") return "Admin";
+  if (user.user_type === "team_leader") return "Team Leader";
   if (user.user_type === "tour_operator") return "Tour Operator";
   return "User";
 }

@@ -36,7 +36,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .from("profiles")
     .select("id, full_name, company_name, user_type, avatar_url, is_verified, referral_code, tl_welcome_message")
     .eq("referral_code", code)
-    .eq("is_team_leader", true)
+    .eq("user_type", "team_leader")
     .single();
 
   if (!teamLeader) {
@@ -52,7 +52,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       .eq("id", userId)
       .maybeSingle();
 
-    const nextPath = (currentUserProfile as any)?.user_type === "tour_operator" ? "/dashboard" : "/listings";
+    const nextPath = (currentUserProfile as any)?.user_type === "tour_operator" ? "/to-panel" : "/listings";
 
     const { data: existingRef } = await supabaseAdmin
       .from("referrals")
@@ -95,7 +95,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .from("profiles")
     .select("id, referral_code")
     .eq("referral_code", code)
-    .eq("is_team_leader", true)
+    .eq("user_type", "team_leader")
     .single();
 
   if (!teamLeader) {
@@ -243,7 +243,7 @@ export default function JoinReferral() {
           <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("join_referral.already_connected_title")}</h1>
           <p className="text-gray-500 mb-6">{t("join_referral.already_connected_body")}</p>
           <Link to={nextPath} className="btn-primary inline-block w-full py-3">
-            {nextPath === "/dashboard" ? t("join_referral.go_dashboard") : t("join_referral.browse_listings")}
+            {nextPath === "/to-panel" ? t("join_referral.go_dashboard") : t("join_referral.browse_listings")}
           </Link>
         </div>
       </div>

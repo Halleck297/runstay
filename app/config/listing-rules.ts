@@ -17,6 +17,12 @@ export const LISTING_RULES = {
   }
 } as const;
 
+type ListingRulesUserType = keyof typeof LISTING_RULES;
+
+function resolveListingRulesUserType(userType: UserType): ListingRulesUserType {
+  return userType === "tour_operator" ? "tour_operator" : "private";
+}
+
 /**
  * Verifica se un utente può usare un determinato transfer method
  */
@@ -24,7 +30,8 @@ export function canUseTransferMethod(
   userType: UserType,
   method: TransferMethod
 ): boolean {
-  return LISTING_RULES[userType].allowedTransferMethods.includes(method);
+  const rulesUserType = resolveListingRulesUserType(userType);
+  return LISTING_RULES[rulesUserType].allowedTransferMethods.includes(method);
 }
 
 /**
@@ -34,24 +41,26 @@ export function getMaxLimit(
   userType: UserType,
   resourceType: "rooms" | "bibs"
 ): number | null {
+  const rulesUserType = resolveListingRulesUserType(userType);
   return resourceType === "rooms"
-    ? LISTING_RULES[userType].maxRooms
-    : LISTING_RULES[userType].maxBibs;
+    ? LISTING_RULES[rulesUserType].maxRooms
+    : LISTING_RULES[rulesUserType].maxBibs;
 }
 
 /**
  * Ottiene le opzioni disponibili per il transfer method dropdown
  */
 export function getTransferMethodOptions(userType: UserType) {
-  const methods = LISTING_RULES[userType].allowedTransferMethods;
+  const rulesUserType = resolveListingRulesUserType(userType);
+  const methods = LISTING_RULES[rulesUserType].allowedTransferMethods;
 
   const labels: Record<TransferMethod, string> = {
-    official_process: "Official organizer name change",
+    official_process: "Official name change",
     package: "Included in travel package",
     contact: "Contact for details"
   };
 
-  return methods.map(method => ({
+  return methods.map((method: TransferMethod) => ({
     value: method,
     label: labels[method]
   }));
@@ -115,7 +124,7 @@ export function validateListingLimits(
   bibCount: number | null,
   transferMethod: string | null
 ): { valid: boolean; error?: string } {
-  const rules = LISTING_RULES[userType];
+  const rules = LISTING_RULES[resolveListingRulesUserType(userType)];
 
   // Valida room count
   if (roomCount && rules.maxRooms !== null && roomCount > rules.maxRooms) {

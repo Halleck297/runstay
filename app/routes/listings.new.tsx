@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
-import { data } from "react-router";
+import { data, redirect } from "react-router";
 import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { requireUser } from "~/lib/session.server";
@@ -13,6 +13,7 @@ import { HotelAutocomplete } from "~/components/HotelAutocomplete";
 import { DatePicker } from "~/components/DatePicker";
 import { RoomTypeDropdown } from "~/components/RoomTypeDropdown";
 import { CurrencyPicker } from "~/components/CurrencyPicker";
+import { TransferMethodDropdown } from "~/components/TransferMethodDropdown";
 import { useI18n } from "~/hooks/useI18n";
 import {
   getMaxLimit,
@@ -29,8 +30,22 @@ export const meta: MetaFunction = () => {
   return [{ title: "Create Listing - RunStay Exchange" }];
 };
 
+const TO_ROOM_TYPES = [
+  "single",
+  "double",
+  "double_single_use",
+  "twin",
+  "twin_shared",
+  "triple",
+  "quadruple",
+] as const;
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
+  const pathname = new URL(request.url).pathname;
+  if (user.user_type === "tour_operator" && pathname === "/listings/new") {
+    return redirect("/to-panel/listings/new");
+  }
 
   // Get existing events for autocomplete
   const { data: events } = await supabase
@@ -48,6 +63,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
+  const pathname = new URL(request.url).pathname;
+  if (user.user_type === "tour_operator" && pathname === "/listings/new") {
+    return redirect("/to-panel/listings/new");
+  }
   const formData = await request.formData();
 
   const listingType = formData.get("listingType") as string;
@@ -88,10 +107,60 @@ export async function action({ request }: ActionFunctionArgs) {
   const price = formData.get("price") as string;
   const currency = formData.get("currency") as string || "EUR";
   const priceNegotiable = formData.get("priceNegotiable") === "true";
+  const roomTypes = formData
+    .getAll("roomTypes")
+    .map((v) => String(v))
+    .filter((v) => TO_ROOM_TYPES.includes(v as any));
+  const flexibleDates = formData.get("flexibleDates") === "on";
+  const extraNightEnabled = formData.get("extraNightEnabled") === "on";
+  const extraNightPriceRaw = String(formData.get("extraNightPrice") || "").trim();
+  const extraNightPriceUnitRaw = String(formData.get("extraNightPriceUnit") || "per_person").trim();
+  const extraNightPriceUnit = extraNightPriceUnitRaw === "per_room" ? "per_room" : "per_person";
 
   // Validation
   if (!listingType) {
     return data({ errorKey: "select_listing_type" as const }, { status: 400 });
+  }
+
+  if ((listingType === "room" || listingType === "room_and_bib") && (!checkIn || !checkOut)) {
+    return data({ error: "Check-in and check-out are required for room listings." }, { status: 400 });
+  }
+
+  // TO listings require an explicit price for all listing types (room, bib, package).
+  if (user.user_type === "tour_operator") {
+    const parsedPrice = Number.parseFloat(price || "");
+    if (!Number.isFinite(parsedPrice) || Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+      return data({ error: "Price is required and must be greater than 0." }, { status: 400 });
+    }
+  }
+
+  const toRoomTypePrices: Record<string, number> = {};
+  if (user.user_type === "tour_operator" && (listingType === "room" || listingType === "room_and_bib")) {
+    if (roomTypes.length === 0) {
+      return data({ error: "Select at least one room type." }, { status: 400 });
+    }
+
+    if (!roomCount || Number.parseInt(roomCount, 10) <= 0) {
+      return data({ error: "Number of rooms must be greater than 0." }, { status: 400 });
+    }
+
+    for (const rt of roomTypes) {
+      const raw = String(formData.get(`roomPrice_${rt}`) || "").trim();
+      const parsed = Number.parseFloat(raw);
+      if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed <= 0) {
+        return data({ error: `Price for ${rt} room type is required and must be greater than 0.` }, { status: 400 });
+      }
+      toRoomTypePrices[rt] = parsed;
+    }
+  }
+
+  let extraNightPrice: number | null = null;
+  if (user.user_type === "tour_operator" && extraNightEnabled) {
+    const parsed = Number.parseFloat(extraNightPriceRaw);
+    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed <= 0) {
+      return data({ error: "Extra night price must be greater than 0 when enabled." }, { status: 400 });
+    }
+    extraNightPrice = parsed;
   }
 
   // Validate user type limits
@@ -233,6 +302,25 @@ export async function action({ request }: ActionFunctionArgs) {
   );
 
   // Create listing (usa supabaseAdmin per bypassare RLS)
+  const toListingMeta =
+    user.user_type === "tour_operator"
+      ? {
+          room_types: roomTypes,
+          room_type_prices: toRoomTypePrices,
+          flexible_dates: flexibleDates,
+          extra_night: {
+            enabled: extraNightEnabled,
+            price: extraNightPrice,
+            price_unit: extraNightPriceUnit,
+          },
+          price_unit: listingType === "room" ? "by_room_type" : "per_person",
+        }
+      : null;
+
+  const serializedCostNotes = toListingMeta
+    ? JSON.stringify({ to_meta: toListingMeta, note: costNotes || null })
+    : costNotes || null;
+
   const { data: listing, error } = await supabaseAdmin
   .from("listings")
   .insert({
@@ -254,7 +342,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // Campi room
     room_count: roomCount ? parseInt(roomCount) : null,
-    room_type: roomType || null,
+    room_type: user.user_type === "tour_operator" ? (roomTypes[0] || roomType || null) : roomType || null,
     check_in: checkIn || null,
     check_out: checkOut || null,
     bib_count: bibCount ? parseInt(bibCount) : null,
@@ -267,13 +355,14 @@ export async function action({ request }: ActionFunctionArgs) {
     // Transfer fields
     transfer_type: transferType || null,
     associated_costs: associatedCosts ? parseFloat(associatedCosts) : null,
-    cost_notes: costNotes || null,
+    cost_notes: serializedCostNotes,
 
     // Distance to finish line
     distance_to_finish: distanceData.distance_to_finish,
     walking_duration: distanceData.walking_duration,
     transit_duration: distanceData.transit_duration,
 
+    listing_mode: "exchange",
     status: "pending",
     }as any)
     .select("id, short_id")
@@ -316,6 +405,12 @@ export default function NewListing() {
   const [currency, setCurrency] = useState<string>("EUR");
   const [priceValue, setPriceValue] = useState<string>("");
   const [priceNegotiable, setPriceNegotiable] = useState<boolean | null>(null);
+  const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
+  const [roomTypePrices, setRoomTypePrices] = useState<Record<string, string>>({});
+  const [flexibleDates, setFlexibleDates] = useState<boolean>(false);
+  const [extraNightEnabled, setExtraNightEnabled] = useState<boolean>(false);
+  const [extraNightPrice, setExtraNightPrice] = useState<string>("");
+  const [extraNightPriceUnit, setExtraNightPriceUnit] = useState<"per_person" | "per_room">("per_person");
 
   // Keep listing type stable across browser refresh/back-forward restores.
   useEffect(() => {
@@ -571,11 +666,103 @@ useEffect(() => {
                    )}
                 </div>
 
-<RoomTypeDropdown
-  value={roomType}
-  onChange={setRoomType}
-  hasError={actionErrorField === "roomType"}
-/>
+                {user.user_type === "tour_operator" ? (
+                  <div className="sm:col-span-2">
+                    <label className="label mb-3">{t("edit_listing.room_type")}</label>
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-xs text-gray-500">
+                        Select one or more room types <span className="font-medium text-red-500">• Price required</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedRoomTypes.length === TO_ROOM_TYPES.length) {
+                            setSelectedRoomTypes([]);
+                          } else {
+                            setSelectedRoomTypes([...TO_ROOM_TYPES]);
+                          }
+                        }}
+                        className="text-xs font-medium text-brand-600 hover:text-brand-700"
+                      >
+                        {selectedRoomTypes.length === TO_ROOM_TYPES.length ? "Clear all" : "Select all"}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 rounded-lg border border-gray-200 bg-white p-3">
+                      {TO_ROOM_TYPES.map((type) => {
+                        const checked = selectedRoomTypes.includes(type);
+                        return (
+                          <div
+                            key={type}
+                            className="rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-gray-700"
+                          >
+                            <label className="flex min-h-[44px] items-start gap-2">
+                              <input
+                                type="checkbox"
+                                name="roomTypes"
+                                value={type}
+                                checked={checked}
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked;
+                                  setSelectedRoomTypes((prev) =>
+                                    isChecked ? Array.from(new Set([...prev, type])) : prev.filter((item) => item !== type)
+                                  );
+                                  if (!isChecked) {
+                                    setRoomTypePrices((prev) => {
+                                      const next = { ...prev };
+                                      delete next[type];
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                              />
+                              <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+                                {type === "double_single_use" ? (
+                                  <span className="leading-tight">
+                                    <span>Double</span>
+                                    <br />
+                                    <span className="whitespace-nowrap text-xs">(Single use)</span>
+                                  </span>
+                                ) : (
+                                  <span className="pt-0.5">{t(`edit_listing.room_type_option.${type}` as any)}</span>
+                                )}
+
+                                {checked && (
+                                  <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                                    <input
+                                      type="number"
+                                      name={`roomPrice_${type}`}
+                                      min="0"
+                                      step="0.01"
+                                      required
+                                      value={roomTypePrices[type] || ""}
+                                      onChange={(e) =>
+                                        setRoomTypePrices((prev) => ({
+                                          ...prev,
+                                          [type]: e.target.value,
+                                        }))
+                                      }
+                                      className="input w-16 shrink-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                    />
+                                    <span className="w-10 text-sm text-gray-500">{currency}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <input type="hidden" name="roomType" value={selectedRoomTypes[0] || ""} />
+                  </div>
+                ) : (
+                  <RoomTypeDropdown
+                    value={roomType}
+                    onChange={setRoomType}
+                    hasError={actionErrorField === "roomType"}
+                  />
+                )}
 
                 <div className="mt-4">
                   <label htmlFor="checkIn" className="label mb-3">
@@ -608,6 +795,62 @@ useEffect(() => {
                     maxDate={dateConstraints.max ? new Date(dateConstraints.max) : undefined}
                   />
                 </div>
+
+                {user.user_type === "tour_operator" && (
+                  <div className="sm:col-span-2 space-y-3">
+                    <div className="rounded-lg border border-gray-200 bg-slate-50 p-3">
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <input
+                          type="checkbox"
+                          name="flexibleDates"
+                          checked={flexibleDates}
+                          onChange={(e) => setFlexibleDates(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        Flexible dates
+                      </label>
+                      <p className="mt-1 text-xs text-gray-500">Base dates are fixed, but users can request changes.</p>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-slate-50 p-4">
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <input
+                          type="checkbox"
+                          name="extraNightEnabled"
+                          checked={extraNightEnabled}
+                          onChange={(e) => setExtraNightEnabled(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        Extra night available
+                      </label>
+
+                      {extraNightEnabled && (
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          <input
+                            type="number"
+                            name="extraNightPrice"
+                            min="0"
+                            step="0.01"
+                            value={extraNightPrice}
+                            onChange={(e) => setExtraNightPrice(e.target.value)}
+                            className="input w-20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            placeholder="Required"
+                            required
+                          />
+                          <select
+                            name="extraNightPriceUnit"
+                            value={extraNightPriceUnit}
+                            onChange={(e) => setExtraNightPriceUnit(e.target.value === "per_room" ? "per_room" : "per_person")}
+                            className="input w-44"
+                          >
+                            <option value="per_person">Per person</option>
+                            <option value="per_room">Per room</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             )}
@@ -646,13 +889,17 @@ useEffect(() => {
     </>
   ) : (
     <input
-      type="number"
+      type="text"
       id="bibCount"
       name="bibCount"
-      min="1"
-      max={maxBibs || undefined}
+      inputMode="numeric"
+      pattern="[0-9]*"
       placeholder={t("edit_listing.example_one")}
       className="input w-full sm:w-48"
+      onInput={(e) => {
+        const target = e.currentTarget;
+        target.value = target.value.replace(/\D+/g, "");
+      }}
     />
   )}
 </div>
@@ -671,19 +918,12 @@ useEffect(() => {
       </>
     ) : (
       <>
-        <select
-          id="transferType"
-          name="transferType"
-          className="input"
-          onChange={(e) => setTransferMethod(e.target.value as TransferMethod)}
-        >
-          <option value="">{t("edit_listing.select_transfer_method")}</option>
-          {transferMethodOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <TransferMethodDropdown
+          value={transferMethod || ""}
+          onChange={(value) => setTransferMethod(value as TransferMethod)}
+          options={transferMethodOptions}
+          placeholder={t("edit_listing.select_transfer_method")}
+        />
       </>
     )}
   </div>
@@ -728,6 +968,9 @@ useEffect(() => {
                   <label htmlFor="price" className="label mb-3 text-sm md:text-base font-semibold">
                     {t("edit_listing.amount")}
                   </label>
+                  {user.user_type === "tour_operator" && (
+                    <p className="mb-2 text-xs text-gray-500">*Required</p>
+                  )}
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -736,8 +979,9 @@ useEffect(() => {
                       min="0"
                       step="0.01"
                       placeholder=""
-                      className="input w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="input w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={priceValue}
+                      required={user.user_type === "tour_operator"}
                       onChange={(e) => {
                         setPriceValue(e.target.value);
                         // Reset negotiable to null when price is cleared
@@ -751,9 +995,11 @@ useEffect(() => {
                       onChange={setCurrency}
                     />
                   </div>
-                  <p className="mt-1.5 text-sm text-gray-500">
-                    {t("edit_listing.empty_contact_price")}
-                  </p>
+                  {user.user_type !== "tour_operator" && (
+                    <p className="mt-1.5 text-sm text-gray-500">
+                      {t("edit_listing.empty_contact_price")}
+                    </p>
+                  )}
                 </div>
 
                 {/* Price negotiable - appare solo quando c'è un prezzo */}
@@ -895,7 +1141,7 @@ useEffect(() => {
                   <button
                     onClick={() => {
                       setShowSuccessModal(false);
-                      navigate("/dashboard");
+                      navigate("/to-panel");
                     }}
                     className="btn bg-gray-100 text-gray-700 hover:bg-gray-200 w-full py-3 rounded-full"
                   >
@@ -915,7 +1161,7 @@ useEffect(() => {
       <ControlPanelLayout
         panelLabel={t("dashboard.panel_label")}
         mobileTitle={t("dashboard.mobile_title")}
-        homeTo="/dashboard"
+        homeTo="/to-panel"
         user={{
           fullName: user.full_name,
           email: user.email,
@@ -924,7 +1170,7 @@ useEffect(() => {
         }}
         navItems={tourOperatorNavItems}
       >
-        <div className="min-h-full">{pageBody}</div>
+        <div className="-m-4 min-h-full md:-m-8">{pageBody}</div>
       </ControlPanelLayout>
     );
   }

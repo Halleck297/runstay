@@ -5,9 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
 import { useRealtimeMessages } from "~/hooks/useRealtimeMessages";
 import { useTranslation } from "~/hooks/useTranslation";
 import { applyConversationPublicIdFilter } from "~/lib/conversation.server";
+import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Conversation - Runoot" }];
@@ -160,7 +162,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Get conversation to verify participation
   const conversationQuery = supabaseAdmin
     .from("conversations")
-    .select("id, participant_1, participant_2, deleted_by_1, deleted_by_2, listing_id, activated, listing:listings(author_id, title)")
+    .select("id, short_id, participant_1, participant_2, deleted_by_1, deleted_by_2, listing_id, activated, listing:listings(author_id, title)")
     ;
   const { data: conversation } = await applyConversationPublicIdFilter(
     conversationQuery as any,
@@ -272,6 +274,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .update({ updated_at: new Date().toISOString() })
       .eq("id", conversation.id);
   }
+
+  await sendToUnifiedNotificationEmail({
+    userId: otherUserId,
+    prefKey: "new_message",
+    message: "You have a new message in your Runoot inbox.",
+    ctaUrl: `/messages?c=${conversation.short_id || conversation.id}`,
+  });
 
   return data({ success: true });
 }
@@ -425,7 +434,7 @@ export default function Conversation() {
           <div className="flex flex-wrap items-center gap-2 min-w-0">
             <div className="min-w-0 flex items-center gap-1">
               <p className="text-[15px] md:text-base font-semibold text-gray-900 truncate">
-                {otherUser?.company_name || otherUser?.full_name || t("messages.user")}
+                {getPublicDisplayName(otherUser) || t("messages.user")}
               </p>
               {otherUser?.is_verified && (
                 <svg
@@ -633,14 +642,12 @@ export default function Conversation() {
                             {otherUser?.avatar_url ? (
                               <img
                                 src={otherUser.avatar_url}
-                                alt={otherUser?.company_name || otherUser?.full_name || t("messages.user")}
+                                alt={getPublicDisplayName(otherUser)}
                                 className="h-full w-full object-cover"
                                 loading="lazy"
                               />
                             ) : (
-                              otherUser?.company_name?.charAt(0) ||
-                              otherUser?.full_name?.charAt(0) ||
-                              "?"
+                              getPublicInitial(otherUser)
                             )}
                           </div>
                         )}

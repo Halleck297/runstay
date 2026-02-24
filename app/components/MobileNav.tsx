@@ -1,44 +1,28 @@
-import { Link, useLocation, Form, useFetcher } from "react-router";
+import { Link, useLocation, Form } from "react-router";
 import { useEffect, useState } from "react";
 import type { Database } from "~/lib/database.types";
 import { useUnreadCount } from "~/hooks/useUnreadCount";
 import { useI18n } from "~/hooks/useI18n";
-import { getLocaleFromPreferredLanguage, isSupportedLocale, LOCALE_LABELS } from "~/lib/locale";
-import type { SupportedLocale } from "~/lib/locale";
-import { LocaleSwitcher } from "~/components/LocaleSwitcher";
-import { LocalePersistPrompt } from "~/components/LocalePersistPrompt";
+import { isAdmin, isTeamLeader, isTourOperator } from "~/lib/user-access";
+import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
   unreadCount?: number;
-  unreadNotifications?: number;
 };
 
 interface MobileNavProps {
   user: Profile | null;
 }
 
-const LOCALE_PERSIST_PROMPT_KEY = "runoot_locale_persist_prompt";
-
 export function MobileNav({ user }: MobileNavProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>(locale);
-  const [pendingLocale, setPendingLocale] = useState<SupportedLocale | null>(null);
-  const localeFetcher = useFetcher<{ success?: boolean; locale?: string }>();
-  const preferredLocale = getLocaleFromPreferredLanguage((user as any)?.preferred_language);
-
-  const submitLocaleChange = (nextLocale: SupportedLocale, persist: "0" | "1") => {
-    localeFetcher.submit(
-      {
-        locale: nextLocale,
-        persist,
-        redirectTo: `${location.pathname}${location.search}`,
-      },
-      { method: "post", action: "/api/locale" }
-    );
-  };
+  const teamLeader = isTeamLeader(user);
+  const tourOperator = isTourOperator(user);
+  const adminUser = isAdmin(user);
+  const displayName = getPublicDisplayName(user);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -51,59 +35,12 @@ export function MobileNav({ user }: MobileNavProps) {
     return () => mediaQuery.removeEventListener("change", update);
   }, []);
 
-  const { unreadMessages, unreadNotifications } = useUnreadCount({
+  const { unreadMessages } = useUnreadCount({
     userId: user?.id || "",
     initialMessages: (user as any)?.unreadCount ?? 0,
-    initialNotifications: (user as any)?.unreadNotifications ?? 0,
     enabled: isMobile,
   });
-  const unreadTotal = unreadMessages + unreadNotifications;
-
-  useEffect(() => {
-    setSelectedLocale(locale);
-  }, [locale]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !user) return;
-
-    const queuedLocale = window.sessionStorage.getItem(LOCALE_PERSIST_PROMPT_KEY);
-    if (!isSupportedLocale(queuedLocale)) return;
-    if (queuedLocale !== locale) return;
-
-    window.sessionStorage.removeItem(LOCALE_PERSIST_PROMPT_KEY);
-    if (preferredLocale === queuedLocale) return;
-    setPendingLocale(queuedLocale);
-  }, [locale, preferredLocale, user]);
-
-  useEffect(() => {
-    if (localeFetcher.state !== "idle" || !localeFetcher.data?.success) return;
-    if (typeof window === "undefined") return;
-
-    const localeCodes = Object.keys(LOCALE_LABELS);
-    const parts = location.pathname.split("/").filter(Boolean);
-    const hasLocalePrefix = parts.length > 0 && localeCodes.includes(parts[0]);
-    const strippedPath = hasLocalePrefix ? `/${parts.slice(1).join("/")}` : location.pathname;
-    const normalizedPath = strippedPath === "" ? "/" : strippedPath;
-    const resolvedLocale =
-      localeFetcher.data?.locale && localeFetcher.data.locale in LOCALE_LABELS
-        ? (localeFetcher.data.locale as SupportedLocale)
-        : selectedLocale;
-    const localizedPath = `/${resolvedLocale}${normalizedPath === "/" ? "" : normalizedPath}${location.search}`;
-    window.location.assign(localizedPath);
-  }, [localeFetcher.state, localeFetcher.data, location.pathname, location.search, selectedLocale]);
-
-  const handleLocaleChange = (locale: SupportedLocale) => {
-    if (typeof window !== "undefined") {
-      if (user && preferredLocale !== locale) {
-        window.sessionStorage.setItem(LOCALE_PERSIST_PROMPT_KEY, locale);
-      } else {
-        window.sessionStorage.removeItem(LOCALE_PERSIST_PROMPT_KEY);
-      }
-    }
-
-    setSelectedLocale(locale);
-    submitLocaleChange(locale, "0");
-  };
+  const unreadTotal = unreadMessages;
 
   // Close sidebar when route changes
   useEffect(() => {
@@ -122,7 +59,7 @@ export function MobileNav({ user }: MobileNavProps) {
   };
 
   // My Listing path depends on user type
-  const myListingPath = user?.user_type === "tour_operator" ? "/dashboard" : "/my-listings";
+  const myListingPath = tourOperator ? "/to-panel/listings" : "/my-listings";
 
   return (
     <>
@@ -143,79 +80,65 @@ export function MobileNav({ user }: MobileNavProps) {
         {/* Sidebar Header */}
         <div className="flex items-center gap-3 p-3 border-b border-gray-100">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-600 font-semibold text-sm">
-            {user?.full_name?.charAt(0) || user?.email?.charAt(0) || '?'}
+            {getPublicInitial(user)}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-gray-900 text-sm truncate">{user?.full_name || t("common.user")}</p>
-            <p className="text-[10px] text-gray-500">{user?.user_type === 'tour_operator' ? t("common.tour_operator") : t("common.private")}</p>
+            <p className="font-semibold text-gray-900 text-sm truncate">{displayName || t("common.user")}</p>
+            <p className="text-[10px] text-gray-500">{tourOperator ? t("common.tour_operator") : t("common.private")}</p>
           </div>
-        </div>
-
-        <div className="px-3 pt-2 relative">
-          <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
-              {t("nav.language")}
-          </label>
-          <LocaleSwitcher
-            value={selectedLocale}
-            onChange={handleLocaleChange}
-            buttonClassName="w-full justify-between rounded-lg"
-            menuClassName="left-0 right-0 w-auto"
-          />
-          <LocalePersistPrompt
-            open={pendingLocale !== null}
-            className="left-0 right-0 w-auto z-50"
-            languageLabel={pendingLocale ? LOCALE_LABELS[pendingLocale] : ""}
-            onClose={() => {
-              setPendingLocale(null);
-            }}
-            onKeepTemporary={() => {
-              setPendingLocale(null);
-            }}
-            onMakeDefault={() => {
-              if (!pendingLocale) return;
-              setSelectedLocale(pendingLocale);
-              submitLocaleChange(pendingLocale, "1");
-              setPendingLocale(null);
-            }}
-          />
         </div>
 
         {/* Sidebar Menu */}
         <div className="py-1">
           {/* Dashboard - solo per Tour Operators */}
-          {user?.user_type === "tour_operator" && (
+          {tourOperator && (
             <Link
-              to="/dashboard"
+              to="/to-panel"
               onClick={() => setIsSidebarOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-2.5 px-3 py-2 text-sm text-purple-700 hover:bg-purple-50"
             >
-              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
               <span className="flex-1">{t("nav.dashboard")}</span>
             </Link>
           )}
 
-          <Link
-            to="/profile"
-            onClick={() => setIsSidebarOpen(false)}
-            className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            {t("nav.profile")}
-          </Link>
+          {!tourOperator && (
+            <Link
+              to={teamLeader ? "/tl-dashboard/profile" : "/profile"}
+              onClick={() => setIsSidebarOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {t("nav.profile")}
+            </Link>
+          )}
+
+          {!tourOperator && (
+            <Link
+              to={myListingPath}
+              onClick={() => setIsSidebarOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              {t("nav.my_listing")}
+            </Link>
+          )}
 
           <Link
-            to={myListingPath}
+            to="/events"
             onClick={() => setIsSidebarOpen(false)}
             className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
             <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
             </svg>
-            {user?.user_type === "tour_operator" ? t("nav.my_listings") : t("nav.my_listing")}
+            <span className="flex-1">{t("nav.event")}</span>
           </Link>
 
           <Link
@@ -230,7 +153,7 @@ export function MobileNav({ user }: MobileNavProps) {
           </Link>
 
           {/* TL Dashboard - solo per Team Leaders */}
-          {(user as any)?.is_team_leader && (
+          {teamLeader && (
             <>
               <Link
                 to="/tl-dashboard"
@@ -256,7 +179,7 @@ export function MobileNav({ user }: MobileNavProps) {
           )}
 
           {/* Admin Dashboard - solo admin/superadmin */}
-          {((user as any)?.role === "admin" || (user as any)?.role === "superadmin") && (
+          {adminUser && (
             <Link
               to="/admin"
               onClick={() => setIsSidebarOpen(false)}
@@ -272,7 +195,7 @@ export function MobileNav({ user }: MobileNavProps) {
           <div className="my-1 border-t border-gray-100" />
 
           <Link
-            to="/settings"
+            to={teamLeader ? "/tl-dashboard/settings" : tourOperator ? "/to-panel/settings" : "/profile/settings"}
             onClick={() => setIsSidebarOpen(false)}
             className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
@@ -304,7 +227,7 @@ export function MobileNav({ user }: MobileNavProps) {
         <Link
           to="/"
           className={`flex flex-col items-center justify-center flex-1 py-2 ${
-            isActive("/") && !isActive("/listings") && !isActive("/messages") && !isActive("/profile") && !isActive("/my-listings") && !isActive("/dashboard")
+            isActive("/") && !isActive("/listings") && !isActive("/messages") && !isActive("/profile") && !isActive("/tl-dashboard/profile") && !isActive("/my-listings") && !isActive("/to-panel")
               ? "text-brand-600"
               : "text-gray-500"
           }`}
@@ -332,17 +255,17 @@ export function MobileNav({ user }: MobileNavProps) {
 
         {/* New */}
         <Link
-          to={user ? ((user as any)?.is_team_leader ? "/tl-events" : "/listings/new") : "/login"}
+          to={user ? (teamLeader ? "/tl-events" : tourOperator ? "/to-panel/listings/new" : "/listings/new") : "/login"}
           className={`flex flex-col items-center justify-center flex-1 py-2 ${
-            location.pathname === "/listings/new" || location.pathname === "/tl-events"
+            location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" || location.pathname === "/tl-events"
               ? "text-accent-600"
               : "text-gray-500"
           }`}
         >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/tl-events" ? 2.5 : 2}>
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" || location.pathname === "/tl-events" ? 2.5 : 2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span className="text-[10px] mt-0.5 font-medium">{(user as any)?.is_team_leader ? t("nav.event") : t("nav.new")}</span>
+          <span className="text-[10px] mt-0.5 font-medium">{teamLeader ? t("nav.event") : t("nav.new")}</span>
         </Link>
 
         {/* Messages */}
@@ -385,12 +308,13 @@ export function MobileNav({ user }: MobileNavProps) {
           <button
             onClick={() => setIsSidebarOpen(true)}
             className={`flex flex-col items-center justify-center flex-1 py-2 ${
-              isActive("/profile") || isActive("/settings") || isActive("/saved") || isActive(myListingPath)
+              isActive("/profile") || isActive("/to-panel/profile") || isActive("/tl-dashboard/profile") || isActive("/profile/settings") || isActive("/to-panel/settings") || isActive("/saved") || isActive(myListingPath)
+              || isActive("/tl-dashboard/settings")
                 ? "text-brand-600"
                 : "text-gray-500"
             }`}
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/profile") || isActive("/settings") || isActive("/saved") ? 2.5 : 2}>
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/profile") || isActive("/to-panel/profile") || isActive("/tl-dashboard/profile") || isActive("/profile/settings") || isActive("/to-panel/settings") || isActive("/tl-dashboard/settings") || isActive("/saved") ? 2.5 : 2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             <span className="text-[10px] mt-0.5 font-medium">{t("nav.profile")}</span>

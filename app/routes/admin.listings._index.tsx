@@ -7,6 +7,7 @@ import { requireAdmin, logAdminAction } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import type { ListingStatus, ListingType } from "~/lib/database.types";
 import { getListingPublicId } from "~/lib/publicIds";
+import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Listings - Admin - Runoot" }];
@@ -39,7 +40,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   let query = supabaseAdmin
     .from("listings")
     .select(
-      `*, author:profiles!listings_author_id_fkey(id, full_name, email, company_name, user_type, is_team_leader, role), reviewer:profiles!listings_reviewed_by_fkey(id, full_name, email, company_name), event:events(id, name, country, event_date)`,
+      `*, author:profiles!listings_author_id_fkey(id, full_name, email, company_name, user_type), reviewer:profiles!listings_reviewed_by_fkey(id, full_name, email, company_name), event:events(id, name, country, event_date)`,
       { count: "exact" }
     )
     .order("created_at", { ascending: false })
@@ -109,10 +110,53 @@ export async function action({ request }: ActionFunctionArgs) {
         return data({ error: "Invalid status" }, { status: 400 });
       }
 
+      const { data: listing } = await (supabaseAdmin as any)
+        .from("listings")
+        .select("id, short_id, title, author_id")
+        .eq("id", listingId)
+        .maybeSingle();
+
       await (supabaseAdmin
         .from("listings") as any)
         .update({ status: newStatus })
         .eq("id", listingId);
+
+      if (listing?.author_id) {
+        const statusMessage =
+          newStatus === "pending"
+            ? `Listing pending review: "${listing.title}".`
+            : newStatus === "expired"
+              ? `Listing expired: "${listing.title}".`
+              : newStatus === "rejected"
+                ? `Admin action required on listing "${listing.title}".`
+                : `Listing status updated to "${newStatus}" for "${listing.title}".`;
+
+        await (supabaseAdmin.from("notifications") as any).insert({
+          user_id: listing.author_id,
+          type: "system",
+          title: "Listing status updated",
+          message: statusMessage,
+          data: {
+            kind: "listing_status_update",
+            listing_id: listing.id,
+            status: newStatus,
+          },
+        });
+
+        await sendToUnifiedNotificationEmail({
+          userId: listing.author_id,
+          prefKey:
+            newStatus === "pending"
+              ? "listing_pending"
+              : newStatus === "expired"
+                ? "listing_expiring"
+                : newStatus === "rejected"
+                  ? "admin_action"
+                  : "listing_status",
+          message: statusMessage,
+          ctaUrl: `/listings/${getListingPublicId(listing)}`,
+        });
+      }
 
       await logAdminAction((admin as any).id, "listing_status_changed", {
         targetListingId: listingId,
@@ -156,9 +200,9 @@ const statusColors: Record<string, string> = {
   rejected: "bg-red-100 text-red-700",
 };
 function getAuthorBadge(author: any) {
-  if (author?.role === "superadmin") return { label: "Superadmin", className: "bg-red-100 text-red-700" };
-  if (author?.role === "admin") return { label: "Admin", className: "bg-purple-100 text-purple-700" };
-  if (author?.is_team_leader) return { label: "Team Leader", className: "bg-indigo-100 text-indigo-700" };
+  if (author?.user_type === "superadmin") return { label: "Superadmin", className: "bg-red-100 text-red-700" };
+  if (author?.user_type === "admin") return { label: "Admin", className: "bg-purple-100 text-purple-700" };
+  if (author?.user_type === "team_leader") return { label: "Team Leader", className: "bg-indigo-100 text-indigo-700" };
   if (author?.user_type === "tour_operator") return { label: "Tour Operator", className: "bg-blue-100 text-blue-700" };
   return { label: "User", className: "bg-gray-100 text-gray-600" };
 }

@@ -22,7 +22,7 @@ CREATE TABLE public.profiles (
   short_id TEXT GENERATED ALWAYS AS (substring(replace(id::text, '-', '') from 1 for 12)) STORED UNIQUE,
   email TEXT NOT NULL,
   full_name TEXT,
-  user_type TEXT NOT NULL DEFAULT 'private' CHECK (user_type IN ('tour_operator', 'private')),
+  user_type TEXT NOT NULL DEFAULT 'private' CHECK (user_type IN ('private', 'team_leader', 'tour_operator', 'admin', 'superadmin')),
   role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'superadmin')),
   company_name TEXT,
   phone TEXT,

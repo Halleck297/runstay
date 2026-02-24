@@ -7,6 +7,8 @@ import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
+import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: `Contact Seller - ${(data as any)?.listing?.event?.name || "Runoot"}` }];
@@ -15,6 +17,37 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 type ContactActionData =
   | { errorKey: "empty_message" | "listing_not_found" | "message_yourself" | "failed_start" | "failed_send" }
   | undefined;
+
+async function resolveConversationRecipient(args: { listing: any }) {
+  const listing = args.listing;
+  const listingPublicId = getListingPublicId(listing as any);
+
+  const { data: eventReq } = await (supabaseAdmin as any)
+    .from("event_requests")
+    .select("team_leader_id")
+    .ilike("published_listing_url", `%/listings/${listingPublicId}`)
+    .maybeSingle();
+
+  if (eventReq?.team_leader_id) {
+    const { data: tlProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, company_name, user_type, is_verified, avatar_url")
+      .eq("id", eventReq.team_leader_id)
+      .maybeSingle();
+
+    if (tlProfile) {
+      return {
+        recipientId: tlProfile.id,
+        recipientProfile: tlProfile,
+      };
+    }
+  }
+
+  return {
+    recipientId: listing.author_id as string,
+    recipientProfile: listing.author,
+  };
+}
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
@@ -38,7 +71,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   const listing = localizeListing(rawListing as any, locale) as any;
 
-  if (listing.author_id === userId) {
+  const recipient = await resolveConversationRecipient({ listing });
+
+  if (recipient.recipientId === userId) {
     return redirect(`/listings/${getListingPublicId(listing)}`);
   }
 
@@ -51,7 +86,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       .select("id, short_id")
       .eq("listing_id", listing.id)
       .or(
-        `and(participant_1.eq.${userId},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${userId})`
+        `and(participant_1.eq.${userId},participant_2.eq.${recipient.recipientId}),and(participant_1.eq.${recipient.recipientId},participant_2.eq.${userId})`
       )
       .single<{ id: string; short_id: string | null }>();
 
@@ -66,7 +101,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .eq("id", userId)
     .single();
 
-  return { user, listing, userProfile, sent: !!sent };
+  return {
+    user,
+    listing,
+    recipientProfile: recipient.recipientProfile,
+    recipientId: recipient.recipientId,
+    userProfile,
+    sent: !!sent,
+  };
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -81,14 +123,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return data<ContactActionData>({ errorKey: "empty_message" }, { status: 400 });
   }
 
-  const listingQuery = supabaseAdmin.from("listings").select("id, author_id");
+  const listingQuery = supabaseAdmin
+    .from("listings")
+    .select("id, author_id, author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url)");
   const { data: listing } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
 
   if (!listing) {
     return data<ContactActionData>({ errorKey: "listing_not_found" }, { status: 404 });
   }
 
-  if (listing.author_id === userId) {
+  const recipient = await resolveConversationRecipient({ listing });
+
+  if (recipient.recipientId === userId) {
     return data<ContactActionData>({ errorKey: "message_yourself" }, { status: 400 });
   }
 
@@ -97,7 +143,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .select("id, short_id")
     .eq("listing_id", listing.id)
     .or(
-      `and(participant_1.eq.${userId},participant_2.eq.${listing.author_id}),and(participant_1.eq.${listing.author_id},participant_2.eq.${userId})`
+      `and(participant_1.eq.${userId},participant_2.eq.${recipient.recipientId}),and(participant_1.eq.${recipient.recipientId},participant_2.eq.${userId})`
     )
     .single<{ id: string; short_id: string | null }>();
 
@@ -113,6 +159,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .update({ updated_at: new Date().toISOString() })
       .eq("id", existingConversation.id);
 
+    await sendToUnifiedNotificationEmail({
+      userId: recipient.recipientId,
+      prefKey: "info_request",
+      message: "You received a new info request on one of your listings.",
+      ctaUrl: `/messages?c=${existingConversation.short_id || existingConversation.id}`,
+    });
+
     return redirect(`/listings/${getListingPublicId(listing as any)}/contact?sent=true`);
   }
 
@@ -121,7 +174,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     .insert({
       listing_id: listing.id,
       participant_1: userId,
-      participant_2: listing.author_id,
+      participant_2: recipient.recipientId,
     } as any)
     .select("id, short_id")
     .single<{ id: string; short_id: string | null }>();
@@ -141,11 +194,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return data<ContactActionData>({ errorKey: "failed_send" }, { status: 500 });
   }
 
+  await sendToUnifiedNotificationEmail({
+    userId: recipient.recipientId,
+    prefKey: "info_request",
+    message: "You received a new info request on one of your listings.",
+    ctaUrl: `/messages?c=${newConversation.short_id || newConversation.id}`,
+  });
+
   return redirect(`/listings/${getListingPublicId(listing as any)}/contact?sent=true`);
 }
 
 export default function ContactSeller() {
-  const { listing, sent } = useLoaderData<typeof loader>();
+  const { listing, recipientProfile, sent } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -154,7 +214,7 @@ export default function ContactSeller() {
   const isSubmitting = navigation.state === "submitting";
   const showSuccess = sent;
 
-  const sellerName = listing.author.company_name || listing.author.full_name?.split(" ")[0] || t("contact_seller.seller_fallback");
+  const sellerName = getPublicDisplayName(recipientProfile) || t("contact_seller.seller_fallback");
   const eventName = listing.event.name;
   const defaultMessage = `${t("contact_seller.greeting_prefix")} ${sellerName}, ${t("contact_seller.greeting_about")} ${eventName}. `;
 
@@ -219,27 +279,31 @@ export default function ContactSeller() {
         <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-semibold text-brand-700">
-              {listing.author.avatar_url ? (
+              {recipientProfile.avatar_url ? (
                 <img
-                  src={listing.author.avatar_url}
-                  alt={listing.author.company_name || listing.author.full_name || "User avatar"}
+                  src={recipientProfile.avatar_url}
+                  alt={getPublicDisplayName(recipientProfile)}
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
               ) : (
-                listing.author.company_name?.charAt(0) || listing.author.full_name?.charAt(0) || "?"
+                getPublicInitial(recipientProfile)
               )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <p className="truncate font-semibold text-gray-900">{listing.author.company_name || listing.author.full_name}</p>
-                {listing.author.is_verified && (
+                <p className="truncate font-semibold text-gray-900">
+                  {getPublicDisplayName(recipientProfile)}
+                </p>
+                {recipientProfile.is_verified && (
                   <svg className="h-4 w-4 flex-shrink-0 text-brand-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                 )}
               </div>
-              <p className="text-sm text-gray-500">{listing.author.user_type === "tour_operator" ? t("common.tour_operator") : t("contact_seller.private_seller")}</p>
+              <p className="text-sm text-gray-500">
+                {recipientProfile.user_type === "tour_operator" ? t("common.tour_operator") : t("contact_seller.private_seller")}
+              </p>
             </div>
           </div>
 

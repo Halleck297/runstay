@@ -10,6 +10,7 @@ type PanelNavItem = {
   labelKey?: TranslationKey;
   icon: ReactNode;
   exact?: boolean;
+  spacerTop?: boolean;
   badgeCount?: number;
   badgeTone?: "accent" | "brand";
   hideBadgeWhenActive?: boolean;
@@ -26,6 +27,7 @@ type ControlPanelLayoutProps = {
     avatarUrl?: string | null;
   };
   navItems: PanelNavItem[];
+  topContent?: ReactNode;
   children: ReactNode;
 };
 
@@ -35,6 +37,7 @@ export function ControlPanelLayout({
   homeTo,
   user,
   navItems,
+  topContent,
   children,
 }: ControlPanelLayoutProps) {
   const { t } = useI18n();
@@ -70,6 +73,16 @@ export function ControlPanelLayout({
         }`}
       >
         <div className="p-6 border-b border-navy-700">
+          <Link
+            to="/"
+            className="mb-2 flex items-center justify-center gap-2 text-xs text-navy-300 hover:text-white transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            {t("common.back_to_site")}
+          </Link>
+          <div className="mb-3 border-t border-navy-700" />
           <Link to={homeTo} className="flex flex-col items-center gap-2 text-center">
             <img
               src="/Logosin.svg"
@@ -94,7 +107,7 @@ export function ControlPanelLayout({
                 key={item.to}
                 to={item.to}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`${item.spacerTop ? "mt-2" : ""} flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   active
                     ? "bg-brand-600 text-white"
                     : "text-navy-200 hover:bg-navy-800 hover:text-white"
@@ -115,8 +128,8 @@ export function ControlPanelLayout({
         </nav>
 
         <div className="p-4 border-t border-navy-700">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-500 flex items-center justify-center text-white text-sm font-bold">
+          <div className="mb-4 flex flex-col items-center text-center">
+            <div className="h-12 w-12 rounded-full overflow-hidden bg-brand-500 flex items-center justify-center text-white text-base font-bold">
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
@@ -128,16 +141,17 @@ export function ControlPanelLayout({
                 userInitial
               )}
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate">
+            <div className="mt-2 min-w-0">
+              <p className="max-w-[11rem] truncate text-base font-semibold text-white">
                 {user.fullName || user.email || t("common.user")}
               </p>
-              <p className="text-xs text-navy-400 capitalize">{user.roleLabel || t("common.member")}</p>
+              <p className="text-sm text-navy-300 capitalize">{user.roleLabel || t("common.member")}</p>
             </div>
           </div>
+          <div className="mb-3 border-t border-navy-700" />
           <Link
             to="/"
-            className="flex items-center gap-2 text-sm text-navy-300 hover:text-white transition-colors"
+            className="flex items-center justify-center gap-2 text-sm text-navy-300 hover:text-white transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -165,7 +179,8 @@ export function ControlPanelLayout({
           </Link>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 md:overflow-y-auto">{children}</main>
+        {topContent && <div className="px-4 pt-4 md:px-8 md:pt-8">{topContent}</div>}
+        <main className={`flex-1 p-4 md:p-8 md:overflow-y-auto ${topContent ? "pt-0 md:pt-0" : ""}`}>{children}</main>
       </div>
     </div>
   );

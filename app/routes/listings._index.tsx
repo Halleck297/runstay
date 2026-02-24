@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { useLoaderData, useSearchParams, Form, useNavigate } from "react-router";
+import { useLoaderData, useSearchParams, Form, useNavigate, Link } from "react-router";
 import { useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
@@ -36,6 +36,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     `
     )
     .eq("status", "active")
+    .eq("listing_mode", "exchange")
     .order("created_at", { ascending: false });
 
   if (type && type !== "all") {
@@ -193,19 +194,47 @@ export default function Listings() {
   };
 
   return (
-    <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
-      <div className="min-h-screen bg-gray-50/60 md:bg-gray-50/85 flex flex-col">
+    <div className="min-h-screen bg-slate-100">
+      <div className="min-h-screen flex flex-col">
         <Header user={user} />
 
         <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
-          {/* Page header with Search and Filters */}
-          <div className="relative z-10 mb-8 rounded-2xl bg-white/75 backdrop-blur-sm shadow-md px-4 py-5 sm:p-6">
+          <div className="mb-4 max-w-2xl rounded-2xl border border-slate-200 bg-gradient-to-r from-white to-brand-100/55 px-4 py-3.5 text-sm text-slate-800 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                  </svg>
+                </span>
+                <p className="text-sm font-medium text-slate-700">{t("listings.banner_events_prefix")}</p>
+              </div>
+              <Link
+                to="/events"
+                className="inline-flex items-center rounded-full bg-slate-50 px-4 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
+              >
+                {t("listings.banner_events_link")}
+              </Link>
+            </div>
+          </div>
+
+          <div className="mb-4 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-white to-brand-100/55 px-5 py-8 shadow-sm sm:px-6 sm:py-10">
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left">
               {t("listings.title")}
             </h1>
-            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center sm:text-left mb-6 sm:mb-8">
+            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center sm:text-left">
               {t("listings.subtitle")}
             </p>
+          </div>
+
+          <div className="relative z-10 mb-8">
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
+              {hasActiveSearch && (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                  {t("listings.search.placeholder")}: "{currentSearch}"
+                </span>
+              )}
+            </div>
 
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
               {/* Search Bar with Autocomplete */}
@@ -307,6 +336,7 @@ export default function Listings() {
                 </div>
               </div>
             </div>
+            <div className="mt-6 border-t border-slate-300/90" />
           </div>
 
           {/* Results */}

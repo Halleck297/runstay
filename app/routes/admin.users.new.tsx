@@ -1,7 +1,7 @@
 // app/routes/admin.users.new.tsx - Create User from Admin
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { useActionData, Form, Link } from "react-router";
+import { useActionData, Form, Link, useSearchParams } from "react-router";
 import { useState } from "react";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -19,7 +19,6 @@ function buildMockPayload() {
     fullName: `Mock User ${suffix.toUpperCase()}`,
     userType: "private",
     companyName: "",
-    role: "user",
   };
 }
 
@@ -119,7 +118,6 @@ export async function action({ request }: ActionFunctionArgs) {
   ).trim();
 
   const userType = (isAgencyMode ? "tour_operator" : (mockPayload?.userType || String(formData.get("userType") || ""))) as "private" | "tour_operator";
-  const role = "user";
 
   const password = String(formData.get("password") || "");
   const skipConfirmation = formData.get("skipConfirmation") === "on";
@@ -184,7 +182,6 @@ export async function action({ request }: ActionFunctionArgs) {
       email,
       full_name: fullName,
       user_type: userType,
-      role,
       company_name: companyName || null,
       created_by_admin: (admin as any).id,
     };
@@ -218,7 +215,6 @@ export async function action({ request }: ActionFunctionArgs) {
       details: {
         email,
         user_type: userType,
-        role,
         mode: actionType,
         access_mode: isAgencyMode ? "invite" : accessMode,
         mock_profile_only: actionType === "createMock",
@@ -245,7 +241,9 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function AdminCreateUser() {
   const actionData = useActionData<typeof action>();
-  const [createMode, setCreateMode] = useState<"user" | "mock" | "agency">("user");
+  const [searchParams] = useSearchParams();
+  const initialMode = searchParams.get("mode") === "agency" ? "agency" : "user";
+  const [createMode, setCreateMode] = useState<"user" | "mock" | "agency">(initialMode);
   const [accessMode, setAccessMode] = useState<"password" | "invite">("password");
   const [previewEmail, setPreviewEmail] = useState("");
   const [previewName, setPreviewName] = useState("");

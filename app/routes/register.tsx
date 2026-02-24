@@ -23,7 +23,7 @@ function normalizeEmail(value: string): string {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const userId = await getUserId(request);
-  if (userId) return redirect("/dashboard");
+  if (userId) return redirect("/to-panel");
   return {};
 }
 
@@ -164,7 +164,7 @@ export async function action({ request }: ActionFunctionArgs) {
     authData.user.id,
     authData.session.access_token,
     authData.session.refresh_token,
-    "/dashboard",
+    "/to-panel",
     {
       additionalSetCookies: [buildLocaleCookie(normalizedLanguage)],
     }

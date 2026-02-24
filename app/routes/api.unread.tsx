@@ -16,20 +16,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const userId = (user as any).id as string;
 
-  const [convResult, notifResult] = await Promise.all([
-    supabaseAdmin
-      .from("conversations")
-      .select(`
-        id,
-        messages(id, sender_id, read_at)
-      `)
-      .or(`participant_1.eq.${userId},participant_2.eq.${userId}`),
-    supabaseAdmin
-      .from("notifications")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .is("read_at", null),
-  ]);
+  const convResult = await supabaseAdmin
+    .from("conversations")
+    .select(`
+      id,
+      messages(id, sender_id, read_at)
+    `)
+    .or(`participant_1.eq.${userId},participant_2.eq.${userId}`);
 
   let unreadMessages = 0;
   convResult.data?.forEach((conv: any) => {
@@ -40,11 +33,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
   });
 
-  const unreadNotifications = notifResult.count || 0;
-
   return data({
-    unreadCount: unreadMessages + unreadNotifications,
+    unreadCount: unreadMessages,
     unreadMessages,
-    unreadNotifications,
+    unreadNotifications: 0,
   });
 }

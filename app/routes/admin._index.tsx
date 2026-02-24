@@ -51,10 +51,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     supabaseAdmin.from("listings").select("*", { count: "exact", head: true }).eq("listing_type", "room"),
     supabaseAdmin.from("listings").select("*", { count: "exact", head: true }).eq("listing_type", "bib"),
     supabaseAdmin.from("listings").select("*", { count: "exact", head: true }).eq("listing_type", "room_and_bib"),
-    supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("is_team_leader", true),
+    supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "team_leader"),
     supabaseAdmin.from("referrals").select("*", { count: "exact", head: true }),
     supabaseAdmin.from("listings").select("*", { count: "exact", head: true }).eq("status", "pending"),
-    supabaseAdmin.from("profiles").select("id, full_name, email, user_type, role, is_verified, is_team_leader, created_at").order("created_at", { ascending: false }).limit(10),
+    supabaseAdmin.from("profiles").select("id, full_name, email, user_type, is_verified, created_at").order("created_at", { ascending: false }).limit(10),
     supabaseAdmin.from("listings").select(`id, title, listing_type, status, created_at, author:profiles!listings_author_id_fkey(full_name, email, company_name)`).order("created_at", { ascending: false }).limit(10),
   ]);
 
@@ -262,7 +262,7 @@ export default function AdminDashboard() {
                       {user.full_name || user.email}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {user.user_type === "tour_operator" ? "TO" : "Runner"} · {formatDateStable(user.created_at)}
+                      {user.user_type === "tour_operator" ? "TO" : user.user_type === "team_leader" ? "TL" : user.user_type === "admin" ? "Admin" : user.user_type === "superadmin" ? "Superadmin" : "Runner"} · {formatDateStable(user.created_at)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -273,14 +273,14 @@ export default function AdminDashboard() {
                         </svg>
                       </span>
                     )}
-                    {user.is_team_leader && (
+                    {user.user_type === "team_leader" && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600">
                         TL
                       </span>
                     )}
-                    {user.role !== "user" && (
+                    {(user.user_type === "admin" || user.user_type === "superadmin") && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                        {user.role}
+                        {user.user_type}
                       </span>
                     )}
                   </div>

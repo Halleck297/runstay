@@ -13,9 +13,10 @@ const SORT_OPTIONS = [
 interface SortDropdownProps {
   value: string;
   onChange: (value: string) => void;
+  options?: Array<{ value: string; label: string }>;
 }
 
-export function SortDropdown({ value, onChange }: SortDropdownProps) {
+export function SortDropdown({ value, onChange, options }: SortDropdownProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -32,7 +33,8 @@ export function SortDropdown({ value, onChange }: SortDropdownProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedOption = SORT_OPTIONS.find((opt) => opt.value === value) || SORT_OPTIONS[0];
+  const effectiveOptions = options && options.length > 0 ? options : SORT_OPTIONS;
+  const selectedOption = effectiveOptions.find((opt) => opt.value === value) || effectiveOptions[0];
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -69,7 +71,7 @@ export function SortDropdown({ value, onChange }: SortDropdownProps) {
       {/* Dropdown menu */}
       {isOpen && (
         <div className="absolute right-0 z-[100] mt-1 w-48 rounded-lg bg-white shadow-xl border border-gray-200 py-1 overflow-hidden">
-          {SORT_OPTIONS.map((option) => (
+          {effectiveOptions.map((option) => (
             <button
               key={option.value}
               type="button"

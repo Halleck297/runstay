@@ -70,7 +70,7 @@ function SavedToolbarDropdown<T extends string>({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="input flex w-full items-center justify-between gap-2 rounded-full text-left"
+        className="flex w-full items-center justify-between gap-2 rounded-full border border-gray-300 bg-white px-3.5 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
@@ -404,23 +404,31 @@ export default function SavedListings() {
   }, [query, savedListings, sortBy, typeFilter]);
 
   const hasSavedListings = (savedListings as any[]).length > 0;
+  const hasFilters = query.trim().length > 0 || typeFilter !== "all";
 
   return (
-    <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
-      <div className="flex min-h-screen flex-col bg-gray-50/60 md:bg-gray-50/85">
+    <div className="min-h-screen bg-slate-100">
+      <div className="flex min-h-screen flex-col">
         <Header user={user} />
 
-        <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-          <div className="w-full space-y-5 md:space-y-6">
-            <section className="relative overflow-hidden rounded-2xl border border-white/80 bg-white/92 px-4 py-5 shadow-[0_14px_36px_rgba(15,23,42,0.18)] ring-1 ring-black/5 backdrop-blur-sm sm:px-6">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-400 via-brand-500 to-blue-400 opacity-80" />
-              <h1 className="font-display text-2xl font-bold text-gray-900 sm:text-3xl">{t("saved.title")}</h1>
-              <p className="mt-2 text-sm text-gray-600 sm:text-base">{t("saved.subtitle")}</p>
-            </section>
+        <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
+          <div className="mb-4 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-white to-brand-100/55 px-5 py-8 shadow-sm sm:px-6 sm:py-10">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left">{t("saved.title")}</h1>
+            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center sm:text-left">{t("saved.subtitle")}</p>
+          </div>
 
+          <div className="relative z-10 mb-8">
             {hasSavedListings && (
-              <section className="relative z-10 rounded-2xl border border-gray-300/80 bg-white/94 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.16)] ring-1 ring-black/5 backdrop-blur-sm">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto] md:items-center">
+              <>
+                <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
+                  {hasFilters && (
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                      {t("saved.search_placeholder")}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
                   <label className="relative block">
                     <span className="sr-only">{t("saved.search_placeholder")}</span>
                     <input
@@ -428,32 +436,38 @@ export default function SavedListings() {
                       onChange={(e) => setQuery(e.target.value)}
                       type="text"
                       placeholder={t("saved.search_placeholder")}
-                      className="input w-full rounded-full pr-10"
+                      className="block w-full rounded-full border-0 bg-white px-4 py-3.5 pr-10 text-gray-900 placeholder:text-gray-400 ring-1 ring-gray-200 shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/30 lg:w-[460px]"
                     />
                     <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </label>
 
-                  <SavedToolbarDropdown
-                    value={typeFilter}
-                    onChange={setTypeFilter}
-                    options={typeFilterOptions}
-                    className="md:w-[180px]"
-                  />
+                  <div className="shrink-0">
+                    <SavedToolbarDropdown
+                      value={typeFilter}
+                      onChange={setTypeFilter}
+                      options={typeFilterOptions}
+                      className="min-w-[180px]"
+                    />
+                  </div>
 
-                  <SavedToolbarDropdown
-                    value={sortBy}
-                    onChange={setSortBy}
-                    options={sortOptions}
-                    className="md:w-[230px]"
-                  />
+                  <div className="shrink-0">
+                    <SavedToolbarDropdown
+                      value={sortBy}
+                      onChange={setSortBy}
+                      options={sortOptions}
+                      className="min-w-[230px]"
+                    />
+                  </div>
                 </div>
-              </section>
+                <div className="mt-6 border-t border-slate-300/90" />
+              </>
             )}
+          </div>
 
-            {!hasSavedListings ? (
-              <section className="rounded-2xl border border-gray-200 bg-white/90 p-10 text-center shadow-sm backdrop-blur-sm sm:p-12">
+          {!hasSavedListings ? (
+              <section className="rounded-2xl border border-slate-200 bg-white/90 p-10 text-center shadow-sm sm:p-12">
                 <svg className="mx-auto h-14 w-14 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
@@ -469,7 +483,7 @@ export default function SavedListings() {
                 </Link>
               </section>
             ) : filteredListings.length === 0 ? (
-              <section className="rounded-2xl border border-gray-200 bg-white/90 p-10 text-center shadow-sm backdrop-blur-sm sm:p-12">
+              <section className="rounded-2xl border border-slate-200 bg-white/90 p-10 text-center shadow-sm sm:p-12">
                 <svg className="mx-auto h-14 w-14 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -483,7 +497,6 @@ export default function SavedListings() {
                 ))}
               </section>
             )}
-          </div>
         </main>
 
         <FooterLight />

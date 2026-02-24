@@ -1,45 +1,28 @@
-import { Link, Form, useFetcher, useLocation } from "react-router";
+import { Link, Form } from "react-router";
 import { useEffect, useState, useRef } from "react";
 import type { Database } from "~/lib/database.types";
 import { useUnreadCount } from "~/hooks/useUnreadCount";
 import { useI18n } from "~/hooks/useI18n";
-import { getLocaleFromPreferredLanguage, isSupportedLocale, LOCALE_LABELS } from "~/lib/locale";
-import type { SupportedLocale } from "~/lib/locale";
-import { LocaleSwitcher } from "~/components/LocaleSwitcher";
-import { LocalePersistPrompt } from "~/components/LocalePersistPrompt";
+import { isAdmin, isTeamLeader, isTourOperator } from "~/lib/user-access";
+import { getPublicDisplayName } from "~/lib/user-display";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
   unreadCount?: number;
-  unreadNotifications?: number;
 };
 
 interface HeaderProps {
   user: Profile | null;
 }
 
-const LOCALE_PERSIST_PROMPT_KEY = "runoot_locale_persist_prompt";
-
 export function Header({ user }: HeaderProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>(locale);
-  const [pendingLocale, setPendingLocale] = useState<SupportedLocale | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const localeFetcher = useFetcher<{ success?: boolean; locale?: string }>();
-  const location = useLocation();
-  const preferredLocale = getLocaleFromPreferredLanguage((user as any)?.preferred_language);
-
-  const submitLocaleChange = (nextLocale: SupportedLocale, persist: "0" | "1") => {
-    localeFetcher.submit(
-      {
-        locale: nextLocale,
-        persist,
-        redirectTo: `${location.pathname}${location.search}`,
-      },
-      { method: "post", action: "/api/locale" }
-    );
-  };
+  const teamLeader = isTeamLeader(user);
+  const tourOperator = isTourOperator(user);
+  const adminUser = isAdmin(user);
+  const displayName = getPublicDisplayName(user);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -71,59 +54,12 @@ export function Header({ user }: HeaderProps) {
     };
   }, [isMenuOpen]);
 
-  const { unreadMessages, unreadNotifications } = useUnreadCount({
+  const { unreadMessages } = useUnreadCount({
     userId: user?.id || "",
     initialMessages: (user as any)?.unreadCount ?? 0,
-    initialNotifications: (user as any)?.unreadNotifications ?? 0,
     enabled: isDesktop,
   });
-  const hasAnyUnread = unreadMessages + unreadNotifications > 0;
-
-  useEffect(() => {
-    setSelectedLocale(locale);
-  }, [locale]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !user) return;
-
-    const queuedLocale = window.sessionStorage.getItem(LOCALE_PERSIST_PROMPT_KEY);
-    if (!isSupportedLocale(queuedLocale)) return;
-    if (queuedLocale !== locale) return;
-
-    window.sessionStorage.removeItem(LOCALE_PERSIST_PROMPT_KEY);
-    if (preferredLocale === queuedLocale) return;
-    setPendingLocale(queuedLocale);
-  }, [locale, preferredLocale, user]);
-
-  useEffect(() => {
-    if (localeFetcher.state !== "idle" || !localeFetcher.data?.success) return;
-    if (typeof window === "undefined") return;
-
-    const localeCodes = Object.keys(LOCALE_LABELS);
-    const parts = location.pathname.split("/").filter(Boolean);
-    const hasLocalePrefix = parts.length > 0 && localeCodes.includes(parts[0]);
-    const strippedPath = hasLocalePrefix ? `/${parts.slice(1).join("/")}` : location.pathname;
-    const normalizedPath = strippedPath === "" ? "/" : strippedPath;
-    const resolvedLocale =
-      localeFetcher.data?.locale && localeFetcher.data.locale in LOCALE_LABELS
-        ? (localeFetcher.data.locale as SupportedLocale)
-        : selectedLocale;
-    const localizedPath = `/${resolvedLocale}${normalizedPath === "/" ? "" : normalizedPath}${location.search}`;
-    window.location.assign(localizedPath);
-  }, [localeFetcher.state, localeFetcher.data, location.pathname, location.search, selectedLocale]);
-
-  const handleLocaleChange = (locale: SupportedLocale) => {
-    if (typeof window !== "undefined") {
-      if (user && preferredLocale !== locale) {
-        window.sessionStorage.setItem(LOCALE_PERSIST_PROMPT_KEY, locale);
-      } else {
-        window.sessionStorage.removeItem(LOCALE_PERSIST_PROMPT_KEY);
-      }
-    }
-
-    setSelectedLocale(locale);
-    submitLocaleChange(locale, "0");
-  };
+  const hasAnyUnread = unreadMessages > 0;
 
   return (
     <>
@@ -151,6 +87,12 @@ export function Header({ user }: HeaderProps) {
     {t("nav.listings")}
   </Link>
   <Link
+    to="/events"
+    className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
+  >
+    {t("nav.event")}
+  </Link>
+  <Link
     to="/contact"
     className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
   >
@@ -162,27 +104,6 @@ export function Header({ user }: HeaderProps) {
 {user ? (
   <nav className="flex items-center">
     <div className="hidden md:flex items-center gap-6">
-      <div className="relative">
-        <LocaleSwitcher value={selectedLocale} onChange={handleLocaleChange} />
-        <LocalePersistPrompt
-          open={pendingLocale !== null}
-          className="right-0 left-auto"
-          languageLabel={pendingLocale ? LOCALE_LABELS[pendingLocale] : ""}
-          onClose={() => {
-            setPendingLocale(null);
-          }}
-          onKeepTemporary={() => {
-            setPendingLocale(null);
-          }}
-          onMakeDefault={() => {
-            if (!pendingLocale) return;
-            setSelectedLocale(pendingLocale);
-            submitLocaleChange(pendingLocale, "1");
-            setPendingLocale(null);
-          }}
-        />
-      </div>
-
       {/* User menu dropdown - hidden on mobile, shown on desktop */}
 <div
   ref={menuRef}
@@ -198,7 +119,7 @@ export function Header({ user }: HeaderProps) {
   {hasAnyUnread && (
     <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
   )}
-  <span className="text-sm font-bold max-w-[150px] truncate">{user.full_name || user.email}</span>
+  <span className="text-sm font-bold max-w-[150px] truncate">{displayName}</span>
   <svg
     className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${isMenuOpen ? 'rotate-180' : ''}`}
     fill="none"
@@ -219,41 +140,68 @@ export function Header({ user }: HeaderProps) {
             {/* Menu */}
             <div className="absolute right-0 top-full w-48 sm:w-56 rounded-2xl bg-white shadow-lg border border-gray-200 py-2 z-20">
 
+              {/* TL shortcuts first */}
+              {teamLeader && (
+                <>
+                  <Link
+                    to="/tl-dashboard"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50"
+                  >
+                    <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span className="flex-1">{t("nav.tl_dashboard")}</span>
+                  </Link>
+                  <Link
+                    to="/tl-events"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-700 hover:bg-brand-50"
+                  >
+                    <svg className="h-5 w-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                    </svg>
+                    <span className="flex-1">{t("nav.new_event")}</span>
+                  </Link>
+                </>
+              )}
+
               {/* Dashboard - solo per Tour Operators */}
-{user.user_type === "tour_operator" && (
+{tourOperator && (
   <Link
-    to="/dashboard"
-    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+    to="/to-panel"
+    className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50"
    
   >
-    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
     </svg>
     <span className="flex-1">{t("nav.dashboard")}</span>
   </Link>
 )}
 
-              <Link
-                to="/profile"
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-
-              >
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                {t("nav.profile")}
-              </Link>
+              {!tourOperator && !teamLeader && (
+                <Link
+                  to={teamLeader ? "/tl-dashboard/profile" : "/profile"}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  {t("nav.profile")}
+                </Link>
+              )}
 
               {/* My Listings - link condizionale */}
-              <Link
-                to={user.user_type === "tour_operator" ? "/dashboard" : "/my-listings"}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                {user.user_type === "tour_operator" ? t("nav.my_listings") : t("nav.my_listing")}
-              </Link>
+              {!tourOperator && !teamLeader && (
+                <Link
+                  to="/my-listings"
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  {t("nav.my_listing")}
+                </Link>
+              )}
 
               <Link
                 to="/messages"
@@ -283,32 +231,8 @@ export function Header({ user }: HeaderProps) {
                 {t("nav.saved")}
               </Link>
 
-              {/* TL Dashboard - solo per Team Leaders */}
-              {(user as any).is_team_leader && (
-                <>
-                  <Link
-                    to="/tl-dashboard"
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50"
-                  >
-                    <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span className="flex-1">{t("nav.tl_dashboard")}</span>
-                  </Link>
-                  <Link
-                    to="/tl-events"
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-700 hover:bg-brand-50"
-                  >
-                    <svg className="h-5 w-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
-                    </svg>
-                    <span className="flex-1">{t("nav.new_event")}</span>
-                  </Link>
-                </>
-              )}
-
               {/* Admin Dashboard - solo admin/superadmin */}
-              {((user as any).role === "admin" || (user as any).role === "superadmin") && (
+              {adminUser && (
                 <Link
                   to="/admin"
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-alert-700 hover:bg-alert-50"
@@ -324,7 +248,7 @@ export function Header({ user }: HeaderProps) {
               <div className="my-2 border-t border-gray-100" />
 
               <Link
-                to="/settings"
+                to={teamLeader ? "/tl-dashboard/settings" : tourOperator ? "/to-panel/settings" : "/profile/settings"}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                 
               >
@@ -353,7 +277,7 @@ export function Header({ user }: HeaderProps) {
 
       <div className="flex items-center gap-2 mr-6">
         <Link
-          to="/listings/new"
+          to={tourOperator ? "/to-panel/listings/new" : "/listings/new"}
           className="btn-primary flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -361,23 +285,11 @@ export function Header({ user }: HeaderProps) {
           </svg>
           <span>{t("nav.new_listing")}</span>
         </Link>
-        {(user as any)?.is_team_leader && (
-          <Link
-            to="/tl-events"
-            className="flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold bg-brand-600 text-white hover:bg-brand-700 shadow-lg shadow-brand-500/30"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>{t("nav.new_event")}</span>
-          </Link>
-        )}
       </div>
     </div>
   </nav>
 ) : (
   <nav className="flex items-center gap-4">
-    <LocaleSwitcher value={selectedLocale} onChange={handleLocaleChange} />
     <Link to="/login" className="btn-secondary rounded-full">
       {t("nav.login")}
     </Link>

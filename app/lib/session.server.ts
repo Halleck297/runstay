@@ -1,5 +1,6 @@
 import { createCookieSessionStorage, redirect } from "react-router";
 import { getSupabaseClient, supabase, supabaseAdmin } from "./supabase.server";
+import { isAdmin, isSuperAdmin } from "./user-access";
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -212,7 +213,7 @@ export async function requireAdmin(request: Request) {
     .eq("id", realUserId)
     .single();
 
-  if (!profile || !["admin", "superadmin"].includes((profile as any).role)) {
+  if (!profile || !isAdmin(profile)) {
     throw redirect("/");
   }
 
@@ -231,7 +232,7 @@ export async function requireSuperAdmin(request: Request) {
     .eq("id", realUserId)
     .single();
 
-  if (!profile || (profile as any).role !== "superadmin") {
+  if (!profile || !isSuperAdmin(profile)) {
     throw redirect("/");
   }
 

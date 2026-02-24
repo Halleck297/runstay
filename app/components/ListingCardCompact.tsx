@@ -1,6 +1,7 @@
 import { Link, useFetcher } from "react-router";
 import { getListingPublicId } from "~/lib/publicIds";
 import { useI18n } from "~/hooks/useI18n";
+import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
 
@@ -18,6 +19,8 @@ interface ListingCardCompactProps {
     price_negotiable: boolean;
     transfer_type: "official_process" | "package" | "contact" | null;
     associated_costs: number | null;
+    currency?: string | null;
+    cost_notes?: string | null;
     author: {
       id: string;
       full_name: string | null;
@@ -37,6 +40,7 @@ interface ListingCardCompactProps {
   isUserLoggedIn?: boolean;
   isSaved?: boolean;
   currentUserId?: string | null;
+  className?: string;
 }
 
 function getLastMinuteThreshold(listingType: "room" | "bib" | "room_and_bib"): number {
@@ -71,6 +75,23 @@ function formatRoomTypeShort(roomType: string | null): string {
   return labels[roomType] || roomType;
 }
 
+type ToListingMeta = {
+  room_type_prices?: Record<string, number>;
+};
+
+function parseToMeta(raw: string | null | undefined): ToListingMeta | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { to_meta?: unknown };
+    if (parsed?.to_meta && typeof parsed.to_meta === "object" && !Array.isArray(parsed.to_meta)) {
+      return parsed.to_meta as ToListingMeta;
+    }
+  } catch {
+    // legacy plain text
+  }
+  return null;
+}
+
 // Helper: genera slug dal nome evento (fallback se slug è null)
 function getEventSlug(event: { name: string; slug: string | null }): string {
   if (event.slug) return event.slug;
@@ -80,13 +101,23 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
     .replace(/^-|-$/g, '');
 }
 
-export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = false, currentUserId = null }: ListingCardCompactProps) {
+export function ListingCardCompact({
+  listing,
+  isUserLoggedIn = true,
+  isSaved = false,
+  currentUserId = null,
+  className = "",
+}: ListingCardCompactProps) {
   const { t } = useI18n();
   const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData
     ? saveFetcher.formData.get("action") === "save"
     : isSaved;
   const canSaveListing = isUserLoggedIn && !!currentUserId && listing.author.id !== currentUserId;
+  const toMeta = parseToMeta(listing.cost_notes);
+  const roomTypePrices = toMeta?.room_type_prices || {};
+  const roomTypePriceValues = Object.values(roomTypePrices).filter((v): v is number => typeof v === "number" && v > 0);
+  const minRoomTypePrice = roomTypePriceValues.length > 0 ? Math.min(...roomTypePriceValues) : null;
 
   const eventDateShort = new Date(listing.event.event_date).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -127,7 +158,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
     : "block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-brand-300 transition-all";
 
   // Nome venditore
-  const sellerName = listing.author.company_name || listing.author.full_name || "Seller";
+  const sellerName = getPublicDisplayName(listing.author);
   const sellerNameShort = sellerName.split(' ')[0];
 
   // Event logo path
@@ -137,7 +168,7 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
   return (
     <Link
       to={isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login"}
-      className={`${cardClass} relative`}
+      className={`${cardClass} relative ${className}`}
     >
       {/* Save button - absolute top right */}
       {canSaveListing && (
@@ -245,18 +276,16 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
           <>
             {/* Left: Seller con avatar */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 text-xs font-medium flex-shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 text-sm font-medium flex-shrink-0">
                 {listing.author.avatar_url ? (
                   <img
                     src={listing.author.avatar_url}
-                    alt={listing.author.company_name || listing.author.full_name || "User avatar"}
+                    alt={getPublicDisplayName(listing.author)}
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />
                 ) : (
-                  listing.author.company_name?.charAt(0) ||
-                  listing.author.full_name?.charAt(0) ||
-                  "?"
+                  getPublicInitial(listing.author)
                 )}
               </div>
               <div className="min-w-0">
@@ -292,6 +321,11 @@ export function ListingCardCompact({ listing, isUserLoggedIn = true, isSaved = f
               {listing.listing_type === "bib" && listing.associated_costs ? (
                 <p className="text-base font-bold text-gray-900">
                   €{PRICE_FORMATTER.format(listing.associated_costs)}
+                </p>
+              ) : listing.listing_type === "room" && minRoomTypePrice ? (
+                <p className="text-base font-bold text-gray-900">
+                  From {(listing.currency || "EUR") === "EUR" ? "€" : `${listing.currency} `}
+                  {PRICE_FORMATTER.format(minRoomTypePrice)}
                 </p>
               ) : listing.price ? (
                 <p className="text-base font-bold text-gray-900">

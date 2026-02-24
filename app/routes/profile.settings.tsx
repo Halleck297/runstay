@@ -22,6 +22,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   const userId = (user as any).id as string;
+  const { data: visibility } = await (supabaseAdmin as any)
+    .from("profiles")
+    .select("public_profile_enabled, public_show_personal_info, public_show_experience, public_show_social")
+    .eq("id", userId)
+    .maybeSingle();
 
   const { data: blockedUsers } = await supabaseAdmin
     .from("blocked_users")
@@ -34,7 +39,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .eq("blocker_id", userId)
     .order("created_at", { ascending: false });
 
-  return { user, blockedUsers: blockedUsers || [] };
+  return {
+    user,
+    blockedUsers: blockedUsers || [],
+    visibility: {
+      public_profile_enabled: visibility?.public_profile_enabled ?? true,
+      public_show_personal_info: visibility?.public_show_personal_info ?? true,
+      public_show_experience: visibility?.public_show_experience ?? true,
+      public_show_social: visibility?.public_show_social ?? true,
+    },
+  };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -66,6 +80,25 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ success: true, action: "avatar_updated" });
   }
 
+  if (intent === "update_profile_visibility") {
+    const publicProfileEnabled = formData.get("public_profile_enabled") === "on";
+    const publicShowPersonalInfo = formData.get("public_show_personal_info") === "on";
+    const publicShowExperience = formData.get("public_show_experience") === "on";
+    const publicShowSocial = formData.get("public_show_social") === "on";
+
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        public_profile_enabled: publicProfileEnabled,
+        public_show_personal_info: publicShowPersonalInfo,
+        public_show_experience: publicShowExperience,
+        public_show_social: publicShowSocial,
+      } as any)
+      .eq("id", userId);
+
+    return data({ success: true, action: "visibility_updated" });
+  }
+
   return data({ error: "Invalid action" }, { status: 400 });
 }
 
@@ -77,7 +110,7 @@ const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }
 ];
 
 export default function Settings() {
-  const { user, blockedUsers } = useLoaderData<typeof loader>();
+  const { user, blockedUsers, visibility } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
     | { error: string }
     | { success: boolean; action: string }
@@ -190,7 +223,11 @@ export default function Settings() {
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                {actionData.action === "avatar_updated" ? t("profile.success.profile_updated") : t("profile.settings.unblocked_success")}
+                {actionData.action === "avatar_updated"
+                  ? t("profile.success.profile_updated")
+                  : actionData.action === "visibility_updated"
+                    ? t("profile.settings.visibility_updated")
+                    : t("profile.settings.unblocked_success")}
               </div>
             )}
 
@@ -228,6 +265,66 @@ export default function Settings() {
                   </Link>
                 </div>
               </div>
+            </div>
+
+            <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.public_profile")}</h3>
+            <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+              <Form method="post" className="space-y-4">
+                <input type="hidden" name="intent" value="update_profile_visibility" />
+
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{t("profile.settings.public_profile")}</p>
+                    <p className="mt-1 text-sm text-gray-500">{t("profile.settings.public_profile_help")}</p>
+                  </div>
+                  <label className="relative inline-flex cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      name="public_profile_enabled"
+                      defaultChecked={visibility.public_profile_enabled}
+                      className="peer sr-only"
+                    />
+                    <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
+                    <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                  </label>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-slate-50 p-3">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{t("profile.settings.visibility_sections")}</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm text-gray-700">{t("profile.settings.show_personal_info")}</p>
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input type="checkbox" name="public_show_personal_info" defaultChecked={visibility.public_show_personal_info} className="peer sr-only" />
+                        <span className="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
+                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm text-gray-700">{t("profile.settings.show_experience")}</p>
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input type="checkbox" name="public_show_experience" defaultChecked={visibility.public_show_experience} className="peer sr-only" />
+                        <span className="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
+                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm text-gray-700">{t("profile.settings.show_social")}</p>
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input type="checkbox" name="public_show_social" defaultChecked={visibility.public_show_social} className="peer sr-only" />
+                        <span className="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
+                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <button type="submit" className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700">
+                    {t("profile.actions.save_changes")}
+                  </button>
+                </div>
+              </Form>
             </div>
 
             {isAvatarModalOpen && (

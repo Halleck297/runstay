@@ -10,6 +10,7 @@ import { ControlPanelLayout } from "~/components/ControlPanelLayout";
 import { buildTeamLeaderNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
 import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
+import { isTeamLeader } from "~/lib/user-access";
 
 const MAX_BATCH_INVITES = 10;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -44,8 +45,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const reservedView = url.searchParams.get("reservedView") === "linked" ? "linked" : "not_joined";
   const reservedStatus = reservedView === "linked" ? "accepted" : "pending";
 
-  if (!(user as any).is_team_leader) {
-    throw redirect("/dashboard");
+  if (!isTeamLeader(user)) {
+    throw redirect("/to-panel");
   }
   const eventNotificationSummary = await getTlEventNotificationSummary((user as any).id);
 
@@ -107,33 +108,58 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const newInLast30Days = (referrals || []).filter((r: any) => new Date(r.created_at) >= thirtyDaysAgo).length;
 
-  // Weekly breakdown (last 8 weeks): new signups + cumulative total
-  const weeklyData = [];
-  for (let i = 7; i >= 0; i--) {
-    const weekStart = new Date();
-    weekStart.setHours(0, 0, 0, 0);
-    weekStart.setDate(weekStart.getDate() - (i + 1) * 7);
+  let teamListings = 0;
+  let teamSaved = 0;
+  let teamConversationsStarted = 0;
 
-    const weekEnd = new Date();
-    weekEnd.setHours(0, 0, 0, 0);
-    weekEnd.setDate(weekEnd.getDate() - i * 7);
+  if (referralIds.length > 0) {
+    const [{ count: listingsCount }, { count: savedCount }] = await Promise.all([
+      (supabaseAdmin.from("listings") as any)
+        .select("id", { count: "exact", head: true })
+        .in("author_id", referralIds),
+      (supabaseAdmin.from("saved_listings") as any)
+        .select("id", { count: "exact", head: true })
+        .in("user_id", referralIds),
+    ]);
 
-    const newSignups = (referrals || []).filter((r: any) => {
-      const d = new Date(r.created_at);
-      return d >= weekStart && d < weekEnd;
-    }).length;
+    teamListings = listingsCount || 0;
+    teamSaved = savedCount || 0;
 
-    const cumulative = (referrals || []).filter((r: any) => {
-      const d = new Date(r.created_at);
-      return d < weekEnd;
-    }).length;
+    const [convAsP1, convAsP2] = await Promise.all([
+      (supabaseAdmin.from("conversations") as any).select("id").in("participant_1", referralIds),
+      (supabaseAdmin.from("conversations") as any).select("id").in("participant_2", referralIds),
+    ]);
 
-    weeklyData.push({
-      label: i === 0 ? "This week" : `${i}w ago`,
-      newSignups,
-      cumulative,
-    });
+    const teamConversationIds = Array.from(
+      new Set([...(convAsP1.data || []), ...(convAsP2.data || [])].map((c: any) => c.id))
+    );
+
+    if (teamConversationIds.length > 0) {
+      const { data: firstUserMessages } = await (supabaseAdmin.from("messages") as any)
+        .select("conversation_id, sender_id, created_at")
+        .in("conversation_id", teamConversationIds)
+        .eq("message_type", "user")
+        .order("created_at", { ascending: true });
+
+      const firstSenderByConversation = new Map<string, string>();
+      for (const msg of firstUserMessages || []) {
+        if (!firstSenderByConversation.has(msg.conversation_id)) {
+          firstSenderByConversation.set(msg.conversation_id, msg.sender_id);
+        }
+      }
+
+      const referralIdSet = new Set(referralIds);
+      teamConversationsStarted = Array.from(firstSenderByConversation.values()).filter((senderId) =>
+        referralIdSet.has(senderId)
+      ).length;
+    }
   }
+
+  const { data: recentInvites } = await (supabaseAdmin.from("referral_invites") as any)
+    .select("id, email, status, created_at, claimed_at, updated_at")
+    .eq("team_leader_id", (user as any).id)
+    .order("updated_at", { ascending: false })
+    .limit(12);
 
   return {
     user,
@@ -160,8 +186,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
       totalReferrals,
       activeReferrals,
       newInLast30Days,
+      teamListings,
+      teamSaved,
+      teamConversationsStarted,
     },
-    weeklyData,
+    recentInvites: recentInvites || [],
     eventUnreadCount: eventNotificationSummary.totalUnread,
   };
 }
@@ -169,7 +198,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
 
-  if (!(user as any).is_team_leader) {
+  if (!isTeamLeader(user)) {
     return data({ errorKey: "not_team_leader" as const }, { status: 403 });
   }
 
@@ -455,7 +484,7 @@ export default function TLDashboard() {
     reservedCounts,
     inviteResult,
     stats,
-    weeklyData,
+    recentInvites,
     eventUnreadCount,
   } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
@@ -477,17 +506,28 @@ export default function TLDashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const maxWeeklyNew = Math.max(...weeklyData.map((w: any) => w.newSignups), 1);
-  const chartMax = Math.max(4, Math.ceil(maxWeeklyNew / 2) * 2);
-  const yTicks = [chartMax, Math.floor(chartMax * 0.66), Math.floor(chartMax * 0.33), 0];
-  const maxCumulative = Math.max(...weeklyData.map((w: any) => w.cumulative), 1);
-  const cumulativeLinePoints = weeklyData
-    .map((week: any, index: number) => {
-      const x = weeklyData.length === 1 ? 0 : (index / (weeklyData.length - 1)) * 100;
-      const y = 100 - (week.cumulative / maxCumulative) * 100;
-      return `${x},${y}`;
-    })
-    .join(" ");
+  const timelineItems = [
+    ...((recentInvites || []).map((invite: any) => ({
+      id: `invite-${invite.id}`,
+      type: invite.status === "accepted" ? "accepted" : "sent",
+      title:
+        invite.status === "accepted"
+          ? `Invite accepted: ${invite.email}`
+          : `Invite sent: ${invite.email}`,
+      at: invite.claimed_at || invite.updated_at || invite.created_at,
+    })) || []),
+    ...((referrals || []).map((ref: any) => {
+      const refUser = referredUsers[ref.referred_user_id];
+      return {
+        id: `referral-${ref.id}`,
+        type: "joined",
+        title: `Referral joined: ${refUser?.full_name || refUser?.email || "Runner"}`,
+        at: ref.created_at,
+      };
+    }) || []),
+  ]
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    .slice(0, 10);
   const reservedStatusLabel: Record<string, string> = {
     pending: t("tl_dashboard.reserved"),
     accepted: t("tl_dashboard.linked"),
@@ -517,6 +557,40 @@ export default function TLDashboard() {
     navigate(cleanQuery ? `${location.pathname}?${cleanQuery}` : location.pathname, { replace: true });
   }, [inviteResult?.sent, location.pathname, location.search, navigate]);
 
+  const topContent = (
+    <>
+      <div className="mb-3 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+        <h1 className="font-display text-2xl font-bold text-gray-900">{t("tl_dashboard.title")}</h1>
+        <p className="mt-1 text-gray-600">{t("tl_dashboard.subtitle")}</p>
+      </div>
+      <div className="mb-3 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          <a href="#activity-kpi" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+            Activity
+          </a>
+          <a href="#activity-timeline" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+            Timeline
+          </a>
+          <a href="#referral-link" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+            Referral link
+          </a>
+          <a href="#invite-email" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+            Invite by email
+          </a>
+          <a href="#reserved-emails" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+            Reserved emails
+          </a>
+          <a href="#welcome-message" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+            Welcome message
+          </a>
+          <a href="#your-referrals" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+            Your referrals
+          </a>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <ControlPanelLayout
       panelLabel={t("tl.panel_label")}
@@ -529,6 +603,7 @@ export default function TLDashboard() {
         avatarUrl: (user as any).avatar_url,
       }}
       navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
+      topContent={topContent}
     >
       <div className="min-h-full">
       <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
@@ -557,14 +632,6 @@ export default function TLDashboard() {
         </div>
       )}
 
-      {/* Page header */}
-      <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
-        <h1 className="font-display text-2xl font-bold text-gray-900">
-          {t("tl_dashboard.title")}
-        </h1>
-        <p className="mt-1 text-gray-600">{t("tl_dashboard.subtitle")}</p>
-      </div>
-
       {/* Action feedback */}
       {actionError && (
         <div className="mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm">
@@ -574,82 +641,88 @@ export default function TLDashboard() {
       {actionData?.success && actionMessage && (
         <div className="mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm">{actionMessage}</div>
       )}
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-brand-600 to-brand-500 rounded-2xl p-5 border border-brand-600 shadow-sm text-white">
-          <p className="text-xs uppercase tracking-wide text-brand-100">{t("tl_dashboard.total_referred")}</p>
-          <p className="text-4xl font-bold mt-1">{stats.totalReferrals}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">{t("tl_dashboard.new_last_30")}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{stats.newInLast30Days}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">{t("tl_dashboard.active_referrals")}</p>
-          <p className="text-3xl font-bold text-brand-600 mt-1">{stats.activeReferrals}</p>
-        </div>
+
+      <div id="activity-kpi" className="mb-6 scroll-mt-24 grid grid-cols-1 gap-5 2xl:grid-cols-2">
+        {/* Your activity */}
+        <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gray-900">Your activity</h2>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="h-full min-h-[104px] rounded-xl border border-brand-200 bg-brand-50 p-3 flex flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-brand-700">Total runners</p>
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-2xl font-bold text-brand-700">{stats.totalReferrals}</p>
+              </div>
+            </div>
+            <div className="h-full min-h-[104px] rounded-xl border border-gray-200 bg-gray-50 p-3 flex flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-gray-600">{t("tl_dashboard.new_last_30")}</p>
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-2xl font-bold text-gray-900">{stats.newInLast30Days}</p>
+              </div>
+            </div>
+            <div className="h-full min-h-[104px] rounded-xl border border-gray-200 bg-gray-50 p-3 flex flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-gray-600">Active runners</p>
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-2xl font-bold text-brand-600">{stats.activeReferrals}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Team activity */}
+        <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gray-900">Team activity</h2>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="h-full min-h-[104px] rounded-xl border border-brand-200 bg-brand-50 p-3 flex flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-brand-700">Team listings</p>
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-2xl font-bold text-brand-700">{stats.teamListings}</p>
+              </div>
+            </div>
+            <div className="h-full min-h-[104px] rounded-xl border border-gray-200 bg-gray-50 p-3 flex flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-gray-600">Conversations started</p>
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-2xl font-bold text-gray-900">{stats.teamConversationsStarted}</p>
+              </div>
+            </div>
+            <div className="h-full min-h-[104px] rounded-xl border border-gray-200 bg-gray-50 p-3 flex flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-gray-600">Saved listings</p>
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-2xl font-bold text-brand-600">{stats.teamSaved}</p>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
-      <p className="text-xs text-gray-500 mb-6 -mt-3">
-        {t("tl_dashboard.stats_hint")}
-      </p>
 
-      {/* Growth chart */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-6">
+      {/* Activity timeline */}
+      <div id="activity-timeline" className="scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.growth_trend")}</h2>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-medium">
-            {t("tl_dashboard.last_8_weeks")}
-          </span>
+          <h2 className="font-display font-semibold text-gray-900">Activity timeline</h2>
+          <span className="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-medium">Latest updates</span>
         </div>
-        <p className="text-xs text-gray-500 mb-3">
-          {t("tl_dashboard.growth_legend")}
-        </p>
-
-        <div className="relative h-52 border border-gray-100 rounded-2xl bg-gradient-to-b from-gray-50 to-white p-3 overflow-hidden">
-          <div className="absolute inset-3 flex flex-col justify-between pointer-events-none z-0">
-            {yTicks.map((tick, index) => (
-              <div key={index} className="border-t border-dashed border-gray-200 relative">
-                <span className="absolute -top-2 -left-1 bg-white px-1 text-[10px] text-gray-400">{tick}</span>
+        {timelineItems.length > 0 ? (
+          <div className="space-y-2">
+            {timelineItems.map((item) => (
+              <div key={item.id} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      item.type === "accepted" ? "bg-success-500" : item.type === "joined" ? "bg-brand-500" : "bg-amber-500"
+                    }`}
+                  />
+                  <p className="text-sm font-medium text-gray-800">{item.title}</p>
+                </div>
+                <span className="text-xs text-gray-500">{new Date(item.at).toLocaleString()}</span>
               </div>
             ))}
           </div>
-
-          <svg className="absolute inset-3 z-10 pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-            <polyline
-              fill="none"
-              stroke="#2563eb"
-              strokeWidth="1.8"
-              points={cumulativeLinePoints}
-              vectorEffect="non-scaling-stroke"
-            />
-            {weeklyData.map((week: any, index: number) => {
-              const x = weeklyData.length === 1 ? 0 : (index / (weeklyData.length - 1)) * 100;
-              const y = 100 - (week.cumulative / maxCumulative) * 100;
-              return <circle key={`pt-${index}`} cx={x} cy={y} r="1.7" fill="#2563eb" />;
-            })}
-          </svg>
-
-          <div className="relative z-20 h-full flex items-end gap-2.5 pt-4">
-            {weeklyData.map((week: any, i: number) => (
-              <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1">
-                <span className="text-xs font-semibold text-gray-900">{week.newSignups}</span>
-                <div
-                  className="w-full rounded-t-lg bg-gradient-to-t from-brand-500 to-brand-300/90 shadow-sm transition-all duration-500"
-                  style={{
-                    height: `${Math.max((week.newSignups / chartMax) * 100, 6)}%`,
-                    minHeight: "6px",
-                  }}
-                  title={`${week.label}: ${week.newSignups} new · ${week.cumulative} total`}
-                />
-                <span className="text-[11px] text-gray-500 mt-1">{week.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        ) : (
+          <p className="text-sm text-gray-500">No recent activity yet.</p>
+        )}
       </div>
 
       {/* Referral Link */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div id="referral-link" className="scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
         <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.referral_link_title")}</h2>
         <p className="text-sm text-gray-500 mb-4">{t("tl_dashboard.referral_link_help")}</p>
 
@@ -690,7 +763,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Invite by email */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div id="invite-email" className="scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
         <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.invite_by_email")}</h2>
 
         <Form method="post" className="space-y-3">
@@ -733,7 +806,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Reserved emails */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+      <div id="reserved-emails" className="scroll-mt-24 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.reserved_emails")}</h2>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -843,7 +916,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Welcome message */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div id="welcome-message" className="scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
         <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.welcome_message")}</h2>
         <p className="text-sm text-gray-500 mb-4">
           {t("tl_dashboard.welcome_message_help")}
@@ -865,7 +938,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Referrals list */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div id="your-referrals" className="scroll-mt-24 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.your_referrals")}</h2>
         </div>

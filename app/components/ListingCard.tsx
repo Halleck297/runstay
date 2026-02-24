@@ -1,6 +1,7 @@
 import { Link, useFetcher } from "react-router";
 import { getListingPublicId } from "~/lib/publicIds";
 import { useI18n } from "~/hooks/useI18n";
+import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 
 interface ListingCardProps {
@@ -19,6 +20,8 @@ interface ListingCardProps {
     price_negotiable: boolean;
     transfer_type: "official_process" | "package" | "contact" | null;
     associated_costs: number | null;
+    currency?: string | null;
+    cost_notes?: string | null;
     check_in: string | null;
     check_out: string | null;
     created_at: string;
@@ -42,6 +45,7 @@ interface ListingCardProps {
   isUserLoggedIn?: boolean;
   isSaved?: boolean;
   currentUserId?: string | null;
+  className?: string;
 }
 
 function getLastMinuteThreshold(listingType: "room" | "bib" | "room_and_bib"): number {
@@ -76,6 +80,26 @@ function formatRoomType(roomType: string | null): string {
   return labels[roomType] || roomType;
 }
 
+type ToListingMeta = {
+  room_types?: string[];
+  room_type_prices?: Record<string, number>;
+  flexible_dates?: boolean;
+  extra_night?: { enabled?: boolean };
+};
+
+function parseToMeta(raw: string | null | undefined): ToListingMeta | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { to_meta?: unknown };
+    if (parsed?.to_meta && typeof parsed.to_meta === "object" && !Array.isArray(parsed.to_meta)) {
+      return parsed.to_meta as ToListingMeta;
+    }
+  } catch {
+    // legacy plain text
+  }
+  return null;
+}
+
 // Helper: genera slug dal nome evento (fallback se slug è null)
 function getEventSlug(event: { name: string; slug: string | null }): string {
   if (event.slug) return event.slug;
@@ -85,13 +109,25 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
     .replace(/^-|-$/g, '');
 }
 
-export function ListingCard({ listing, isUserLoggedIn = true, isSaved = false, currentUserId = null }: ListingCardProps) {
+export function ListingCard({
+  listing,
+  isUserLoggedIn = true,
+  isSaved = false,
+  currentUserId = null,
+  className = "",
+}: ListingCardProps) {
   const { t } = useI18n();
   const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData
     ? saveFetcher.formData.get("action") === "save"
     : isSaved;
   const canSaveListing = isUserLoggedIn && !!currentUserId && listing.author.id !== currentUserId;
+  const toMeta = parseToMeta(listing.cost_notes);
+  const roomTypePrices = toMeta?.room_type_prices || {};
+  const roomTypePriceValues = Object.values(roomTypePrices).filter((v): v is number => typeof v === "number" && v > 0);
+  const minRoomTypePrice = roomTypePriceValues.length > 0 ? Math.min(...roomTypePriceValues) : null;
+  const hasFlexibleDates = !!toMeta?.flexible_dates;
+  const hasExtraNight = !!toMeta?.extra_night?.enabled;
 
   const eventDate = new Date(listing.event.event_date).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -145,7 +181,7 @@ if (listing.listing_type === "bib") {
   return (
     <Link
       to={isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login"}
-      className={cardClass}
+      className={`${cardClass} ${className}`}
     >
       {/* Sezione Immagine */}
       <div className="relative">
@@ -321,6 +357,13 @@ if (listing.listing_type === "bib") {
                     <span>{new Date(listing.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
                   </div>
                 )}
+                {(hasFlexibleDates || hasExtraNight) && (
+                  <div className="flex items-center justify-center gap-2 text-xs text-amber-700">
+                    {hasFlexibleDates && <span>Flexible dates</span>}
+                    {hasFlexibleDates && hasExtraNight && <span>•</span>}
+                    {hasExtraNight && <span>Extra night</span>}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -361,12 +404,19 @@ if (listing.listing_type === "bib") {
                     {listing.room_type ? formatRoomType(listing.room_type) : "Room"}
                     {listing.room_count && listing.room_count > 1 && ` × ${listing.room_count}`}
                   </p>
-                  {listing.check_in && listing.check_out && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(listing.check_in).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} → {new Date(listing.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                    </p>
-                  )}
-                </div>
+                {listing.check_in && listing.check_out && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(listing.check_in).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} → {new Date(listing.check_out).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  </p>
+                )}
+                {(hasFlexibleDates || hasExtraNight) && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    {hasFlexibleDates ? "Flexible dates" : ""}
+                    {hasFlexibleDates && hasExtraNight ? " • " : ""}
+                    {hasExtraNight ? "Extra night" : ""}
+                  </p>
+                )}
+              </div>
                 {/* Bib info */}
                 <div className="p-2 bg-gray-50 rounded-lg text-center">
                   <p className="text-sm font-semibold text-gray-900">
@@ -389,24 +439,22 @@ if (listing.listing_type === "bib") {
           <>
             {/* Author */}
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 text-sm font-medium">
                 {listing.author.avatar_url ? (
                   <img
                     src={listing.author.avatar_url}
-                    alt={listing.author.company_name || listing.author.full_name || "User avatar"}
+                    alt={getPublicDisplayName(listing.author)}
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />
                 ) : (
-                  listing.author.company_name?.charAt(0) ||
-                  listing.author.full_name?.charAt(0) ||
-                  "?"
+                  getPublicInitial(listing.author)
                 )}
               </div>
               <div>
                <div className="flex items-center gap-1">
   <p className="text-sm font-semibold text-gray-900 truncate">
-    {listing.author.company_name || listing.author.full_name}
+    {getPublicDisplayName(listing.author)}
   </p>
   {listing.author.is_verified && (
       <svg className="h-4 w-4 text-brand-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -431,6 +479,10 @@ if (listing.listing_type === "bib") {
               {listing.listing_type === "bib" && listing.associated_costs ? (
                 <p className="text-lg font-bold text-gray-900">
                   €{PRICE_FORMATTER.format(listing.associated_costs)}
+                </p>
+              ) : listing.listing_type === "room" && minRoomTypePrice ? (
+                <p className="text-lg font-bold text-gray-900">
+                  From {(listing.currency || "EUR") === "EUR" ? "€" : `${listing.currency} `}{PRICE_FORMATTER.format(minRoomTypePrice)}
                 </p>
               ) : listing.price ? (
                 <>

@@ -3,6 +3,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react
 import { data, useActionData, useLoaderData, useSearchParams, Form } from "react-router";
 import { requireAdmin, startImpersonation, logAdminAction } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { isSuperAdmin } from "~/lib/user-access";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Impersonate - Admin - Runoot" }];
@@ -16,7 +17,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Only show users created by admin (impersonatable)
   let query = supabaseAdmin
     .from("profiles")
-    .select("id, full_name, email, user_type, company_name, is_verified, role, created_by_admin, created_at")
+    .select("id, full_name, email, user_type, company_name, is_verified, created_by_admin, created_at")
     .not("created_by_admin", "is", null)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -74,7 +75,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     const canDelete =
-      (admin as any).role === "superadmin" || (targetUser as any).created_by_admin === (admin as any).id;
+      isSuperAdmin(admin) || (targetUser as any).created_by_admin === (admin as any).id;
     if (!canDelete) {
       return data({ error: "You can only delete your own mock users" }, { status: 403 });
     }
@@ -120,6 +121,9 @@ export async function action({ request }: ActionFunctionArgs) {
 
 const userTypeLabels: Record<string, string> = {
   tour_operator: "Tour Operator",
+  team_leader: "Team Leader",
+  admin: "Admin",
+  superadmin: "Superadmin",
   private: "Runner",
 };
 
@@ -219,12 +223,6 @@ export default function AdminImpersonate() {
                       <>
                         <span className="text-xs text-gray-300">·</span>
                         <span className="text-xs text-brand-600">Verified</span>
-                      </>
-                    )}
-                    {user.role !== "user" && (
-                      <>
-                        <span className="text-xs text-gray-300">·</span>
-                        <span className="text-xs text-purple-600 font-medium">{user.role}</span>
                       </>
                     )}
                   </div>

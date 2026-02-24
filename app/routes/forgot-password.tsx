@@ -2,7 +2,8 @@ import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
 import { Form, Link, useActionData } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
-import { supabase } from "~/lib/supabase.server";
+import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
+import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 
 type ForgotPasswordActionData = {
   success?: boolean;
@@ -58,6 +59,21 @@ export async function action({ request }: ActionFunctionArgs) {
       errorKey: "unable_send",
       detail: error.message,
     }, { status: 400 });
+  }
+
+  const { data: profile } = await (supabaseAdmin as any)
+    .from("profiles")
+    .select("id, user_type")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (profile?.id && profile?.user_type === "tour_operator") {
+    await sendToUnifiedNotificationEmail({
+      userId: profile.id,
+      prefKey: "credentials_change",
+      message: "A password reset was requested for your account.",
+      ctaUrl: "/forgot-password",
+    });
   }
 
   return data<ForgotPasswordActionData>({ success: true });

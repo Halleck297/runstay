@@ -3,7 +3,9 @@ import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react
 import { data } from "react-router";
 import { useLoaderData, useActionData, Form, Link } from "react-router";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
+import { getListingPublicId } from "~/lib/publicIds";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Pending Approvals - Admin - Runoot" }];
@@ -40,7 +42,7 @@ export async function action({ request }: ActionFunctionArgs) {
   // Fetch the listing for notification
   const { data: listing } = await (supabaseAdmin as any)
     .from("listings")
-    .select("id, title, author_id")
+    .select("id, short_id, title, author_id")
     .eq("id", listingId)
     .single();
 
@@ -67,6 +69,13 @@ export async function action({ request }: ActionFunctionArgs) {
         title: "Your listing has been approved!",
         message: `"${listing.title}" is now live and visible to other users.`,
         data: { listing_id: listingId },
+      });
+
+      await sendToUnifiedNotificationEmail({
+        userId: listing.author_id,
+        prefKey: "listing_status",
+        message: `Listing approved: "${listing.title}" is now live.`,
+        ctaUrl: `/listings/${getListingPublicId(listing)}`,
       });
 
       await logAdminAction(adminId, "listing_approved", {
@@ -97,6 +106,15 @@ export async function action({ request }: ActionFunctionArgs) {
           ? `"${listing.title}" was not approved: ${adminNote}`
           : `"${listing.title}" was not approved. Please contact us for details.`,
         data: { listing_id: listingId },
+      });
+
+      await sendToUnifiedNotificationEmail({
+        userId: listing.author_id,
+        prefKey: "admin_action",
+        message: adminNote
+          ? `Admin action required for "${listing.title}": ${adminNote}`
+          : `Admin action required for "${listing.title}". Please review your listing details.`,
+        ctaUrl: `/listings/${getListingPublicId(listing)}`,
       });
 
       await logAdminAction(adminId, "listing_rejected", {

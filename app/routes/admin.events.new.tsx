@@ -283,6 +283,7 @@ export async function action({ request }: ActionFunctionArgs) {
   );
 
   const baseListingPatch: Record<string, any> = {
+    listing_mode: "event",
     event_id: finalEventId,
     listing_type: listingType,
     title: autoTitle,

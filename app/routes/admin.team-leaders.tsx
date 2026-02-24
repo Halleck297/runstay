@@ -16,8 +16,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Fetch TLs with their referral counts
   const { data: teamLeaders } = await supabaseAdmin
     .from("profiles")
-    .select("id, full_name, email, company_name, user_type, is_verified, is_team_leader, referral_code, created_at")
-    .eq("is_team_leader", true)
+    .select("id, full_name, email, company_name, user_type, is_verified, referral_code, created_at")
+    .eq("user_type", "team_leader")
     .order("created_at", { ascending: false });
 
   // Fetch referral counts per TL
@@ -47,7 +47,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const { count: totalTLs } = await supabaseAdmin
     .from("profiles")
     .select("*", { count: "exact", head: true })
-    .eq("is_team_leader", true);
+    .eq("user_type", "team_leader");
 
   const { count: totalReferrals } = await supabaseAdmin
     .from("referrals")
@@ -117,7 +117,9 @@ export async function action({ request }: ActionFunctionArgs) {
       const newStatus = !currentStatus;
 
       // If promoting to TL, generate a referral code
-      let updateData: any = { is_team_leader: newStatus };
+      let updateData: any = {
+        user_type: newStatus ? "team_leader" : "private",
+      };
       if (newStatus) {
         // Generate referral code from user name
         const { data: userProfile } = await supabaseAdmin

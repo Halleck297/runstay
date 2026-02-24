@@ -7,16 +7,18 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
-import { buildTeamLeaderNavItems } from "~/components/panelNav";
+import { buildTeamLeaderNavItems, tourOperatorNavItems } from "~/components/panelNav";
 import { useRealtimeConversations } from "~/hooks/useRealtimeConversations";
 import { useI18n } from "~/hooks/useI18n";
 import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
+import { isTeamLeader, isTourOperator } from "~/lib/user-access";
+import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const userId = (user as any).id as string;
   const url = new URL(request.url);
-  const eventNotificationSummary = (user as any).is_team_leader
+  const eventNotificationSummary = isTeamLeader(user)
     ? await getTlEventNotificationSummary(userId)
     : { totalUnread: 0 };
 
@@ -186,14 +188,12 @@ export default function MessagesLayout() {
                       {otherUser?.avatar_url ? (
                         <img
                           src={otherUser.avatar_url}
-                          alt={otherUser?.company_name || otherUser?.full_name || t("messages.user")}
+                          alt={getPublicDisplayName(otherUser)}
                           className="h-full w-full object-cover"
                           loading="lazy"
                         />
                       ) : (
-                        otherUser?.company_name?.charAt(0) ||
-                        otherUser?.full_name?.charAt(0) ||
-                        "?"
+                        getPublicInitial(otherUser)
                       )}
                     </div>
 
@@ -205,9 +205,7 @@ export default function MessagesLayout() {
                             unreadCount > 0 ? "text-gray-900" : "text-gray-700"
                           }`}
                         >
-                          {otherUser?.company_name ||
-                            otherUser?.full_name ||
-                            t("messages.user")}
+                          {getPublicDisplayName(otherUser) || t("messages.user")}
                         </p>
                         {lastMessage && (
                           <span className={`text-xs flex-shrink-0 ${unreadCount > 0 ? "text-gray-500" : "text-gray-400"}`}>
@@ -297,7 +295,7 @@ export default function MessagesLayout() {
       </div>
   );
 
-  if ((user as any).is_team_leader) {
+  if (isTeamLeader(user)) {
     return (
       <ControlPanelLayout
         panelLabel="Team Leader Panel"
@@ -310,6 +308,27 @@ export default function MessagesLayout() {
           avatarUrl: (user as any).avatar_url as string | null | undefined,
         }}
         navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
+      >
+        <div className="messages-page h-full flex flex-col">
+          {messagesContent}
+        </div>
+      </ControlPanelLayout>
+    );
+  }
+
+  if (isTourOperator(user)) {
+    return (
+      <ControlPanelLayout
+        panelLabel="Tour Operator Panel"
+        mobileTitle="TO Panel"
+        homeTo="/to-panel"
+        user={{
+          fullName: (user as any).full_name as string | null | undefined,
+          email: (user as any).email as string | null | undefined,
+          roleLabel: "tour operator",
+          avatarUrl: (user as any).avatar_url as string | null | undefined,
+        }}
+        navItems={tourOperatorNavItems}
       >
         <div className="messages-page h-full flex flex-col">
           {messagesContent}

@@ -5,10 +5,12 @@ import { useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
+import { applyListingPublicIdFilter, getListingPublicId, getProfilePublicId } from "~/lib/publicIds";
 import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
+import { isAdmin } from "~/lib/user-access";
+import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: (data as any)?.listing?.title || "Listing - Runoot" }];
@@ -61,7 +63,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const listingPublicId = getListingPublicId(listing as any);
   const { data: linkedEventRequest } = await (supabaseAdmin as any)
     .from("event_requests")
-    .select("id")
+    .select(
+      "id, team_leader_id, team_leader:profiles!event_requests_team_leader_id_fkey(id, short_id, full_name, company_name, user_type, is_verified, avatar_url)"
+    )
     .ilike("published_listing_url", `%/listings/${listingPublicId}`)
     .limit(1)
     .maybeSingle();
@@ -71,6 +75,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     listing: localizeListing(listing as any, locale),
     isSaved,
     isEventListing: !!linkedEventRequest,
+    eventOrganizer: linkedEventRequest?.team_leader || null,
   };
 }
 
@@ -119,7 +124,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     // Redirect based on user type
-    const redirectPath = userProfile?.user_type === "tour_operator" ? "/dashboard" : "/my-listings";
+    const redirectPath = userProfile?.user_type === "tour_operator" ? "/to-panel" : "/my-listings";
     return redirect(redirectPath);
   }
 
@@ -144,6 +149,44 @@ function formatRoomType(roomType: string | null): string {
   return labels[roomType] || roomType;
 }
 
+function formatCurrencyAmount(value: number | null | undefined, currency = "EUR"): string {
+  if (typeof value !== "number" || Number.isNaN(value)) return "";
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+}
+
+type ToListingMeta = {
+  room_types?: string[];
+  room_type_prices?: Record<string, number>;
+  flexible_dates?: boolean;
+  extra_night?: {
+    enabled?: boolean;
+    price?: number | null;
+    price_unit?: "per_person" | "per_room";
+  };
+  price_unit?: "by_room_type" | "per_person";
+};
+
+function parseCostNotes(raw: unknown): { note: string | null; toMeta: ToListingMeta | null } {
+  if (typeof raw !== "string" || !raw.trim()) {
+    return { note: null, toMeta: null };
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const obj = parsed as { note?: unknown; to_meta?: unknown };
+      const note = typeof obj.note === "string" ? obj.note : null;
+      const toMeta =
+        obj.to_meta && typeof obj.to_meta === "object" && !Array.isArray(obj.to_meta)
+          ? (obj.to_meta as ToListingMeta)
+          : null;
+      return { note, toMeta };
+    }
+  } catch {
+    // Legacy plain-text cost notes.
+  }
+  return { note: raw, toMeta: null };
+}
+
 // Helper per calcolare giorni mancanti
 function getDaysUntilEvent(eventDate: string): number {
   const today = new Date();
@@ -163,7 +206,7 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
 
 export default function ListingDetail() {
   const { t } = useI18n();
-  const { user, listing, isSaved, isEventListing } = useLoaderData<typeof loader>();
+  const { user, listing, isSaved, isEventListing, eventOrganizer } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [showSafety, setShowSafety] = useState(false);
   const saveFetcher = useFetcher();
@@ -175,6 +218,19 @@ export default function ListingDetail() {
   const userData = user as any;
   const bibLabel = t("common.bib");
   const bibsLabel = t("common.bibs");
+  const parsedCostNotes = parseCostNotes(listingData.cost_notes);
+  const toMeta = parsedCostNotes.toMeta;
+  const roomTypes = Array.isArray(toMeta?.room_types) ? toMeta?.room_types || [] : [];
+  const roomTypePrices = toMeta?.room_type_prices || {};
+  const hasToRoomTypePrices = roomTypes.some((type) => typeof roomTypePrices[type] === "number");
+  const isFlexibleDates = !!toMeta?.flexible_dates;
+  const hasExtraNight = !!toMeta?.extra_night?.enabled;
+  const extraNightPriceLabel =
+    hasExtraNight && typeof toMeta?.extra_night?.price === "number"
+      ? `${formatCurrencyAmount(toMeta?.extra_night?.price ?? null, listingData.currency || "EUR")} ${
+          toMeta?.extra_night?.price_unit === "per_room" ? "per room" : "per person"
+        }`
+      : null;
   
   const eventDate = new Date(listingData.event.event_date);
   const eventDateFormatted = eventDate.toLocaleDateString("en-GB", {
@@ -190,7 +246,7 @@ export default function ListingDetail() {
   });
 
   const isOwner = userData?.id === listingData.author_id;
-  const isAdminViewer = userData?.role === "admin" || userData?.role === "superadmin";
+  const isAdminViewer = isAdmin(userData);
   const daysUntil = getDaysUntilEvent(listingData.event.event_date);
   const eventSlug = getEventSlug(listingData.event);
   const bannerFallback = `/banners/${eventSlug}.jpg`;
@@ -216,18 +272,18 @@ export default function ListingDetail() {
     : "Comparable hotels from €200+";
 
   return (
-    <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
-      <div className="min-h-screen bg-gray-50/85">
+    <div className="min-h-screen bg-slate-100">
+      <div className="min-h-screen">
         <Header user={user} />
 
         <main className="mx-auto max-w-7xl px-4 py-6 pb-36 md:pb-6 sm:px-6 lg:px-8">
           {/* Back link */}
           <div className="mb-4">
             <Link
-              to="/listings"
-              className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 underline"
+              to={isEventListing ? "/events" : "/listings"}
+              className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-4 py-2 text-sm font-semibold text-gray-800 shadow-[0_8px_22px_rgba(15,23,42,0.16)] ring-1 ring-slate-200/80 backdrop-blur-sm transition hover:bg-white hover:shadow-[0_10px_26px_rgba(15,23,42,0.20)]"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               {t("listings.back_to_listings")}
@@ -331,8 +387,38 @@ export default function ListingDetail() {
                       <p className="font-semibold text-gray-900">
                         {listingData.room_count || 1} {formatRoomType(listingData.room_type)} room{(listingData.room_count || 1) > 1 ? "s" : ""}
                       </p>
+                      {roomTypes.length > 0 && (
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          {roomTypes.map((type) => (
+                            <span
+                              key={type}
+                              className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700"
+                            >
+                              {formatRoomType(type)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {hasToRoomTypePrices && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Room type pricing</p>
+                      <div className="space-y-1.5">
+                        {roomTypes.map((type) => (
+                          typeof roomTypePrices[type] === "number" ? (
+                            <div key={type} className="flex items-center justify-between text-sm">
+                              <span className="text-slate-700">{formatRoomType(type)}</span>
+                              <span className="font-semibold text-slate-900">
+                                {formatCurrencyAmount(roomTypePrices[type], listingData.currency || "EUR")}
+                              </span>
+                            </div>
+                          ) : null
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Check-in/out */}
                   {listingData.check_in && listingData.check_out && (() => {
@@ -353,10 +439,29 @@ export default function ListingDetail() {
                               ({nights} night{nights > 1 ? "s" : ""})
                             </span>
                           </p>
+                          {isFlexibleDates && (
+                            <p className="mt-1 text-xs font-medium text-amber-700">
+                              Flexible dates available on request
+                            </p>
+                          )}
                         </div>
                       </div>
                     );
                   })()}
+
+                  {hasExtraNight && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700 flex-shrink-0">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">Extra night available</p>
+                        {extraNightPriceLabel && <p className="text-sm text-gray-600">{extraNightPriceLabel}</p>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -642,9 +747,9 @@ export default function ListingDetail() {
           {/* Sidebar - sticky */}
           <div className="space-y-6 lg:sticky lg:top-6">
             {/* Main sidebar card: Seller + Price + CTA */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] overflow-hidden">
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.12)] overflow-hidden">
               {/* Listing Info Header */}
-              <div className="px-5 py-5 border-b border-gray-100">
+              <div className="px-6 py-5 border-b border-slate-200">
                 {/* Badge tipo + Save */}
                 <div className="flex items-center justify-between mb-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -667,10 +772,10 @@ export default function ListingDetail() {
                       <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
                       <button
                         type="submit"
-                        className={`p-2 rounded-full transition-colors ${
+                        className={`rounded-full p-2.5 ring-1 ring-slate-200 shadow-sm transition-colors ${
                           isSavedOptimistic
-                            ? "text-red-500 bg-red-50 hover:bg-red-100"
-                            : "text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"
+                            ? "bg-red-50 text-red-500 hover:bg-red-100"
+                            : "bg-slate-100 text-slate-700 ring-slate-300 hover:bg-slate-200 hover:text-red-500"
                         }`}
                         title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
                       >
@@ -697,122 +802,170 @@ export default function ListingDetail() {
                   {listingData.event.name}
                 </h1>
 
-                {/* Data evento */}
-                <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
-                  <svg className="h-4 w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span>{eventDateShort}</span>
-                </div>
-
                 {/* Status */}
-                <div className="mt-4">
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <svg className="h-4 w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>{eventDateShort}</span>
+                  </div>
                   {listingData.status === "active" ? (
-                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
                       <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                      Active listing
+                      Active
                     </span>
-                  ) : listingData.status === "pending" ? (
-                    isOwner ? (
-                      <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3">
-                        <p className="text-sm font-semibold text-yellow-800">Pending review</p>
-                        <p className="text-xs text-yellow-700 mt-0.5">
-                          Your listing is being reviewed by our team. We'll notify you once it's approved.
-                        </p>
-                      </div>
-                    ) : (
-                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-                        Listing unavailable
-                      </span>
-                    )
-                  ) : listingData.status === "rejected" ? (
-                    isOwner ? (
-                      <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-                        <p className="text-sm font-semibold text-red-800">Listing not approved</p>
-                        {(listingData as any).admin_note && (
-                          <p className="text-xs text-red-700 mt-0.5">{(listingData as any).admin_note}</p>
-                        )}
-                        <p className="text-xs text-red-600 mt-1">
-                          Please contact us if you have questions.
-                        </p>
-                      </div>
-                    ) : (
-                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-                        Listing unavailable
-                      </span>
-                    )
-                  ) : (
-                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                  ) : listingData.status === "sold" || listingData.status === "expired" ? (
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
                       {listingData.status === "sold" ? "Sold" : "Expired"}
                     </span>
-                  )}
+                  ) : !isOwner ? (
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                      Listing unavailable
+                    </span>
+                  ) : null}
                 </div>
+
+                {listingData.status === "pending" && isOwner && (
+                  <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3">
+                    <p className="text-sm font-semibold text-yellow-800">Pending review</p>
+                    <p className="mt-0.5 text-xs text-yellow-700">
+                      Your listing is being reviewed by our team. We'll notify you once it's approved.
+                    </p>
+                  </div>
+                )}
+
+                {listingData.status === "rejected" && isOwner && (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                    <p className="text-sm font-semibold text-red-800">Listing not approved</p>
+                    {(listingData as any).admin_note && (
+                      <p className="mt-0.5 text-xs text-red-700">{(listingData as any).admin_note}</p>
+                    )}
+                    <p className="mt-1 text-xs text-red-600">
+                      Please contact us if you have questions.
+                    </p>
+                  </div>
+                )}
+
+                {listingData.status === "rejected" && !isOwner && (
+                  <div className="mt-3">
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                      Listing unavailable
+                    </span>
+                  </div>
+                )}
+
+                {listingData.status === "pending" && !isOwner && (
+                  <div className="mt-3">
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                      Listing unavailable
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Seller */}
-              <div className="px-5 py-4 border-b border-gray-100">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-brand-700 font-semibold flex-shrink-0">
-                    {listingData.author.avatar_url ? (
+              <div className="px-6 py-5 border-b border-slate-200">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-brand-700 text-base font-semibold flex-shrink-0">
+                    {(isEventListing ? eventOrganizer?.avatar_url : listingData.author.avatar_url) ? (
                       <img
-                        src={listingData.author.avatar_url}
-                        alt={listingData.author.company_name || listingData.author.full_name || "User avatar"}
+                        src={(isEventListing ? eventOrganizer?.avatar_url : listingData.author.avatar_url) as string}
+                        alt={
+                          (isEventListing
+                            ? getPublicDisplayName(eventOrganizer)
+                            : getPublicDisplayName(listingData.author)) || "User avatar"
+                        }
                         className="h-full w-full object-cover"
                         loading="lazy"
                       />
                     ) : (
-                      listingData.author.company_name?.charAt(0) ||
-                      listingData.author.full_name?.charAt(0) ||
-                      "?"
+                      getPublicInitial(isEventListing ? eventOrganizer : listingData.author)
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="font-semibold text-gray-900 truncate text-sm">
-                        {listingData.author.company_name || listingData.author.full_name}
-                      </p>
-                      {listingData.author.is_verified && (
+                  <div className="w-full">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <div className="flex items-center justify-center gap-1.5">
+                      {isEventListing && eventOrganizer ? (
+                        <Link
+                          to={`/profiles/${getProfilePublicId(eventOrganizer as any)}`}
+                          className="truncate text-base font-semibold text-gray-900 hover:text-brand-700 hover:underline"
+                        >
+                          {getPublicDisplayName(eventOrganizer)}
+                        </Link>
+                      ) : (
+                        <p className="truncate text-base font-semibold text-gray-900">
+                          {getPublicDisplayName(listingData.author)}
+                        </p>
+                      )}
+                      {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && (
                         <svg className="h-4 w-4 text-brand-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
                       )}
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {listingData.author.user_type === "tour_operator"
+                      </div>
+                      <p className="text-xs text-gray-500">
+                      {isEventListing
+                        ? t("listings.team_leader_organizer")
+                        : listingData.author.user_type === "tour_operator"
                         ? "Tour Operator"
                         : "Runner"}
-                      {listingData.author.is_verified && " · Verified"}
+                      {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && " · Verified"}
                     </p>
+                    </div>
+                    {isEventListing && eventOrganizer && (
+                      <Link
+                        to={`/profiles/${getProfilePublicId(eventOrganizer as any)}`}
+                        className="mt-2 inline-flex rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100 hover:text-brand-800"
+                      >
+                        {t("listings.view_profile")}
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Price */}
-              <div className="p-5">
+              {/* Price + CTA section */}
+              <div className="border-t border-slate-200 bg-slate-50 p-6">
                 <div className="text-center">
-                  {/* Se è bib o room_and_bib, mostra associated costs */}
-                  {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") ? (
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && !isEventListing
+                      ? "Associated costs"
+                      : "Price"}
+                  </p>
+                  {/* For event listings, prioritize explicit listing price across all types */}
+                  {isEventListing && listingData.price ? (
+                    <>
+                      <p className="text-3xl font-bold text-gray-900">
+                        €{listingData.price.toLocaleString()}
+                      </p>
+                      {listingData.price_negotiable && (
+                        <p className="mt-1 text-sm text-green-600 font-medium">
+                          Price negotiable
+                        </p>
+                      )}
+                    </>
+                  ) : (listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") ? (
                     listingData.associated_costs ? (
                       <>
-                        <p className="text-sm text-gray-500 mb-1">Associated costs</p>
                         <p className="text-3xl font-bold text-gray-900">
                           €{listingData.associated_costs.toLocaleString()}
                         </p>
                         {listingData.cost_notes && (
                           <p className="mt-2 text-sm text-gray-600">
-                            {listingData.cost_notes}
+                            {parsedCostNotes.note || ""}
                           </p>
                         )}
                       </>
                     ) : (
-                      <>
-                        <p className="text-xl font-semibold text-gray-600 mb-1">
+                      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <p className="text-lg font-semibold text-gray-700 mb-0.5">
                           Contact for price
                         </p>
                         <p className="text-xs text-gray-500">
                           Price details available from seller
                         </p>
-                      </>
+                      </div>
                     )
                   ) : listingData.price ? (
                     <>
@@ -826,19 +979,19 @@ export default function ListingDetail() {
                       )}
                     </>
                   ) : (
-                    <>
-                      <p className="text-xl font-semibold text-gray-600 mb-1">
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <p className="text-lg font-semibold text-gray-700 mb-0.5">
                         Contact for price
                       </p>
                       <p className="text-xs text-gray-500">
                         {priceAnchor}
                       </p>
-                    </>
+                    </div>
                   )}
                 </div>
 
                 {(actionData as any)?.error && (
-                  <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">
+                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
                     {(actionData as any).error}
                   </div>
                 )}
@@ -847,17 +1000,17 @@ export default function ListingDetail() {
                 {listingData.status === "active" && !isOwner && (
                   <Link
       to={`/listings/${getListingPublicId(listingData)}/contact`}
-                    className="btn-primary w-full text-base py-3.5 font-semibold rounded-full shadow-lg shadow-brand-500/25 hidden md:block text-center"
+                    className="mt-4 hidden w-full rounded-full bg-accent-500 px-5 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-accent-600 md:block"
                   >
-                    {t("listings.contact")} {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || "Seller"}
+                    {t("listings.contact")} {getPublicDisplayName(listingData.author) || "Seller"}
                   </Link>
                 )}
 
                 {isOwner && (
-                  <div className="space-y-3">
+                  <div className="mt-4 space-y-3">
                     <Link
                       to={`/listings/${getListingPublicId(listingData)}/edit`}
-                      className="btn-secondary w-full block text-center"
+                      className="block w-full rounded-full border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                     >
                       {t("listings.edit_listing")}
                     </Link>
@@ -869,7 +1022,7 @@ export default function ListingDetail() {
                       <input type="hidden" name="_action" value="delete" />
                       <button
                         type="submit"
-                        className="w-full px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors"
+                        className="w-full rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 hover:text-red-700"
                       >
                       {t("listings.delete_listing")}
                       </button>
@@ -881,7 +1034,7 @@ export default function ListingDetail() {
                   <div className="mt-3">
                     <Link
                       to={`/admin/events/new?listingId=${getListingPublicId(listingData)}`}
-                      className="btn-secondary w-full block text-center rounded-full"
+                      className="block w-full rounded-full border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                     >
                       Edit Event Listing
                     </Link>
@@ -891,7 +1044,7 @@ export default function ListingDetail() {
                 {!user && listingData.status === "active" && (
                   <Link
                     to={`/login?redirectTo=/listings/${getListingPublicId(listingData)}`}
-                    className="btn-primary w-full block text-center py-3.5 font-semibold shadow-lg shadow-brand-500/25"
+                    className="mt-4 block w-full rounded-full bg-accent-500 px-5 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-accent-600"
                   >
                     {t("listings.login_to_contact")}
                   </Link>
@@ -900,10 +1053,10 @@ export default function ListingDetail() {
             </div>
 
             {!isEventListing && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] overflow-hidden">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.10)]">
                 <button
                   onClick={() => setShowSafety(!showSafety)}
-                  className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                  className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50 lg:cursor-default lg:hover:bg-white"
                 >
                   <div className="flex items-center gap-2">
                     <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -912,7 +1065,7 @@ export default function ListingDetail() {
                     <span className="font-medium text-gray-900">Safety & Payments</span>
                   </div>
                   <svg
-                    className={`h-5 w-5 text-gray-400 transition-transform ${showSafety ? "rotate-180" : ""}`}
+                    className={`h-5 w-5 text-gray-400 transition-transform lg:hidden ${showSafety ? "rotate-180" : ""}`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -921,8 +1074,7 @@ export default function ListingDetail() {
                   </svg>
                 </button>
 
-                {showSafety && (
-                  <div className="px-4 pb-4">
+                <div className={`${showSafety ? "block" : "hidden"} px-4 pb-4 lg:block`}>
                     <ul className="text-sm text-gray-700 space-y-2 mt-3">
                       <li className="flex items-start gap-2">
                         <span className="text-brand-500 flex-shrink-0">•</span>
@@ -948,7 +1100,6 @@ export default function ListingDetail() {
                       Read full safety guidelines →
                     </Link>
                   </div>
-                )}
               </div>
             )}
           </div>
@@ -956,12 +1107,12 @@ export default function ListingDetail() {
 
         {/* Mobile sticky CTA - solo su mobile, sopra la MobileNav */}
         {listingData.status === "active" && !isOwner && (
-          <div className="fixed bottom-16 left-0 right-0 px-8 py-2.5 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] md:hidden z-30">
+          <div className="fixed bottom-16 left-0 right-0 px-8 py-2.5 bg-white/95 border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] md:hidden z-30">
             <Link
               to={`/listings/${getListingPublicId(listingData)}/contact`}
-              className="btn-primary w-full text-sm py-2.5 font-semibold rounded-full shadow-lg shadow-brand-500/25 block text-center"
+              className="w-full rounded-full bg-accent-500 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-accent-600 block"
             >
-              {t("listings.contact")} {listingData.author.company_name || listingData.author.full_name?.split(' ')[0] || "Seller"}
+              {t("listings.contact")} {getPublicDisplayName(listingData.author) || "Seller"}
             </Link>
           </div>
         )}

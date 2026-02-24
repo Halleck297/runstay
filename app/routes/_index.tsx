@@ -36,6 +36,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     `
     )
     .eq("status", "active")
+    .eq("listing_mode", "exchange")
     .order("created_at", { ascending: false })
     .limit(3);
 
@@ -253,13 +254,20 @@ export default function Index() {
                 <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center md:text-left">
                   {t("home.recent_listings")}
                 </h2>
-                {/* View all - hidden on mobile, shown in header on desktop */}
-                <Link
-                  to={user ? "/listings" : "/login"}
-                  className="hidden md:inline-block px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
-                >
-                  {t("home.view_all")}
-                </Link>
+                <div className="hidden md:flex items-center gap-2">
+                  <Link
+                    to={user ? "/events" : "/login"}
+                    className="px-6 py-2 border border-brand-300 text-brand-700 font-medium rounded-full hover:bg-brand-50 transition-all"
+                  >
+                    {t("nav.event")}
+                  </Link>
+                  <Link
+                    to={user ? "/listings" : "/login"}
+                    className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
+                  >
+                    {t("home.view_all")}
+                  </Link>
+                </div>
               </div>
 
               {/* Desktop: Grid di card */}
@@ -278,12 +286,20 @@ export default function Index() {
 
               {/* Mobile: View all button centered below cards */}
               <div className="mt-4 flex justify-center md:hidden">
-                <Link
-                  to={user ? "/listings" : "/login"}
-                  className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
-                >
-                  {t("home.view_all")}
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={user ? "/events" : "/login"}
+                    className="px-5 py-2 border border-brand-300 text-brand-700 font-medium rounded-full hover:bg-brand-50 transition-all"
+                  >
+                    {t("nav.event")}
+                  </Link>
+                  <Link
+                    to={user ? "/listings" : "/login"}
+                    className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
+                  >
+                    {t("home.view_all")}
+                  </Link>
+                </div>
               </div>
             </div>
           </section>

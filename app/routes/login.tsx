@@ -4,6 +4,7 @@ import { Form, Link, useActionData, useSearchParams } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { createUserSession, getUserId, getUser } from "~/lib/session.server";
+import { getDefaultAppPath } from "~/lib/user-access";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Login - Runoot" }];
@@ -12,9 +13,7 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   if (user) {
-    // Redirect based on user type
-    const redirectUrl = (user as any).user_type === "tour_operator" ? "/dashboard" : "/listings";
-    return redirect(redirectUrl);
+    return redirect(getDefaultAppPath(user));
   }
   return {};
 }
@@ -66,12 +65,10 @@ export async function action({ request }: ActionFunctionArgs) {
     .eq("id", authData.user.id)
     .single();
 
-  // Determine redirect: use param if provided and not default, otherwise based on user type
-  let redirectTo = "/listings";
-  if (redirectToParam && redirectToParam !== "/dashboard") {
+  const defaultPath = getDefaultAppPath(profile);
+  let redirectTo = defaultPath;
+  if (redirectToParam && redirectToParam !== defaultPath) {
     redirectTo = redirectToParam;
-  } else if (profile?.user_type === "tour_operator") {
-    redirectTo = "/dashboard";
   }
 
   return createUserSession(

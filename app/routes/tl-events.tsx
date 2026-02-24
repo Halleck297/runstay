@@ -11,6 +11,7 @@ import { buildTeamLeaderNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
 import { normalizeEmailLocale } from "~/lib/email/types";
 import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
+import { isTeamLeader } from "~/lib/user-access";
 
 const STATUS_LABELS: Record<string, string> = {
   under_review: "tl_events.status.under_review",
@@ -310,7 +311,7 @@ function getTlEventRequestEmailCopy(localeInput: string | null | undefined) {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  if (!(user as any).is_team_leader) return redirect("/listings");
+  if (!isTeamLeader(user)) return redirect("/listings");
 
   const { data: requests } = await (supabaseAdmin.from("event_requests") as any)
     .select("*")
@@ -368,7 +369,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
-  if (!(user as any).is_team_leader) return data({ errorKey: "only_team_leader" as const }, { status: 403 });
+  if (!isTeamLeader(user)) return data({ errorKey: "only_team_leader" as const }, { status: 403 });
 
   const formData = await request.formData();
   const actionType = String(formData.get("_action") || "");
@@ -720,7 +721,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     const { data: adminProfiles } = await (supabaseAdmin.from("profiles") as any)
       .select("id")
-      .in("role", ["admin", "superadmin"]);
+      .in("user_type", ["admin", "superadmin"]);
 
     const adminNotificationRows = (adminProfiles || []).map((profile: any) => ({
       user_id: profile.id,

@@ -29,7 +29,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const localized = (listings || []).map((listing: any) => localizeListing(listing, locale));
 
   if (user.user_type === "tour_operator") {
-    return redirect("/dashboard");
+    return redirect("/to-panel/listings");
   }
 
   const today = new Date();

@@ -6,6 +6,7 @@ type PanelNavKeyItem = {
   labelKey: TranslationKey;
   icon: ReactNode;
   exact?: boolean;
+  spacerTop?: boolean;
   badgeCount?: number;
   badgeTone?: "accent" | "brand";
   hideBadgeWhenActive?: boolean;
@@ -75,7 +76,7 @@ export function buildTeamLeaderNavItems(eventUnreadCount: number): PanelNavKeyIt
 
 export const tourOperatorNavItems: PanelNavKeyItem[] = [
   {
-    to: "/dashboard",
+    to: "/to-panel",
     labelKey: "nav.dashboard",
     exact: true,
     icon: (
@@ -85,7 +86,17 @@ export const tourOperatorNavItems: PanelNavKeyItem[] = [
     ),
   },
   {
-    to: "/listings/new",
+    to: "/to-panel/listings",
+    labelKey: "nav.my_listings",
+    exact: true,
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M4 12h16M4 17h16" />
+      </svg>
+    ),
+  },
+  {
+    to: "/to-panel/listings/new",
     labelKey: "nav.new_listing",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -103,20 +114,36 @@ export const tourOperatorNavItems: PanelNavKeyItem[] = [
     ),
   },
   {
-    to: "/listings",
-    labelKey: "nav.listings",
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M4 12h16M4 17h16" />
-      </svg>
-    ),
-  },
-  {
-    to: "/profile",
+    to: "/to-panel/profile",
     labelKey: "nav.profile",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A10.97 10.97 0 0112 15c2.61 0 5.02.91 6.879 2.433M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
+    to: "/to-panel/settings",
+    labelKey: "nav.settings",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
+    to: "/to-panel/support",
+    labelKey: "nav.contact",
+    spacerTop: true,
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M3 5a2 2 0 012-2h2.28a2 2 0 011.94 1.515l.58 2.32a2 2 0 01-.45 1.86l-1.2 1.2a16 16 0 006.57 6.57l1.2-1.2a2 2 0 011.86-.45l2.32.58A2 2 0 0121 16.72V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+        />
       </svg>
     ),
   },
