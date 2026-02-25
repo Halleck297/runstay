@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import type { TranslationKey } from "~/lib/i18n";
 import { NO_AVATAR_VALUE, OPEN_DOODLE_AVATARS, isValidOpenDoodleAvatar } from "~/lib/avatars";
+import { getCountryDisplayName } from "~/lib/supportedCountries";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -47,16 +48,11 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   const normalizedFullName = fullName.trim();
-  const normalizedCountry = typeof country === "string" ? country.trim() : "";
   const normalizedCity = typeof city === "string" ? city.trim() : "";
   const normalizedBio = typeof bio === "string" ? bio.trim() : "";
 
   if (normalizedFullName.length < 2 || normalizedFullName.length > 80) {
     return data({ error: "Full name must be between 2 and 80 characters." }, { status: 400 });
-  }
-
-  if (normalizedCountry.length > 80) {
-    return data({ error: "Country cannot exceed 80 characters." }, { status: 400 });
   }
 
   if (normalizedCity.length > 80) {
@@ -69,7 +65,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const updateData: Record<string, unknown> = {
     full_name: normalizedFullName,
-    country: normalizedCountry || null,
+    country: user.country || null,
     city: normalizedCity || null,
     bio: normalizedBio || null,
   };
@@ -187,7 +183,7 @@ export default function ProfileIndex() {
   const actionData = useActionData<typeof action>() as { error: string } | { success: boolean } | undefined;
   const location = useLocation();
   const navigation = useNavigation();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const isSubmitting = navigation.state === "submitting" && navigation.formMethod?.toLowerCase() === "post";
   const isUpdatingAvatar = navigation.state === "submitting" && navigation.formData?.get("intent") === "update_avatar";
   const isTourOperator = user.user_type === "tour_operator";
@@ -196,6 +192,7 @@ export default function ProfileIndex() {
   const [selectedAvatar, setSelectedAvatar] = useState<string>(
     user.avatar_url && isValidOpenDoodleAvatar(user.avatar_url) ? user.avatar_url : NO_AVATAR_VALUE,
   );
+  const countryDisplayValue = getCountryDisplayName((user as any).country, locale);
 
   const getInitials = (name: string | null) => {
     if (!name) return "?";
@@ -325,7 +322,9 @@ export default function ProfileIndex() {
                 <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.form.email_address")}</label>
+                      <label className="text-sm font-medium text-gray-500">
+                        {t("profile.form.email_address")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
+                      </label>
                       <p className="mt-1 font-medium text-gray-900">{user.email}</p>
                     </div>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -387,14 +386,21 @@ export default function ProfileIndex() {
                 )}
 
                 <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.form.country")}</label>
+                  <div className="flex items-start justify-between">
+                    <label className="text-sm font-medium text-gray-500">{t("profile.form.country")}</label>
+                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
                   <input
                     name="country"
                     type="text"
-                    defaultValue={(user as any).country || ""}
+                    defaultValue={countryDisplayValue}
                     className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder={t("profile.form.country_placeholder")}
+                    readOnly
                   />
+                  <p className="mt-2 text-xs text-gray-400">To update country, contact admin.</p>
                 </div>
 
                 <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">

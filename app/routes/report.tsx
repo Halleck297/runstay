@@ -4,6 +4,7 @@ import { Form, useActionData, useLoaderData, useNavigation, useSearchParams } fr
 import { Header } from "~/components/Header";
 import { useI18n } from "~/hooks/useI18n";
 import { resolveLocaleForRequest, localizeListing } from "~/lib/locale";
+import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import type { TranslationKey } from "~/lib/i18n";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -19,6 +20,7 @@ type ReportActionData =
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
+  const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
   const url = new URL(request.url);
 
   const type = url.searchParams.get("type") || "other";
@@ -42,7 +44,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       .select("id, title, title_i18n")
       .eq("id", reportedId)
       .single();
-    reportedListing = data ? localizeListing(data as any, locale) : null;
+    reportedListing = data ? applyListingDisplayCurrency(localizeListing(data as any, locale), viewerCurrency) : null;
   }
 
   return { user, type, reportedUser, reportedListing, from };

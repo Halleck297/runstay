@@ -18,10 +18,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select("*", { count: "exact", head: true })
     .neq("status", "published");
 
+  const { count: accessRequestsPendingCount } = await (supabaseAdmin as any)
+    .from("access_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "pending");
+
+  const { count: mockMessageAlertsCount } = await (supabaseAdmin as any)
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", (admin as any).id)
+    .eq("type", "system")
+    .filter("data->>kind", "eq", "mock_user_new_message")
+    .is("read_at", null);
+
   return {
     admin,
     pendingCount: pendingCount || 0,
     eventRequestsOpenCount: eventRequestsOpenCount || 0,
+    accessRequestsPendingCount: accessRequestsPendingCount || 0,
+    mockMessageAlertsCount: mockMessageAlertsCount || 0,
   };
 }
 
@@ -51,6 +66,24 @@ const baseNavItems = [
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M5 21V7l8-4 6 3v15M9 9h.01M9 13h.01M9 17h.01M13 9h.01M13 13h.01M13 17h.01M17 9h.01M17 13h.01M17 17h.01" />
+      </svg>
+    ),
+  },
+  {
+    to: "/admin/access-requests",
+    label: "Access Requests",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9a3 3 0 106 0 3 3 0 00-6 0zm8 11a5 5 0 00-10 0m12-6h2m-1-1v2" />
+      </svg>
+    ),
+  },
+  {
+    to: "/notifications",
+    label: "Notifications",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
       </svg>
     ),
   },
@@ -113,7 +146,7 @@ const baseNavItems = [
 ];
 
 export default function AdminLayout() {
-  const { admin, pendingCount, eventRequestsOpenCount } = useLoaderData<typeof loader>();
+  const { admin, pendingCount, eventRequestsOpenCount, accessRequestsPendingCount, mockMessageAlertsCount } = useLoaderData<typeof loader>();
 
   const navItems = baseNavItems
     .filter((item: any) => !item.superadminOnly || isSuperAdmin(admin))
@@ -125,6 +158,22 @@ export default function AdminLayout() {
         return {
           ...item,
           badgeCount: eventRequestsOpenCount,
+          badgeTone: "brand" as const,
+          hideBadgeWhenActive: true,
+        };
+      }
+      if (item.to === "/admin/access-requests") {
+        return {
+          ...item,
+          badgeCount: accessRequestsPendingCount,
+          badgeTone: "accent" as const,
+          hideBadgeWhenActive: true,
+        };
+      }
+      if (item.to === "/notifications") {
+        return {
+          ...item,
+          badgeCount: mockMessageAlertsCount,
           badgeTone: "brand" as const,
           hideBadgeWhenActive: true,
         };

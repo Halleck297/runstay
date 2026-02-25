@@ -4,6 +4,7 @@ import { ControlPanelLayout } from "~/components/ControlPanelLayout";
 import { ListingCard } from "~/components/ListingCard";
 import { tourOperatorNavItems } from "~/components/panelNav";
 import { localizeListing } from "~/lib/locale";
+import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { getPublicDisplayName } from "~/lib/user-display";
@@ -15,6 +16,7 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   if (user.user_type !== "tour_operator") return redirect("/my-listings");
+  const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
 
   const { data: listings } = await supabaseAdmin
     .from("listings")
@@ -26,7 +28,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .eq("author_id", user.id)
     .order("created_at", { ascending: false });
 
-  const localizedListings = (listings || []).map((listing: any) => localizeListing(listing, "en"));
+  const localizedListings = (listings || []).map((listing: any) =>
+    applyListingDisplayCurrency(localizeListing(listing, "en"), viewerCurrency)
+  );
 
   const { data: conversations } = await supabaseAdmin
     .from("conversations")

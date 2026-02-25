@@ -1,6 +1,5 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { Link, useLoaderData } from "react-router";
-import { applyProfilePublicIdFilter } from "~/lib/publicIds";
+import { Link, useLoaderData, useLocation } from "react-router";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
@@ -8,6 +7,7 @@ import { FooterLight } from "~/components/FooterLight";
 import { useI18n } from "~/hooks/useI18n";
 import { isAdmin } from "~/lib/user-access";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { applyProfilePublicIdFilter } from "~/lib/publicIds";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const name = (data as any)?.profile?.company_name || (data as any)?.profile?.full_name || "Profile";
@@ -17,18 +17,90 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const profileId = params.id;
+  const debugMode = new URL(request.url).searchParams.get("debug") === "1";
 
   if (!profileId) throw new Response("Not found", { status: 404 });
 
-  const profileQuery = supabaseAdmin
-    .from("profiles")
-    .select("id, short_id, full_name, company_name, user_type, is_verified, avatar_url, city, country, bio, years_experience, languages_spoken, specialties, instagram, strava, facebook, linkedin, website, public_profile_enabled, public_show_personal_info, public_show_experience, public_show_social");
-  const { data: profile } = await applyProfilePublicIdFilter(profileQuery as any, profileId).maybeSingle();
+  // Use wildcard projection to avoid runtime 404 caused by schema drift
+  // (missing newly-added columns in local/staging DBs).
+  const profileQuery = supabaseAdmin.from("profiles").select("*");
+  let { data: profile } = await applyProfilePublicIdFilter(
+    profileQuery as any,
+    profileId,
+  ).maybeSingle();
 
-  if (!profile) throw new Response("Not found", { status: 404 });
+  // Legacy compatibility: if short_id is missing in DB, resolve compact UUID prefix URLs.
+  if (!profile && !/[^0-9a-f]/i.test(profileId) && profileId.length === 12) {
+    const prefix8 = profileId.slice(0, 8);
+    const next4 = profileId.slice(8, 12);
+    const { data: compactMatch } = await (supabaseAdmin as any)
+      .from("profiles")
+      .select("*")
+      .ilike("id", `${prefix8}-${next4}-%`)
+      .limit(1)
+      .maybeSingle();
+    profile = compactMatch || null;
+  }
+
+  if (!profile) {
+    if (debugMode) {
+      return {
+        user,
+        profile: null,
+        activeListingsCount: 0,
+        debug: {
+          profileId,
+          reason: "profile_not_found",
+        },
+      };
+    }
+    throw new Response("Not found", { status: 404 });
+  }
+  const { data: managedRow } = await (supabaseAdmin as any)
+    .from("admin_managed_accounts")
+    .select("access_mode")
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  const accessMode = (managedRow?.access_mode as "internal_only" | "external_password" | "external_invite" | null) || null;
+  if (accessMode === "internal_only") {
+    if (debugMode) {
+      return {
+        user,
+        profile,
+        activeListingsCount: 0,
+        debug: {
+          profileId,
+          profileDbId: profile.id,
+          accessMode,
+          reason: "internal_only_mock_blocked",
+        },
+      };
+    }
+    throw new Response("Not found", { status: 404 });
+  }
+
   const isOwner = !!user && (user as any).id === profile.id;
   const userIsAdmin = !!user && isAdmin(user);
-  if (profile.public_profile_enabled === false && !isOwner && !userIsAdmin) {
+  const isAlwaysPublicRole = profile.user_type === "tour_operator" || profile.user_type === "team_leader";
+  if (!isAlwaysPublicRole && profile.public_profile_enabled === false && !isOwner && !userIsAdmin) {
+    if (debugMode) {
+      return {
+        user,
+        profile,
+        activeListingsCount: 0,
+        debug: {
+          profileId,
+          profileDbId: profile.id,
+          accessMode,
+          isOwner,
+          userIsAdmin,
+          isAlwaysPublicRole,
+          publicProfileEnabled: profile.public_profile_enabled,
+          reason: "privacy_blocked",
+        },
+      };
+    }
     throw new Response("Not found", { status: 404 });
   }
 
@@ -42,12 +114,59 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     user,
     profile,
     activeListingsCount: activeListingsCount || 0,
+    debug: debugMode
+      ? {
+          profileId,
+          profileDbId: profile.id,
+          accessMode,
+          isOwner,
+          userIsAdmin,
+          isAlwaysPublicRole,
+          publicProfileEnabled: profile.public_profile_enabled,
+          reason: "visible",
+        }
+      : null,
   };
 }
 
 export default function PublicProfilePage() {
   const { t } = useI18n();
-  const { user, profile, activeListingsCount } = useLoaderData<typeof loader>();
+  const location = useLocation();
+  const { user, profile, activeListingsCount, debug } = useLoaderData<typeof loader>() as any;
+  const stateFrom = (location.state as any)?.from;
+  const backTo =
+    typeof stateFrom === "string" && stateFrom.startsWith("/")
+      ? stateFrom
+      : "/events";
+  if (debug && debug.reason !== "visible") {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Header user={user} />
+        <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <h1 className="font-display text-lg font-semibold text-amber-900">Profile Debug</h1>
+            <p className="mt-1 text-sm text-amber-800">This profile is not public in current conditions.</p>
+            <pre className="mt-3 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
+{JSON.stringify(debug, null, 2)}
+            </pre>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Header user={user} />
+        <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            Profile not found.
+          </div>
+        </main>
+      </div>
+    );
+  }
   const displayName = getPublicDisplayName(profile);
   const initials = getPublicInitial(profile);
   const showPersonal = profile.public_show_personal_info !== false;
@@ -72,19 +191,22 @@ export default function PublicProfilePage() {
   ].filter((item) => !!item.href);
 
   return (
-    <div className="min-h-screen bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
-      <div className="min-h-screen bg-gray-50/80 flex flex-col">
+    <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen flex flex-col">
         <Header user={user} />
 
         <main className="mx-auto max-w-3xl w-full px-4 py-8 sm:px-6 lg:px-8 flex-grow">
-          <Link to="/events" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 underline">
+          <Link
+            to={backTo}
+            className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-400 bg-white px-4 py-2 text-sm font-semibold text-gray-800 shadow-[0_10px_26px_rgba(15,23,42,0.2)] backdrop-blur-sm transition hover:bg-white hover:shadow-[0_14px_30px_rgba(15,23,42,0.24)]"
+          >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             {t("public_profile.back")}
           </Link>
 
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
+          <div className="mt-4 rounded-2xl border border-slate-400 bg-white p-6 shadow-[0_18px_42px_rgba(15,23,42,0.2)]">
             <div className="flex items-start gap-4">
               <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
                 {profile.avatar_url ? (

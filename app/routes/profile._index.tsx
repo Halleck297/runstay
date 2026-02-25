@@ -6,6 +6,7 @@ import { Header } from "~/components/Header";
 import { useI18n } from "~/hooks/useI18n";
 import type { TranslationKey } from "~/lib/i18n";
 import { NO_AVATAR_VALUE, OPEN_DOODLE_AVATARS, isValidOpenDoodleAvatar } from "~/lib/avatars";
+import { getCountryDisplayName } from "~/lib/supportedCountries";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -38,40 +39,14 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ success: true });
   }
 
-  const fullName = formData.get("fullName");
-  const country = formData.get("country");
-  const city = formData.get("city");
   const bio = formData.get("bio");
-
-  if (typeof fullName !== "string" || !fullName.trim()) {
-    return data({ error: "Full name is required" }, { status: 400 });
-  }
-
-  const normalizedFullName = fullName.trim();
-  const normalizedCountry = typeof country === "string" ? country.trim() : "";
-  const normalizedCity = typeof city === "string" ? city.trim() : "";
   const normalizedBio = typeof bio === "string" ? bio.trim() : "";
-
-  if (normalizedFullName.length < 2 || normalizedFullName.length > 80) {
-    return data({ error: "Full name must be between 2 and 80 characters." }, { status: 400 });
-  }
-
-  if (normalizedCountry.length > 80) {
-    return data({ error: "Country cannot exceed 80 characters." }, { status: 400 });
-  }
-
-  if (normalizedCity.length > 80) {
-    return data({ error: "City cannot exceed 80 characters." }, { status: 400 });
-  }
 
   if (normalizedBio.length > 600) {
     return data({ error: "Bio cannot exceed 600 characters." }, { status: 400 });
   }
 
   const updateData: Record<string, unknown> = {
-    full_name: normalizedFullName,
-    country: normalizedCountry || null,
-    city: normalizedCity || null,
     bio: normalizedBio || null,
   };
 
@@ -188,7 +163,7 @@ export default function ProfileIndex() {
   const actionData = useActionData<typeof action>() as { error: string } | { success: boolean } | undefined;
   const location = useLocation();
   const navigation = useNavigation();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const isSubmitting = navigation.state === "submitting" && navigation.formMethod?.toLowerCase() === "post";
   const isUpdatingAvatar = navigation.state === "submitting" && navigation.formData?.get("intent") === "update_avatar";
   const isTourOperator = user.user_type === "tour_operator";
@@ -208,6 +183,10 @@ export default function ProfileIndex() {
       .slice(0, 2);
   };
   const stripUrlProtocol = (value: string | null | undefined) => (value ? value.replace(/^https?:\/\//i, "") : "");
+  const dateOfBirthValue = (user as any).date_of_birth
+    ? new Date(`${(user as any).date_of_birth}T00:00:00Z`).toLocaleDateString()
+    : t("profile.form.not_set");
+  const countryDisplayValue = getCountryDisplayName((user as any).country, locale);
 
   return (
     <div className="min-h-screen bg-slate-50 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.14)_1px,transparent_0)] bg-[size:18px_18px]">
@@ -221,7 +200,7 @@ export default function ProfileIndex() {
                 <button
                   type="button"
                   onClick={() => setIsAvatarModalOpen(true)}
-                  className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-2xl font-bold text-white ring-offset-2 transition-all hover:scale-[1.03] hover:ring-2 hover:ring-brand-300 md:h-24 md:w-24 md:text-3xl"
+                  className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-2xl font-bold text-white ring-offset-2 transition-all md:h-24 md:w-24 md:text-3xl"
                   aria-label="Choose avatar"
                 >
                   {user.avatar_url ? (
@@ -254,7 +233,7 @@ export default function ProfileIndex() {
                       className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
                         isActive
                           ? "bg-brand-100 text-brand-800 shadow-sm ring-1 ring-brand-200"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                          : "text-gray-600"
                       }`}
                     >
                       {item.icon === "user" && (
@@ -312,23 +291,25 @@ export default function ProfileIndex() {
 
             <Form method="post" className="space-y-6">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.form.full_name")}</label>
-                  <input
-                    name="fullName"
-                    type="text"
-                    defaultValue={user.full_name || ""}
-                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder={t("profile.form.full_name_placeholder")}
-                    required
-                  />
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.form.email_address")}</label>
-                      <p className="mt-1 font-medium text-gray-900">{user.email}</p>
+                      <label className="text-sm font-medium text-gray-500">{t("profile.form.full_name")}</label>
+                      <p className="mt-1 font-medium text-gray-600">{user.full_name || t("profile.form.not_set")}</p>
+                    </div>
+                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-500">
+                        {t("profile.form.email_address")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
+                      </label>
+                      <p className="mt-1 font-medium text-gray-600">{user.email}</p>
                     </div>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -337,7 +318,7 @@ export default function ProfileIndex() {
                 </div>
 
                 {isTourOperator ? (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                     <label className="text-sm font-medium text-gray-500">{t("profile.form.phone_number")}</label>
                     <input
                       name="phone"
@@ -348,13 +329,13 @@ export default function ProfileIndex() {
                     />
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <label className="text-sm font-medium text-gray-500">
                           {t("profile.form.phone_number")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
                         </label>
-                        <p className="mt-1 font-medium text-gray-900">{user.phone || t("profile.form.not_set")}</p>
+                        <p className="mt-1 font-medium text-gray-600">{user.phone || t("profile.form.not_set")}</p>
                       </div>
                       <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -363,11 +344,11 @@ export default function ProfileIndex() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <label className="text-sm font-medium text-gray-500">{t("profile.form.account_type")}</label>
-                      <p className="mt-1 font-medium text-gray-900">{isTourOperator ? t("common.tour_operator") : t("profile.avatar.private_runner")}</p>
+                      <p className="mt-1 font-medium text-gray-600">{isTourOperator ? t("common.tour_operator") : t("profile.avatar.private_runner")}</p>
                     </div>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -376,7 +357,7 @@ export default function ProfileIndex() {
                 </div>
 
                 {isTourOperator && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                     <label className="text-sm font-medium text-gray-500">{t("profile.agency.company_name_required")}</label>
                     <input
                       name="companyName"
@@ -388,29 +369,45 @@ export default function ProfileIndex() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.form.country")}</label>
-                  <input
-                    name="country"
-                    type="text"
-                    defaultValue={(user as any).country || ""}
-                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder={t("profile.form.country_placeholder")}
-                  />
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.form.country")}</label>
+                      <p className="mt-1 font-medium text-gray-600">{countryDisplayValue || t("profile.form.not_set")}</p>
+                    </div>
+                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.form.city")}</label>
-                  <input
-                    name="city"
-                    type="text"
-                    defaultValue={(user as any).city || ""}
-                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder={t("profile.form.city_placeholder")}
-                  />
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.form.city")}</label>
+                      <p className="mt-1 font-medium text-gray-600">{(user as any).city || t("profile.form.not_set")}</p>
+                    </div>
+                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-500">
+                        Date of birth <span className="text-gray-400">({t("profile.form.not_visible")})</span>
+                      </label>
+                      <p className="mt-1 font-medium text-gray-600">{dateOfBirthValue}</p>
+                    </div>
+                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
                   <label className="text-sm font-medium text-gray-500">{t("profile.form.about_me")}</label>
                   <textarea
                     name="bio"
@@ -430,7 +427,7 @@ export default function ProfileIndex() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.company_website")}</label>
                       <input
                         name="website"
@@ -445,7 +442,7 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.languages_spoken")}</label>
                       <input
                         name="languages_spoken"
@@ -456,7 +453,7 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.years_business")}</label>
                       <input
                         name="yearsExperience"
@@ -468,7 +465,7 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.specialties")}</label>
                       <textarea
                         name="specialties"
@@ -485,7 +482,7 @@ export default function ProfileIndex() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.social.instagram")}</label>
                       <div className="mt-1 flex items-center">
                         <span className="mr-1 text-gray-400">@</span>
@@ -499,7 +496,7 @@ export default function ProfileIndex() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.facebook_page")}</label>
                       <input
                         name="facebook"
@@ -514,7 +511,7 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.linkedin_company")}</label>
                       <input
                         name="linkedin"
@@ -557,7 +554,7 @@ export default function ProfileIndex() {
                       type="button"
                       onClick={() => setSelectedAvatar(NO_AVATAR_VALUE)}
                       className={`flex h-24 flex-col items-center justify-center gap-2 rounded-xl border p-2 transition-all ${
-                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200 hover:border-gray-300"
+                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
                       }`}
                     >
                       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
@@ -571,7 +568,7 @@ export default function ProfileIndex() {
                         type="button"
                         onClick={() => setSelectedAvatar(avatar)}
                         className={`rounded-xl border p-2 transition-all ${
-                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200 hover:border-gray-300"
+                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
                         }`}
                       >
                         <img src={avatar} alt="Avatar option" className="mx-auto h-20 w-20 rounded-full object-cover" loading="lazy" />
@@ -582,7 +579,7 @@ export default function ProfileIndex() {
                     <button
                       type="button"
                       onClick={() => setIsAvatarModalOpen(false)}
-                      className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700"
                     >
                       {t("messages.cancel")}
                     </button>

@@ -4,6 +4,7 @@ import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-r
 import { useEffect, useRef } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
+import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -52,6 +53,7 @@ async function resolveConversationRecipient(args: { listing: any }) {
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
+  const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
   const userId = (user as any).id as string;
   const { id } = params;
 
@@ -69,7 +71,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Listing not found", { status: 404 });
   }
 
-  const listing = localizeListing(rawListing as any, locale) as any;
+  const listing = applyListingDisplayCurrency(localizeListing(rawListing as any, locale), viewerCurrency) as any;
 
   const recipient = await resolveConversationRecipient({ listing });
 

@@ -12,37 +12,46 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const admin = await requireAdmin(request);
   const url = new URL(request.url);
-  const search = url.searchParams.get("search") || "";
+  const search = (url.searchParams.get("search") || "").trim().toLowerCase();
 
-  // Only show users created by admin (impersonatable)
-  let query = supabaseAdmin
-    .from("profiles")
-    .select("id, full_name, email, user_type, company_name, is_verified, created_by_admin, created_at")
-    .not("created_by_admin", "is", null)
+  const { data: managedRows } = await (supabaseAdmin as any)
+    .from("admin_managed_accounts")
+    .select("user_id, access_mode, created_by_admin, created_at")
+    .in("access_mode", ["internal_only", "external_password"])
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(200);
 
-  if (search) {
-    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company_name.ilike.%${search}%`);
+  const managed = managedRows || [];
+  const userIds = managed.map((row: any) => row.user_id).filter(Boolean);
+  if (userIds.length === 0) {
+    return { admin, users: [] };
   }
 
-  const { data: users } = await query;
-  const userRows = users || [];
-  const userIds = userRows.map((u: any) => u.id).filter(Boolean);
+  const { data: profiles } = await (supabaseAdmin as any)
+    .from("profiles")
+    .select("id, full_name, email, user_type, company_name, is_verified, created_at")
+    .in("id", userIds);
 
-  let mockIds = new Set<string>();
-  if (userIds.length > 0) {
-    const { data: mockRows } = await (supabaseAdmin as any)
-      .from("mock_accounts")
-      .select("user_id")
-      .in("user_id", userIds);
-    mockIds = new Set((mockRows || []).map((row: any) => String(row.user_id)));
-  }
-
-  const usersWithMockFlag = userRows.map((user: any) => ({
-    ...user,
-    is_mock: mockIds.has(String(user.id)),
-  }));
+  const profileById = new Map<string, any>((profiles || []).map((p: any) => [String(p.id), p]));
+  const usersWithMockFlag = managed
+    .map((row: any) => {
+      const profile = profileById.get(String(row.user_id));
+      if (!profile) return null;
+      return {
+        ...profile,
+        created_by_admin: row.created_by_admin ?? null,
+        managed_access_mode: row.access_mode,
+        is_mock: true,
+      };
+    })
+    .filter(Boolean)
+    .filter((user: any) => {
+      if (!search) return true;
+      const fullName = String(user.full_name || "").toLowerCase();
+      const email = String(user.email || "").toLowerCase();
+      const company = String(user.company_name || "").toLowerCase();
+      return fullName.includes(search) || email.includes(search) || company.includes(search);
+    });
 
   return { admin, users: usersWithMockFlag };
 }
@@ -60,22 +69,23 @@ export async function action({ request }: ActionFunctionArgs) {
   if (actionType === "deleteMock") {
     const { data: targetUser } = await supabaseAdmin
       .from("profiles")
-      .select("id, created_by_admin")
+      .select("id")
       .eq("id", userId)
       .single();
 
-    const { data: mockRow } = await (supabaseAdmin as any)
-      .from("mock_accounts")
-      .select("user_id")
+    const { data: managedRow } = await (supabaseAdmin as any)
+      .from("admin_managed_accounts")
+      .select("user_id, access_mode, created_by_admin")
       .eq("user_id", userId)
+      .in("access_mode", ["internal_only", "external_password"])
       .maybeSingle();
 
-    if (!targetUser || !targetUser.created_by_admin || !mockRow?.user_id) {
+    if (!targetUser || !managedRow?.user_id) {
       return data({ error: "Only admin-created mock users can be deleted from here" }, { status: 403 });
     }
 
     const canDelete =
-      isSuperAdmin(admin) || (targetUser as any).created_by_admin === (admin as any).id;
+      isSuperAdmin(admin) || (managedRow as any).created_by_admin === (admin as any).id;
     if (!canDelete) {
       return data({ error: "You can only delete your own mock users" }, { status: 403 });
     }
@@ -105,15 +115,16 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ success: true, message: "Mock user deleted" });
   }
 
-  // Server-side check: only allow impersonation of admin-created users
-  const { data: targetUser } = await supabaseAdmin
-    .from("profiles")
-    .select("id, created_by_admin")
-    .eq("id", userId)
-    .single();
+  // Server-side check: only allow impersonation of mock users managed as internal/external.
+  const { data: managedRow } = await (supabaseAdmin as any)
+    .from("admin_managed_accounts")
+    .select("user_id, access_mode")
+    .eq("user_id", userId)
+    .in("access_mode", ["internal_only", "external_password"])
+    .maybeSingle();
 
-  if (!targetUser || !(targetUser as any).created_by_admin) {
-    return data({ error: "You can only impersonate users created from the admin panel" }, { status: 403 });
+  if (!managedRow?.user_id) {
+    return data({ error: "You can only impersonate mock users from the admin panel" }, { status: 403 });
   }
 
   return startImpersonation(request, userId);
@@ -138,7 +149,7 @@ export default function AdminImpersonate() {
       <div className="mb-6">
         <h1 className="font-display text-2xl md:text-3xl font-bold text-gray-900">Impersonate User</h1>
         <p className="text-gray-500 mt-1">
-          View and act as a user you created. Only admin-created users can be impersonated.
+          View and act as mock users. Only mock internal/external users are listed here.
         </p>
       </div>
 
@@ -272,7 +283,7 @@ export default function AdminImpersonate() {
 
         {users.length === 0 && (
           <div className="p-8 text-center text-gray-400 text-sm">
-            No admin-created users found. Create users from the <a href="/admin/users/new" className="text-brand-600 hover:underline">Users panel</a> to impersonate them.
+            No mock users found. Create users from the <a href="/admin/users/new" className="text-brand-600 hover:underline">Users panel</a> to impersonate them.
           </div>
         )}
       </div>

@@ -5,6 +5,19 @@ import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
 
+function formatCurrencyAmount(value: number, currency: string | null | undefined): string {
+  const safeCurrency = (currency || "EUR").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: safeCurrency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${safeCurrency} ${PRICE_FORMATTER.format(value)}`;
+  }
+}
+
 
 interface ListingCardCompactProps {
   listing: {
@@ -77,6 +90,7 @@ function formatRoomTypeShort(roomType: string | null): string {
 
 type ToListingMeta = {
   room_type_prices?: Record<string, number>;
+  room_type_prices_converted?: Record<string, Record<string, number>>;
 };
 
 function parseToMeta(raw: string | null | undefined): ToListingMeta | null {
@@ -115,7 +129,12 @@ export function ListingCardCompact({
     : isSaved;
   const canSaveListing = isUserLoggedIn && !!currentUserId && listing.author.id !== currentUserId;
   const toMeta = parseToMeta(listing.cost_notes);
-  const roomTypePrices = toMeta?.room_type_prices || {};
+  const roomTypePrices =
+    (toMeta?.room_type_prices_converted &&
+      listing.currency &&
+      toMeta.room_type_prices_converted[String(listing.currency).toUpperCase()]) ||
+    toMeta?.room_type_prices ||
+    {};
   const roomTypePriceValues = Object.values(roomTypePrices).filter((v): v is number => typeof v === "number" && v > 0);
   const minRoomTypePrice = roomTypePriceValues.length > 0 ? Math.min(...roomTypePriceValues) : null;
 
@@ -320,16 +339,15 @@ export function ListingCardCompact({
             <div className="text-right flex-1 flex justify-end">
               {listing.listing_type === "bib" && listing.associated_costs ? (
                 <p className="text-base font-bold text-gray-900">
-                  €{PRICE_FORMATTER.format(listing.associated_costs)}
+                  {formatCurrencyAmount(listing.associated_costs, listing.currency)}
                 </p>
               ) : listing.listing_type === "room" && minRoomTypePrice ? (
                 <p className="text-base font-bold text-gray-900">
-                  From {(listing.currency || "EUR") === "EUR" ? "€" : `${listing.currency} `}
-                  {PRICE_FORMATTER.format(minRoomTypePrice)}
+                  From {formatCurrencyAmount(minRoomTypePrice, listing.currency)}
                 </p>
               ) : listing.price ? (
                 <p className="text-base font-bold text-gray-900">
-                  €{PRICE_FORMATTER.format(listing.price)}
+                  {formatCurrencyAmount(listing.price, listing.currency)}
                 </p>
               ) : (
                 <p className="text-xs font-medium text-gray-600">Contact</p>

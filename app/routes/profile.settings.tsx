@@ -147,7 +147,7 @@ export default function Settings() {
                 <button
                   type="button"
                   onClick={() => setIsAvatarModalOpen(true)}
-                  className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-2xl font-bold text-white ring-offset-2 transition-all hover:scale-[1.03] hover:ring-2 hover:ring-brand-300 md:h-24 md:w-24 md:text-3xl"
+                  className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-2xl font-bold text-white ring-offset-2 transition-all md:h-24 md:w-24 md:text-3xl"
                   aria-label="Choose avatar"
                 >
                   {user.avatar_url ? (
@@ -180,7 +180,7 @@ export default function Settings() {
                       className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
                         isActive
                           ? "bg-brand-100 text-brand-800 shadow-sm ring-1 ring-brand-200"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                          : "text-gray-600"
                       }`}
                     >
                       {item.icon === "user" && (
@@ -242,7 +242,7 @@ export default function Settings() {
 
             <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.account")}</h3>
             <div className="mb-6 grid grid-cols-1 gap-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-500">{t("profile.settings.email")}</label>
@@ -254,13 +254,13 @@ export default function Settings() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-900">{t("profile.settings.change_password")}</label>
                     <p className="mt-1 text-sm text-gray-500">{t("profile.settings.update_password")}</p>
                   </div>
-                  <Link to="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                  <Link to="/forgot-password" className="text-sm font-medium text-brand-600">
                     {t("profile.settings.reset_password")}
                   </Link>
                 </div>
@@ -268,7 +268,7 @@ export default function Settings() {
             </div>
 
             <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.public_profile")}</h3>
-            <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+            <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
               <Form method="post" className="space-y-4">
                 <input type="hidden" name="intent" value="update_profile_visibility" />
 
@@ -320,7 +320,7 @@ export default function Settings() {
                 </div>
 
                 <div className="pt-1">
-                  <button type="submit" className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700">
+                  <button type="submit" className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white">
                     {t("profile.actions.save_changes")}
                   </button>
                 </div>
@@ -339,7 +339,7 @@ export default function Settings() {
                       type="button"
                       onClick={() => setSelectedAvatar(NO_AVATAR_VALUE)}
                       className={`flex h-24 flex-col items-center justify-center gap-2 rounded-xl border p-2 transition-all ${
-                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200 hover:border-gray-300"
+                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
                       }`}
                     >
                       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
@@ -353,7 +353,7 @@ export default function Settings() {
                         type="button"
                         onClick={() => setSelectedAvatar(avatar)}
                         className={`rounded-xl border p-2 transition-all ${
-                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200 hover:border-gray-300"
+                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
                         }`}
                       >
                         <img src={avatar} alt="Avatar option" className="mx-auto h-20 w-20 rounded-full object-cover" loading="lazy" />
@@ -364,7 +364,7 @@ export default function Settings() {
                     <button
                       type="button"
                       onClick={() => setIsAvatarModalOpen(false)}
-                      className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700"
                     >
                       {t("messages.cancel")}
                     </button>
@@ -381,7 +381,7 @@ export default function Settings() {
             )}
 
             <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.blocked_users")}</h3>
-            <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+            <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
               {blockedUsers.length > 0 ? (
                 <div className="divide-y divide-gray-100">
                   {blockedUsers.map((block: any) => (
@@ -404,7 +404,7 @@ export default function Settings() {
                         <input type="hidden" name="blocked_id" value={block.blocked_id} />
                         <button
                           type="submit"
-                          className="text-sm font-medium text-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="text-sm font-medium text-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
                           disabled={isUnblocking}
                         >
                           {isUnblocking ? `${t("profile.settings.unblock")}...` : t("profile.settings.unblock")}
@@ -420,7 +420,7 @@ export default function Settings() {
 
             <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.notifications")}</h3>
             <div className="mb-6 grid grid-cols-1 gap-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-900">{t("profile.settings.email_notifications")}</label>
@@ -433,29 +433,29 @@ export default function Settings() {
 
             <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.support")}</h3>
             <div className="mb-6 grid grid-cols-1 gap-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-900">{t("profile.settings.contact_us")}</label>
                     <p className="mt-1 text-sm text-gray-500">{t("profile.settings.report_problem")}</p>
                   </div>
-                  <Link to="/contact" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                  <Link to="/contact" className="text-sm font-medium text-brand-600">
                     {t("profile.settings.contact")}
                   </Link>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-900">{t("profile.settings.terms_privacy")}</label>
                     <p className="mt-1 text-sm text-gray-500">{t("profile.settings.read_terms_privacy")}</p>
                   </div>
                   <div className="flex gap-3">
-                    <Link to="/terms" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                    <Link to="/terms" className="text-sm font-medium text-brand-600">
                       {t("profile.settings.terms")}
                     </Link>
-                    <Link to="/privacy-policy" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                    <Link to="/privacy-policy" className="text-sm font-medium text-brand-600">
                       {t("profile.settings.privacy")}
                     </Link>
                   </div>

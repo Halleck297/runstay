@@ -12,6 +12,8 @@ import { HotelAutocomplete } from "~/components/HotelAutocomplete";
 import { DatePicker } from "~/components/DatePicker";
 import { RoomTypeDropdown } from "~/components/RoomTypeDropdown";
 import { CurrencyPicker } from "~/components/CurrencyPicker";
+import { getCurrencyForCountry, normalizeCurrencyOrDefault } from "~/lib/currency";
+import { buildConvertedPriceMap, getLatestFxRates } from "~/lib/fx.server";
 import {
   getMaxLimit,
   getTransferMethodOptions,
@@ -109,7 +111,16 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   // Price
   const price = formData.get("price") as string;
+  const currency = normalizeCurrencyOrDefault(
+    formData.get("currency") as string | null,
+    user.country
+  );
   const priceNegotiable = formData.get("priceNegotiable") === "true";
+  const numericPrice = price ? parseFloat(price) : null;
+  const numericAssociatedCosts = associatedCosts ? parseFloat(associatedCosts) : null;
+  const fxRates = await getLatestFxRates();
+  const priceConverted = buildConvertedPriceMap(numericPrice, currency, fxRates);
+  const associatedCostsConverted = buildConvertedPriceMap(numericAssociatedCosts, currency, fxRates);
 
   // Validation
   if (!listingType) {
@@ -259,12 +270,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
       bib_count: bibCount ? parseInt(bibCount) : null,
 
       // Price
-      price: price ? parseFloat(price) : null,
+      price: numericPrice,
+      currency,
+      price_converted: priceConverted,
       price_negotiable: priceNegotiable,
 
       // Bib transfer
       transfer_type: transferType || null,
-      associated_costs: associatedCosts ? parseFloat(associatedCosts) : null,
+      associated_costs: numericAssociatedCosts,
+      associated_costs_converted: associatedCostsConverted,
       cost_notes: costNotes || null,
     } as any)
     .eq("id", (existingListing as any).id);
@@ -309,7 +323,7 @@ export default function EditListing() {
   const [selectedEvent, setSelectedEvent] = useState<any>(listingData.event);
   const [transferMethod, setTransferMethod] = useState<TransferMethod | null>(listingData.transfer_type);
   const [checkInDate, setCheckInDate] = useState<Date | null>(listingData.check_in ? new Date(listingData.check_in) : null);
-  const [currency, setCurrency] = useState<string>(listingData.currency || "EUR");
+  const [currency, setCurrency] = useState<string>(listingData.currency || getCurrencyForCountry((user as any).country));
   const [priceValue, setPriceValue] = useState<string>(listingData.price?.toString() || "");
   const [priceNegotiable, setPriceNegotiable] = useState<boolean | null>(listingData.price_negotiable === true ? true : listingData.price_negotiable === false ? false : null);
 

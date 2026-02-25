@@ -5,6 +5,7 @@ import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { localizeListing, localizeEvent, resolveLocaleForRequest } from "~/lib/locale";
+import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
@@ -24,6 +25,7 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
+  const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
 
   // Recent listings on home must be consistent for all users.
   const { data: homeListings } = await (supabaseAdmin as any)
@@ -40,7 +42,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .order("created_at", { ascending: false })
     .limit(3);
 
-  const listings = (homeListings || []).map((listing: any) => localizeListing(listing, locale));
+  const listings = (homeListings || []).map((listing: any) =>
+    applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
+  );
 
   // Get saved listing IDs for this user
   let savedListingIds: string[] = [];

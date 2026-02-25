@@ -8,6 +8,7 @@ import { ToProfileSidebar, type ToProfileSidebarItem } from "~/components/ToProf
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { getCountryDisplayName } from "~/lib/supportedCountries";
 
 export const meta: MetaFunction = () => {
   return [{ title: "My Profile - runoot" }];
@@ -73,10 +74,11 @@ export default function ProfileIndex() {
   const actionData = useActionData<typeof action>() as { error: string } | { success: boolean } | undefined;
   const location = useLocation();
   const navigation = useNavigation();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const isUpdatingAvatar = navigation.state === "submitting" && navigation.formData?.get("intent") === "update_avatar";
   const isTourOperator = user.user_type === "tour_operator";
   const publicName = getPublicDisplayName(user);
+  const countryDisplayValue = getCountryDisplayName((user as any).country, locale);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<string>(
     user.avatar_url && isValidOpenDoodleAvatar(user.avatar_url) ? user.avatar_url : NO_AVATAR_VALUE,
@@ -166,7 +168,9 @@ export default function ProfileIndex() {
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 shadow-sm md:p-5">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.form.email_address")}</label>
+                      <label className="text-sm font-medium text-gray-500">
+                        {t("profile.form.email_address")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
+                      </label>
                       <p className="mt-1 font-medium text-gray-700">{user.email}</p>
                     </div>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -230,7 +234,7 @@ export default function ProfileIndex() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
-                  <p className="mt-1 font-medium text-gray-700">{(user as any).country || t("profile.form.not_set")}</p>
+                  <p className="mt-1 font-medium text-gray-700">{countryDisplayValue || t("profile.form.not_set")}</p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 shadow-sm md:p-5">

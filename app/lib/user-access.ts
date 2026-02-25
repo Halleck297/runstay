@@ -3,15 +3,20 @@ export function isTourOperator(profile: any): boolean {
 }
 
 export function isTeamLeader(profile: any): boolean {
-  return profile?.user_type === "team_leader";
+  return profile?.user_type === "team_leader" || profile?.is_team_leader === true;
 }
 
 export function isAdmin(profile: any): boolean {
-  return profile?.user_type === "admin" || profile?.user_type === "superadmin";
+  return (
+    profile?.user_type === "admin" ||
+    profile?.user_type === "superadmin" ||
+    profile?.role === "admin" ||
+    profile?.role === "superadmin"
+  );
 }
 
 export function isSuperAdmin(profile: any): boolean {
-  return profile?.user_type === "superadmin";
+  return profile?.user_type === "superadmin" || profile?.role === "superadmin";
 }
 
 export function getUserRoleLabel(profile: any): string {

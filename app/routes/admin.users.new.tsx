@@ -1,6 +1,6 @@
 // app/routes/admin.users.new.tsx - Create User from Admin
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
-import { data, redirect } from "react-router";
+import { data } from "react-router";
 import { useActionData, Form, Link, useSearchParams } from "react-router";
 import { useState } from "react";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
@@ -26,6 +26,31 @@ function randomTempPassword() {
   return `Runoot!${Math.random().toString(36).slice(2, 10)}A1`;
 }
 
+async function createAuthUserWithPassword(args: {
+  email: string;
+  password: string;
+  fullName: string;
+  userType: "private";
+  companyName?: string | null;
+}) {
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email: args.email,
+    password: args.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: args.fullName,
+      user_type: args.userType,
+      company_name: args.companyName || null,
+    },
+  });
+
+  if (authError || !authData?.user?.id) {
+    return { error: authError?.message || "Failed to create user", userId: null as string | null };
+  }
+
+  return { error: null as string | null, userId: authData.user.id };
+}
+
 function getActionLinkFromLinkResponse(linkData: any): string | null {
   return (
     linkData?.properties?.action_link ||
@@ -39,7 +64,7 @@ function getActionLinkFromLinkResponse(linkData: any): string | null {
 async function createUserWithInviteEmail(args: {
   email: string;
   fullName: string;
-  userType: "private" | "tour_operator";
+  userType: "private";
   companyName?: string | null;
   appUrl: string;
 }) {
@@ -95,86 +120,93 @@ async function createUserWithInviteEmail(args: {
 export async function action({ request }: ActionFunctionArgs) {
   const admin = await requireAdmin(request);
   const formData = await request.formData();
-  const actionType = String(formData.get("_action") || "createManual");
-  const accessMode = String(formData.get("accessMode") || "password");
+  const actionType = String(formData.get("_action") || "createRealInvite");
   const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
 
-  const mockPayload = actionType === "createMock" ? buildMockPayload() : null;
+  const mockPayload = buildMockPayload();
   const mockFullName = String(formData.get("mockFullName") || "").trim();
+  const isMockMode = actionType === "createMock";
+  const isRealInviteMode = actionType === "createRealInvite";
+  const mockAccessMode = String(formData.get("mockAccessMode") || "internal_only") as
+    | "internal_only"
+    | "external_password";
 
-  const isAgencyMode = actionType === "createAgencyInvite";
-
-  const email = (mockPayload?.email || String(formData.get("email") || "")).trim().toLowerCase();
-  const fullName = (
-    actionType === "createMock"
-      ? (mockFullName || mockPayload?.fullName || "")
-      : isAgencyMode
-        ? String(formData.get("agencyCompanyName") || "")
-        : String(formData.get("fullName") || "")
-  ).trim();
-
-  const companyName = (
-    isAgencyMode ? String(formData.get("agencyCompanyName") || "") : mockPayload?.companyName || ""
-  ).trim();
-
-  const userType = (isAgencyMode ? "tour_operator" : (mockPayload?.userType || String(formData.get("userType") || ""))) as "private" | "tour_operator";
-
-  const password = String(formData.get("password") || "");
-  const skipConfirmation = formData.get("skipConfirmation") === "on";
-
-  if (!email || !fullName || !userType) {
-    return data({ error: "Email, name, and user type are required" }, { status: 400 });
+  if (!["createMock", "createRealInvite"].includes(actionType)) {
+    return data({ error: "Invalid action type" }, { status: 400 });
   }
-
-  if (isAgencyMode && !companyName) {
-    return data({ error: "Agency company name is required" }, { status: 400 });
-  }
-
-  const needsPassword = actionType === "createManual" && accessMode === "password";
-  if (needsPassword && password.length < 6) {
-    return data({ error: "Password must be at least 6 characters" }, { status: 400 });
-  }
-
-  if (!["private", "tour_operator"].includes(userType)) {
-    return data({ error: "Invalid user type" }, { status: 400 });
+  if (!["internal_only", "external_password"].includes(mockAccessMode)) {
+    return data({ error: "Invalid mock access mode" }, { status: 400 });
   }
 
   try {
     let targetUserId: string | null = null;
+    let email = "";
+    let fullName = "";
+    let companyName = "";
+    let userType: "private" = "private";
+    let managedAccessMode: "internal_only" | "external_password" | "external_invite";
+    let isVerified = false;
 
-    if (actionType === "createMock") {
-      targetUserId = crypto.randomUUID();
-    } else if (actionType === "createAgencyInvite" || (actionType === "createManual" && accessMode === "invite")) {
+    if (isMockMode) {
+      fullName = mockFullName;
+      userType = "private";
+      companyName = "";
+      isVerified = true;
+
+      if (!fullName) {
+        return data({ error: "Mock full name is required" }, { status: 400 });
+      }
+
+      if (mockAccessMode === "internal_only") {
+        targetUserId = crypto.randomUUID();
+        email = mockPayload.email;
+        managedAccessMode = "internal_only";
+      } else {
+        email = String(formData.get("mockEmail") || "").trim().toLowerCase();
+        const mockPassword = String(formData.get("mockPassword") || "");
+
+        if (!email || !fullName) {
+          return data({ error: "Mock email and name are required" }, { status: 400 });
+        }
+        if (mockPassword.length < 6) {
+          return data({ error: "Mock password must be at least 6 characters" }, { status: 400 });
+        }
+
+        const createResult = await createAuthUserWithPassword({
+          email,
+          password: mockPassword,
+          fullName,
+          userType,
+          companyName: null,
+        });
+        if (createResult.error || !createResult.userId) {
+          return data({ error: createResult.error || "Failed to create mock auth account" }, { status: 400 });
+        }
+        targetUserId = createResult.userId;
+        managedAccessMode = "external_password";
+      }
+    } else {
+      email = String(formData.get("email") || "").trim().toLowerCase();
+      fullName = String(formData.get("fullName") || "").trim();
+      companyName = "";
+      userType = "private";
+      managedAccessMode = "external_invite";
+
+      if (!email || !fullName) {
+        return data({ error: "Email and full name are required" }, { status: 400 });
+      }
+
       const inviteResult = await createUserWithInviteEmail({
         email,
         fullName,
         userType,
-        companyName: companyName || null,
+        companyName: null,
         appUrl,
       });
-
       if (inviteResult.error || !inviteResult.userId) {
         return data({ error: inviteResult.error || "Could not create invited user" }, { status: 400 });
       }
-
       targetUserId = inviteResult.userId;
-    } else {
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: skipConfirmation,
-        user_metadata: {
-          full_name: fullName,
-          user_type: userType,
-          company_name: null,
-        },
-      });
-
-      if (authError || !authData?.user?.id) {
-        return data({ error: authError?.message || "Failed to create user" }, { status: 400 });
-      }
-
-      targetUserId = authData.user.id;
     }
 
     const profileData: any = {
@@ -183,6 +215,7 @@ export async function action({ request }: ActionFunctionArgs) {
       full_name: fullName,
       user_type: userType,
       company_name: companyName || null,
+      is_verified: isVerified,
       created_by_admin: (admin as any).id,
     };
 
@@ -194,20 +227,18 @@ export async function action({ request }: ActionFunctionArgs) {
       return data({ error: `Profile creation failed: ${profileError.message}` }, { status: 500 });
     }
 
-    if (actionType === "createMock") {
-      const { error: mockError } = await (supabaseAdmin as any)
-        .from("mock_accounts")
-        .upsert(
-          {
-            user_id: targetUserId,
-            created_by_admin: (admin as any).id,
-          },
-          { onConflict: "user_id" },
-        );
-
-      if (mockError) {
-        return data({ error: `Mock profile tagging failed: ${mockError.message}` }, { status: 500 });
-      }
+    const { error: managedError } = await (supabaseAdmin as any)
+      .from("admin_managed_accounts")
+      .upsert(
+        {
+          user_id: targetUserId,
+          access_mode: managedAccessMode,
+          created_by_admin: (admin as any).id,
+        },
+        { onConflict: "user_id" },
+      );
+    if (managedError) {
+      return data({ error: `Managed account tagging failed: ${managedError.message}` }, { status: 500 });
     }
 
     await logAdminAction((admin as any).id, "user_created", {
@@ -216,24 +247,20 @@ export async function action({ request }: ActionFunctionArgs) {
         email,
         user_type: userType,
         mode: actionType,
-        access_mode: isAgencyMode ? "invite" : accessMode,
-        mock_profile_only: actionType === "createMock",
+        access_mode: managedAccessMode,
+        mock_profile_only: isMockMode,
       },
     });
 
-    if (actionType === "createMock") {
-      return data({ success: true, message: `Mock user created: ${fullName}` });
+    if (isMockMode) {
+      if (managedAccessMode === "internal_only") {
+        return data({ success: true, message: `Mock internal user created: ${fullName}` });
+      }
+      return data({ success: true, message: `Mock external user created: ${fullName}` });
     }
 
-    if (actionType === "createAgencyInvite") {
-      return data({ success: true, message: `Agency invited: ${companyName}. Password setup email sent to ${email}.` });
-    }
-
-    if (accessMode === "invite") {
-      return data({ success: true, message: `Invite sent to ${email}. Password setup email delivered.` });
-    }
-
-    return redirect("/admin/users");
+    if (isRealInviteMode) return data({ success: true, message: `Invite sent to ${email}. Password setup email delivered.` });
+    return data({ success: true, message: "User created." });
   } catch (err: any) {
     return data({ error: err.message || "An unexpected error occurred" }, { status: 500 });
   }
@@ -242,15 +269,11 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function AdminCreateUser() {
   const actionData = useActionData<typeof action>();
   const [searchParams] = useSearchParams();
-  const initialMode = searchParams.get("mode") === "agency" ? "agency" : "user";
-  const [createMode, setCreateMode] = useState<"user" | "mock" | "agency">(initialMode);
-  const [accessMode, setAccessMode] = useState<"password" | "invite">("password");
-  const [previewEmail, setPreviewEmail] = useState("");
-  const [previewName, setPreviewName] = useState("");
+  const initialMode = searchParams.get("mode") === "mock" ? "mock" : "user";
+  const [createMode, setCreateMode] = useState<"user" | "mock">(initialMode);
+  const [mockAccessMode, setMockAccessMode] = useState<"internal_only" | "external_password">("internal_only");
 
   const isMockMode = createMode === "mock";
-  const isAgencyMode = createMode === "agency";
-  const isInviteFlow = isAgencyMode || (!isMockMode && accessMode === "invite");
 
   return (
     <div className="max-w-2xl">
@@ -262,7 +285,7 @@ export default function AdminCreateUser() {
         </Link>
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-bold text-gray-900">Create User</h1>
-          <p className="text-gray-500 mt-1">Add a new user to the platform</p>
+          <p className="text-gray-500 mt-1">Invite real users or create mock users</p>
         </div>
       </div>
 
@@ -290,7 +313,7 @@ export default function AdminCreateUser() {
                   createMode === "user" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
                 }`}
               >
-                User
+                External User Invite
               </button>
               <button
                 type="button"
@@ -301,75 +324,93 @@ export default function AdminCreateUser() {
               >
                 Mock User
               </button>
-              <button
-                type="button"
-                onClick={() => setCreateMode("agency")}
-                className={`px-4 py-1.5 text-sm rounded-full transition-colors ${
-                  createMode === "agency" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
-                }`}
-              >
-                Agency
-              </button>
             </div>
           </div>
 
           <input
             type="hidden"
             name="_action"
-            value={isAgencyMode ? "createAgencyInvite" : (isMockMode ? "createMock" : "createManual")}
+            value={isMockMode ? "createMock" : "createRealInvite"}
           />
-          <input type="hidden" name="accessMode" value={isAgencyMode ? "invite" : accessMode} />
+          <input type="hidden" name="mockAccessMode" value={mockAccessMode} />
 
           {isMockMode && (
             <>
               <p className="text-xs text-gray-500">
-                Mock users are for initial traffic simulation and superadmin impersonation.
+                Mock users can be internal-only (no credentials) or external (email and password).
               </p>
               <div>
-                <label htmlFor="mockFullName" className="label">Mock Username</label>
+                <label className="label">Mock Access</label>
+                <div className="flex items-center gap-2 rounded-full bg-gray-100 p-1 w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setMockAccessMode("internal_only")}
+                    className={`px-4 py-1.5 text-sm rounded-full transition-colors ${
+                      mockAccessMode === "internal_only" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                    }`}
+                  >
+                    Internal Only (No Login)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMockAccessMode("external_password")}
+                    className={`px-4 py-1.5 text-sm rounded-full transition-colors ${
+                      mockAccessMode === "external_password" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                    }`}
+                  >
+                    External Login
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="mockFullName" className="label">Mock Full Name *</label>
                 <input
                   type="text"
                   id="mockFullName"
                   name="mockFullName"
                   className="input w-full"
                   placeholder="e.g. Runner Luca Test"
+                  required
                 />
-                <p className="text-xs text-gray-500 mt-1">Optional. Leave empty to auto-generate.</p>
+                <p className="text-xs text-gray-500 mt-1">Displayed as runner profile name in app/admin lists.</p>
               </div>
+              {mockAccessMode === "external_password" && (
+                <>
+                  <div>
+                    <label htmlFor="mockEmail" className="label">Mock Email *</label>
+                    <input
+                      type="email"
+                      id="mockEmail"
+                      name="mockEmail"
+                      className="input w-full"
+                      placeholder="mock.user@example.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="mockPassword" className="label">Mock Password *</label>
+                    <input
+                      type="password"
+                      id="mockPassword"
+                      name="mockPassword"
+                      className="input w-full"
+                      placeholder="Minimum 6 characters"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs text-gray-500">
+                      Email confirmation is skipped automatically for mock external accounts.
+                    </p>
+                  </div>
+                </>
+              )}
             </>
           )}
 
-          {!isMockMode && !isAgencyMode && (
+          {!isMockMode && (
             <>
-              <div>
-                <label className="label">Access Setup</label>
-                <div className="flex items-center gap-2 rounded-full bg-gray-100 p-1 w-fit">
-                  <button
-                    type="button"
-                    onClick={() => setAccessMode("password")}
-                    className={`px-4 py-1.5 text-sm rounded-full transition-colors ${
-                      accessMode === "password" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
-                    }`}
-                  >
-                    Set Password Now
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAccessMode("invite")}
-                    className={`px-4 py-1.5 text-sm rounded-full transition-colors ${
-                      accessMode === "invite" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
-                    }`}
-                  >
-                    Invite via Email
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {accessMode === "invite"
-                    ? "A password setup email will be sent using Runoot template."
-                    : "Set credentials now for direct access."}
-                </p>
-              </div>
-
               <div>
                 <label htmlFor="email" className="label">Email *</label>
                 <input
@@ -378,22 +419,8 @@ export default function AdminCreateUser() {
                   name="email"
                   className="input w-full"
                   placeholder="user@example.com"
-                  onChange={(e) => setPreviewEmail(e.target.value)}
                 />
               </div>
-
-              {accessMode === "password" && (
-                <div>
-                  <label htmlFor="password" className="label">Password *</label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    className="input w-full"
-                    placeholder="Minimum 6 characters"
-                  />
-                </div>
-              )}
 
               <div>
                 <label htmlFor="fullName" className="label">Full Name *</label>
@@ -403,84 +430,17 @@ export default function AdminCreateUser() {
                   name="fullName"
                   className="input w-full"
                   placeholder="John Doe"
-                  onChange={(e) => setPreviewName(e.target.value)}
                 />
               </div>
-
-              <div>
-                <label htmlFor="userType" className="label">User Type *</label>
-                <select id="userType" name="userType" defaultValue="private" className="input w-full">
-                  <option value="private">Private Runner</option>
-                  <option value="tour_operator">Tour Operator</option>
-                </select>
-              </div>
-
-              {accessMode === "password" && (
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="skipConfirmation"
-                    name="skipConfirmation"
-                    defaultChecked
-                    className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                  />
-                  <label htmlFor="skipConfirmation" className="text-sm text-gray-700">
-                    Skip email confirmation (user can login immediately)
-                  </label>
-                </div>
-              )}
-            </>
-          )}
-
-          {isAgencyMode && (
-            <>
               <p className="text-xs text-gray-500">
-                Agency accounts are created by superadmin and always invited by email for password setup.
+                Real users are invite-only. They will receive an email to set their password.
               </p>
-              <div>
-                <label htmlFor="email" className="label">Agency Email *</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  className="input w-full"
-                  placeholder="agency@example.com"
-                  onChange={(e) => setPreviewEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="agencyCompanyName" className="label">Company Name *</label>
-                <input
-                  type="text"
-                  id="agencyCompanyName"
-                  name="agencyCompanyName"
-                  className="input w-full"
-                  placeholder="Agency Company Name"
-                  onChange={(e) => setPreviewName(e.target.value)}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  This value is stored as display name and company name.
-                </p>
-              </div>
             </>
-          )}
-
-          {isInviteFlow && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Email Preview</p>
-              <p className="text-sm text-gray-700"><span className="font-medium">To:</span> {previewEmail || "recipient@example.com"}</p>
-              <p className="text-sm text-gray-700"><span className="font-medium">Subject:</span> Your Runoot account is ready</p>
-              <div className="mt-2 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700">
-                <p>A Runoot admin created your account{previewName ? ` for ${previewName}` : ""}.</p>
-                <p className="mt-2 text-xs text-gray-500">Button CTA: Set your password</p>
-                <p className="mt-1 text-xs text-gray-500">The setup link is generated automatically on submit.</p>
-              </div>
-            </div>
           )}
 
           <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
             <button type="submit" className="btn-primary rounded-full">
-              {isMockMode ? "Create Mock User" : isAgencyMode ? "Create Agency & Send Invite" : "Create User"}
+              {isMockMode ? "Create Mock User" : "Send User Invite"}
             </button>
             <button type="reset" className="btn-secondary rounded-full">
               Reset

@@ -157,10 +157,12 @@ CREATE TABLE public.listings (
   check_out DATE,
   bib_count INTEGER,
   price DECIMAL(10,2),
-  currency TEXT DEFAULT 'EUR' CHECK (currency IN ('EUR', 'USD', 'GBP', 'JPY')),
+  currency TEXT DEFAULT 'EUR' CHECK (currency IN ('EUR', 'USD', 'GBP', 'JPY', 'CAD', 'CHF', 'AUD')),
+  price_converted JSONB,
   price_negotiable BOOLEAN DEFAULT FALSE,
   transfer_type TEXT CHECK (transfer_type IN ('official_process', 'package', 'contact')),
   associated_costs DECIMAL(10,2),
+  associated_costs_converted JSONB,
   cost_notes TEXT,
 
   -- Distance to finish line (calculated from hotel coordinates)
@@ -174,6 +176,14 @@ CREATE TABLE public.listings (
   reviewed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- FX Rates snapshots (weekly refresh)
+CREATE TABLE public.fx_rates (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  effective_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  rates JSONB NOT NULL,
+  source TEXT
 );
 
 -- Conversations

@@ -5,12 +5,16 @@ export function isUuid(value: string): boolean {
   return UUID_REGEX.test(value);
 }
 
+function deriveShortIdFromUuid(uuid: string): string {
+  return uuid.replace(/-/g, "").slice(0, 12);
+}
+
 export function getProfilePublicId(profile: { id: string; short_id?: string | null }): string {
-  return profile.short_id || profile.id;
+  return profile.short_id || deriveShortIdFromUuid(profile.id);
 }
 
 export function getListingPublicId(listing: { id: string; short_id?: string | null }): string {
-  return listing.short_id || listing.id;
+  return listing.short_id || deriveShortIdFromUuid(listing.id);
 }
 
 export function applyProfilePublicIdFilter<TQuery extends { eq: (column: string, value: string) => TQuery }>(

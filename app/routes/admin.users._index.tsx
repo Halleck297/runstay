@@ -59,18 +59,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const userRows = users || [];
   const userIds = userRows.map((u: any) => u.id).filter(Boolean);
 
-  let mockIds = new Set<string>();
+  const managedByUserId = new Map<string, { access_mode: string; created_by_admin: string | null }>();
   if (userIds.length > 0) {
-    const { data: mockRows } = await (supabaseAdmin as any)
-      .from("mock_accounts")
-      .select("user_id")
+    const { data: managedRows } = await (supabaseAdmin as any)
+      .from("admin_managed_accounts")
+      .select("user_id, access_mode, created_by_admin")
       .in("user_id", userIds);
-    mockIds = new Set((mockRows || []).map((row: any) => String(row.user_id)));
+    for (const row of managedRows || []) {
+      managedByUserId.set(String((row as any).user_id), {
+        access_mode: String((row as any).access_mode || ""),
+        created_by_admin: ((row as any).created_by_admin as string | null) || null,
+      });
+    }
   }
 
   const usersWithMockFlag = userRows.map((user: any) => ({
     ...user,
-    is_mock: mockIds.has(String(user.id)),
+    is_mock: ["internal_only", "external_password"].includes(managedByUserId.get(String(user.id))?.access_mode || ""),
+    managed_access_mode: managedByUserId.get(String(user.id))?.access_mode || null,
+    admin_managed_by: managedByUserId.get(String(user.id))?.created_by_admin || null,
   }));
 
   return {
@@ -153,14 +160,14 @@ export async function action({ request }: ActionFunctionArgs) {
 
     case "impersonate": {
       const userId = formData.get("userId") as string;
-      // Only allow impersonation of admin-created users
-      const { data: targetUser } = await supabaseAdmin
-        .from("profiles")
-        .select("id, created_by_admin")
-        .eq("id", userId)
-        .single();
-      if (!targetUser || !(targetUser as any).created_by_admin) {
-        return data({ error: "You can only impersonate users created from the admin panel" }, { status: 403 });
+      // Only allow impersonation of admin-managed mock users.
+      const { data: targetUser } = await (supabaseAdmin as any)
+        .from("admin_managed_accounts")
+        .select("user_id, access_mode")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!targetUser || !["internal_only", "external_password"].includes((targetUser as any).access_mode)) {
+        return data({ error: "You can only impersonate mock users" }, { status: 403 });
       }
       return startImpersonation(request, userId);
     }
@@ -175,23 +182,23 @@ export async function action({ request }: ActionFunctionArgs) {
 
       const { data: targetUser } = await (supabaseAdmin as any)
         .from("profiles")
-        .select("id, created_by_admin")
+        .select("id")
         .eq("id", userId)
         .maybeSingle();
       if (!targetUser?.id) {
         return data({ error: "User not found" }, { status: 404 });
       }
 
-      const { data: mockRow } = await (supabaseAdmin as any)
-        .from("mock_accounts")
-        .select("user_id")
+      const { data: managedRow } = await (supabaseAdmin as any)
+        .from("admin_managed_accounts")
+        .select("user_id, access_mode, created_by_admin")
         .eq("user_id", userId)
         .maybeSingle();
-      const isMock = Boolean(mockRow?.user_id);
+      const isMock = !!managedRow && ["internal_only", "external_password"].includes((managedRow as any).access_mode);
 
       const adminIsSuperAdmin = isSuperAdmin(admin);
       const isCreatorDeletingOwnMock =
-        isMock && (targetUser as any).created_by_admin === (admin as any).id;
+        isMock && (managedRow as any).created_by_admin === (admin as any).id;
 
       if (!adminIsSuperAdmin && !isCreatorDeletingOwnMock) {
         return data({ error: "Only superadmins can delete users. Admins can delete only their own mock users." }, { status: 403 });
@@ -481,7 +488,7 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2 min-w-[320px]">
-                      {user.created_by_admin ? (
+                      {user.is_mock ? (
                         <Form method="post" className="inline">
                           <input type="hidden" name="_action" value="impersonate" />
                           <input type="hidden" name="userId" value={user.id} />
@@ -527,7 +534,7 @@ export default function AdminUsers() {
                         </div>
                       </details>
 
-                      {(adminIsSuperAdmin || (user.is_mock && user.created_by_admin === adminId)) && user.id !== adminId ? (
+                      {(adminIsSuperAdmin || (user.is_mock && user.admin_managed_by === adminId)) && user.id !== adminId ? (
                         <Form method="post" className="inline" onSubmit={(e) => { if (!confirm(`Delete ${user.full_name || user.email}? This cannot be undone.`)) e.preventDefault(); }}>
                           <input type="hidden" name="_action" value="deleteUser" />
                           <input type="hidden" name="userId" value={user.id} />
@@ -602,7 +609,7 @@ export default function AdminUsers() {
                       {user.is_verified ? "Unverify" : "Verify"}
                     </button>
                   </Form>
-                  {user.created_by_admin ? (
+                  {user.is_mock ? (
                     <Form method="post" className="inline">
                       <input type="hidden" name="_action" value="impersonate" />
                       <input type="hidden" name="userId" value={user.id} />
@@ -638,7 +645,7 @@ export default function AdminUsers() {
                       </Form>
                     </div>
                   </details>
-                  {(adminIsSuperAdmin || (user.is_mock && user.created_by_admin === adminId)) && user.id !== adminId ? (
+                  {(adminIsSuperAdmin || (user.is_mock && user.admin_managed_by === adminId)) && user.id !== adminId ? (
                     <Form method="post" className="inline" onSubmit={(e) => { if (!confirm(`Delete ${user.full_name || user.email}?`)) e.preventDefault(); }}>
                       <input type="hidden" name="_action" value="deleteUser" />
                       <input type="hidden" name="userId" value={user.id} />

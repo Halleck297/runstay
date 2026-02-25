@@ -5,6 +5,7 @@ import { FooterLight } from "~/components/FooterLight";
 import { Header } from "~/components/Header";
 import { useI18n } from "~/hooks/useI18n";
 import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
+import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import { getListingPublicId } from "~/lib/publicIds";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -281,6 +282,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const userId = (user as any).id as string;
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
+  const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
 
   const { data: savedListings, error } = await (supabaseAdmin as any)
     .from("saved_listings")
@@ -301,10 +303,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
         room_type,
         bib_count,
         price,
+        price_converted,
         currency,
         price_negotiable,
         transfer_type,
         associated_costs,
+        associated_costs_converted,
         check_in,
         check_out,
         status,
@@ -325,7 +329,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     savedListings
       ?.filter((s: any) => s.listing && s.listing.status === "active")
       .map((s: any) => ({
-        ...localizeListing(s.listing, locale),
+        ...applyListingDisplayCurrency(localizeListing(s.listing, locale), viewerCurrency),
         saved_at: s.created_at,
       })) || [];
 

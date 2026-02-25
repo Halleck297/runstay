@@ -5,6 +5,8 @@ import { useLoaderData, useActionData, Form, Link } from "react-router";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { createUserSession, getUserId } from "~/lib/session.server";
 import { useI18n } from "~/hooks/useI18n";
+import { buildLocaleCookie, isSupportedLocale, LOCALE_LABELS, resolveLocaleForRequest } from "~/lib/locale";
+import { getSupportedCountries, resolveSupportedCountry } from "~/lib/supportedCountries";
 
 function normalizeEmail(value: string): string {
   return value
@@ -23,6 +25,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const code = params.code;
+  const detectedLocale = resolveLocaleForRequest(request, null);
 
   if (!code) {
     throw redirect("/register");
@@ -40,7 +43,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .single();
 
   if (!teamLeader) {
-    return { status: "invalid" as const, teamLeader: null, alreadyLoggedIn: false, code };
+    return { status: "invalid" as const, teamLeader: null, alreadyLoggedIn: false, code, detectedLocale };
   }
 
   // If already logged in, do not auto-link.
@@ -61,12 +64,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       .single();
 
     if (existingRef) {
-      return { status: "already_referred" as const, teamLeader, alreadyLoggedIn: true, code, nextPath };
+      return { status: "already_referred" as const, teamLeader, alreadyLoggedIn: true, code, nextPath, detectedLocale };
     }
-    return { status: "needs_new_registration" as const, teamLeader, alreadyLoggedIn: true, code, nextPath };
+    return { status: "needs_new_registration" as const, teamLeader, alreadyLoggedIn: true, code, nextPath, detectedLocale };
   }
 
-  return { status: "valid" as const, teamLeader, alreadyLoggedIn: false, code, nextPath: "/listings" };
+  return { status: "valid" as const, teamLeader, alreadyLoggedIn: false, code, nextPath: "/listings", detectedLocale };
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -79,15 +82,31 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const fullName = formData.get("fullName") as string;
+  const country = formData.get("country") as string;
+  const city = formData.get("city") as string;
+  const phone = formData.get("phone") as string;
+  const preferredLanguageRaw = String(formData.get("preferredLanguage") || "").trim().toLowerCase();
+  const preferredLanguage = isSupportedLocale(preferredLanguageRaw)
+    ? preferredLanguageRaw
+    : resolveLocaleForRequest(request, null);
+  const resolvedCountry = resolveSupportedCountry(country, preferredLanguage);
+  const dateOfBirthRaw = String(formData.get("dateOfBirth") || "").trim();
   const userType = "private";
   const companyName = null;
 
-  if (!email || !password || !fullName) {
+  if (!email || !password || !fullName || !country || !city || !dateOfBirthRaw) {
     return data({ errorKey: "all_fields_required" as const }, { status: 400 });
+  }
+  if (!resolvedCountry) {
+    return data({ error: "Country not supported yet, contact support" }, { status: 400 });
   }
 
   if (password.length < 8) {
     return data({ errorKey: "password_min" as const }, { status: 400 });
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirthRaw)) {
+    return data({ error: "Date of birth must be in YYYY-MM-DD format" }, { status: 400 });
   }
 
   // Find the TL
@@ -148,6 +167,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
     full_name: fullName,
     user_type: userType,
     company_name: null,
+    country: resolvedCountry.nameEn,
+    city: city.trim(),
+    phone: phone?.trim() || null,
+    preferred_language: preferredLanguage,
+    date_of_birth: dateOfBirthRaw,
     is_verified: false,
     last_login_at: now,
   });
@@ -190,13 +214,17 @@ export async function action({ request, params }: ActionFunctionArgs) {
     authData.user.id,
     authData.session.access_token,
     authData.session.refresh_token,
-    postSignupRedirect
+    postSignupRedirect,
+    {
+      additionalSetCookies: [buildLocaleCookie(preferredLanguage as any)],
+    }
   );
 }
 
 export default function JoinReferral() {
   const { t } = useI18n();
-  const { status, teamLeader, code, nextPath } = useLoaderData<typeof loader>();
+  const { status, teamLeader, code, nextPath, detectedLocale } = useLoaderData<typeof loader>();
+  const countries = getSupportedCountries(detectedLocale);
   const actionData = useActionData<typeof action>() as
     | { error: string; errorKey?: never }
     | { errorKey: "invalid_referral_code" | "all_fields_required" | "password_min" | "registration_failed"; error?: never }
@@ -364,6 +392,49 @@ export default function JoinReferral() {
                 <label htmlFor="password" className="label">{t("auth.password")}</label>
                 <input id="password" name="password" type="password" autoComplete="new-password" required minLength={8} className="input w-full" />
                 <p className="mt-1 text-xs text-gray-500">{t("auth.password_min")}</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="dateOfBirth" className="label">Date of birth</label>
+                  <input id="dateOfBirth" name="dateOfBirth" type="date" required className="input w-full" />
+                </div>
+                <div>
+                  <label htmlFor="phone" className="label">{t("profile.form.phone_number")}</label>
+                  <input id="phone" name="phone" type="tel" autoComplete="tel" className="input w-full" required />
+                </div>
+                <div>
+                  <label htmlFor="country" className="label">{t("profile.form.country")}</label>
+                  <input
+                    id="country"
+                    name="country"
+                    type="text"
+                    list="join-country-list"
+                    className="input w-full"
+                    required
+                    autoComplete="off"
+                  />
+                  <datalist id="join-country-list">
+                    {countries.map((countryOption) => (
+                      <option key={countryOption.code} value={countryOption.name} />
+                    ))}
+                  </datalist>
+                </div>
+                <div>
+                  <label htmlFor="city" className="label">{t("profile.form.city")}</label>
+                  <input id="city" name="city" type="text" className="input w-full" required />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="preferredLanguage" className="label">Language</label>
+                <select id="preferredLanguage" name="preferredLanguage" className="input w-full" required defaultValue={detectedLocale}>
+                  {Object.entries(LOCALE_LABELS).map(([langCode, label]) => (
+                    <option key={langCode} value={langCode}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <input type="hidden" name="userType" value="private" />

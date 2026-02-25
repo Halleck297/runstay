@@ -5,6 +5,7 @@ import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { localizeEvent, localizeListing, resolveLocaleForRequest } from "~/lib/locale";
+import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
@@ -16,6 +17,7 @@ export const meta: MetaFunction = () => [{ title: "Browse Events - Runoot" }];
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
+  const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
   const url = new URL(request.url);
   const search = url.searchParams.get("search");
 
@@ -37,7 +39,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return { user, listings: [], savedListingIds: [], events: [] };
   }
 
-  let filteredListings = (listings || []).map((listing: any) => localizeListing(listing, locale));
+  let filteredListings = (listings || []).map((listing: any) =>
+    applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
+  );
   if (search) {
     const searchLower = search.toLowerCase();
     filteredListings = filteredListings.filter(

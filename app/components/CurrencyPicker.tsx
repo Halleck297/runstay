@@ -5,6 +5,9 @@ const CURRENCIES = [
   { value: "USD", symbol: "$", label: "US Dollar" },
   { value: "GBP", symbol: "£", label: "British Pound" },
   { value: "JPY", symbol: "¥", label: "Japanese Yen" },
+  { value: "CAD", symbol: "$", label: "Canadian Dollar" },
+  { value: "CHF", symbol: "CHF", label: "Swiss Franc" },
+  { value: "AUD", symbol: "$", label: "Australian Dollar" },
 ];
 
 interface CurrencyPickerProps {

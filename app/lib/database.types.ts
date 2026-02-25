@@ -11,7 +11,7 @@ export type UserType = "private" | "team_leader" | "tour_operator" | "admin" | "
 export type UserRole = "user" | "admin" | "superadmin";
 export type ListingStatus = "pending" | "active" | "sold" | "expired" | "rejected";
 export type TransferType = "official_process" | "package" | "contact";
-export type Currency = "EUR" | "USD" | "GBP" | "JPY";
+export type Currency = "EUR" | "USD" | "GBP" | "JPY" | "CAD" | "CHF" | "AUD";
 export type ReferralStatus = "registered" | "active" | "inactive";
 export type NotificationType = "referral_signup" | "referral_active" | "tl_promoted" | "system" | "listing_approved" | "listing_rejected";
 // Estendi il tipo Profile con unreadCount (usato nel root loader)
@@ -32,6 +32,7 @@ export interface Database {
           role: UserRole;
           company_name: string | null;
           phone: string | null;
+          date_of_birth: string | null;
           is_verified: boolean;
           avatar_url: string | null;
           // Personal Information
@@ -81,6 +82,7 @@ export interface Database {
           role?: UserRole;
           company_name?: string | null;
           phone?: string | null;
+          date_of_birth?: string | null;
           is_verified?: boolean;
           avatar_url?: string | null;
           country?: string | null;
@@ -123,6 +125,7 @@ export interface Database {
           role?: UserRole;
           company_name?: string | null;
           phone?: string | null;
+          date_of_birth?: string | null;
           is_verified?: boolean;
           avatar_url?: string | null;
           country?: string | null;
@@ -293,11 +296,13 @@ export interface Database {
     room_type: "single" | "twin" | "double" | "twin_shared" | "double_single_use" | "triple" | "quadruple" |null;
     price: number | null;
     currency: Currency;
+    price_converted: Json | null;
     price_negotiable: boolean;
     
     // NUOVI CAMPI - aggiungere dopo riga 94
     transfer_type: TransferType | null;
     associated_costs: number | null;
+    associated_costs_converted: Json | null;
     cost_notes: string | null;
 
     // Distance to finish line
@@ -343,9 +348,11 @@ export interface Database {
   bib_count?: number | null;
   price?: number | null;
   currency?: Currency;
+  price_converted?: Json | null;
   price_negotiable?: boolean;
   transfer_type?: TransferType | null;
   associated_costs?: number | null;
+  associated_costs_converted?: Json | null;
   cost_notes?: string | null;
 
   // Distance to finish line
@@ -388,9 +395,11 @@ export interface Database {
   bib_count?: number | null;
   price?: number | null;
   currency?: Currency;
+  price_converted?: Json | null;
   price_negotiable?: boolean;
   transfer_type?: TransferType | null;
   associated_costs?: number | null;
+  associated_costs_converted?: Json | null;
   cost_notes?: string | null;
 
   // Distance to finish line

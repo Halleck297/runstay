@@ -32,13 +32,9 @@ interface BaseLayoutArgs {
 export function renderBaseEmailLayout(args: BaseLayoutArgs): string {
   const title = escapeHtml(args.title);
   const intro = args.intro ? `<p style=\"margin:0 0 14px;color:#374151;\">${escapeHtml(args.intro)}</p>` : "";
-  const inlineLogo = `
-    <svg width="132" height="30" viewBox="0 0 132 30" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Runoot">
-      <rect x="0" y="0" width="30" height="30" rx="9" fill="#ff6b35"/>
-      <path d="M17.8 5.4L9.5 17.2h6.1l-1.3 7.4 8.3-11.8h-6.1l1.3-7.4z" fill="#fff"/>
-      <text x="39" y="20" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Runoot</text>
-    </svg>
-  `.trim();
+  const appUrl = (process.env.APP_URL || "").replace(/\/$/, "");
+  const logoUrl = appUrl ? `${appUrl}/logo.svg` : "/logo.svg";
+  const inlineLogo = `<img src=\"${escapeHtml(logoUrl)}\" alt=\"Runoot\" width=\"180\" style=\"display:block;height:auto;border:0;outline:none;text-decoration:none;\" />`;
   const cta = args.ctaLabel && args.ctaUrl
     ? `<p style=\"margin:20px 0 0;\"><a href=\"${escapeHtml(args.ctaUrl)}\" style=\"background:#ff6b35;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:9999px;display:inline-block;font-weight:600;\">${escapeHtml(args.ctaLabel)}</a></p>`
     : "";

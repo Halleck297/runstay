@@ -11,6 +11,8 @@ import { DatePicker } from "~/components/DatePicker";
 import { RoomTypeDropdown } from "~/components/RoomTypeDropdown";
 import { CurrencyPicker } from "~/components/CurrencyPicker";
 import { calculateDistanceData } from "~/lib/distance.server";
+import { buildConvertedPriceMap, getLatestFxRates } from "~/lib/fx.server";
+import { normalizeCurrencyOrDefault } from "~/lib/currency";
 
 export const meta: MetaFunction = () => [{ title: "Create Event Listing - Admin - Runoot" }];
 
@@ -148,8 +150,16 @@ export async function action({ request }: ActionFunctionArgs) {
   const associatedCosts = String(formData.get("associatedCosts") || "").trim();
 
   const price = String(formData.get("price") || "").trim();
-  const currency = String(formData.get("currency") || "EUR").trim().toUpperCase() || "EUR";
+  const currency = normalizeCurrencyOrDefault(
+    String(formData.get("currency") || "").trim(),
+    (admin as any).country || null
+  );
   const priceNegotiable = formData.get("priceNegotiable") === "true";
+  const numericPrice = price ? parseFloat(price) : null;
+  const numericAssociatedCosts = associatedCosts ? parseFloat(associatedCosts) : null;
+  const fxRates = await getLatestFxRates();
+  const priceConverted = buildConvertedPriceMap(numericPrice, currency, fxRates);
+  const associatedCostsConverted = buildConvertedPriceMap(numericAssociatedCosts, currency, fxRates);
 
   let sourceRequest: SourceRequest | null = null;
   if (sourceRequestId) {
@@ -301,11 +311,13 @@ export async function action({ request }: ActionFunctionArgs) {
     check_in: checkIn || null,
     check_out: checkOut || null,
     bib_count: bibCount ? parseInt(bibCount, 10) : null,
-    price: price ? parseFloat(price) : null,
+    price: numericPrice,
     currency,
+    price_converted: priceConverted,
     price_negotiable: priceNegotiable,
     transfer_type: transferType || null,
-    associated_costs: associatedCosts ? parseFloat(associatedCosts) : null,
+    associated_costs: numericAssociatedCosts,
+    associated_costs_converted: associatedCostsConverted,
     distance_to_finish: distanceData.distance_to_finish,
     walking_duration: distanceData.walking_duration,
     transit_duration: distanceData.transit_duration,

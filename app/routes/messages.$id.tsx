@@ -127,6 +127,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .filter("data->>conversation_id", "eq", conversation.id)
     .is("read_at", null);
 
+  // If this is a mock account conversation, consume related owner-admin alerts too.
+  await (supabaseAdmin.from("notifications") as any)
+    .update({ read_at: new Date().toISOString() })
+    .eq("type", "system")
+    .filter("data->>kind", "eq", "mock_user_new_message")
+    .filter("data->>mock_user_id", "eq", userId)
+    .filter("data->>conversation_id", "eq", (conversation.short_id || conversation.id))
+    .is("read_at", null);
+
   let hasOlderMessages = false;
   if (loadedMessages.length > 0) {
     const oldestLoadedAt = loadedMessages[0].created_at;
@@ -281,6 +290,29 @@ export async function action({ request, params }: ActionFunctionArgs) {
     message: "You have a new message in your Runoot inbox.",
     ctaUrl: `/messages?c=${conversation.short_id || conversation.id}`,
   });
+
+  // If recipient is an admin-managed mock account, also notify the owning admin.
+  const { data: managedRecipient } = await (supabaseAdmin as any)
+    .from("admin_managed_accounts")
+    .select("created_by_admin, access_mode")
+    .eq("user_id", otherUserId)
+    .in("access_mode", ["internal_only", "external_password"])
+    .maybeSingle();
+
+  const ownerAdminId = (managedRecipient as any)?.created_by_admin as string | null | undefined;
+  if (ownerAdminId && ownerAdminId !== userId) {
+    await (supabaseAdmin.from("notifications") as any).insert({
+      user_id: ownerAdminId,
+      type: "system",
+      title: "New message for your mock user",
+      message: "A mock account managed by you received a new conversation message.",
+      data: {
+        kind: "mock_user_new_message",
+        conversation_id: conversation.short_id || conversation.id,
+        mock_user_id: otherUserId,
+      },
+    });
+  }
 
   return data({ success: true });
 }

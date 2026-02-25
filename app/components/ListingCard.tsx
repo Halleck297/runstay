@@ -83,6 +83,7 @@ function formatRoomType(roomType: string | null): string {
 type ToListingMeta = {
   room_types?: string[];
   room_type_prices?: Record<string, number>;
+  room_type_prices_converted?: Record<string, Record<string, number>>;
   flexible_dates?: boolean;
   extra_night?: { enabled?: boolean };
 };
@@ -123,7 +124,12 @@ export function ListingCard({
     : isSaved;
   const canSaveListing = isUserLoggedIn && !!currentUserId && listing.author.id !== currentUserId;
   const toMeta = parseToMeta(listing.cost_notes);
-  const roomTypePrices = toMeta?.room_type_prices || {};
+  const roomTypePrices =
+    (toMeta?.room_type_prices_converted &&
+      listing.currency &&
+      toMeta.room_type_prices_converted[String(listing.currency).toUpperCase()]) ||
+    toMeta?.room_type_prices ||
+    {};
   const roomTypePriceValues = Object.values(roomTypePrices).filter((v): v is number => typeof v === "number" && v > 0);
   const minRoomTypePrice = roomTypePriceValues.length > 0 ? Math.min(...roomTypePriceValues) : null;
   const hasFlexibleDates = !!toMeta?.flexible_dates;
@@ -478,16 +484,16 @@ if (listing.listing_type === "bib") {
             <div className="text-right">
               {listing.listing_type === "bib" && listing.associated_costs ? (
                 <p className="text-lg font-bold text-gray-900">
-                  €{PRICE_FORMATTER.format(listing.associated_costs)}
+                  {formatCurrencyAmount(listing.associated_costs, listing.currency)}
                 </p>
               ) : listing.listing_type === "room" && minRoomTypePrice ? (
                 <p className="text-lg font-bold text-gray-900">
-                  From {(listing.currency || "EUR") === "EUR" ? "€" : `${listing.currency} `}{PRICE_FORMATTER.format(minRoomTypePrice)}
+                  From {formatCurrencyAmount(minRoomTypePrice, listing.currency)}
                 </p>
               ) : listing.price ? (
                 <>
                   <p className="text-lg font-bold text-gray-900">
-                    €{PRICE_FORMATTER.format(listing.price)}
+                    {formatCurrencyAmount(listing.price, listing.currency)}
                   </p>
                   {listing.price_negotiable && (
                     <p className="text-xs text-gray-500">Negotiable</p>
@@ -517,3 +523,16 @@ if (listing.listing_type === "bib") {
   );
 }
 const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
+
+function formatCurrencyAmount(value: number, currency: string | null | undefined): string {
+  const safeCurrency = (currency || "EUR").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: safeCurrency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${safeCurrency} ${PRICE_FORMATTER.format(value)}`;
+  }
+}

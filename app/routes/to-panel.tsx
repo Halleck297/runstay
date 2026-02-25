@@ -3,6 +3,7 @@ import { Link, Outlet, redirect, useLoaderData, useLocation } from "react-router
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
 import { tourOperatorNavItems } from "~/components/panelNav";
 import { localizeListing } from "~/lib/locale";
+import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { getPublicDisplayName } from "~/lib/user-display";
@@ -47,6 +48,7 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const locale = "en";
+  const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
 
   if (user.user_type !== "tour_operator") {
     return redirect("/listings");
@@ -61,7 +63,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .eq("author_id", user.id)
     .order("created_at", { ascending: false });
 
-  const localizedListings = (listings || []).map((listing: any) => localizeListing(listing, locale));
+  const localizedListings = (listings || []).map((listing: any) =>
+    applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
+  );
 
   const { data: conversations } = await supabaseAdmin
     .from("conversations")
@@ -76,7 +80,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const localizedConversations = (conversations || []).map((conv: any) => ({
     ...conv,
-    listing: conv.listing ? localizeListing(conv.listing, locale) : conv.listing,
+    listing: conv.listing ? applyListingDisplayCurrency(localizeListing(conv.listing, locale), viewerCurrency) : conv.listing,
   }));
 
   let unreadCount = 0;

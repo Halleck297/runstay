@@ -15,6 +15,8 @@ import { RoomTypeDropdown } from "~/components/RoomTypeDropdown";
 import { CurrencyPicker } from "~/components/CurrencyPicker";
 import { TransferMethodDropdown } from "~/components/TransferMethodDropdown";
 import { useI18n } from "~/hooks/useI18n";
+import { getCurrencyForCountry, normalizeCurrencyOrDefault } from "~/lib/currency";
+import { buildConvertedPriceMap, getLatestFxRates } from "~/lib/fx.server";
 import {
   getMaxLimit,
   getTransferMethodOptions,
@@ -105,7 +107,10 @@ export async function action({ request }: ActionFunctionArgs) {
   const costNotes = formData.get("costNotes") as string;
   // Price
   const price = formData.get("price") as string;
-  const currency = formData.get("currency") as string || "EUR";
+  const currency = normalizeCurrencyOrDefault(
+    formData.get("currency") as string | null,
+    user.country
+  );
   const priceNegotiable = formData.get("priceNegotiable") === "true";
   const roomTypes = formData
     .getAll("roomTypes")
@@ -300,6 +305,11 @@ export async function action({ request }: ActionFunctionArgs) {
     eventData?.finish_lng ?? null,
     eventData?.event_date // Pass event date for transit departure time (2pm on event day)
   );
+  const numericPrice = price ? parseFloat(price) : null;
+  const numericAssociatedCosts = associatedCosts ? parseFloat(associatedCosts) : null;
+  const fxRates = await getLatestFxRates();
+  const priceConverted = buildConvertedPriceMap(numericPrice, currency, fxRates);
+  const associatedCostsConverted = buildConvertedPriceMap(numericAssociatedCosts, currency, fxRates);
 
   // Create listing (usa supabaseAdmin per bypassare RLS)
   const toListingMeta =
@@ -307,11 +317,27 @@ export async function action({ request }: ActionFunctionArgs) {
       ? {
           room_types: roomTypes,
           room_type_prices: toRoomTypePrices,
+          room_type_prices_converted: (() => {
+            const byCurrency: Record<string, Record<string, number>> = {};
+            for (const [roomTypeKey, roomTypeAmount] of Object.entries(toRoomTypePrices)) {
+              const converted = buildConvertedPriceMap(roomTypeAmount, currency, fxRates);
+              if (!converted) continue;
+              for (const [curr, amount] of Object.entries(converted)) {
+                byCurrency[curr] = byCurrency[curr] || {};
+                byCurrency[curr][roomTypeKey] = amount;
+              }
+            }
+            return byCurrency;
+          })(),
           flexible_dates: flexibleDates,
           extra_night: {
             enabled: extraNightEnabled,
             price: extraNightPrice,
             price_unit: extraNightPriceUnit,
+            prices_converted:
+              typeof extraNightPrice === "number" && extraNightPrice > 0
+                ? buildConvertedPriceMap(extraNightPrice, currency, fxRates)
+                : null,
           },
           price_unit: listingType === "room" ? "by_room_type" : "per_person",
         }
@@ -348,13 +374,15 @@ export async function action({ request }: ActionFunctionArgs) {
     bib_count: bibCount ? parseInt(bibCount) : null,
 
     // Price fields
-    price: price ? parseFloat(price) : null,
+    price: numericPrice,
     currency: currency,
+    price_converted: priceConverted,
     price_negotiable: priceNegotiable,
 
     // Transfer fields
     transfer_type: transferType || null,
-    associated_costs: associatedCosts ? parseFloat(associatedCosts) : null,
+    associated_costs: numericAssociatedCosts,
+    associated_costs_converted: associatedCostsConverted,
     cost_notes: serializedCostNotes,
 
     // Distance to finish line
@@ -402,7 +430,7 @@ export default function NewListing() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
-  const [currency, setCurrency] = useState<string>("EUR");
+  const [currency, setCurrency] = useState<string>(getCurrencyForCountry(user.country));
   const [priceValue, setPriceValue] = useState<string>("");
   const [priceNegotiable, setPriceNegotiable] = useState<boolean | null>(null);
   const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);

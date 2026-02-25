@@ -1,16 +1,18 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { Form, Link, useActionData, useLoaderData, useFetcher } from "react-router";
+import { Form, Link, useActionData, useLoaderData, useFetcher, useLocation } from "react-router";
 import { useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { applyListingPublicIdFilter, getListingPublicId, getProfilePublicId } from "~/lib/publicIds";
 import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
+import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { isAdmin } from "~/lib/user-access";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { calculateDistanceData } from "~/lib/distance.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: (data as any)?.listing?.title || "Listing - Runoot" }];
@@ -19,6 +21,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
+  const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
   const { id } = params;
 
   const listingQuery = supabaseAdmin
@@ -26,8 +29,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .select(
       `
       *,
-      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, email, avatar_url),
-      event:events(id, name, slug, country, event_date, card_image_url)
+      author:profiles!listings_author_id_fkey(id, short_id, full_name, company_name, user_type, is_verified, email, avatar_url, public_profile_enabled),
+      event:events(id, name, slug, country, event_date, card_image_url, finish_lat, finish_lng)
     `
     );
   const { data: listing, error } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
@@ -44,6 +47,35 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const canView = listing.status === "active" || (currentUserId && listing.author_id === currentUserId);
   if (!canView) {
     throw new Response("Listing not found", { status: 404 });
+  }
+
+  // Backfill distance metrics for older listings when coordinates are available.
+  if (
+    (listing.distance_to_finish == null || listing.walking_duration == null) &&
+    listing.hotel_lat != null &&
+    listing.hotel_lng != null &&
+    listing.event?.finish_lat != null &&
+    listing.event?.finish_lng != null
+  ) {
+    const refreshedDistance = await calculateDistanceData(
+      listing.hotel_lat,
+      listing.hotel_lng,
+      listing.event.finish_lat,
+      listing.event.finish_lng,
+      listing.event?.event_date || undefined,
+    );
+
+    listing.distance_to_finish = refreshedDistance.distance_to_finish;
+    listing.walking_duration = refreshedDistance.walking_duration;
+    listing.transit_duration = refreshedDistance.transit_duration;
+
+    await (supabaseAdmin.from("listings") as any)
+      .update({
+        distance_to_finish: refreshedDistance.distance_to_finish,
+        walking_duration: refreshedDistance.walking_duration,
+        transit_duration: refreshedDistance.transit_duration,
+      })
+      .eq("id", listing.id);
   }
 
   // Check if user has saved this listing
@@ -64,18 +96,30 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const { data: linkedEventRequest } = await (supabaseAdmin as any)
     .from("event_requests")
     .select(
-      "id, team_leader_id, team_leader:profiles!event_requests_team_leader_id_fkey(id, short_id, full_name, company_name, user_type, is_verified, avatar_url)"
+      "id, team_leader_id, team_leader:profiles!event_requests_team_leader_id_fkey(id, short_id, full_name, company_name, user_type, is_verified, avatar_url, public_profile_enabled)"
     )
     .ilike("published_listing_url", `%/listings/${listingPublicId}`)
     .limit(1)
     .maybeSingle();
 
+  const sellerId = (linkedEventRequest?.team_leader as any)?.id || (listing as any)?.author?.id;
+  let sellerAccessMode: "internal_only" | "external_password" | "external_invite" | null = null;
+  if (sellerId) {
+    const { data: managedRow } = await (supabaseAdmin as any)
+      .from("admin_managed_accounts")
+      .select("access_mode")
+      .eq("user_id", sellerId)
+      .maybeSingle();
+    sellerAccessMode = (managedRow?.access_mode as any) || null;
+  }
+
   return {
     user,
-    listing: localizeListing(listing as any, locale),
+    listing: applyListingDisplayCurrency(localizeListing(listing as any, locale), viewerCurrency),
     isSaved,
     isEventListing: !!linkedEventRequest,
     eventOrganizer: linkedEventRequest?.team_leader || null,
+    sellerAccessMode,
   };
 }
 
@@ -151,16 +195,18 @@ function formatRoomType(roomType: string | null): string {
 
 function formatCurrencyAmount(value: number | null | undefined, currency = "EUR"): string {
   if (typeof value !== "number" || Number.isNaN(value)) return "";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
 }
 
 type ToListingMeta = {
   room_types?: string[];
   room_type_prices?: Record<string, number>;
+  room_type_prices_converted?: Record<string, Record<string, number>>;
   flexible_dates?: boolean;
   extra_night?: {
     enabled?: boolean;
     price?: number | null;
+    prices_converted?: Record<string, number> | null;
     price_unit?: "per_person" | "per_room";
   };
   price_unit?: "by_room_type" | "per_person";
@@ -206,7 +252,8 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
 
 export default function ListingDetail() {
   const { t } = useI18n();
-  const { user, listing, isSaved, isEventListing, eventOrganizer } = useLoaderData<typeof loader>();
+  const location = useLocation();
+  const { user, listing, isSaved, isEventListing, eventOrganizer, sellerAccessMode } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [showSafety, setShowSafety] = useState(false);
   const saveFetcher = useFetcher();
@@ -221,13 +268,23 @@ export default function ListingDetail() {
   const parsedCostNotes = parseCostNotes(listingData.cost_notes);
   const toMeta = parsedCostNotes.toMeta;
   const roomTypes = Array.isArray(toMeta?.room_types) ? toMeta?.room_types || [] : [];
-  const roomTypePrices = toMeta?.room_type_prices || {};
+  const roomTypePrices =
+    (toMeta?.room_type_prices_converted &&
+      listingData.currency &&
+      toMeta.room_type_prices_converted[String(listingData.currency).toUpperCase()]) ||
+    toMeta?.room_type_prices ||
+    {};
   const hasToRoomTypePrices = roomTypes.some((type) => typeof roomTypePrices[type] === "number");
   const isFlexibleDates = !!toMeta?.flexible_dates;
   const hasExtraNight = !!toMeta?.extra_night?.enabled;
+  const extraNightDisplayAmount =
+    (toMeta?.extra_night?.prices_converted &&
+      listingData.currency &&
+      toMeta.extra_night.prices_converted[String(listingData.currency).toUpperCase()]) ||
+    toMeta?.extra_night?.price;
   const extraNightPriceLabel =
-    hasExtraNight && typeof toMeta?.extra_night?.price === "number"
-      ? `${formatCurrencyAmount(toMeta?.extra_night?.price ?? null, listingData.currency || "EUR")} ${
+    hasExtraNight && typeof extraNightDisplayAmount === "number"
+      ? `${formatCurrencyAmount(extraNightDisplayAmount, listingData.currency || "EUR")} ${
           toMeta?.extra_night?.price_unit === "per_room" ? "per room" : "per person"
         }`
       : null;
@@ -247,11 +304,27 @@ export default function ListingDetail() {
 
   const isOwner = userData?.id === listingData.author_id;
   const isAdminViewer = isAdmin(userData);
+  const sellerProfile = (isEventListing ? eventOrganizer : listingData.author) as any;
+  const sellerIsInternalOnly = sellerAccessMode === "internal_only";
+  const sellerIsAlwaysPublicRole =
+    sellerProfile?.user_type === "tour_operator" || sellerProfile?.user_type === "team_leader";
+  const sellerIsProfileVisible =
+    !!sellerProfile &&
+    !sellerIsInternalOnly &&
+    (
+      sellerIsAlwaysPublicRole ||
+      sellerProfile.public_profile_enabled === true ||
+      userData?.id === sellerProfile.id ||
+      isAdminViewer
+    );
+  const canOpenSellerProfile = !!sellerProfile?.id && sellerIsProfileVisible;
+  const sellerPublicId = sellerProfile ? getProfilePublicId(sellerProfile) : null;
   const daysUntil = getDaysUntilEvent(listingData.event.event_date);
   const eventSlug = getEventSlug(listingData.event);
   const bannerFallback = `/banners/${eventSlug}.jpg`;
   const eventsFallback = `/events/${eventSlug}.jpg`;
   const bannerPrimary = listingData.event.card_image_url || bannerFallback;
+  const profileBackState = { from: `${location.pathname}${location.search}` };
 
   // Genera sottotitolo contestuale
   let subtitle = "";
@@ -467,7 +540,9 @@ export default function ListingDetail() {
             )}
 
             {/* Distance to Finish Line - Separate container */}
-            {listingData.distance_to_finish && (
+            {(listingData.distance_to_finish !== null ||
+              listingData.walking_duration !== null ||
+              listingData.transit_duration !== null) && (
               <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
                   Distance to Finish Line
@@ -483,16 +558,18 @@ export default function ListingDetail() {
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900">
-                        {listingData.distance_to_finish < 1000
-                          ? `${listingData.distance_to_finish}m`
-                          : `${(listingData.distance_to_finish / 1000).toFixed(1)}km`}
+                        {listingData.distance_to_finish == null
+                          ? "-"
+                          : listingData.distance_to_finish < 1000
+                            ? `${listingData.distance_to_finish}m`
+                            : `${(listingData.distance_to_finish / 1000).toFixed(1)}km`}
                       </p>
                       <p className="text-sm text-gray-500">Straight-line distance</p>
                     </div>
                   </div>
 
                   {/* Walking duration */}
-                  {listingData.walking_duration && (
+                  {listingData.walking_duration !== null && (
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 flex-shrink-0">
                         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -508,7 +585,8 @@ export default function ListingDetail() {
                   )}
 
                   {/* Transit duration - only show if > 1km */}
-                  {listingData.transit_duration && listingData.distance_to_finish > 1000 && (
+                  {listingData.transit_duration !== null &&
+                    (listingData.distance_to_finish == null || listingData.distance_to_finish > 1000) && (
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 flex-shrink-0">
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -886,16 +964,17 @@ export default function ListingDetail() {
                   <div className="w-full">
                     <div className="flex flex-col items-center gap-1.5">
                       <div className="flex items-center justify-center gap-1.5">
-                      {isEventListing && eventOrganizer ? (
+                      {canOpenSellerProfile && sellerPublicId ? (
                         <Link
-                          to={`/profiles/${getProfilePublicId(eventOrganizer as any)}`}
+                          to={`/profiles/${sellerPublicId}`}
+                          state={profileBackState}
                           className="truncate text-base font-semibold text-gray-900 hover:text-brand-700 hover:underline"
                         >
-                          {getPublicDisplayName(eventOrganizer)}
+                          {getPublicDisplayName(sellerProfile)}
                         </Link>
                       ) : (
                         <p className="truncate text-base font-semibold text-gray-900">
-                          {getPublicDisplayName(listingData.author)}
+                          {getPublicDisplayName(sellerProfile)}
                         </p>
                       )}
                       {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && (
@@ -913,9 +992,10 @@ export default function ListingDetail() {
                       {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && " · Verified"}
                     </p>
                     </div>
-                    {isEventListing && eventOrganizer && (
+                    {canOpenSellerProfile && sellerPublicId && (
                       <Link
-                        to={`/profiles/${getProfilePublicId(eventOrganizer as any)}`}
+                        to={`/profiles/${sellerPublicId}`}
+                        state={profileBackState}
                         className="mt-2 inline-flex rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100 hover:text-brand-800"
                       >
                         {t("listings.view_profile")}
