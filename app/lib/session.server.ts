@@ -7,10 +7,15 @@ if (!sessionSecret) {
   throw new Error("SESSION_SECRET must be set");
 }
 
+const isExplicitSecure = process.env.SESSION_COOKIE_SECURE === "true";
+const isExplicitInsecure = process.env.SESSION_COOKIE_SECURE === "false";
+const isHttpsOrigin = process.env.APP_ORIGIN?.startsWith("https://") ?? false;
+const cookieSecure = isExplicitSecure || (!isExplicitInsecure && isHttpsOrigin);
+
 const storage = createCookieSessionStorage({
   cookie: {
     name: "runoot_session",
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure,
     secrets: [sessionSecret],
     sameSite: "lax",
     path: "/",

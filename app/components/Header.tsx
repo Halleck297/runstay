@@ -12,9 +12,10 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
 
 interface HeaderProps {
   user: Profile | null;
+  isHome?: boolean;
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, isHome = false }: HeaderProps) {
   const { t } = useI18n();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -60,21 +61,30 @@ export function Header({ user }: HeaderProps) {
     enabled: isDesktop,
   });
   const hasAnyUnread = unreadMessages > 0;
+  const headerClass = isHome
+    ? "hidden md:block absolute top-0 left-0 right-0 z-50 bg-black/30"
+    : "hidden md:block sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 [box-shadow:0_4px_11px_rgba(71,85,105,0.42)]";
+  const centerNavLinkClass = isHome
+    ? "text-sm font-bold uppercase tracking-wide text-white hover:text-accent-400 hover:underline transition-colors"
+    : "text-sm font-bold uppercase tracking-wide text-gray-700 hover:text-accent-500 hover:underline transition-colors";
+  const userMenuButtonClass = isHome
+    ? "flex items-center gap-2 px-4 py-2.5 border border-white rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+    : "flex items-center gap-2 px-4 py-2.5 border border-accent-500 rounded-full bg-white hover:bg-[#ECF4FE] text-gray-900 transition-colors";
 
   return (
     <>
-    <header className="hidden md:block sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
+    <header className={headerClass}>
       <div className="mx-auto max-w-7xl px-4 md:px-0">
 
         {/* Desktop Header */}
         <div className="hidden md:flex h-20 items-center justify-between">
 
           {/* Logo */}
-          <Link to="/" className="flex items-center mt-2">
+          <Link to="/" className={`flex items-center ${isHome ? "-mt-1" : "mt-2"}`}>
            <img
-             src="/logo.svg"
+             src={isHome ? "/logowhite.png" : "/logo.svg"}
              alt="Runoot"
-             className="h-32 w-auto"
+             className={isHome ? "h-12 w-auto" : "h-28 w-auto"}
            />
          </Link>
 
@@ -82,19 +92,19 @@ export function Header({ user }: HeaderProps) {
 <nav className="flex items-center gap-10 flex-1 justify-center">
   <Link
     to="/listings"
-    className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
+    className={centerNavLinkClass}
   >
     {t("nav.listings")}
   </Link>
   <Link
     to="/events"
-    className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
+    className={centerNavLinkClass}
   >
     {t("nav.event")}
   </Link>
   <Link
     to="/contact"
-    className="text-base font-bold text-gray-700 hover:text-accent-500 hover:underline transition-colors"
+    className={centerNavLinkClass}
   >
     {t("nav.contact")}
   </Link>
@@ -113,7 +123,7 @@ export function Header({ user }: HeaderProps) {
 >
 <button
   onClick={() => setIsMenuOpen(!isMenuOpen)}
-  className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-full bg-white hover:bg-gray-50 text-gray-900 transition-colors"
+  className={userMenuButtonClass}
 >
   {/* Pallino rosso notifiche */}
   {hasAnyUnread && (
@@ -121,7 +131,7 @@ export function Header({ user }: HeaderProps) {
   )}
   <span className="text-sm font-bold max-w-[150px] truncate">{displayName}</span>
   <svg
-    className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${isMenuOpen ? 'rotate-180' : ''}`}
+    className={`h-4 w-4 ${isHome ? "text-white" : "text-accent-500"} transition-transform flex-shrink-0 ${isMenuOpen ? 'rotate-180' : ''}`}
     fill="none"
     viewBox="0 0 24 24"
     stroke="currentColor"
@@ -145,18 +155,18 @@ export function Header({ user }: HeaderProps) {
                 <>
                   <Link
                     to="/tl-dashboard"
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-[#ECF4FE]"
                   >
-                    <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                     <span className="flex-1">{t("nav.tl_dashboard")}</span>
                   </Link>
                   <Link
                     to="/tl-events"
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-700 hover:bg-brand-50"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-700 hover:bg-[#ECF4FE]"
                   >
-                    <svg className="h-5 w-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
                     </svg>
                     <span className="flex-1">{t("nav.new_event")}</span>
@@ -168,10 +178,10 @@ export function Header({ user }: HeaderProps) {
 {tourOperator && (
   <Link
     to="/to-panel"
-    className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50"
+    className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-[#ECF4FE]"
    
   >
-    <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
     </svg>
     <span className="flex-1">{t("nav.dashboard")}</span>
@@ -181,9 +191,9 @@ export function Header({ user }: HeaderProps) {
               {!tourOperator && !teamLeader && (
                 <Link
                   to={teamLeader ? "/tl-dashboard/profile" : "/profile"}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#ECF4FE]"
                 >
-                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   {t("nav.profile")}
@@ -194,9 +204,9 @@ export function Header({ user }: HeaderProps) {
               {!tourOperator && !teamLeader && (
                 <Link
                   to="/my-listings"
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#ECF4FE]"
                 >
-                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                   {t("nav.my_listing")}
@@ -205,10 +215,10 @@ export function Header({ user }: HeaderProps) {
 
               <Link
                 to="/messages"
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#ECF4FE]"
                 
               >
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 <span className="flex-1">{t("nav.messages")}</span>
@@ -222,10 +232,10 @@ export function Header({ user }: HeaderProps) {
 
               <Link
                 to="/saved"
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#ECF4FE]"
 
               >
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
                 {t("nav.saved")}
@@ -235,9 +245,9 @@ export function Header({ user }: HeaderProps) {
               {adminUser && (
                 <Link
                   to="/admin"
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-alert-700 hover:bg-alert-50"
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-alert-700 hover:bg-[#ECF4FE]"
                 >
-                  <svg className="h-5 w-5 text-alert-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15l8.66-5-8.66-5-8.66 5 8.66 5zm0 0v6m0-6L3.34 10M20.66 10L12 15" />
                   </svg>
                   <span className="flex-1">{t("nav.admin_dashboard")}</span>
@@ -249,10 +259,10 @@ export function Header({ user }: HeaderProps) {
 
               <Link
                 to={teamLeader ? "/tl-dashboard/settings" : tourOperator ? "/to-panel/settings" : "/profile/settings"}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#ECF4FE]"
                 
               >
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
@@ -262,9 +272,9 @@ export function Header({ user }: HeaderProps) {
               <Form method="post" action="/logout">
                 <button
                   type="submit"
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-[#ECF4FE]"
                 >
-                  <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
                   {t("nav.logout")}
@@ -278,9 +288,9 @@ export function Header({ user }: HeaderProps) {
       <div className="flex items-center gap-2 mr-6">
         <Link
           to={tourOperator ? "/to-panel/listings/new" : "/listings/new"}
-          className="btn-primary flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-accent-500/30"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold uppercase tracking-wide bg-brand-500 text-white hover:bg-brand-600 transition-colors"
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           <span>{t("nav.new_listing")}</span>

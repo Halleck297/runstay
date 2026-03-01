@@ -12,7 +12,6 @@ import { EventPicker } from "~/components/EventPicker";
 import { HotelAutocomplete } from "~/components/HotelAutocomplete";
 import { DatePicker } from "~/components/DatePicker";
 import { RoomTypeDropdown } from "~/components/RoomTypeDropdown";
-import { CurrencyPicker } from "~/components/CurrencyPicker";
 import { TransferMethodDropdown } from "~/components/TransferMethodDropdown";
 import { useI18n } from "~/hooks/useI18n";
 import { getCurrencyForCountry, normalizeCurrencyOrDefault } from "~/lib/currency";
@@ -430,7 +429,7 @@ export default function NewListing() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
-  const [currency, setCurrency] = useState<string>(getCurrencyForCountry(user.country));
+  const currency = getCurrencyForCountry(user.country);
   const [priceValue, setPriceValue] = useState<string>("");
   const [priceNegotiable, setPriceNegotiable] = useState<boolean | null>(null);
   const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
@@ -523,22 +522,20 @@ useEffect(() => {
         style={{ backgroundImage: "url('/new-listing.jpg')" }}
       >
         <main className="mx-auto max-w-2xl px-4 py-8 pb-8 md:pb-8 sm:px-6 lg:px-8">
-          <div className="mb-6 md:mb-8 rounded-xl bg-white/70 backdrop-blur-sm p-3 md:p-4 inline-block shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
+          <div className="rounded-3xl bg-white/90 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
             <h1 className="font-display text-xl md:text-3xl font-bold text-gray-900">
               {t("create_listing.title")}
             </h1>
             <p className="mt-1 md:mt-2 text-sm md:text-base text-gray-600">
               {t("create_listing.subtitle")}
             </p>
-          </div>
 
-          <div className="rounded-2xl bg-white/90 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
-          <Form method="post" className="space-y-8" onSubmit={() => setFormSubmitted(true)}>
+          <Form method="post" className="mt-6 space-y-8" onSubmit={() => setFormSubmitted(true)}>
             {/* Listing Type */}
             <div>
               <label className="label">{t("edit_listing.what_offering")}</label>
               <div className="mt-2 grid grid-cols-3 gap-3">
-                <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-blue-300 has-[:checked]:bg-blue-100 has-[:checked]:ring-2 has-[:checked]:ring-blue-500">
+                <label className="relative flex cursor-pointer rounded-3xl bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-blue-300 has-[:checked]:bg-blue-100 has-[:checked]:ring-2 has-[:checked]:ring-blue-500">
                   <input
                     type="radio"
                     name="listingType"
@@ -566,7 +563,7 @@ useEffect(() => {
                     </span>
                   </span>
                 </label>
-                <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-purple-300 has-[:checked]:bg-purple-100 has-[:checked]:ring-2 has-[:checked]:ring-purple-500">
+                <label className="relative flex cursor-pointer rounded-3xl bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-purple-300 has-[:checked]:bg-purple-100 has-[:checked]:ring-2 has-[:checked]:ring-purple-500">
                   <input
                     type="radio"
                     name="listingType"
@@ -594,7 +591,7 @@ useEffect(() => {
                     </span>
                   </span>
                 </label>
-                <label className="relative flex cursor-pointer rounded-lg bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-green-300 has-[:checked]:bg-green-100 has-[:checked]:ring-2 has-[:checked]:ring-green-500">
+                <label className="relative flex cursor-pointer rounded-3xl bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-green-300 has-[:checked]:bg-green-100 has-[:checked]:ring-2 has-[:checked]:ring-green-500">
                   <input
                     type="radio"
                     name="listingType"
@@ -999,7 +996,7 @@ useEffect(() => {
                   {user.user_type === "tour_operator" && (
                     <p className="mb-2 text-xs text-gray-500">*Required</p>
                   )}
-                  <div className="flex gap-2">
+                  <div className="input flex w-full max-w-[150px] items-center gap-2 px-3">
                     <input
                       type="number"
                       id="price"
@@ -1007,7 +1004,7 @@ useEffect(() => {
                       min="0"
                       step="0.01"
                       placeholder=""
-                      className="input w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-full border-0 bg-transparent p-0 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={priceValue}
                       required={user.user_type === "tour_operator"}
                       onChange={(e) => {
@@ -1018,10 +1015,8 @@ useEffect(() => {
                         }
                       }}
                     />
-                    <CurrencyPicker
-                      value={currency}
-                      onChange={setCurrency}
-                    />
+                    <span className="shrink-0 font-medium text-gray-900">{currency}</span>
+                    <input type="hidden" name="currency" value={currency} />
                   </div>
                   {user.user_type !== "tour_operator" && (
                     <p className="mt-1.5 text-sm text-gray-500">
@@ -1077,7 +1072,7 @@ useEffect(() => {
   name="description"
   rows={4}
   placeholder={t("edit_listing.additional_placeholder")}
-  className={`input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`}
+  className={`input rounded-3xl ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`}
   required={roomType === "other"}
 />
             </div>
@@ -1094,7 +1089,7 @@ useEffect(() => {
 
             {/* Submit */}
             <div className="flex gap-4 pt-4">
-              <button type="submit" className="btn-primary flex-1 rounded-full">
+              <button type="submit" className="btn-primary rounded-full px-7 py-2.5 text-base">
                 {t("create_listing.submit")}
               </button>
             </div>

@@ -143,7 +143,7 @@ export default function Report() {
   };
 
   return (
-    <div className="min-h-full bg-gray-50">
+    <div className="min-h-full bg-[#ECF4FE]">
       <Header user={user} />
 
       <main className="mx-auto max-w-2xl px-4 py-8 pb-24 sm:px-6 md:pb-8 lg:px-8">

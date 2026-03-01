@@ -84,7 +84,7 @@ export default function ForgotPassword() {
   const { t } = useI18n();
 
   return (
-    <div className="flex min-h-full flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-full flex-col justify-center bg-[#ECF4FE] py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h1 className="text-center font-display text-3xl font-bold text-gray-900">{t("auth.reset_password_title")}</h1>
         <p className="mt-2 text-center text-sm text-gray-600">{t("auth.reset_password_subtitle")}</p>

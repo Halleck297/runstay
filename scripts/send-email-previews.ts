@@ -57,6 +57,8 @@ async function main() {
           templateId: "password_reset",
           payload: {
             resetLink: `${baseUrl}/reset-password?token=test-password-reset`,
+            name: "Alex Runner",
+            tokenValidityMinutes: 60,
           },
         }),
     },
@@ -133,8 +135,8 @@ async function main() {
       failed += 1;
       console.error(`FAIL ${test.name}: ${result.error || "unknown error"}`);
     }
-    // Keep well under 2 req/sec to avoid provider rate-limit.
-    await sleep(700);
+    // Explicit pause between sends (requested): 2 seconds.
+    await sleep(2000);
   }
 
   console.log(`Done. Sent: ${sent}, Failed: ${failed}`);

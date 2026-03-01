@@ -86,37 +86,40 @@ export default function Login() {
   const redirectTo = searchParams.get("redirectTo") || "";
 
   return (
-    <div className="min-h-full flex flex-col justify-start pt-1 pb-12 sm:pt-2 sm:px-6 lg:px-8 bg-slate-50">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-full flex flex-col justify-start pt-1 pb-12 sm:pt-2 sm:px-6 lg:px-8 bg-[#ECF4FE]">
+      <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
         <Link to="/" className="flex justify-center" aria-label="Go to home">
           <img src="/logo.svg" alt="Runoot" className="h-32 w-auto sm:h-40" />
         </Link>
-        <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-gray-900">
-          {t("auth.welcome_back")}
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          {t("auth.no_account")}{" "}
-          <Link
-            to="/register"
-            className="font-medium text-brand-600 hover:text-brand-500"
-          >
-            {t("nav.signup")}
-          </Link>
-        </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-sm rounded-xl sm:px-10 border border-gray-200">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl">
+        <div className="rounded-3xl border border-gray-200 bg-white px-8 py-8 shadow-sm sm:px-14">
+          <h2 className="text-center font-display text-3xl font-bold tracking-tight text-gray-900 lowercase">
+            {t("auth.welcome_back")}
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            {t("auth.no_account")}{" "}
+            <Link
+              to="/register"
+              className="font-medium text-brand-600 hover:text-brand-500"
+            >
+              {t("nav.signup")}
+            </Link>
+          </p>
+
+          <div className="h-10" />
+
           <Form method="post" className="space-y-6">
             <input type="hidden" name="redirectTo" value={redirectTo} />
 
             {actionData?.error && (
-              <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+              <div className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">
                 {actionData.error}
               </div>
             )}
 
-            <div>
+            <div className="mx-auto w-2/3">
               <label htmlFor="email" className="label">
                 {t("auth.email")}
               </label>
@@ -126,11 +129,11 @@ export default function Login() {
                 type="email"
                 autoComplete="email"
                 required
-                className="input"
+                className="input w-full rounded-full bg-[#ECF4FE]"
               />
             </div>
 
-            <div>
+            <div className="mx-auto w-2/3">
               <label htmlFor="password" className="label">
                 {t("auth.password")}
               </label>
@@ -140,7 +143,7 @@ export default function Login() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="input"
+                className="input w-full rounded-full bg-[#ECF4FE]"
               />
               <div className="mt-2 text-right">
                 <Link to="/forgot-password" className="text-xs font-medium text-brand-600 hover:text-brand-700">
@@ -149,8 +152,8 @@ export default function Login() {
               </div>
             </div>
 
-            <div>
-              <button type="submit" className="btn-primary w-full">
+            <div className="pt-4 flex justify-center">
+              <button type="submit" className="btn-primary flex w-1/3 justify-center rounded-full">
                 {t("auth.sign_in")}
               </button>
             </div>

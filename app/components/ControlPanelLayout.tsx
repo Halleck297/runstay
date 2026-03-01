@@ -161,7 +161,7 @@ export function ControlPanelLayout({
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 md:h-screen bg-slate-50 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.14)_1px,transparent_0)] bg-[size:18px_18px]">
+      <div className="flex-1 flex flex-col min-w-0 md:h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
         <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => setSidebarOpen(true)}

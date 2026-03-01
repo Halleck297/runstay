@@ -210,7 +210,7 @@ export default function Contact() {
 
   return (
     <div className="min-h-screen bg-[url('/contact.jpg')] bg-cover bg-center bg-fixed">
-      <div className="min-h-screen bg-gray-50/40 flex flex-col">
+      <div className="min-h-screen bg-[#ECF4FE]/40 flex flex-col">
         <Header user={user} />
 
         <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-1 w-full">
@@ -218,7 +218,7 @@ export default function Contact() {
           <button
             type="button"
             onClick={() => window.history.back()}
-            className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/85 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm backdrop-blur-sm transition hover:bg-white"
+            className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/85 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-white"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -226,19 +226,16 @@ export default function Contact() {
             {t("contact.back")}
           </button>
 
-          <div className="mb-8 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-6">
-            <h1 className="font-display text-3xl font-bold text-gray-900">
-              {t("contact.title")}
-            </h1>
-            <p className="mt-2 text-gray-600">
-              {t("contact.subtitle")}
-            </p>
-          </div>
-
           {actionData && "success" in actionData ? (
-            <div className="card p-8 text-center shadow-md bg-white/70 backdrop-blur-sm">
+            <div className="card rounded-3xl p-8 text-center shadow-md bg-white/70 backdrop-blur-sm">
+              <h1 className="font-display text-3xl font-bold text-gray-900">
+                {t("contact.title")}
+              </h1>
+              <p className="mt-2 text-gray-600">
+                {t("contact.subtitle")}
+              </p>
               <svg
-                className="mx-auto h-16 w-16 text-green-500"
+                className="mx-auto mt-6 h-16 w-16 text-green-500"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -261,14 +258,21 @@ export default function Contact() {
               </a>
             </div>
           ) : (
-            <div className="card p-6 shadow-md bg-white/70 backdrop-blur-sm">
+            <div className="card rounded-3xl p-6 shadow-md bg-white/70 backdrop-blur-sm">
+              <h1 className="font-display text-3xl font-bold text-gray-900">
+                {t("contact.title")}
+              </h1>
+              <p className="mt-2 text-gray-600">
+                {t("contact.subtitle")}
+              </p>
+
               {actionData && "error" in actionData && (
-                <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-sm">
+                <div className="mb-6 mt-6 p-4 bg-red-50 text-red-700 rounded-lg text-sm">
                   {actionData.error}
                 </div>
               )}
 
-              <Form key={formKey} method="post" className="space-y-6">
+              <Form key={formKey} method="post" className="mt-6 space-y-6">
                 <div className="sr-only" aria-hidden="true">
                   <label htmlFor="website">Website</label>
                   <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
@@ -331,7 +335,7 @@ export default function Contact() {
                 <div>
                   <button
                     type="submit"
-                    className="btn-primary rounded-full px-8 py-2.5 shadow-lg shadow-accent-500/30"
+                    className="btn-primary rounded-full px-7 py-2 shadow-lg shadow-accent-500/30"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? t("contact.sending") : t("contact.send_message")}

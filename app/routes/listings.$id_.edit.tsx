@@ -373,7 +373,7 @@ export default function EditListing() {
   );
 
   return (
-    <div className="min-h-full bg-gray-50">
+    <div className="min-h-full bg-[#ECF4FE]">
       <Header user={user} />
 
       {/* Container con immagine di sfondo ai lati */}

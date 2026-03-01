@@ -46,6 +46,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
     applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
   );
 
+  const { data: homeEventListings } = await (supabaseAdmin as any)
+    .from("listings")
+    .select(
+      `
+      *,
+      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
+      event:events(id, name, slug, country, event_date, card_image_url)
+    `
+    )
+    .eq("status", "active")
+    .eq("listing_mode", "event")
+    .order("created_at", { ascending: false })
+    .limit(4);
+
+  const eventListings = (homeEventListings || []).map((listing: any) =>
+    applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
+  );
+
   // Get saved listing IDs for this user
   let savedListingIds: string[] = [];
   if (user) {
@@ -64,13 +82,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .order("event_date", { ascending: true });
 
     const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
-    return { user, listings, savedListingIds, events: localizedEvents };
+    return { user, listings, eventListings, savedListingIds, events: localizedEvents };
 
 }
 
 export default function Index() {
     const { t } = useI18n();
-    const { user, listings, savedListingIds, events } = useLoaderData<typeof loader>();
+    const { user, listings, eventListings, savedListingIds, events } = useLoaderData<typeof loader>();
     const navigate = useNavigate();
     const searchRef = useRef<HTMLDivElement>(null);
 
@@ -82,6 +100,8 @@ export default function Index() {
     const [verbIndex, setVerbIndex] = useState(0);
     const [subjectAnimating, setSubjectAnimating] = useState(false);
     const [verbAnimating, setVerbAnimating] = useState(false);
+    const visibleEventListings = (eventListings as any[]).slice(0, 3);
+    const hasMoreEventListings = (eventListings as any[]).length > 3;
     const words = useMemo(
       () => [
         { subject: t("home.hero.word.rooms"), subjectColor: "text-brand-200", verb: t("home.hero.word.empty") },
@@ -150,9 +170,9 @@ export default function Index() {
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('/hero.jpg')] bg-cover bg-center" />
-          <div className="absolute inset-0 bg-brand-800/70" />
-          <div className="relative mx-auto max-w-7xl px-4 py-32 sm:py-40 lg:py-48 sm:px-6 lg:px-8">
+          <div className="absolute inset-0 bg-[url('/hero.jpg')] bg-cover bg-top" />
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative mx-auto max-w-7xl px-4 py-36 sm:py-44 lg:py-52 sm:px-6 lg:px-8">
             <div className="text-center">
             <h1 className="font-display text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl [text-shadow:0_4px_20px_rgba(0,0,0,0.7)]">
               <span className="block">{t("home.hero.title.top")}</span>
@@ -176,32 +196,26 @@ export default function Index() {
                 </span>
               </span>
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-xl sm:text-2xl text-white [text-shadow:0_4px_16px_rgba(0,0,0,0.6)]">
+            <p className="mx-auto mt-6 translate-y-6 md:translate-y-8 max-w-2xl text-xl sm:text-2xl text-white [text-shadow:0_4px_16px_rgba(0,0,0,0.6)]">
               <span className="font-bold">{t("home.hero.subtitle1")}</span>
               <br />
               {t("home.hero.subtitle2")}
             </p>
+            </div>
+          </div>
+        </section>
 
-            {/* Search Bar */}
-            <div className="mt-10 mx-auto max-w-xl">
-              <Form method="get" action={user ? "/listings" : "/login"} className="flex flex-col items-center gap-8">
-                {!user && (
-                  <input type="hidden" name="redirectTo" value="/listings" />
-                )}
-                <div className="relative w-full" ref={searchRef}>
-                  <svg
-                    className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
+        {/* Search Banner */}
+        <section className="relative z-20 h-0 -mt-8 md:-mt-10 px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <Form
+              method="get"
+              action={user ? "/listings" : "/login"}
+              className="mx-auto w-full max-w-3xl rounded-full bg-white px-4 py-3 shadow-[0_14px_36px_rgba(0,0,0,0.18)]"
+            >
+              {!user && <input type="hidden" name="redirectTo" value="/listings" />}
+              <div className="flex items-center gap-3 md:gap-4">
+                <div className="relative min-w-0 flex-1 rounded-full bg-[#ECF4FE] px-4 py-1" ref={searchRef}>
                   <input
                     type="search"
                     name="search"
@@ -213,13 +227,11 @@ export default function Index() {
                       setShowSuggestions(true);
                     }}
                     onFocus={() => setShowSuggestions(true)}
-                    className="block w-full rounded-full border-0 pl-12 pr-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-colors"
-                    style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)' }}
+                    className="block w-full border-0 bg-transparent px-1 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none"
                   />
 
-                  {/* Autocomplete Dropdown */}
                   {showSuggestions && filteredEvents.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 z-20 overflow-hidden">
                       {filteredEvents.map((event: any) => (
                         <button
                           key={event.id}
@@ -238,40 +250,24 @@ export default function Index() {
                 </div>
                 <button
                   type="submit"
-                  className="px-8 py-3 bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all shadow-lg shadow-accent-500/30"
+                  className="shrink-0 rounded-full bg-accent-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-white hover:bg-accent-600 transition-colors"
                 >
                   Search
                 </button>
-              </Form>
-            </div>
-
-            </div>
+              </div>
+            </Form>
           </div>
         </section>
 
 
         {/* Recent Listings */}
         {listings.length > 0 && (
-          <section className="pt-8 pb-20 md:py-20 bg-gray-50">
+          <section className="pt-24 pb-20 md:pt-28 md:pb-20 bg-[#ECF4FE]">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              <div className="flex flex-col md:flex-row items-center justify-between">
-                <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center md:text-left">
+              <div className="flex items-center justify-center">
+                <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
                   {t("home.recent_listings")}
                 </h2>
-                <div className="hidden md:flex items-center gap-2">
-                  <Link
-                    to={user ? "/events" : "/login"}
-                    className="px-6 py-2 border border-brand-300 text-brand-700 font-medium rounded-full hover:bg-brand-50 transition-all"
-                  >
-                    {t("nav.event")}
-                  </Link>
-                  <Link
-                    to={user ? "/listings" : "/login"}
-                    className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
-                  >
-                    {t("home.view_all")}
-                  </Link>
-                </div>
               </div>
 
               {/* Desktop: Grid di card */}
@@ -287,24 +283,58 @@ export default function Index() {
                   <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} currentUserId={(user as any)?.id ?? null} />
                 ))}
               </div>
+              <div className="mt-6 flex justify-center">
+                <Link
+                  to={user ? "/listings" : "/login"}
+                  className="px-6 py-2.5 bg-brand-500 text-white text-sm font-semibold uppercase tracking-wide rounded-full hover:bg-brand-600 transition-all"
+                >
+                  {t("home.view_all")}
+                </Link>
+              </div>
 
-              {/* Mobile: View all button centered below cards */}
-              <div className="mt-4 flex justify-center md:hidden">
-                <div className="flex items-center gap-2">
+            </div>
+          </section>
+        )}
+        {eventListings.length > 0 && (
+          <section className="pb-20 md:pb-24 bg-[#ECF4FE]">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-center">
+                <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
+                  {t("nav.event")}
+                </h2>
+              </div>
+              <div className="mt-8 hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {visibleEventListings.map((listing: any) => (
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    isUserLoggedIn={!!user}
+                    isSaved={(savedListingIds || []).includes(listing.id)}
+                    currentUserId={(user as any)?.id ?? null}
+                  />
+                ))}
+              </div>
+              <div className="mt-6 flex flex-col gap-3 md:hidden">
+                {visibleEventListings.map((listing: any) => (
+                  <ListingCardCompact
+                    key={listing.id}
+                    listing={listing}
+                    isUserLoggedIn={!!user}
+                    isSaved={(savedListingIds || []).includes(listing.id)}
+                    currentUserId={(user as any)?.id ?? null}
+                  />
+                ))}
+              </div>
+              {hasMoreEventListings && (
+                <div className="mt-6 flex justify-center">
                   <Link
                     to={user ? "/events" : "/login"}
-                    className="px-5 py-2 border border-brand-300 text-brand-700 font-medium rounded-full hover:bg-brand-50 transition-all"
-                  >
-                    {t("nav.event")}
-                  </Link>
-                  <Link
-                    to={user ? "/listings" : "/login"}
-                    className="px-6 py-2 bg-brand-500 text-white font-medium rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30"
+                    className="px-6 py-2.5 bg-brand-500 text-white text-sm font-semibold uppercase tracking-wide rounded-full hover:bg-brand-600 transition-all"
                   >
                     {t("home.view_all")}
                   </Link>
                 </div>
-              </div>
+              )}
             </div>
           </section>
         )}

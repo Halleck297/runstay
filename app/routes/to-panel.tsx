@@ -170,7 +170,7 @@ export default function ToPanel() {
       }}
       navItems={panelNavItems}
     >
-      <div className="-m-4 min-h-full bg-slate-100 md:-m-8">
+      <div className="-m-4 min-h-full bg-[#ECF4FE] md:-m-8">
         <main className="mx-auto max-w-7xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8 lg:px-8">
           <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
             <h1 className="font-display text-2xl font-bold text-gray-900 sm:text-3xl">

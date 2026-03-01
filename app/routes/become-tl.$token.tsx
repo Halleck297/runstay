@@ -130,7 +130,7 @@ export default function BecomeTL() {
     actionData?.errorKey ? t(`tl_invite.error.${actionData.errorKey}` as any) : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
           {status === "valid" && (

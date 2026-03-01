@@ -71,7 +71,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function EventsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user, listings, savedListingIds, events } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -84,6 +84,20 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [sortBy, setSortBy] = useState(currentSort);
+
+  const formatEventDate = (rawDate: string) => {
+    const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate || "");
+    if (dateOnlyMatch) {
+      const yyyy = Number(dateOnlyMatch[1]);
+      const mm = Number(dateOnlyMatch[2]) - 1;
+      const dd = Number(dateOnlyMatch[3]);
+      return new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).format(new Date(Date.UTC(yyyy, mm, dd)));
+    }
+
+    const parsed = new Date(rawDate);
+    if (Number.isNaN(parsed.getTime())) return rawDate;
+    return new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).format(parsed);
+  };
 
   const ITEMS_PER_PAGE = 12;
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
@@ -157,35 +171,16 @@ export default function EventsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-[#ECF4FE]">
       <div className="min-h-screen flex flex-col">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
-          <div className="mb-4 max-w-2xl rounded-2xl border border-slate-200 bg-gradient-to-r from-white to-brand-100/55 px-4 py-3.5 text-sm text-slate-800 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700 ring-1 ring-brand-100">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
-                  </svg>
-                </span>
-                <p className="text-sm font-medium text-slate-700">{t("events.banner_listings_prefix")}</p>
-              </div>
-              <Link
-                to="/listings"
-                className="inline-flex items-center rounded-full bg-slate-50 px-4 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
-              >
-                {t("events.banner_listings_link")}
-              </Link>
-            </div>
-          </div>
-
-          <div className="mb-4 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-white to-brand-100/55 px-5 py-8 shadow-sm sm:px-6 sm:py-10">
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left">
+        <main className="mx-auto max-w-7xl px-4 pt-16 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
+          <div className="mb-6">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
               {t("nav.event")}
             </h1>
-            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center sm:text-left">
+            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center">
               {t("events.subtitle")}
             </p>
           </div>
@@ -193,7 +188,7 @@ export default function EventsPage() {
           <div className="relative z-10 mb-8">
             <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
               {hasActiveSearch && (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                <span className="rounded-full bg-slate-50 px-3 py-1 text-slate-700">
                   {t("listings.search.placeholder")}: "{currentSearch}"
                 </span>
               )}
@@ -246,7 +241,7 @@ export default function EventsPage() {
                         >
                           <p className="font-medium text-gray-900">{event.name}</p>
                           <p className="text-sm text-gray-500">
-                            {event.country} • {new Date(event.event_date).toLocaleDateString()}
+                            {event.country} • {formatEventDate(event.event_date)}
                           </p>
                         </button>
                       ))}
@@ -255,8 +250,10 @@ export default function EventsPage() {
                 </div>
               </Form>
 
-              <div className="shrink-0">
-                <SortDropdown value={sortBy} onChange={setSortBy} options={eventSortOptions} />
+              <div className="flex items-center gap-3 lg:ml-auto lg:justify-end">
+                <div className="shrink-0">
+                  <SortDropdown value={sortBy} onChange={setSortBy} options={eventSortOptions} />
+                </div>
               </div>
             </div>
             <div className="mt-6 border-t border-slate-300/90" />
@@ -264,7 +261,7 @@ export default function EventsPage() {
 
           {filteredBySort.length > 0 ? (
             <>
-              <div className="hidden md:grid gap-6 pt-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr relative z-0">
+              <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 auto-rows-fr relative z-0">
                 {visibleListings.map((listing: any) => (
                   <ListingCard
                     key={listing.id}
@@ -272,12 +269,11 @@ export default function EventsPage() {
                     isUserLoggedIn={!!user}
                     isSaved={(savedListingIds || []).includes(listing.id)}
                     currentUserId={(user as any)?.id ?? null}
-                    className="border border-slate-300 shadow-[0_12px_26px_rgba(15,23,42,0.18)] hover:shadow-[0_16px_34px_rgba(15,23,42,0.22)]"
                   />
                 ))}
               </div>
 
-              <div className="flex flex-col gap-3 pt-2 md:hidden relative z-0">
+              <div className="flex flex-col gap-3 md:hidden relative z-0">
                 {visibleListings.map((listing: any) => (
                   <ListingCardCompact
                     key={listing.id}
@@ -285,7 +281,6 @@ export default function EventsPage() {
                     isUserLoggedIn={!!user}
                     isSaved={(savedListingIds || []).includes(listing.id)}
                     currentUserId={(user as any)?.id ?? null}
-                    className="border-slate-300 shadow-[0_10px_20px_rgba(15,23,42,0.14)]"
                   />
                 ))}
               </div>

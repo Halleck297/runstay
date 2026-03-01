@@ -60,6 +60,13 @@ export function MobileNav({ user }: MobileNavProps) {
 
   // My Listing path depends on user type
   const myListingPath = tourOperator ? "/to-panel/listings" : "/my-listings";
+  const createPath = user
+    ? teamLeader
+      ? "/tl-events"
+      : tourOperator
+        ? "/to-panel/listings/new"
+        : "/listings/new"
+    : "/login";
 
   return (
     <>
@@ -129,7 +136,6 @@ export function MobileNav({ user }: MobileNavProps) {
               <span className="flex-1">{t("nav.dashboard")}</span>
             </Link>
           )}
-
           {!tourOperator && !teamLeader && (
             <Link
               to={teamLeader ? "/tl-dashboard/profile" : "/profile"}
@@ -211,57 +217,51 @@ export function MobileNav({ user }: MobileNavProps) {
 
       {/* Top Navigation (inverted from bottom) */}
       <nav className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 safe-area-top">
-      <div className="flex items-center justify-around h-16 px-2">
-        {/* Home */}
-        <Link
-          to="/"
-          className={`flex flex-col items-center justify-center flex-1 py-2 ${
-            isActive("/") && !isActive("/listings") && !isActive("/messages") && !isActive("/profile") && !isActive("/tl-dashboard/profile") && !isActive("/my-listings") && !isActive("/to-panel")
-              ? "text-brand-600"
-              : "text-gray-500"
-          }`}
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/") && !isActive("/listings") ? 2.5 : 2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
-          <span className="text-[10px] mt-0.5 font-medium">{t("nav.home")}</span>
+      <div className="relative flex items-center justify-between h-16 px-2">
+        <div className="flex items-center">
+          {/* Listings/Search */}
+          <Link
+            to="/listings"
+            className={`flex w-14 flex-col items-center justify-center py-2 ${
+              isActive("/listings") && !location.pathname.includes("/new")
+                ? "text-brand-600"
+                : "text-gray-500"
+            }`}
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/listings") && !location.pathname.includes("/new") ? 2.5 : 2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span className="text-[10px] mt-0.5 font-medium">{t("nav.search")}</span>
+          </Link>
+
+          {/* New */}
+          <Link
+            to={createPath}
+            className={`flex w-14 flex-col items-center justify-center py-2 ${
+              location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" || location.pathname === "/tl-events"
+                ? "text-accent-600"
+                : "text-gray-500"
+            }`}
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" || location.pathname === "/tl-events" ? 2.5 : 2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="text-[10px] mt-0.5 font-medium">{teamLeader ? t("nav.event") : t("nav.new")}</span>
+          </Link>
+        </div>
+
+        {/* Center Logo */}
+        <Link to="/" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <img src="/logo.svg" alt="Runoot" className="h-20 w-auto" />
         </Link>
 
-        {/* Listings/Search */}
-        <Link
-          to="/listings"
-          className={`flex flex-col items-center justify-center flex-1 py-2 ${
-            isActive("/listings") && !location.pathname.includes("/new")
-              ? "text-brand-600"
-              : "text-gray-500"
-          }`}
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/listings") && !location.pathname.includes("/new") ? 2.5 : 2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <span className="text-[10px] mt-0.5 font-medium">{t("nav.search")}</span>
-        </Link>
-
-        {/* New */}
-        <Link
-          to={user ? (teamLeader ? "/tl-events" : tourOperator ? "/to-panel/listings/new" : "/listings/new") : "/login"}
-          className={`flex flex-col items-center justify-center flex-1 py-2 ${
-            location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" || location.pathname === "/tl-events"
-              ? "text-accent-600"
-              : "text-gray-500"
-          }`}
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" || location.pathname === "/tl-events" ? 2.5 : 2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span className="text-[10px] mt-0.5 font-medium">{teamLeader ? t("nav.event") : t("nav.new")}</span>
-        </Link>
+        <div className="flex items-center">
 
         {/* Messages */}
         {user ? (
           <Link
             to="/messages"
-            className={`flex flex-col items-center justify-center flex-1 py-2 relative ${
+            className={`flex w-14 flex-col items-center justify-center py-2 relative ${
               isActive("/messages")
                 ? "text-brand-600"
                 : "text-gray-500"
@@ -283,7 +283,7 @@ export function MobileNav({ user }: MobileNavProps) {
         ) : (
           <Link
             to="/login"
-            className="flex flex-col items-center justify-center flex-1 py-2 text-gray-500"
+            className="flex w-14 flex-col items-center justify-center py-2 text-gray-500"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -296,7 +296,7 @@ export function MobileNav({ user }: MobileNavProps) {
         {user ? (
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className={`flex flex-col items-center justify-center flex-1 py-2 ${
+            className={`flex w-14 flex-col items-center justify-center py-2 ${
               isActive("/profile") || isActive("/to-panel/profile") || isActive("/tl-dashboard/profile") || isActive("/profile/settings") || isActive("/to-panel/settings") || isActive("/saved") || isActive(myListingPath)
               || isActive("/tl-dashboard/settings")
                 ? "text-brand-600"
@@ -311,7 +311,7 @@ export function MobileNav({ user }: MobileNavProps) {
         ) : (
           <Link
             to="/login"
-            className="flex flex-col items-center justify-center flex-1 py-2 text-gray-500"
+            className="flex w-14 flex-col items-center justify-center py-2 text-gray-500"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -319,6 +319,7 @@ export function MobileNav({ user }: MobileNavProps) {
             <span className="text-[10px] mt-0.5 font-medium">{t("nav.login")}</span>
           </Link>
         )}
+        </div>
       </div>
     </nav>
     </>

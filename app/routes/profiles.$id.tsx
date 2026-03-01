@@ -140,7 +140,7 @@ export default function PublicProfilePage() {
       : "/events";
   if (debug && debug.reason !== "visible") {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-[#ECF4FE]">
         <Header user={user} />
         <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -157,7 +157,7 @@ export default function PublicProfilePage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-[#ECF4FE]">
         <Header user={user} />
         <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -191,7 +191,7 @@ export default function PublicProfilePage() {
   ].filter((item) => !!item.href);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#ECF4FE]">
       <div className="min-h-screen flex flex-col">
         <Header user={user} />
 
@@ -206,7 +206,7 @@ export default function PublicProfilePage() {
             {t("public_profile.back")}
           </Link>
 
-          <div className="mt-4 rounded-2xl border border-slate-400 bg-white p-6 shadow-[0_18px_42px_rgba(15,23,42,0.2)]">
+          <div className="mt-4 rounded-3xl border border-slate-400 bg-white p-6 shadow-[0_18px_42px_rgba(15,23,42,0.2)]">
             <div className="flex items-start gap-4">
               <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-2xl font-bold text-brand-700">
                 {profile.avatar_url ? (
@@ -237,18 +237,18 @@ export default function PublicProfilePage() {
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs uppercase tracking-wide text-slate-500">{t("public_profile.active_listings")}</p>
                 <p className="mt-1 text-xl font-bold text-slate-900">{activeListingsCount}</p>
               </div>
               {showExperience && profile.years_experience != null && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs uppercase tracking-wide text-slate-500">{t("public_profile.experience")}</p>
                   <p className="mt-1 text-xl font-bold text-slate-900">{profile.years_experience}</p>
                 </div>
               )}
               {showExperience && profile.languages_spoken && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs uppercase tracking-wide text-slate-500">{t("public_profile.languages")}</p>
                   <p className="mt-1 text-sm font-semibold text-slate-900 break-words">{profile.languages_spoken}</p>
                 </div>
@@ -279,7 +279,7 @@ export default function PublicProfilePage() {
                       href={social.href as string}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex max-w-full items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                      className="inline-flex max-w-full items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                     >
                       {social.key}
                     </a>

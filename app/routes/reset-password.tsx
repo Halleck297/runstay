@@ -117,7 +117,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="flex min-h-full flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-full flex-col justify-center bg-[#ECF4FE] py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h1 className="text-center font-display text-3xl font-bold text-gray-900">{t("auth.set_new_password")}</h1>
       </div>

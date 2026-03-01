@@ -103,10 +103,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }> = [
-  { key: "profile.nav.personal_info", href: "/profile", icon: "user" },
-  { key: "profile.nav.running_experience", href: "/profile/experience", icon: "running" },
-  { key: "profile.nav.social_media", href: "/profile/social", icon: "share" },
-  { key: "profile.nav.settings", href: "/profile/settings", icon: "settings" },
+  { key: "profile.nav.personal_info", href: "/profile#profile-main", icon: "user" },
+  { key: "profile.nav.running_experience", href: "/profile/experience#experience-main", icon: "running" },
+  { key: "profile.nav.social_media", href: "/profile/social#social-main", icon: "share" },
+  { key: "profile.nav.settings", href: "/profile/settings#settings-main", icon: "settings" },
 ];
 
 export default function Settings() {
@@ -136,12 +136,12 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.14)_1px,transparent_0)] bg-[size:18px_18px]">
+    <div className="min-h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
       <Header user={user} />
 
-      <div className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 pt-14 pb-28 sm:px-6 md:pt-16 md:pb-8 lg:px-8">
         <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
-          <aside className="flex-shrink-0 lg:w-64">
+          <aside className="flex-shrink-0 lg:w-72">
             <div className="rounded-3xl border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
                 <button
@@ -165,22 +165,20 @@ export default function Settings() {
                   {user.full_name || t("profile.avatar.your_name")}
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">{user.email}</p>
-                <span className="mt-2 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+                <span className="mt-2 inline-flex items-center rounded-full bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white">
                   {t("profile.avatar.private_runner")}
                 </span>
               </div>
 
-              <nav className="space-y-1">
+              <nav className="space-y-3">
                 {sidebarNavItems.map((item) => {
-                  const isActive = location.pathname === item.href;
+                  const isActive = location.pathname === item.href.split("#")[0];
                   return (
                     <Link
                       key={item.key}
                       to={item.href}
-                      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                        isActive
-                          ? "bg-brand-100 text-brand-800 shadow-sm ring-1 ring-brand-200"
-                          : "text-gray-600"
+                      className={`flex items-center gap-3 rounded-full border border-brand-500 px-4 py-3 text-sm font-medium transition-all ${
+                        isActive ? "bg-brand-500 text-white shadow-sm [&>svg]:text-white" : "bg-white text-gray-900 [&>svg]:text-brand-500"
                       }`}
                     >
                       {item.icon === "user" && (
@@ -212,10 +210,10 @@ export default function Settings() {
             </div>
           </aside>
 
-          <main className="min-w-0 flex-1">
-            <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+          <main id="settings-main" className="min-w-0 flex-1">
+            <div className="mb-6 text-center">
               <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.settings.title")}</h1>
-              <p className="mt-1 text-gray-600">{t("profile.settings.subtitle")}</p>
+              <p className="mt-1 text-gray-900">{t("profile.settings.subtitle")}</p>
             </div>
 
             {actionData && "success" in actionData && actionData.success && (

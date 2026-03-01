@@ -1,4 +1,4 @@
-import { Link, useFetcher } from "react-router";
+import { useFetcher, useNavigate } from "react-router";
 import { getListingPublicId } from "~/lib/publicIds";
 import { useI18n } from "~/hooks/useI18n";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
@@ -28,6 +28,8 @@ interface ListingCardCompactProps {
     room_count: number | null;
     room_type: "single" | "twin" | "double" | "double_shared" | "double_single_use" | "triple" | "quadruple" | null;
     bib_count: number | null;
+    check_in: string | null;
+    check_out: string | null;
     price: number | null;
     price_negotiable: boolean;
     transfer_type: "official_process" | "package" | "contact" | null;
@@ -61,12 +63,34 @@ function getLastMinuteThreshold(listingType: "room" | "bib" | "room_and_bib"): n
   return 21;
 }
 
+function parseDateStable(rawDate: string): Date {
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate || "");
+  if (dateOnlyMatch) {
+    const yyyy = Number(dateOnlyMatch[1]);
+    const mm = Number(dateOnlyMatch[2]) - 1;
+    const dd = Number(dateOnlyMatch[3]);
+    return new Date(Date.UTC(yyyy, mm, dd));
+  }
+  return new Date(rawDate);
+}
+
+function formatDateStable(
+  rawDate: string,
+  locale: string | string[],
+  options: Intl.DateTimeFormatOptions
+): string {
+  const parsed = parseDateStable(rawDate);
+  if (Number.isNaN(parsed.getTime())) return rawDate;
+  return new Intl.DateTimeFormat(locale, { ...options, timeZone: "UTC" }).format(parsed);
+}
+
 // Helper: calcola se è Last Minute (soglia variabile per tipo)
 function isLastMinute(eventDate: string, listingType: "room" | "bib" | "room_and_bib"): boolean {
   const today = new Date();
-  const event = new Date(eventDate);
-  const diffTime = event.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const event = parseDateStable(eventDate);
+  const eventUtc = Date.UTC(event.getUTCFullYear(), event.getUTCMonth(), event.getUTCDate());
+  const diffDays = Math.floor((eventUtc - todayUtc) / (1000 * 60 * 60 * 24));
   const thresholdDays = getLastMinuteThreshold(listingType);
   return diffDays <= thresholdDays && diffDays >= 0;
 }
@@ -123,6 +147,7 @@ export function ListingCardCompact({
   className = "",
 }: ListingCardCompactProps) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData
     ? saveFetcher.formData.get("action") === "save"
@@ -138,7 +163,7 @@ export function ListingCardCompact({
   const roomTypePriceValues = Object.values(roomTypePrices).filter((v): v is number => typeof v === "number" && v > 0);
   const minRoomTypePrice = roomTypePriceValues.length > 0 ? Math.min(...roomTypePriceValues) : null;
 
-  const eventDateShort = new Date(listing.event.event_date).toLocaleDateString("en-GB", {
+  const eventDateShort = formatDateStable(listing.event.event_date, "en-GB", {
     day: "numeric",
     month: "short",
   });
@@ -149,32 +174,23 @@ export function ListingCardCompact({
   // Sottotitolo compatto
   let subtitle = "";
   if (listing.listing_type === "bib") {
-    subtitle = listing.bib_count && listing.bib_count > 1
-      ? `${listing.bib_count} ${t("common.bibs")}`
-      : t("common.bib");
+    subtitle = "";
   } else if (listing.listing_type === "room") {
     const roomTypeText = listing.room_type ? formatRoomTypeShort(listing.room_type) : "Room";
     subtitle = listing.room_count && listing.room_count > 1
       ? `${listing.room_count} ${roomTypeText}s`
       : roomTypeText;
   } else {
-    subtitle = t("edit_listing.room_plus_bib");
+    subtitle = "";
   }
 
   // Badge colore
-  let badgeColor = "";
-  if (listing.listing_type === "bib") {
-    badgeColor = "bg-purple-100 text-purple-700";
-  } else if (listing.listing_type === "room") {
-    badgeColor = "bg-blue-100 text-blue-700";
-  } else {
-    badgeColor = "bg-green-100 text-green-700";
-  }
+  const badgeColor = "bg-brand-500 text-white";
 
   // Border per TO
   const cardClass = isTourOperator
-    ? "block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-brand-300 transition-all border-l-4 border-l-brand-500"
-    : "block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-brand-300 transition-all";
+    ? "block bg-white border border-gray-200 rounded-3xl p-4 hover:shadow-md hover:border-brand-300 transition-all border-l-4 border-l-brand-500"
+    : "block bg-white border border-gray-200 rounded-3xl p-4 hover:shadow-md hover:border-brand-300 transition-all";
 
   // Nome venditore
   const sellerName = getPublicDisplayName(listing.author);
@@ -184,10 +200,20 @@ export function ListingCardCompact({
   const eventSlug = getEventSlug(listing.event);
   const logoPath = `/logos/${eventSlug}.png`;
 
+  const listingHref = isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login";
+
   return (
-    <Link
-      to={isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login"}
-      className={`${cardClass} relative ${className}`}
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate(listingHref)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          navigate(listingHref);
+        }
+      }}
+      className={`${cardClass} relative ${className} cursor-pointer`}
     >
       {/* Save button - absolute top right */}
       {canSaveListing && (
@@ -241,11 +267,11 @@ export function ListingCardCompact({
         <div className="flex-1 min-w-0">
           {/* Header row: Badges */}
           <div className="flex items-center gap-2 mb-2">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`}>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${badgeColor}`}>
               {listing.listing_type === "bib" ? t("common.bib") : listing.listing_type === "room" ? "Hotel" : "Package"}
             </span>
             {isLM && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-accent-100 text-accent-700">Last Minute</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide bg-accent-500 text-white">Last Minute</span>
             )}
           </div>
 
@@ -254,24 +280,44 @@ export function ListingCardCompact({
             {listing.event.name}
           </h3>
 
-          {/* Sottotitolo: cosa offre */}
-          <p className="text-sm font-medium text-brand-600">
-            {subtitle}
-          </p>
-          {listing.hotel_name && (
-            <p className="text-sm text-gray-600 mb-2 truncate">
-              {listing.hotel_name}
-            </p>
-          )}
-          {!listing.hotel_name && <div className="mb-2" />}
-
           {/* Race Day */}
-          <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-2">
-            <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex items-center gap-1.5 text-xs text-gray-900 mb-2">
+            <svg className="h-3.5 w-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span className="font-medium">{t("listings.race_day")}: {eventDateShort}</span>
           </div>
+
+          {/* Sottotitolo: cosa offre */}
+          {subtitle && (
+            <p className="text-sm font-medium text-brand-600">
+              {subtitle}
+            </p>
+          )}
+          {listing.hotel_name && (
+            <>
+              <p className="text-sm text-gray-600 truncate">
+                {listing.hotel_name}
+              </p>
+              {listing.check_in && listing.check_out && (
+                <>
+                  <p className={listing.listing_type === "room" || listing.listing_type === "room_and_bib" ? "text-sm font-medium text-gray-900" : "text-xs text-gray-500"}>
+                    {formatDateStable(listing.check_in, "en-GB", { day: "numeric", month: "short" })} -&gt;{" "}
+                    {formatDateStable(listing.check_out, "en-GB", { day: "numeric", month: "short" })}
+                  </p>
+                  {listing.listing_type === "room_and_bib" && (
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-600 mb-2">BIB AVAILABLE</p>
+                  )}
+                </>
+              )}
+              {(!listing.check_in || !listing.check_out) && <div className="mb-2" />}
+            </>
+          )}
+          {!listing.hotel_name && <div className="mb-2" />}
+
+          {listing.listing_type === "bib" && !isTourOperator && (
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600 mb-2">NAME CHANGE REQUIRED</p>
+          )}
         </div>
 
         {/* Right: Event logo */}
@@ -309,7 +355,7 @@ export function ListingCardCompact({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-gray-900 truncate">
+                  <span className="text-sm font-semibold text-gray-900 truncate">
                     {sellerNameShort}
                   </span>
                   {listing.author.is_verified && (
@@ -322,7 +368,7 @@ export function ListingCardCompact({
                     </svg>
                   )}
                 </div>
-                <p className="text-[10px] text-gray-500">
+                <p className="text-xs text-gray-500">
                   {listing.author.user_type === "tour_operator" ? "Tour Operator" : "Runner"}
                 </p>
               </div>
@@ -330,7 +376,7 @@ export function ListingCardCompact({
 
             {/* Center: View Details button */}
             <div className="flex-1 flex justify-center">
-              <span className="bg-accent-500 text-white text-xs font-medium px-4 py-1.5 rounded-full">
+              <span className="bg-accent-500 text-white text-xs font-medium uppercase tracking-wide px-4 py-1.5 rounded-full">
                 View
               </span>
             </div>
@@ -350,7 +396,7 @@ export function ListingCardCompact({
                   {formatCurrencyAmount(listing.price, listing.currency)}
                 </p>
               ) : (
-                <p className="text-xs font-medium text-gray-600">Contact</p>
+                <p className="text-sm font-bold text-gray-900">Contact</p>
               )}
             </div>
           </>
@@ -360,6 +406,6 @@ export function ListingCardCompact({
           </p>
         )}
       </div>
-    </Link>
+    </div>
   );
 }

@@ -126,10 +126,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }> = [
-  { key: "profile.nav.personal_info", href: "/profile", icon: "user" },
-  { key: "profile.nav.running_experience", href: "/profile/experience", icon: "running" },
-  { key: "profile.nav.social_media", href: "/profile/social", icon: "share" },
-  { key: "profile.nav.settings", href: "/profile/settings", icon: "settings" },
+  { key: "profile.nav.personal_info", href: "/profile#profile-main", icon: "user" },
+  { key: "profile.nav.running_experience", href: "/profile/experience#experience-main", icon: "running" },
+  { key: "profile.nav.social_media", href: "/profile/social#social-main", icon: "share" },
+  { key: "profile.nav.settings", href: "/profile/settings#settings-main", icon: "settings" },
 ];
 
 export default function RunningExperience() {
@@ -156,12 +156,12 @@ export default function RunningExperience() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.14)_1px,transparent_0)] bg-[size:18px_18px]">
+    <div className="min-h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
       <Header user={user} />
 
-      <div className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 pt-14 pb-28 sm:px-6 md:pt-16 md:pb-8 lg:px-8">
         <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
-          <aside className="flex-shrink-0 lg:w-64">
+          <aside className="flex-shrink-0 lg:w-72">
             <div className="rounded-3xl border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
                 <button
@@ -185,22 +185,20 @@ export default function RunningExperience() {
                   {user.full_name || t("profile.avatar.your_name")}
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">{user.email}</p>
-                <span className="mt-2 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+                <span className="mt-2 inline-flex items-center rounded-full bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white">
                   {t("profile.avatar.private_runner")}
                 </span>
               </div>
 
-              <nav className="space-y-1">
+              <nav className="space-y-3">
                 {sidebarNavItems.map((item) => {
-                  const isActive = location.pathname === item.href;
+                  const isActive = location.pathname === item.href.split("#")[0];
                   return (
                     <Link
                       key={item.key}
                       to={item.href}
-                      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                        isActive
-                          ? "bg-brand-100 text-brand-800 shadow-sm ring-1 ring-brand-200"
-                          : "text-gray-600"
+                      className={`flex items-center gap-3 rounded-full border border-brand-500 px-4 py-3 text-sm font-medium transition-all ${
+                        isActive ? "bg-brand-500 text-white shadow-sm [&>svg]:text-white" : "bg-white text-gray-900 [&>svg]:text-brand-500"
                       }`}
                     >
                       {item.icon === "user" && (
@@ -232,10 +230,10 @@ export default function RunningExperience() {
             </div>
           </aside>
 
-          <main className="min-w-0 flex-1">
-            <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+          <main id="experience-main" className="min-w-0 flex-1 rounded-3xl border border-gray-200 bg-white p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:p-6">
+            <div className="mb-6">
               <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.experience.title")}</h1>
-              <p className="mt-1 text-gray-600">{t("profile.experience.subtitle")}</p>
+              <p className="mt-1 text-gray-900">{t("profile.experience.subtitle")}</p>
             </div>
 
             {actionData && "success" in actionData && actionData.success && (
@@ -256,110 +254,110 @@ export default function RunningExperience() {
               </div>
             )}
 
-            <Form method="post">
+            <Form method="post" className="pb-8 md:pb-8">
               <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.experience.marathons")}</h3>
-              <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.completed")}</label>
+              <div className="mb-6 grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-3 md:gap-y-1">
+                <div className="space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.experience.completed")}</label>
                   <input
                     name="marathonsCompleted"
                     type="number"
                     min="0"
                     defaultValue={(user as any).marathons_completed || ""}
-                    className="mt-1 block w-full border-0 bg-transparent p-0 font-medium text-gray-900 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 font-medium text-gray-900 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     placeholder="0"
                   />
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.personal_best")}</label>
+                <div className="space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.experience.personal_best")}</label>
                   <input
                     name="marathonPB"
                     type="text"
                     defaultValue={(user as any).marathon_pb || ""}
-                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder="3:45:00"
                   />
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.pb_location")}</label>
+                <div className="space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.experience.pb_location")}</label>
                   <input
                     name="marathonPBLocation"
                     type="text"
                     defaultValue={(user as any).marathon_pb_location || ""}
-                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder="Berlin 2023"
                   />
                 </div>
               </div>
 
               <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.experience.half_marathons")}</h3>
-              <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.completed")}</label>
+              <div className="mb-6 grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-3 md:gap-y-1">
+                <div className="space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.experience.completed")}</label>
                   <input
                     name="halfMarathonsCompleted"
                     type="number"
                     min="0"
                     defaultValue={(user as any).half_marathons_completed || ""}
-                    className="mt-1 block w-full border-0 bg-transparent p-0 font-medium text-gray-900 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 font-medium text-gray-900 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     placeholder="0"
                   />
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.personal_best")}</label>
+                <div className="space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.experience.personal_best")}</label>
                   <input
                     name="halfMarathonPB"
                     type="text"
                     defaultValue={(user as any).half_marathon_pb || ""}
-                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder="1:45:00"
                   />
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.pb_location")}</label>
+                <div className="space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.experience.pb_location")}</label>
                   <input
                     name="halfMarathonPBLocation"
                     type="text"
                     defaultValue={(user as any).half_marathon_pb_location || ""}
-                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder="Valencia 2024"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5 md:col-span-2">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.favorite_races")}</label>
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2 md:gap-y-1">
+                <div className="space-y-1 md:col-span-2 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.experience.favorite_races")}</label>
                   <textarea
                     name="favoriteRaces"
                     rows={3}
                     defaultValue={(user as any).favorite_races || ""}
-                    className="mt-1 block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="mt-1 block w-full resize-none rounded-3xl border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder={t("profile.experience.favorite_races_placeholder")}
                   />
                   <p className="mt-2 text-xs text-gray-400">{t("profile.experience.favorite_races_help")}</p>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5 md:col-span-2">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.running_goals")}</label>
+                <div className="space-y-1 md:col-span-2 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.experience.running_goals")}</label>
                   <textarea
                     name="runningGoals"
                     rows={3}
                     defaultValue={(user as any).running_goals || ""}
-                    className="mt-1 block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="mt-1 block w-full resize-none rounded-3xl border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder={t("profile.experience.running_goals_placeholder")}
                   />
                   <p className="mt-2 text-xs text-gray-400">{t("profile.experience.running_goals_help")}</p>
                 </div>
               </div>
 
-              <div className="mt-6">
-                <button type="submit" className="btn-primary rounded-full px-8 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting}>
-                  {isSubmitting ? `${t("profile.actions.save_changes")}...` : t("profile.actions.save_changes")}
+              <div className="mt-6 px-2">
+                <button type="submit" className="btn-primary w-full rounded-full px-8 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto" disabled={isSubmitting}>
+                  {(isSubmitting ? `${t("profile.actions.save_changes")}...` : t("profile.actions.save_changes")).toUpperCase()}
                 </button>
               </div>
             </Form>

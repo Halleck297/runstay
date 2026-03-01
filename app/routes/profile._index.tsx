@@ -152,10 +152,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }> = [
-  { key: "profile.nav.personal_info", href: "/profile", icon: "user" },
-  { key: "profile.nav.running_experience", href: "/profile/experience", icon: "running" },
-  { key: "profile.nav.social_media", href: "/profile/social", icon: "share" },
-  { key: "profile.nav.settings", href: "/profile/settings", icon: "settings" },
+  { key: "profile.nav.personal_info", href: "/profile#profile-main", icon: "user" },
+  { key: "profile.nav.running_experience", href: "/profile/experience#experience-main", icon: "running" },
+  { key: "profile.nav.social_media", href: "/profile/social#social-main", icon: "share" },
+  { key: "profile.nav.settings", href: "/profile/settings#settings-main", icon: "settings" },
 ];
 
 export default function ProfileIndex() {
@@ -189,12 +189,12 @@ export default function ProfileIndex() {
   const countryDisplayValue = getCountryDisplayName((user as any).country, locale);
 
   return (
-    <div className="min-h-screen bg-slate-50 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.14)_1px,transparent_0)] bg-[size:18px_18px]">
+    <div className="min-h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
       <Header user={user} />
 
-      <div className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 pt-14 pb-28 sm:px-6 md:pt-16 md:pb-8 lg:px-8">
         <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
-          <aside className="flex-shrink-0 lg:w-64">
+          <aside className="flex-shrink-0 lg:w-72">
             <div className="rounded-3xl border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
                 <button
@@ -218,22 +218,20 @@ export default function ProfileIndex() {
                   {user.full_name || t("profile.avatar.your_name")}
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">{user.email}</p>
-                <span className="mt-2 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+                <span className="mt-2 inline-flex items-center rounded-full bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white">
                   {isTourOperator ? t("common.tour_operator") : t("profile.avatar.private_runner")}
                 </span>
               </div>
 
-              <nav className="space-y-1">
+              <nav className="space-y-3">
                 {visibleSidebarNavItems.map((item) => {
-                  const isActive = location.pathname === item.href;
+                  const isActive = location.pathname === item.href.split("#")[0];
                   return (
                     <Link
                       key={item.key}
                       to={item.href}
-                      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                        isActive
-                          ? "bg-brand-100 text-brand-800 shadow-sm ring-1 ring-brand-200"
-                          : "text-gray-600"
+                      className={`flex items-center gap-3 rounded-full border border-brand-500 px-4 py-3 text-sm font-medium transition-all ${
+                        isActive ? "bg-brand-500 text-white shadow-sm [&>svg]:text-white" : "bg-white text-gray-900 [&>svg]:text-brand-500"
                       }`}
                     >
                       {item.icon === "user" && (
@@ -265,10 +263,10 @@ export default function ProfileIndex() {
             </div>
           </aside>
 
-          <main className="min-w-0 flex-1">
-            <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+          <main id="profile-main" className="min-w-0 flex-1 rounded-3xl border border-gray-200 bg-white p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:p-6">
+            <div className="mb-6">
               <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.main.personal_info_title")}</h1>
-              <p className="mt-1 text-gray-600">{t("profile.main.personal_info_subtitle")}</p>
+              <p className="mt-1 text-gray-900">{t("profile.main.personal_info_subtitle")}</p>
             </div>
 
             {actionData && "success" in actionData && actionData.success && (
@@ -289,28 +287,24 @@ export default function ProfileIndex() {
               </div>
             )}
 
-            <Form method="post" className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.form.full_name")}</label>
-                      <p className="mt-1 font-medium text-gray-600">{user.full_name || t("profile.form.not_set")}</p>
-                    </div>
+            <Form method="post" className="pb-8 md:pb-8">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2 md:gap-y-1">
+                <div className="order-1 space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.full_name")}</label>
+                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
+                    <p className="font-medium text-gray-900">{user.full_name || t("profile.form.not_set")}</p>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">
-                        {t("profile.form.email_address")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
-                      </label>
-                      <p className="mt-1 font-medium text-gray-600">{user.email}</p>
-                    </div>
+                <div className="order-6 space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">
+                    {t("profile.form.email_address")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
+                  </label>
+                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
+                    <p className="font-medium text-gray-900">{user.email}</p>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
@@ -318,25 +312,23 @@ export default function ProfileIndex() {
                 </div>
 
                 {isTourOperator ? (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                    <label className="text-sm font-medium text-gray-500">{t("profile.form.phone_number")}</label>
+                  <div className="order-7 space-y-1 md:p-2">
+                    <label className="text-sm font-semibold text-gray-900">{t("profile.form.phone_number")}</label>
                     <input
                       name="phone"
                       type="tel"
                       defaultValue={user.phone || ""}
-                      className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                      className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                       placeholder="+39 123 456 7890"
                     />
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <label className="text-sm font-medium text-gray-500">
-                          {t("profile.form.phone_number")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
-                        </label>
-                        <p className="mt-1 font-medium text-gray-600">{user.phone || t("profile.form.not_set")}</p>
-                      </div>
+                  <div className="order-7 space-y-1 md:p-2">
+                    <label className="text-sm font-semibold text-gray-900">
+                      {t("profile.form.phone_number")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
+                    </label>
+                    <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
+                      <p className="font-medium text-gray-900">{user.phone || t("profile.form.not_set")}</p>
                       <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
@@ -344,12 +336,10 @@ export default function ProfileIndex() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.form.account_type")}</label>
-                      <p className="mt-1 font-medium text-gray-600">{isTourOperator ? t("common.tour_operator") : t("profile.avatar.private_runner")}</p>
-                    </div>
+                <div className="order-2 space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.account_type")}</label>
+                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
+                    <p className="font-medium text-gray-900">{isTourOperator ? t("common.tour_operator") : t("profile.avatar.private_runner")}</p>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
@@ -357,66 +347,59 @@ export default function ProfileIndex() {
                 </div>
 
                 {isTourOperator && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                    <label className="text-sm font-medium text-gray-500">{t("profile.agency.company_name_required")}</label>
+                  <div className="order-8 space-y-1 md:p-2">
+                    <label className="text-sm font-semibold text-gray-900">{t("profile.agency.company_name_required")}</label>
                     <input
                       name="companyName"
                       type="text"
                       defaultValue={(user as any).company_name || ""}
-                      className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                      className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                       required
                     />
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.form.country")}</label>
-                      <p className="mt-1 font-medium text-gray-600">{countryDisplayValue || t("profile.form.not_set")}</p>
-                    </div>
+                <div className="order-4 space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.country")}</label>
+                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
+                    <p className="font-medium text-gray-900">{countryDisplayValue || t("profile.form.not_set")}</p>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.form.city")}</label>
-                      <p className="mt-1 font-medium text-gray-600">{(user as any).city || t("profile.form.not_set")}</p>
-                    </div>
+                <div className="order-3 space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.city")}</label>
+                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
+                    <p className="font-medium text-gray-900">{(user as any).city || t("profile.form.not_set")}</p>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-500">
-                        Date of birth <span className="text-gray-400">({t("profile.form.not_visible")})</span>
-                      </label>
-                      <p className="mt-1 font-medium text-gray-600">{dateOfBirthValue}</p>
-                    </div>
+                <div className="order-5 space-y-1 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">
+                    Date of birth <span className="text-gray-400">({t("profile.form.not_visible")})</span>
+                  </label>
+                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
+                    <p className="font-medium text-gray-900">{dateOfBirthValue}</p>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.form.about_me")}</label>
+                <div className="order-9 mb-6 space-y-1 md:col-span-2 md:mb-8 md:p-2">
+                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.about_me")}</label>
                   <textarea
                     name="bio"
                     rows={3}
                     defaultValue={(user as any).bio || ""}
-                    className="mt-1 block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="mt-1 block w-full resize-none rounded-3xl border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder={t("profile.form.about_me_placeholder")}
                   />
-                  <p className="mt-2 text-xs text-gray-400">{t("profile.form.about_me_help")}</p>
                 </div>
 
                 {isTourOperator && (
@@ -427,13 +410,13 @@ export default function ProfileIndex() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.company_website")}</label>
+                    <div className="space-y-1 md:p-2">
+                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.company_website")}</label>
                       <input
                         name="website"
                         type="text"
                         defaultValue={stripUrlProtocol((user as any).website)}
-                        className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                         placeholder="www.yourcompany.com"
                         inputMode="url"
                         autoCapitalize="none"
@@ -442,36 +425,36 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.languages_spoken")}</label>
+                    <div className="space-y-1 md:p-2">
+                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.languages_spoken")}</label>
                       <input
                         name="languages_spoken"
                         type="text"
                         defaultValue={(user as any).languages_spoken || ""}
-                        className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                         placeholder={t("profile.agency.languages_placeholder")}
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.years_business")}</label>
+                    <div className="space-y-1 md:p-2">
+                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.years_business")}</label>
                       <input
                         name="yearsExperience"
                         type="number"
                         min="0"
                         defaultValue={(user as any).years_experience || ""}
-                        className="mt-1 block w-full border-0 bg-transparent p-0 font-medium text-gray-900 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 font-medium text-gray-900 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="5"
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.specialties")}</label>
+                    <div className="space-y-1 md:col-span-2 md:p-2">
+                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.specialties")}</label>
                       <textarea
                         name="specialties"
                         rows={3}
                         defaultValue={(user as any).specialties || ""}
-                        className="mt-1 block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        className="mt-1 block w-full resize-none rounded-3xl border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                         placeholder={t("profile.agency.specialties_placeholder")}
                       />
                     </div>
@@ -482,9 +465,9 @@ export default function ProfileIndex() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.social.instagram")}</label>
-                      <div className="mt-1 flex items-center">
+                    <div className="space-y-1 md:p-2">
+                      <label className="text-sm font-semibold text-gray-900">{t("profile.social.instagram")}</label>
+                      <div className="mt-1 flex items-center rounded-full bg-[#ECF4FE] px-4 py-3">
                         <span className="mr-1 text-gray-400">@</span>
                         <input
                           name="instagram"
@@ -496,13 +479,13 @@ export default function ProfileIndex() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.facebook_page")}</label>
+                    <div className="space-y-1 md:p-2">
+                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.facebook_page")}</label>
                       <input
                         name="facebook"
                         type="text"
                         defaultValue={stripUrlProtocol((user as any).facebook)}
-                        className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                         placeholder="facebook.com/yourcompany"
                         inputMode="url"
                         autoCapitalize="none"
@@ -511,13 +494,13 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
-                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.linkedin_company")}</label>
+                    <div className="space-y-1 md:col-span-2 md:p-2">
+                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.linkedin_company")}</label>
                       <input
                         name="linkedin"
                         type="text"
                         defaultValue={stripUrlProtocol((user as any).linkedin)}
-                        className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                         placeholder="linkedin.com/company/yourcompany"
                         inputMode="url"
                         autoCapitalize="none"
@@ -529,15 +512,9 @@ export default function ProfileIndex() {
                 )}
               </div>
 
-              <div className="mt-6 hidden md:block">
-                <button type="submit" className="btn-primary rounded-full px-8 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting}>
-                  {isSubmitting ? `${t("profile.actions.save_changes")}...` : t("profile.actions.save_changes")}
-                </button>
-              </div>
-
-              <div className="fixed inset-x-0 bottom-20 z-30 border-t border-gray-200 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
-                <button type="submit" className="btn-primary w-full rounded-full disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting}>
-                  {isSubmitting ? `${t("profile.actions.save_changes")}...` : t("profile.actions.save_changes")}
+              <div className="mt-6 px-2">
+                <button type="submit" className="btn-primary w-full rounded-full px-8 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto" disabled={isSubmitting}>
+                  {(isSubmitting ? `${t("profile.actions.save_changes")}...` : t("profile.actions.save_changes")).toUpperCase()}
                 </button>
               </div>
             </Form>

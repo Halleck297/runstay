@@ -49,12 +49,12 @@ export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }:
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className={`input text-left text-gray-500 hover:border-brand-500 ${hasError ? "border-red-500 ring-1 ring-red-500" : ""}`}
+          className={`input rounded-3xl text-left text-gray-500 hover:border-brand-500 ${hasError ? "border-red-500 ring-1 ring-red-500" : ""}`}
         >
           {t("edit_listing.event_picker_placeholder")}
         </button>
       ) : (
-        <div className="flex items-center justify-between rounded-lg border border-green-500 bg-green-50 p-4">
+        <div className="flex items-center justify-between rounded-3xl border border-green-500 bg-green-50 p-4">
           <div className="flex items-center gap-2">
             <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

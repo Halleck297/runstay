@@ -241,7 +241,7 @@ export default function JoinReferral() {
   // Invalid code
   if (status === "invalid") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -261,7 +261,7 @@ export default function JoinReferral() {
   // Already referred
   if (status === "already_referred") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
           <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-brand-600" fill="currentColor" viewBox="0 0 20 20">
@@ -281,7 +281,7 @@ export default function JoinReferral() {
   // Logged-in users must create a new runner account for TL invite flow
   if (status === "needs_new_registration") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
           <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -312,7 +312,7 @@ export default function JoinReferral() {
   const tl = teamLeader as any;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#ECF4FE] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* TL invitation card */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6 text-center">

@@ -255,6 +255,7 @@ export default function ListingDetail() {
   const location = useLocation();
   const { user, listing, isSaved, isEventListing, eventOrganizer, sellerAccessMode } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const [showHowTo, setShowHowTo] = useState(false);
   const [showSafety, setShowSafety] = useState(false);
   const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData
@@ -345,11 +346,11 @@ export default function ListingDetail() {
     : "Comparable hotels from €200+";
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="min-h-screen">
+    <div className="min-h-screen bg-[#ECF4FE]">
+      <div className="min-h-screen flex flex-col">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 py-6 pb-36 md:pb-6 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-12 md:pb-6 sm:px-6 lg:px-8">
           {/* Back link */}
           <div className="mb-4">
             <Link
@@ -364,11 +365,11 @@ export default function ListingDetail() {
           </div>
 
           {/* Event Image Banner */}
-          <div className="rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.15)] mb-6">
+          <div className="rounded-3xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.15)] mb-6">
             <img
               src={bannerPrimary}
               alt={listingData.event.name}
-              className="w-full aspect-[3/1] object-cover"
+              className="w-full h-[375px] sm:h-[480px] md:h-[570px] object-cover"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 const bannerAbsolute = new URL(bannerFallback, window.location.origin).href;
@@ -388,7 +389,7 @@ export default function ListingDetail() {
                 if (fallback) fallback.style.display = 'flex';
               }}
             />
-            <div className="w-full aspect-[3/1] bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center" style={{ display: 'none' }}>
+            <div className="w-full h-[375px] sm:h-[480px] md:h-[570px] bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center" style={{ display: 'none' }}>
               <svg className="h-16 w-16 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -401,7 +402,7 @@ export default function ListingDetail() {
 
             {/* Details - Hotel & Location */}
             {(listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
+              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 pb-3 mb-6 border-b border-gray-200">
                   {t("listings.hotel_location")}
                 </h3>
@@ -411,7 +412,7 @@ export default function ListingDetail() {
                   {listingData.hotel_name && (
                     <div>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 flex-shrink-0">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                           </svg>
@@ -451,7 +452,7 @@ export default function ListingDetail() {
 
                   {/* Room details */}
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 flex-shrink-0">
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19h16M4 15h16M4 15V9a2 2 0 012-2h2a2 2 0 012 2v0M4 15V9m8-2h6a2 2 0 012 2v6M4 9h4m0 0a2 2 0 012 2v4" />
                       </svg>
@@ -476,7 +477,7 @@ export default function ListingDetail() {
                   </div>
 
                   {hasToRoomTypePrices && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Room type pricing</p>
                       <div className="space-y-1.5">
                         {roomTypes.map((type) => (
@@ -500,7 +501,7 @@ export default function ListingDetail() {
                     const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
                     return (
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 flex-shrink-0">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 flex-shrink-0">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
@@ -524,7 +525,7 @@ export default function ListingDetail() {
 
                   {hasExtraNight && (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700 flex-shrink-0">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 flex-shrink-0">
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -543,7 +544,7 @@ export default function ListingDetail() {
             {(listingData.distance_to_finish !== null ||
               listingData.walking_duration !== null ||
               listingData.transit_duration !== null) && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
+              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
                   Distance to Finish Line
                 </h3>
@@ -607,7 +608,7 @@ export default function ListingDetail() {
 
             {/* Bib details */}
             {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
+              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
                   {bibLabel} Transfer Details
                 </h3>
@@ -627,7 +628,7 @@ export default function ListingDetail() {
                   </div>
                   
                   {listingData.transfer_type && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-3xl p-4">
                       <p className="text-sm font-medium text-blue-900 mb-1">Transfer method</p>
                       <p className="text-sm text-blue-800">
                         {listingData.transfer_type === "official_process" && "✓ Official organizer name change process"}
@@ -642,7 +643,7 @@ export default function ListingDetail() {
 
             {/* Description */}
             {listingData.description && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
+              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-3">
                   Additional Information
                 </h3>
@@ -654,170 +655,201 @@ export default function ListingDetail() {
 
             {/* How to Complete Transaction */}
             {isEventListing ? (
-              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
-                <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                  How to Proceed
-                </h3>
-                <ol className="space-y-3">
-                  <li className="flex gap-3">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">1</span>
-                    <div>
-                      <p className="font-medium text-gray-900">Confirm package details</p>
-                      <p className="text-sm text-gray-600">Review inclusions, dates, and participant details with the organizer.</p>
-                    </div>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">2</span>
-                    <div>
-                      <p className="font-medium text-gray-900">Share required participant info</p>
-                      <p className="text-sm text-gray-600">Provide runner data needed for registrations, rooming, and logistics.</p>
-                    </div>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">3</span>
-                    <div>
-                      <p className="font-medium text-gray-900">Receive final confirmation</p>
-                      <p className="text-sm text-gray-600">The organizer will confirm your slot and send operational details.</p>
-                    </div>
-                  </li>
-                </ol>
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.10)]">
+                <button
+                  onClick={() => setShowHowTo(!showHowTo)}
+                  className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50 lg:cursor-default lg:hover:bg-white"
+                >
+                  <span className="font-display text-lg font-semibold text-gray-900">How to Proceed</span>
+                  <svg
+                    className={`h-5 w-5 text-gray-400 transition-transform lg:hidden ${showHowTo ? "rotate-180" : ""}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div className={`${showHowTo ? "block" : "hidden"} px-4 pb-4 lg:block`}>
+                  <ol className="space-y-3">
+                    <li className="flex gap-3">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">1</span>
+                      <div>
+                        <p className="font-medium text-gray-900">Confirm package details</p>
+                        <p className="text-sm text-gray-600">Review inclusions, dates, and participant details with the organizer.</p>
+                      </div>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">2</span>
+                      <div>
+                        <p className="font-medium text-gray-900">Share required participant info</p>
+                        <p className="text-sm text-gray-600">Provide runner data needed for registrations, rooming, and logistics.</p>
+                      </div>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">3</span>
+                      <div>
+                        <p className="font-medium text-gray-900">Receive final confirmation</p>
+                        <p className="text-sm text-gray-600">The organizer will confirm your slot and send operational details.</p>
+                      </div>
+                    </li>
+                  </ol>
+                </div>
               </div>
             ) : (
-              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
-                <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                  How to Complete This Transaction
-                </h3>
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.10)]">
+                <button
+                  onClick={() => setShowHowTo(!showHowTo)}
+                  className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50 lg:cursor-default lg:hover:bg-white"
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <svg className="h-5 w-5 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z" />
+                    </svg>
+                    <span className="font-display text-sm font-semibold text-gray-900 sm:text-base lg:text-lg whitespace-nowrap">How to Complete Transaction</span>
+                  </span>
+                  <svg
+                    className={`h-5 w-5 text-gray-400 transition-transform lg:hidden ${showHowTo ? "rotate-180" : ""}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
 
-                {listingData.listing_type === "room" && (
+                <div className={`${showHowTo ? "block" : "hidden"} px-4 pb-4 lg:block`}>
+                  {listingData.listing_type === "room" && (
+                    <div className="space-y-4">
+                      <p className="text-gray-600">
+                        Follow these steps after agreeing with the seller:
+                      </p>
+                      <ol className="space-y-3">
+                        <li className="flex gap-3">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">1</span>
+                          <div>
+                            <p className="font-medium text-gray-900">Confirm booking details</p>
+                            <p className="text-sm text-gray-600">Verify check-in/out dates, room type, and hotel name with the seller.</p>
+                          </div>
+                        </li>
+                        <li className="flex gap-3">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">2</span>
+                          <div>
+                            <p className="font-medium text-gray-900">Arrange name change</p>
+                            <p className="text-sm text-gray-600">The seller will contact the hotel to transfer the reservation to your name. Some hotels may charge a fee.</p>
+                          </div>
+                        </li>
+                        <li className="flex gap-3">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">3</span>
+                          <div>
+                            <p className="font-medium text-gray-900">Get written confirmation</p>
+                            <p className="text-sm text-gray-600">Request the updated booking confirmation directly from the hotel with your name.</p>
+                          </div>
+                        </li>
+                        <li className="flex gap-3">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">4</span>
+                          <div>
+                            <p className="font-medium text-gray-900">Complete payment</p>
+                            <p className="text-sm text-gray-600">Pay the seller only after receiving the hotel confirmation. Use PayPal or bank transfer for safety.</p>
+                          </div>
+                        </li>
+                      </ol>
+                    </div>
+                  )}
+
+                  {listingData.listing_type === "bib" && (
                   <div className="space-y-4">
                     <p className="text-gray-600">
                       Follow these steps after agreeing with the seller:
                     </p>
                     <ol className="space-y-3">
                       <li className="flex gap-3">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">1</span>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">1</span>
                         <div>
-                          <p className="font-medium text-gray-900">Confirm booking details</p>
-                          <p className="text-sm text-gray-600">Verify check-in/out dates, room type, and hotel name with the seller.</p>
+                          <p className="font-medium text-gray-900">Check race transfer policy</p>
+                          <p className="text-sm text-gray-600">Visit the official race website to verify if {bibsLabel.toLowerCase()} transfers are allowed and the deadline.</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">2</span>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">2</span>
                         <div>
-                          <p className="font-medium text-gray-900">Arrange name change</p>
-                          <p className="text-sm text-gray-600">The seller will contact the hotel to transfer the reservation to your name. Some hotels may charge a fee.</p>
+                          <p className="font-medium text-gray-900">Initiate official transfer</p>
+                          <p className="text-sm text-gray-600">The seller must start the name change process through the race organizer's system. You may need to provide your details.</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">3</span>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">3</span>
                         <div>
-                          <p className="font-medium text-gray-900">Get written confirmation</p>
-                          <p className="text-sm text-gray-600">Request the updated booking confirmation directly from the hotel with your name.</p>
+                          <p className="font-medium text-gray-900">Receive confirmation</p>
+                          <p className="text-sm text-gray-600">Wait for official confirmation from the race organizer that the {bibLabel.toLowerCase()} is now registered in your name.</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700 text-sm font-semibold flex-shrink-0">4</span>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">4</span>
                         <div>
                           <p className="font-medium text-gray-900">Complete payment</p>
-                          <p className="text-sm text-gray-600">Pay the seller only after receiving the hotel confirmation. Use PayPal or bank transfer for safety.</p>
+                          <p className="text-sm text-gray-600">Pay the seller only after the transfer is confirmed. Use PayPal or bank transfer for safety.</p>
                         </div>
                       </li>
                     </ol>
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-3xl">
+                      <p className="text-sm text-amber-800">
+                        <span className="font-medium">Important:</span> Never run with someone else's {bibLabel.toLowerCase()} without an official transfer. This violates race rules and insurance coverage.
+                      </p>
+                    </div>
                   </div>
                 )}
 
-                {listingData.listing_type === "bib" && (
-                <div className="space-y-4">
-                  <p className="text-gray-600">
-                    Follow these steps after agreeing with the seller:
-                  </p>
-                  <ol className="space-y-3">
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0">1</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Check race transfer policy</p>
-                        <p className="text-sm text-gray-600">Visit the official race website to verify if {bibsLabel.toLowerCase()} transfers are allowed and the deadline.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0">2</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Initiate official transfer</p>
-                        <p className="text-sm text-gray-600">The seller must start the name change process through the race organizer's system. You may need to provide your details.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0">3</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Receive confirmation</p>
-                        <p className="text-sm text-gray-600">Wait for official confirmation from the race organizer that the {bibLabel.toLowerCase()} is now registered in your name.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-purple-700 text-sm font-semibold flex-shrink-0">4</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Complete payment</p>
-                        <p className="text-sm text-gray-600">Pay the seller only after the transfer is confirmed. Use PayPal or bank transfer for safety.</p>
-                      </div>
-                    </li>
-                  </ol>
-                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-800">
-                      <span className="font-medium">Important:</span> Never run with someone else's {bibLabel.toLowerCase()} without an official transfer. This violates race rules and insurance coverage.
+                  {listingData.listing_type === "room_and_bib" && (
+                  <div className="space-y-4">
+                    <p className="text-gray-600">
+                      This is a complete package. Follow these steps after agreeing with the seller:
                     </p>
+                    <ol className="space-y-3">
+                      <li className="flex gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">1</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Verify package contents</p>
+                          <p className="text-sm text-gray-600">Confirm exactly what's included: hotel dates, room type, race {bibLabel.toLowerCase()}, and any extras.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">2</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Start {bibLabel.toLowerCase()} transfer first</p>
+                          <p className="text-sm text-gray-600">The race {bibLabel.toLowerCase()} transfer often has strict deadlines. The seller should initiate this through the official organizer.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">3</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Transfer hotel booking</p>
+                          <p className="text-sm text-gray-600">The seller contacts the hotel to change the reservation name. Request confirmation directly from the hotel.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">4</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Get all confirmations</p>
+                          <p className="text-sm text-gray-600">Collect written confirmation for both the race entry and hotel booking in your name.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">5</span>
+                        <div>
+                          <p className="font-medium text-gray-900">Complete payment</p>
+                          <p className="text-sm text-gray-600">Pay only after receiving all confirmations. Use PayPal or bank transfer for safety.</p>
+                        </div>
+                      </li>
+                    </ol>
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-3xl">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-medium">Tip:</span> For packages, consider splitting the payment — partial after {bibLabel.toLowerCase()} confirmation, remainder after hotel confirmation.
+                      </p>
+                    </div>
                   </div>
+                  )}
                 </div>
-              )}
-
-                {listingData.listing_type === "room_and_bib" && (
-                <div className="space-y-4">
-                  <p className="text-gray-600">
-                    This is a complete package. Follow these steps after agreeing with the seller:
-                  </p>
-                  <ol className="space-y-3">
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0">1</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Verify package contents</p>
-                        <p className="text-sm text-gray-600">Confirm exactly what's included: hotel dates, room type, race {bibLabel.toLowerCase()}, and any extras.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0">2</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Start {bibLabel.toLowerCase()} transfer first</p>
-                        <p className="text-sm text-gray-600">The race {bibLabel.toLowerCase()} transfer often has strict deadlines. The seller should initiate this through the official organizer.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0">3</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Transfer hotel booking</p>
-                        <p className="text-sm text-gray-600">The seller contacts the hotel to change the reservation name. Request confirmation directly from the hotel.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0">4</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Get all confirmations</p>
-                        <p className="text-sm text-gray-600">Collect written confirmation for both the race entry and hotel booking in your name.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-semibold flex-shrink-0">5</span>
-                      <div>
-                        <p className="font-medium text-gray-900">Complete payment</p>
-                        <p className="text-sm text-gray-600">Pay only after receiving all confirmations. Use PayPal or bank transfer for safety.</p>
-                      </div>
-                    </li>
-                  </ol>
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800">
-                      <span className="font-medium">Tip:</span> For packages, consider splitting the payment — partial after {bibLabel.toLowerCase()} confirmation, remainder after hotel confirmation.
-                    </p>
-                  </div>
-                </div>
-                )}
               </div>
             )}
           </div>
@@ -825,18 +857,12 @@ export default function ListingDetail() {
           {/* Sidebar - sticky */}
           <div className="space-y-6 lg:sticky lg:top-6">
             {/* Main sidebar card: Seller + Price + CTA */}
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.12)] overflow-hidden">
+            <div className="rounded-3xl border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.12)] overflow-hidden">
               {/* Listing Info Header */}
               <div className="px-6 py-5 border-b border-slate-200">
                 {/* Badge tipo + Save */}
                 <div className="flex items-center justify-between mb-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    listingData.listing_type === "room"
-                      ? "bg-blue-100 text-blue-700"
-                      : listingData.listing_type === "bib"
-                      ? "bg-purple-100 text-purple-700"
-                      : "bg-green-100 text-green-700"
-                  }`}>
+                  <span className="px-3 py-1 rounded-full bg-brand-500 text-white text-xs font-semibold uppercase tracking-wide">
                     {listingData.listing_type === "room"
                       ? "Room Only"
                       : listingData.listing_type === "bib"
@@ -853,7 +879,7 @@ export default function ListingDetail() {
                         className={`rounded-full p-2.5 ring-1 ring-slate-200 shadow-sm transition-colors ${
                           isSavedOptimistic
                             ? "bg-red-50 text-red-500 hover:bg-red-100"
-                            : "bg-slate-100 text-slate-700 ring-slate-300 hover:bg-slate-200 hover:text-red-500"
+                            : "bg-slate-50 text-slate-700 ring-slate-300 hover:bg-slate-200 hover:text-red-500"
                         }`}
                         title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
                       >
@@ -882,8 +908,8 @@ export default function ListingDetail() {
 
                 {/* Status */}
                 <div className="mt-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <svg className="h-4 w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="flex items-center gap-2 text-sm text-gray-900">
+                    <svg className="h-4 w-4 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <span>{eventDateShort}</span>
@@ -905,7 +931,7 @@ export default function ListingDetail() {
                 </div>
 
                 {listingData.status === "pending" && isOwner && (
-                  <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3">
+                  <div className="mt-3 rounded-3xl border border-yellow-200 bg-yellow-50 px-4 py-3">
                     <p className="text-sm font-semibold text-yellow-800">Pending review</p>
                     <p className="mt-0.5 text-xs text-yellow-700">
                       Your listing is being reviewed by our team. We'll notify you once it's approved.
@@ -914,7 +940,7 @@ export default function ListingDetail() {
                 )}
 
                 {listingData.status === "rejected" && isOwner && (
-                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                  <div className="mt-3 rounded-3xl border border-red-200 bg-red-50 px-4 py-3">
                     <p className="text-sm font-semibold text-red-800">Listing not approved</p>
                     {(listingData as any).admin_note && (
                       <p className="mt-0.5 text-xs text-red-700">{(listingData as any).admin_note}</p>
@@ -944,71 +970,73 @@ export default function ListingDetail() {
 
               {/* Seller */}
               <div className="px-6 py-5 border-b border-slate-200">
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-brand-700 text-base font-semibold flex-shrink-0">
-                    {(isEventListing ? eventOrganizer?.avatar_url : listingData.author.avatar_url) ? (
-                      <img
-                        src={(isEventListing ? eventOrganizer?.avatar_url : listingData.author.avatar_url) as string}
-                        alt={
-                          (isEventListing
-                            ? getPublicDisplayName(eventOrganizer)
-                            : getPublicDisplayName(listingData.author)) || "User avatar"
-                        }
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      getPublicInitial(isEventListing ? eventOrganizer : listingData.author)
-                    )}
-                  </div>
-                  <div className="w-full">
-                    <div className="flex flex-col items-center gap-1.5">
-                      <div className="flex items-center justify-center gap-1.5">
-                      {canOpenSellerProfile && sellerPublicId ? (
-                        <Link
-                          to={`/profiles/${sellerPublicId}`}
-                          state={profileBackState}
-                          className="truncate text-base font-semibold text-gray-900 hover:text-brand-700 hover:underline"
-                        >
-                          {getPublicDisplayName(sellerProfile)}
-                        </Link>
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-brand-700 text-base font-semibold flex-shrink-0">
+                      {(isEventListing ? eventOrganizer?.avatar_url : listingData.author.avatar_url) ? (
+                        <img
+                          src={(isEventListing ? eventOrganizer?.avatar_url : listingData.author.avatar_url) as string}
+                          alt={
+                            (isEventListing
+                              ? getPublicDisplayName(eventOrganizer)
+                              : getPublicDisplayName(listingData.author)) || "User avatar"
+                          }
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
                       ) : (
-                        <p className="truncate text-base font-semibold text-gray-900">
-                          {getPublicDisplayName(sellerProfile)}
-                        </p>
+                        getPublicInitial(isEventListing ? eventOrganizer : listingData.author)
                       )}
-                      {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && (
-                        <svg className="h-4 w-4 text-brand-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                      </div>
-                      <p className="text-xs text-gray-500">
-                      {isEventListing
-                        ? t("listings.team_leader_organizer")
-                        : listingData.author.user_type === "tour_operator"
-                        ? "Tour Operator"
-                        : "Runner"}
-                      {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && " · Verified"}
-                    </p>
                     </div>
-                    {canOpenSellerProfile && sellerPublicId && (
-                      <Link
-                        to={`/profiles/${sellerPublicId}`}
-                        state={profileBackState}
-                        className="mt-2 inline-flex rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100 hover:text-brand-800"
-                      >
-                        {t("listings.view_profile")}
-                      </Link>
-                    )}
+                    <div className="min-w-0">
+                      <div className="flex flex-col gap-1 text-left">
+                        <div className="flex items-center gap-1.5">
+                        {canOpenSellerProfile && sellerPublicId ? (
+                          <Link
+                            to={`/profiles/${sellerPublicId}`}
+                            state={profileBackState}
+                            className="truncate text-lg font-semibold text-gray-900 hover:text-brand-700 hover:underline"
+                          >
+                            {getPublicDisplayName(sellerProfile)}
+                          </Link>
+                        ) : (
+                          <p className="truncate text-lg font-semibold text-gray-900">
+                            {getPublicDisplayName(sellerProfile)}
+                          </p>
+                        )}
+                        {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && (
+                          <svg className="h-5 w-5 text-brand-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        </div>
+                        <p className="text-sm text-gray-600">
+                        {isEventListing
+                          ? t("listings.team_leader_organizer")
+                          : listingData.author.user_type === "tour_operator"
+                          ? "Tour Operator"
+                          : "Runner"}
+                        {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && " · Verified"}
+                      </p>
+                      </div>
+                    </div>
                   </div>
+                  {canOpenSellerProfile && sellerPublicId && (
+                    <Link
+                      to={`/profiles/${sellerPublicId}`}
+                      state={profileBackState}
+                      className="mt-6 inline-flex w-fit rounded-full bg-[#ECF4FE] px-3.5 py-1 text-xs font-semibold uppercase tracking-wide text-brand-500 transition-colors hover:bg-brand-100 whitespace-nowrap"
+                    >
+                      {t("listings.view_profile")}
+                    </Link>
+                  )}
                 </div>
               </div>
 
               {/* Price + CTA section */}
               <div className="border-t border-slate-200 bg-slate-50 p-6">
                 <div className="text-center">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <p className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-900">
                     {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && !isEventListing
                       ? "Associated costs"
                       : "Price"}
@@ -1038,7 +1066,7 @@ export default function ListingDetail() {
                         )}
                       </>
                     ) : (
-                      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="rounded-3xl border border-slate-200 bg-white px-4 py-3">
                         <p className="text-lg font-semibold text-gray-700 mb-0.5">
                           Contact for price
                         </p>
@@ -1059,7 +1087,7 @@ export default function ListingDetail() {
                       )}
                     </>
                   ) : (
-                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="rounded-3xl border border-slate-200 bg-white px-4 py-3">
                       <p className="text-lg font-semibold text-gray-700 mb-0.5">
                         Contact for price
                       </p>
@@ -1071,16 +1099,15 @@ export default function ListingDetail() {
                 </div>
 
                 {(actionData as any)?.error && (
-                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  <div className="mb-4 rounded-3xl bg-red-50 p-3 text-sm text-red-700">
                     {(actionData as any).error}
                   </div>
                 )}
 
-                {/* Desktop only - su mobile usiamo il pulsante sticky in fondo */}
-                {listingData.status === "active" && !isOwner && (
+                {listingData.status === "active" && !isOwner && !!user && (
                   <Link
       to={`/listings/${getListingPublicId(listingData)}/contact`}
-                    className="mt-4 hidden w-full rounded-full bg-accent-500 px-5 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-accent-600 md:block"
+                    className="mt-4 block w-full rounded-full bg-accent-500 px-4 py-3 text-center text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-accent-600"
                   >
                     {t("listings.contact")} {getPublicDisplayName(listingData.author) || "Seller"}
                   </Link>
@@ -1124,7 +1151,7 @@ export default function ListingDetail() {
                 {!user && listingData.status === "active" && (
                   <Link
                     to={`/login?redirectTo=/listings/${getListingPublicId(listingData)}`}
-                    className="mt-4 block w-full rounded-full bg-accent-500 px-5 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-accent-600"
+                    className="mt-4 block w-full rounded-full bg-accent-500 px-4 py-3 text-center text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-accent-600"
                   >
                     {t("listings.login_to_contact")}
                   </Link>
@@ -1133,13 +1160,13 @@ export default function ListingDetail() {
             </div>
 
             {!isEventListing && (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.10)]">
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.10)]">
                 <button
                   onClick={() => setShowSafety(!showSafety)}
                   className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50 lg:cursor-default lg:hover:bg-white"
                 >
                   <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-5 w-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                     <span className="font-medium text-gray-900">Safety & Payments</span>
@@ -1185,17 +1212,6 @@ export default function ListingDetail() {
           </div>
         </div>
 
-        {/* Mobile sticky CTA - solo su mobile, sopra la MobileNav */}
-        {listingData.status === "active" && !isOwner && (
-          <div className="fixed bottom-16 left-0 right-0 px-8 py-2.5 bg-white/95 border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] md:hidden z-30">
-            <Link
-              to={`/listings/${getListingPublicId(listingData)}/contact`}
-              className="w-full rounded-full bg-accent-500 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-accent-600 block"
-            >
-              {t("listings.contact")} {getPublicDisplayName(listingData.author) || "Seller"}
-            </Link>
-          </div>
-        )}
         </main>
 
         <FooterLight />

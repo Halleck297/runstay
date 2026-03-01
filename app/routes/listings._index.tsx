@@ -93,7 +93,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Listings() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user, listings, savedListingIds, events } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -103,10 +103,25 @@ export default function Listings() {
   const currentSearch = searchParams.get("search") || "";
   const currentSort = searchParams.get("sort") || "newest";
   const hasActiveSearch = currentSearch.trim().length > 0;
+  const hasEvents = (events as any[]).length > 0;
 
   const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [sortBy, setSortBy] = useState(currentSort);
+
+  const formatEventDate = (rawDate: string) => {
+    const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate || "");
+    if (dateOnlyMatch) {
+      const yyyy = Number(dateOnlyMatch[1]);
+      const mm = Number(dateOnlyMatch[2]) - 1;
+      const dd = Number(dateOnlyMatch[3]);
+      return new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).format(new Date(Date.UTC(yyyy, mm, dd)));
+    }
+
+    const parsed = new Date(rawDate);
+    if (Number.isNaN(parsed.getTime())) return rawDate;
+    return new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).format(parsed);
+  };
 
   // Load More pagination
   const ITEMS_PER_PAGE = 12;
@@ -198,35 +213,16 @@ export default function Listings() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-[#ECF4FE]">
       <div className="min-h-screen flex flex-col">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
-          <div className="mb-4 max-w-2xl rounded-2xl border border-slate-200 bg-gradient-to-r from-white to-brand-100/55 px-4 py-3.5 text-sm text-slate-800 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700 ring-1 ring-brand-100">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
-                  </svg>
-                </span>
-                <p className="text-sm font-medium text-slate-700">{t("listings.banner_events_prefix")}</p>
-              </div>
-              <Link
-                to="/events"
-                className="inline-flex items-center rounded-full bg-slate-50 px-4 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
-              >
-                {t("listings.banner_events_link")}
-              </Link>
-            </div>
-          </div>
-
-          <div className="mb-4 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-white to-brand-100/55 px-5 py-8 shadow-sm sm:px-6 sm:py-10">
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left">
+        <main className="mx-auto max-w-7xl px-4 pt-16 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
+          <div className="mb-6">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
               {t("listings.title")}
             </h1>
-            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center sm:text-left">
+            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center">
               {t("listings.subtitle")}
             </p>
           </div>
@@ -234,7 +230,7 @@ export default function Listings() {
           <div className="relative z-10 mb-8">
             <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
               {hasActiveSearch && (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                <span className="rounded-full bg-slate-50 px-3 py-1 text-slate-700">
                   {t("listings.search.placeholder")}: "{currentSearch}"
                 </span>
               )}
@@ -270,7 +266,7 @@ export default function Listings() {
                       setShowSuggestions(true);
                     }}
                     onFocus={() => setShowSuggestions(true)}
-                    className="block w-full rounded-full border-0 pl-12 pr-24 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-md ring-1 ring-gray-200"
+                    className="block w-full rounded-full border-0 bg-white pl-12 pr-24 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-md ring-1 ring-gray-200"
                   />
                   {hasActiveSearch ? (
                     <button
@@ -301,7 +297,7 @@ export default function Listings() {
                         >
                           <p className="font-medium text-gray-900">{event.name}</p>
                           <p className="text-sm text-gray-500">
-                            {event.country} • {new Date(event.event_date).toLocaleDateString()}
+                            {event.country} • {formatEventDate(event.event_date)}
                           </p>
                         </button>
                       ))}
@@ -311,9 +307,9 @@ export default function Listings() {
               </Form>
 
               {/* Category Filter Buttons + Sort Dropdown */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 overflow-x-auto pb-1 lg:pb-0">
-                  <div className="flex items-center gap-2.5 min-w-max">
+              <div className="flex flex-col gap-3 lg:ml-auto lg:items-end">
+                <div className="overflow-x-auto pb-1 lg:pb-0">
+                  <div className="flex w-full items-center justify-end gap-2.5 min-w-max">
                     {[
                       { value: "all", label: "All" },
                       { value: "room", label: "Hotel" },
@@ -323,10 +319,10 @@ export default function Listings() {
                       <a
                         key={category.value}
                         href={category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`}
-                        className={`px-3.5 py-2.5 sm:px-4 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                        className={`px-3.5 py-2.5 sm:px-4 rounded-full text-sm font-bold uppercase tracking-wide transition-colors whitespace-nowrap ${
                           currentType === category.value
                             ? "bg-brand-500 text-white shadow-sm"
-                            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                            : "bg-white text-brand-500 border border-gray-300 hover:bg-gray-50"
                         }`}
                       >
                         {category.label}
@@ -335,8 +331,22 @@ export default function Listings() {
                   </div>
                 </div>
 
-                <div className="shrink-0">
-                  <SortDropdown value={sortBy} onChange={setSortBy} />
+                <div className="flex w-full items-center justify-end gap-3">
+                  {hasEvents && (
+                    <Link
+                      to="/events"
+                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-gray-700 text-sm font-medium uppercase tracking-wide rounded-full border border-gray-300 hover:bg-gray-50 transition-colors whitespace-nowrap"
+                    >
+                      <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                      </svg>
+                      <span>Events</span>
+                    </Link>
+                  )}
+
+                  <div className="shrink-0">
+                    <SortDropdown value={sortBy} onChange={setSortBy} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -347,7 +357,7 @@ export default function Listings() {
 {filteredBySort.length > 0 ? (
   <>
     {/* Desktop: Grid di card */}
-    <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr relative z-0">
+    <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 auto-rows-fr relative z-0">
       {visibleListings.map((listing: any) => (
         <ListingCard
           key={listing.id}

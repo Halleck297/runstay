@@ -431,7 +431,7 @@ export default function AdminCreateEventListingPage() {
   const created = actionData && typeof actionData === "object" && "success" in actionData && actionData.success;
 
   return (
-    <div className="min-h-full bg-slate-100">
+    <div className="min-h-full bg-[#ECF4FE]">
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>

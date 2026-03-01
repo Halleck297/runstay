@@ -411,7 +411,7 @@ export default function SavedListings() {
   const hasFilters = query.trim().length > 0 || typeFilter !== "all";
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-[#ECF4FE]">
       <div className="flex min-h-screen flex-col">
         <Header user={user} />
 
@@ -426,7 +426,7 @@ export default function SavedListings() {
               <>
                 <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
                   {hasFilters && (
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                    <span className="rounded-full bg-slate-50 px-3 py-1 text-slate-700">
                       {t("saved.search_placeholder")}
                     </span>
                   )}

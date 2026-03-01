@@ -15,7 +15,7 @@ export default function TourOperatorTermsAddendum() {
   const lastUpdated = "February 24, 2026";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#ECF4FE]">
       <header className="bg-white shadow-sm">
         <div className="mx-auto max-w-4xl px-4 py-6">
           <a href="/to-panel/settings" className="text-sm text-brand-600 hover:text-brand-700">

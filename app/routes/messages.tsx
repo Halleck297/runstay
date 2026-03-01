@@ -124,7 +124,7 @@ export default function MessagesLayout() {
   });
 
   const messagesContent = (
-    <div className="flex-1 overflow-hidden">
+    <div className="flex-1 overflow-hidden bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
       <div className="mx-auto h-full max-w-7xl px-0 py-0 md:px-4 md:py-8 lg:px-8">
         <div className="flex h-full overflow-hidden border border-gray-200/80 bg-white/85 shadow-xl backdrop-blur-[2px] md:rounded-3xl">
 
@@ -146,7 +146,7 @@ export default function MessagesLayout() {
         {/* Lista conversazioni scrollabile */}
         <div className="flex-1 overflow-y-auto">
           {conversations.length > 0 ? (
-            <div className="divide-y divide-gray-200">
+            <div>
               {conversations.map((conv: any) => {
                 const otherUser =
                   conv.participant_1 === (user as any).id
@@ -175,8 +175,8 @@ export default function MessagesLayout() {
                   <Link
                     key={conv.id}
                     to={`/messages?c=${convPublicId}`}
-                    className={`relative flex items-center gap-3 p-4 hover:bg-gray-50 transition-all duration-200 ease-out ${
-                      isActive ? "bg-white shadow-sm" : "md:hover:-translate-y-[1px] md:hover:shadow-sm"
+                    className={`relative flex items-center gap-3 border-y border-gray-200 p-4 hover:bg-[#ECF4FE] transition-all duration-200 ease-out ${
+                      isActive ? "bg-[#ECF4FE] shadow-sm" : "md:hover:-translate-y-[1px] md:hover:shadow-sm"
                     }`}
                   >
                     {isActive && (
@@ -338,7 +338,7 @@ export default function MessagesLayout() {
   }
 
   return (
-    <div className="messages-page h-[calc(100dvh-4rem)] md:h-screen flex flex-col bg-slate-50 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.14)_1px,transparent_0)] bg-[size:18px_18px]">
+    <div className="messages-page h-[calc(100dvh-4rem)] md:h-screen flex flex-col">
       <Header user={user} />
       {messagesContent}
     </div>

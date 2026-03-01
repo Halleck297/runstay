@@ -126,42 +126,42 @@ export default function Register() {
   const countries = getSupportedCountries(locale);
 
   return (
-    <div className="min-h-full flex flex-col justify-start bg-slate-50 pt-1 pb-12 sm:pt-2 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
+    <div className="min-h-full flex flex-col justify-start bg-[#ECF4FE] pt-1 pb-12 sm:pt-2 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
         <Link to="/" className="flex justify-center" aria-label="Go to home">
           <img src="/logo.svg" alt="Runoot" className="h-32 w-auto sm:h-40" />
         </Link>
-
-        <h1 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-gray-900">Join Runoot</h1>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Access is currently invite-only. If you don't have an invite, request access below.
-        </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-8 shadow-sm sm:px-8">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-3xl">
+        <div className="rounded-3xl border border-gray-200 bg-white px-8 py-8 shadow-sm sm:px-14">
+          <h1 className="text-center font-display text-3xl font-bold tracking-tight text-gray-900">join runoot</h1>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Access is currently invite-only. If you don't have an invite, request access below.
+          </p>
+
           {actionData && "error" in actionData && actionData.error && (
-            <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">{actionData.error}</div>
+            <div className="mt-6 mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">{actionData.error}</div>
           )}
 
           {actionData && "success" in actionData && actionData.success && actionData.type === "lead_created" && (
-            <div className="mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-700">
+            <div className="mt-6 mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-700">
               {actionData.alreadyPending
                 ? "You already have a pending access request. We will review it shortly."
                 : "Request received. We will review your profile and contact you by email."}
             </div>
           )}
 
-          <div className="rounded-xl border border-brand-100 bg-brand-50 p-4">
-            <h2 className="font-display text-lg font-semibold text-gray-900">I have an invite code</h2>
+          <div className="mt-6 rounded-3xl border border-brand-100 bg-[#ECF4FE] p-4">
+            <h2 className="font-display text-lg font-semibold text-gray-900">I have an invitation code</h2>
             <p className="mt-1 text-sm text-gray-600">Enter your code to continue registration.</p>
             <Form method="post" className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
               <input type="hidden" name="intent" value="use_invite" />
               <div className="flex-1">
                 <label htmlFor="inviteCode" className="label">Invite code</label>
-                <input id="inviteCode" name="inviteCode" type="text" className="input w-full" placeholder="e.g. abc123" required />
+                <input id="inviteCode" name="inviteCode" type="text" className="input w-full rounded-full bg-white" placeholder="e.g. abc123" required />
               </div>
-              <button type="submit" className="btn-primary sm:mb-[1px]" disabled={isSubmitting}>
+              <button type="submit" className="btn-primary rounded-full sm:mb-[1px]" disabled={isSubmitting}>
                 Continue
               </button>
             </Form>
@@ -185,11 +185,11 @@ export default function Register() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label htmlFor="fullName" className="label">Full name</label>
-                  <input id="fullName" name="fullName" type="text" autoComplete="name" className="input w-full" required />
+                  <input id="fullName" name="fullName" type="text" autoComplete="name" className="input w-full rounded-full bg-[#ECF4FE]" required />
                 </div>
                 <div>
                   <label htmlFor="email" className="label">{t("auth.email")}</label>
-                  <input id="email" name="email" type="email" autoComplete="email" className="input w-full" required />
+                  <input id="email" name="email" type="email" autoComplete="email" className="input w-full rounded-full bg-[#ECF4FE]" required />
                 </div>
                 <div>
                   <label htmlFor="country" className="label">{t("profile.form.country")}</label>
@@ -198,7 +198,7 @@ export default function Register() {
                     name="country"
                     type="text"
                     list="register-country-list"
-                    className="input w-full"
+                    className="input w-full rounded-full bg-[#ECF4FE]"
                     required
                     autoComplete="off"
                   />
@@ -210,15 +210,15 @@ export default function Register() {
                 </div>
                 <div>
                   <label htmlFor="city" className="label">{t("profile.form.city")}</label>
-                  <input id="city" name="city" type="text" className="input w-full" required />
+                  <input id="city" name="city" type="text" className="input w-full rounded-full bg-[#ECF4FE]" required />
                 </div>
                 <div>
                   <label htmlFor="phone" className="label">{t("profile.form.phone_number")}</label>
-                  <input id="phone" name="phone" type="tel" autoComplete="tel" className="input w-full" placeholder="+39 ..." />
+                  <input id="phone" name="phone" type="tel" autoComplete="tel" className="input w-full rounded-full bg-[#ECF4FE]" placeholder="+39 ..." />
                 </div>
                 <div>
                   <label htmlFor="language" className="label">Language</label>
-                  <select id="language" name="language" className="input w-full" required defaultValue={detectedLocale}>
+                  <select id="language" name="language" className="input w-full rounded-full bg-[#ECF4FE]" required defaultValue={detectedLocale}>
                     {Object.entries(LOCALE_LABELS).map(([langCode, label]) => (
                       <option key={langCode} value={langCode}>
                         {label}
@@ -234,15 +234,17 @@ export default function Register() {
                   id="note"
                   name="note"
                   rows={4}
-                  className="input w-full py-2"
+                  className="input w-full rounded-2xl bg-[#ECF4FE] py-2"
                   placeholder="Tell us briefly why you want to join Runoot"
                   maxLength={1000}
                 />
               </div>
 
-              <button type="submit" className="btn-primary w-full" disabled={isSubmitting}>
-                Send request
-              </button>
+              <div className="pt-8 flex justify-center">
+                <button type="submit" className="btn-primary flex w-1/2 justify-center rounded-full" disabled={isSubmitting}>
+                  Send request
+                </button>
+              </div>
             </Form>
           </div>
 
@@ -250,7 +252,7 @@ export default function Register() {
             {t("auth.have_account")} <Link to="/login" className="font-medium text-brand-600 hover:text-brand-500">{t("auth.sign_in")}</Link>
           </p>
           <div className="mt-4 text-center">
-            <Link to="/" className="btn-secondary inline-flex items-center">
+            <Link to="/" className="btn-secondary inline-flex items-center rounded-full">
               Back to home
             </Link>
           </div>

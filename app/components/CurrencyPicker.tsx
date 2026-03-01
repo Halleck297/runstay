@@ -44,8 +44,7 @@ export function CurrencyPicker({ value, onChange }: CurrencyPickerProps) {
         onClick={() => setIsOpen(!isOpen)}
         className="input w-fit flex items-center gap-2 text-gray-900"
       >
-        <span className="font-medium">{selectedCurrency.symbol}</span>
-        <span>{selectedCurrency.value}</span>
+        <span className="font-medium">{selectedCurrency.value}</span>
         <svg
           className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
           fill="none"
@@ -73,7 +72,6 @@ export function CurrencyPicker({ value, onChange }: CurrencyPickerProps) {
                   : "text-gray-700"
               }`}
             >
-              <span className="w-4 font-medium">{currency.symbol}</span>
               <span>{currency.value}</span>
             </button>
           ))}

@@ -228,7 +228,7 @@ export default function JoinTeamInvite() {
 
   if (actionData?.success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
           <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("team_invite.joined_title")}</h1>
           <p className="text-gray-600 mb-6">{t("team_invite.joined_body")} {teamLeaderName}.</p>
@@ -252,7 +252,7 @@ export default function JoinTeamInvite() {
 
   if (status !== "ready") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
           <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("team_invite.title")}</h1>
           <p className="text-gray-600 mb-6">{messageByStatus[status]}</p>
@@ -271,7 +271,7 @@ export default function JoinTeamInvite() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
         <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("team_invite.join_prefix")} {teamLeaderName}</h1>
         <p className="text-gray-600 mb-6">

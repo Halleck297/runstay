@@ -3,6 +3,7 @@ import { redirect } from "react-router";
 import { Link, useLoaderData } from "react-router";
 import { Header } from "~/components/Header";
 import { ListingCard } from "~/components/ListingCard";
+import { ListingCardCompact } from "~/components/ListingCardCompact";
 import { useI18n } from "~/hooks/useI18n";
 import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
@@ -68,50 +69,50 @@ export default function MyListings() {
   const mergedPendingListings = [...pendingListings, ...rejectedListings];
   const totalListings = mergedPendingListings.length + activeListings.length + endedListings.length;
   const countLabel = totalListings === 1 ? t("my_listings.listing_singular") : t("my_listings.listing_plural");
+  const statusSummary = [
+    { label: "Approved", href: "#approved-section", count: activeListings.length, activeClass: "bg-blue-100 text-blue-700 ring-blue-200" },
+    { label: "Pending", href: "#pending-section", count: pendingListings.length, activeClass: "bg-yellow-100 text-yellow-700 ring-yellow-200" },
+    { label: "Rejected", href: "#rejected-section", count: rejectedListings.length, activeClass: "bg-red-100 text-red-700 ring-red-200" },
+    { label: "Expired", href: "#expired-section", count: endedListings.length, activeClass: "bg-gray-200 text-gray-700 ring-gray-300" },
+  ];
 
   return (
-    <div className="min-h-full bg-[url('/savedBG.png')] bg-cover bg-center bg-fixed">
-      <div className="min-h-full bg-gray-50/85">
+    <div className="min-h-screen bg-[#ECF4FE]">
+      <div className="min-h-screen">
         <Header user={user} />
 
         <main className="mx-auto max-w-7xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-          <div className="relative mb-6 overflow-hidden rounded-2xl border border-white/80 bg-white/92 p-6 shadow-[0_14px_36px_rgba(15,23,42,0.18)] ring-1 ring-black/5 backdrop-blur-sm">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-400 via-brand-500 to-blue-400 opacity-80" />
-            <div>
-              <h1 className="font-display text-3xl font-bold text-gray-900 drop-shadow-[0_3px_12px_rgba(0,0,0,0.24)]">{t("my_listings.title")}</h1>
-              <p className="mt-2 text-gray-600 drop-shadow-[0_2px_6px_rgba(0,0,0,0.18)]">
-                {totalListings === 0 ? t("my_listings.none_created") : `${t("my_listings.you_have")} ${totalListings} ${countLabel}`}
-              </p>
-            </div>
+          <div className="mb-6 text-center">
+            <h1 className="font-display text-3xl font-bold text-gray-900">{t("my_listings.title")}</h1>
+            <p className="mt-2 text-gray-600">
+              {totalListings === 0 ? t("my_listings.none_created") : `${t("my_listings.you_have")} ${totalListings} ${countLabel}`}
+            </p>
           </div>
 
           {totalListings > 0 && (
             <div className="mb-8 rounded-2xl border border-gray-300/80 bg-white/94 p-3 sm:p-4 shadow-[0_12px_30px_rgba(15,23,42,0.16)] ring-1 ring-black/5 backdrop-blur-sm">
               <div className="flex flex-wrap gap-2">
-                {activeListings.length > 0 && (
-                  <a
-                    href="#approved-section"
-                    className="inline-flex items-center rounded-full bg-blue-100 px-3.5 py-2 text-xs font-semibold text-blue-700 shadow-[0_4px_10px_rgba(0,0,0,0.22)] ring-1 ring-blue-200 transition-colors hover:bg-blue-200 sm:text-sm"
-                  >
-                    Approved ({activeListings.length})
-                  </a>
-                )}
-                {mergedPendingListings.length > 0 && (
-                  <a
-                    href="#pending-section"
-                    className="inline-flex items-center rounded-full bg-yellow-100 px-3.5 py-2 text-xs font-semibold text-yellow-700 shadow-[0_4px_10px_rgba(0,0,0,0.22)] ring-1 ring-yellow-200 transition-colors hover:bg-yellow-200 sm:text-sm"
-                  >
-                    Pending ({mergedPendingListings.length})
-                  </a>
-                )}
-                {endedListings.length > 0 && (
-                  <a
-                    href="#expired-section"
-                    className="inline-flex items-center rounded-full bg-gray-200 px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-[0_4px_10px_rgba(0,0,0,0.22)] ring-1 ring-gray-300 transition-colors hover:bg-gray-300 sm:text-sm"
-                  >
-                    Expired ({endedListings.length})
-                  </a>
-                )}
+                {statusSummary.map((status) => {
+                  const isActive = status.count > 0;
+                  return (
+                    isActive ? (
+                      <a
+                        key={status.label}
+                        href={status.href}
+                        className={`inline-flex items-center rounded-full px-3.5 py-2 text-xs font-semibold ring-1 transition-colors hover:opacity-90 sm:text-sm ${status.activeClass}`}
+                      >
+                        {status.label}
+                      </a>
+                    ) : (
+                      <span
+                        key={status.label}
+                        className="inline-flex items-center rounded-full px-3.5 py-2 text-xs font-semibold ring-1 bg-gray-100 text-gray-400 ring-gray-200 sm:text-sm"
+                      >
+                        {status.label}
+                      </span>
+                    )
+                  );
+                })}
               </div>
             </div>
           )}
@@ -123,25 +124,30 @@ export default function MyListings() {
                   <h2 className="mb-4 font-display text-xl font-semibold text-blue-700">
                     Approved ({activeListings.length})
                   </h2>
-                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="hidden gap-5 sm:grid sm:grid-cols-2 lg:grid-cols-3">
                     {activeListings.map((listing: any) => (
                       <ListingCard key={listing.id} listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-3 md:hidden">
+                    {activeListings.map((listing: any) => (
+                      <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
                     ))}
                   </div>
                 </section>
               )}
 
-              {mergedPendingListings.length > 0 && (
+              {pendingListings.length > 0 && (
                 <>
                   <div className="my-8 h-0.5 w-full bg-black/90" />
                   <section id="pending-section" className="scroll-mt-28">
                     <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-semibold text-yellow-700">
                       <span className="h-2 w-2 rounded-full bg-yellow-500" />
-                      Pending ({mergedPendingListings.length})
+                      Pending ({pendingListings.length})
                     </h2>
                     <p className="mb-4 max-w-3xl text-sm text-gray-500">{t("my_listings.pending_help")}</p>
-                    <div className="grid gap-5 opacity-85 sm:grid-cols-2 lg:grid-cols-3">
-                      {mergedPendingListings.map((listing: any) => (
+                    <div className="hidden gap-5 opacity-85 sm:grid sm:grid-cols-2 lg:grid-cols-3">
+                      {pendingListings.map((listing: any) => (
                         <div key={listing.id} className="relative">
                           <ListingCard listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
                           <div className="absolute right-3 top-3">
@@ -158,6 +164,60 @@ export default function MyListings() {
                         </div>
                       ))}
                     </div>
+                    <div className="flex flex-col gap-3 opacity-90 md:hidden">
+                      {pendingListings.map((listing: any) => (
+                        <div key={listing.id} className="relative">
+                          <ListingCardCompact listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
+                          <div className="absolute right-3 top-3">
+                            <span
+                              className={`rounded-full border px-2.5 py-1 text-xs font-semibold shadow-[0_4px_10px_rgba(0,0,0,0.22)] ${
+                                listing.status === "rejected"
+                                  ? "border-red-200 bg-red-100 text-red-700"
+                                  : "border-yellow-200 bg-yellow-100 text-yellow-700"
+                              }`}
+                            >
+                              {listing.status === "rejected" ? t("my_listings.not_approved_badge") : t("my_listings.pending_badge")}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {rejectedListings.length > 0 && (
+                <>
+                  <div className="my-8 h-0.5 w-full bg-black/90" />
+                  <section id="rejected-section" className="scroll-mt-28">
+                    <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-semibold text-red-700">
+                      <span className="h-2 w-2 rounded-full bg-red-500" />
+                      Rejected ({rejectedListings.length})
+                    </h2>
+                    <div className="hidden gap-5 opacity-85 sm:grid sm:grid-cols-2 lg:grid-cols-3">
+                      {rejectedListings.map((listing: any) => (
+                        <div key={listing.id} className="relative">
+                          <ListingCard listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
+                          <div className="absolute right-3 top-3">
+                            <span className="rounded-full border border-red-200 bg-red-100 px-3 py-1.5 text-sm font-semibold text-red-700 shadow-[0_4px_10px_rgba(0,0,0,0.22)]">
+                              {t("my_listings.not_approved_badge")}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-col gap-3 opacity-90 md:hidden">
+                      {rejectedListings.map((listing: any) => (
+                        <div key={listing.id} className="relative">
+                          <ListingCardCompact listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
+                          <div className="absolute right-3 top-3">
+                            <span className="rounded-full border border-red-200 bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 shadow-[0_4px_10px_rgba(0,0,0,0.22)]">
+                              {t("my_listings.not_approved_badge")}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </section>
                 </>
               )}
@@ -169,9 +229,14 @@ export default function MyListings() {
                     <h2 className="mb-4 font-display text-xl font-semibold text-gray-700">
                       Expired ({endedListings.length})
                     </h2>
-                    <div className="grid gap-5 opacity-75 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="hidden gap-5 opacity-75 sm:grid sm:grid-cols-2 lg:grid-cols-3">
                       {endedListings.map((listing: any) => (
                         <ListingCard key={listing.id} listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
+                      ))}
+                    </div>
+                    <div className="flex flex-col gap-3 opacity-80 md:hidden">
+                      {endedListings.map((listing: any) => (
+                        <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={true} currentUserId={(user as any)?.id ?? null} />
                       ))}
                     </div>
                   </section>
