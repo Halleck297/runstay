@@ -126,10 +126,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }> = [
-  { key: "profile.nav.personal_info", href: "/profile#profile-main", icon: "user" },
-  { key: "profile.nav.running_experience", href: "/profile/experience#experience-main", icon: "running" },
-  { key: "profile.nav.social_media", href: "/profile/social#social-main", icon: "share" },
-  { key: "profile.nav.settings", href: "/profile/settings#settings-main", icon: "settings" },
+  { key: "profile.nav.personal_info", href: "/profile", icon: "user" },
+  { key: "profile.nav.running_experience", href: "/profile/experience", icon: "running" },
+  { key: "profile.nav.social_media", href: "/profile/social", icon: "share" },
+  { key: "profile.nav.settings", href: "/profile/settings", icon: "settings" },
 ];
 
 export default function RunningExperience() {
@@ -230,7 +230,7 @@ export default function RunningExperience() {
             </div>
           </aside>
 
-          <main id="experience-main" className="min-w-0 flex-1 rounded-3xl border border-gray-200 bg-white p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:p-6">
+          <main id="experience-main" className="min-w-0 flex-1 scroll-mt-32 rounded-3xl border border-gray-200 bg-white p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:scroll-mt-0 md:p-6">
             <div className="mb-6">
               <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.experience.title")}</h1>
               <p className="mt-1 text-gray-900">{t("profile.experience.subtitle")}</p>

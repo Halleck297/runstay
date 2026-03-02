@@ -103,10 +103,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }> = [
-  { key: "profile.nav.personal_info", href: "/tl-dashboard/profile", icon: "user" },
-  { key: "profile.nav.running_experience", href: "/tl-dashboard/profile/experience", icon: "running" },
-  { key: "profile.nav.social_media", href: "/tl-dashboard/profile/social", icon: "share" },
-  { key: "profile.nav.settings", href: "/tl-dashboard/settings", icon: "settings" },
+  { key: "profile.nav.personal_info", href: "/tl-dashboard/profile#tl-profile-main", icon: "user" },
+  { key: "profile.nav.running_experience", href: "/tl-dashboard/profile/experience#tl-experience-main", icon: "running" },
+  { key: "profile.nav.social_media", href: "/tl-dashboard/profile/social#tl-social-main", icon: "share" },
+  { key: "profile.nav.settings", href: "/tl-dashboard/settings#tl-settings-main", icon: "settings" },
 ];
 
 export default function SocialMedia() {
@@ -137,15 +137,15 @@ export default function SocialMedia() {
   return (
     <div className="min-h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
 
-      <div className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 pt-14 pb-28 sm:px-6 md:pt-16 md:pb-8 lg:px-8">
         <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
-          <aside className="flex-shrink-0 lg:w-64">
+          <aside className="flex-shrink-0 lg:w-72">
             <div className="rounded-3xl border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
                 <button
                   type="button"
                   onClick={() => setIsAvatarModalOpen(true)}
-                  className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-2xl font-bold text-white ring-offset-2 transition-all hover:scale-[1.03] hover:ring-2 hover:ring-brand-300 md:h-24 md:w-24 md:text-3xl"
+                  className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-2xl font-bold text-white ring-offset-2 transition-all md:h-24 md:w-24 md:text-3xl"
                   aria-label="Choose avatar"
                 >
                   {user.avatar_url ? (
@@ -163,22 +163,20 @@ export default function SocialMedia() {
                   {user.full_name || t("profile.avatar.your_name")}
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">{user.email}</p>
-                <span className="mt-2 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+                <span className="mt-2 inline-flex items-center rounded-full bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white">
                   {t("profile.avatar.private_runner")}
                 </span>
               </div>
 
-              <nav className="space-y-1">
+              <nav className="space-y-3">
                 {sidebarNavItems.map((item) => {
-                  const isActive = location.pathname === item.href;
+                  const isActive = location.pathname === item.href.split("#")[0];
                   return (
                     <Link
                       key={item.key}
                       to={item.href}
-                      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                        isActive
-                          ? "bg-brand-100 text-brand-800 shadow-sm ring-1 ring-brand-200"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      className={`flex items-center gap-3 rounded-full border border-brand-500 px-4 py-3 text-sm font-medium transition-all ${
+                        isActive ? "bg-brand-500 text-white shadow-sm [&>svg]:text-white" : "bg-white text-gray-900 [&>svg]:text-brand-500"
                       }`}
                     >
                       {item.icon === "user" && (
@@ -210,10 +208,10 @@ export default function SocialMedia() {
             </div>
           </aside>
 
-          <main className="min-w-0 flex-1">
-            <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+          <main id="tl-social-main" className="min-w-0 flex-1 scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:scroll-mt-0 md:p-6">
+            <div className="mb-6">
               <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.social.title")}</h1>
-              <p className="mt-1 text-gray-600">{t("profile.social.subtitle")}</p>
+              <p className="mt-1 text-gray-900">{t("profile.social.subtitle")}</p>
             </div>
 
             {actionData && "success" in actionData && actionData.success && (
@@ -234,7 +232,7 @@ export default function SocialMedia() {
               </div>
             )}
 
-            <Form method="post">
+            <Form method="post" className="pb-8 md:pb-8">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-500">
@@ -336,8 +334,8 @@ export default function SocialMedia() {
                 </div>
               </div>
 
-              <div className="mt-6">
-                <button type="submit" className="btn-primary rounded-full px-8 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting}>
+              <div className="mt-6 px-2">
+                <button type="submit" className="btn-primary w-full rounded-full px-8 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto" disabled={isSubmitting}>
                   {isSubmitting ? `${t("profile.actions.save_changes")}...` : t("profile.actions.save_changes")}
                 </button>
               </div>

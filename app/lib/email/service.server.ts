@@ -7,6 +7,7 @@ export async function sendTemplatedEmail<T extends EmailTemplateId>(args: {
   templateId: T;
   payload: EmailTemplatePayloadMap[T];
   locale?: string | null;
+  from?: string;
 }): Promise<SendEmailResult> {
   const locale = normalizeEmailLocale(args.locale);
   const rendered = renderEmailTemplate({
@@ -20,5 +21,6 @@ export async function sendTemplatedEmail<T extends EmailTemplateId>(args: {
     subject: rendered.subject,
     html: rendered.html,
     text: rendered.text,
+    from: args.from,
   });
 }

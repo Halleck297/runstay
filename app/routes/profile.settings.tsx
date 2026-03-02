@@ -103,10 +103,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }> = [
-  { key: "profile.nav.personal_info", href: "/profile#profile-main", icon: "user" },
-  { key: "profile.nav.running_experience", href: "/profile/experience#experience-main", icon: "running" },
-  { key: "profile.nav.social_media", href: "/profile/social#social-main", icon: "share" },
-  { key: "profile.nav.settings", href: "/profile/settings#settings-main", icon: "settings" },
+  { key: "profile.nav.personal_info", href: "/profile", icon: "user" },
+  { key: "profile.nav.running_experience", href: "/profile/experience", icon: "running" },
+  { key: "profile.nav.social_media", href: "/profile/social", icon: "share" },
+  { key: "profile.nav.settings", href: "/profile/settings", icon: "settings" },
 ];
 
 export default function Settings() {
@@ -210,7 +210,7 @@ export default function Settings() {
             </div>
           </aside>
 
-          <main id="settings-main" className="min-w-0 flex-1">
+          <main id="settings-main" className="min-w-0 flex-1 scroll-mt-32 md:scroll-mt-0">
             <div className="mb-6 text-center">
               <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.settings.title")}</h1>
               <p className="mt-1 text-gray-900">{t("profile.settings.subtitle")}</p>

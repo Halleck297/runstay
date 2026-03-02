@@ -114,6 +114,7 @@ export type TranslationKey =
   | "footer.privacy"
   | "footer.cookies"
   | "footer.terms"
+  | "footer.legal_notes"
   | "footer.rights"
   | "saved.title"
   | "saved.subtitle"
@@ -856,6 +857,7 @@ const en: Record<TranslationKey, string> = {
   "footer.privacy": "Privacy",
   "footer.cookies": "Cookies",
   "footer.terms": "Terms",
+  "footer.legal_notes": "Legal Notes",
   "footer.rights": "All rights reserved.",
   "saved.title": "Saved Listings",
   "saved.subtitle": "Listings you've saved for later",
@@ -1599,6 +1601,7 @@ const it: Partial<Record<TranslationKey, string>> = {
   "footer.privacy": "Riservatezza",
   "footer.cookies": "Cookie",
   "footer.terms": "Termini",
+  "footer.legal_notes": "Note Legali",
   "footer.rights": "Tutti i diritti riservati.",
   "saved.title": "Annunci salvati",
   "saved.subtitle": "Annunci salvati per dopo",
@@ -2342,6 +2345,7 @@ const es: Partial<Record<TranslationKey, string>> = {
   "footer.privacy": "Privacidad",
   "footer.cookies": "Galletas",
   "footer.terms": "Terminos",
+  "footer.legal_notes": "Notas Legales",
   "footer.rights": "Reservados todos los derechos.",
   "saved.title": "Listados guardados",
   "saved.subtitle": "Listados que has guardado para más tarde",
@@ -3085,6 +3089,7 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "footer.privacy": "Confidentialité",
   "footer.cookies": "Cookies",
   "footer.terms": "Termes",
+  "footer.legal_notes": "Notes Legales",
   "footer.rights": "Tous droits réservés.",
   "saved.title": "Annonces enregistrées",
   "saved.subtitle": "Annonces que vous avez enregistrées pour plus tard",
@@ -3828,6 +3833,7 @@ const de: Partial<Record<TranslationKey, string>> = {
   "footer.privacy": "Datenschutz",
   "footer.cookies": "Cookies",
   "footer.terms": "Bedingungen",
+  "footer.legal_notes": "Rechtliche Hinweise",
   "footer.rights": "Alle Rechte vorbehalten.",
   "saved.title": "Gespeicherte Einträge",
   "saved.subtitle": "Einträge, die Sie für später gespeichert haben",
@@ -4571,6 +4577,7 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "footer.privacy": "Privacy",
   "footer.cookies": "Cookies",
   "footer.terms": "Voorwaarden",
+  "footer.legal_notes": "Juridische Notities",
   "footer.rights": "Alle rechten voorbehouden.",
   "saved.title": "Opgeslagen advertenties",
   "saved.subtitle": "Advertenties die je hebt opgeslagen voor later",
@@ -5314,6 +5321,7 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "footer.privacy": "Privacidade",
   "footer.cookies": "Cookies",
   "footer.terms": "Termos",
+  "footer.legal_notes": "Notas Legais",
   "footer.rights": "Todos os direitos reservados.",
   "saved.title": "Anúncios salvos",
   "saved.subtitle": "Anúncios que você salvou para mais tarde",

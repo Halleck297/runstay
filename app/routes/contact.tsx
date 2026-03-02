@@ -149,9 +149,7 @@ export async function action({ request }: ActionFunctionArgs) {
   );
 
   if (contactInbox) {
-    const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
     const senderName = user ? ((user as any).full_name as string | null) || "Registered user" : name || "Guest user";
-    const senderEmail = user ? ((user as any).email as string | null) || "unknown" : email || "unknown";
     const senderUserId = user ? ((user as any).id as string | null) : null;
     const normalizedSubject = subject || "other";
 
@@ -160,18 +158,13 @@ export async function action({ request }: ActionFunctionArgs) {
       templateId: "platform_notification",
       locale: "en",
       payload: {
-        title: `New contact message (${normalizedSubject})`,
+        title: "New message",
         message: [
-          `Name: ${senderName}`,
-          `Email: ${senderEmail}`,
-          senderUserId ? `User ID: ${senderUserId}` : "User ID: guest",
           `Subject: ${normalizedSubject}`,
-          "",
-          "Message:",
-          message,
+          `Name: ${senderName}`,
+          senderUserId ? `User ID: ${senderUserId}` : "User ID: guest",
+          `Message: ${message}`,
         ].join("\n"),
-        ctaLabel: "Open contact page",
-        ctaUrl: `${appUrl}/contact`,
       },
     });
 

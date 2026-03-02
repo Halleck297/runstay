@@ -4,7 +4,7 @@ import { data, redirect } from "react-router";
 import { useLoaderData, useActionData, Form, Link, useLocation, useNavigate } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
 import { buildTeamLeaderNavItems } from "~/components/panelNav";
@@ -386,15 +386,16 @@ export async function action({ request }: ActionFunctionArgs) {
           continue;
         }
 
-        const sendResult = await sendTemplatedEmail({
-          to: email,
-          templateId: "referral_invite",
-          locale: (user as any).preferred_language || null,
-          payload: {
-            inviterName: (user as any).full_name || "Your Team Leader",
-            referralLink,
-            welcomeMessage: (user as any).tl_welcome_message,
-          },
+          const sendResult = await sendTemplatedEmail({
+            to: email,
+            templateId: "referral_invite",
+            locale: (user as any).preferred_language || null,
+            from: "support@runoot.com",
+            payload: {
+              inviterName: (user as any).full_name || "Your Team Leader",
+              referralLink,
+              welcomeMessage: (user as any).tl_welcome_message,
+            },
         });
 
         if (!sendResult.ok) {
@@ -449,6 +450,7 @@ export async function action({ request }: ActionFunctionArgs) {
         to: invite.email,
         templateId: "referral_invite",
         locale: (user as any).preferred_language || null,
+        from: "support@runoot.com",
         payload: {
           inviterName: (user as any).full_name || "Your Team Leader",
           referralLink,
@@ -473,7 +475,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function TLDashboard() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const {
     user,
     appUrl,
@@ -497,8 +499,37 @@ export default function TLDashboard() {
   const [copied, setCopied] = useState(false);
   const [inviteFields, setInviteFields] = useState(1);
   const [inviteSuccessCount, setInviteSuccessCount] = useState<number | null>(null);
+  const [timelineHydrated, setTimelineHydrated] = useState(false);
 
   const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
+  const formatDate = (value: string) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(parsed);
+  };
+  const formatDateTime = (value: string) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    const datePart = new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(parsed);
+    const timePart = new Intl.DateTimeFormat(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "UTC",
+    }).format(parsed);
+    return `${datePart}, ${timePart}`;
+  };
+  const preventAutoLink = (value: string) =>
+    value.replace(/@/g, "@\u200B").replace(/\./g, ".\u200B");
 
   const copyLink = () => {
     navigator.clipboard.writeText(referralLink);
@@ -510,18 +541,16 @@ export default function TLDashboard() {
     ...((recentInvites || []).map((invite: any) => ({
       id: `invite-${invite.id}`,
       type: invite.status === "accepted" ? "accepted" : "sent",
-      title:
-        invite.status === "accepted"
-          ? `Invite accepted: ${invite.email}`
-          : `Invite sent: ${invite.email}`,
+      title: invite.status === "accepted" ? "Invite accepted" : "Invite sent",
       at: invite.claimed_at || invite.updated_at || invite.created_at,
     })) || []),
     ...((referrals || []).map((ref: any) => {
       const refUser = referredUsers[ref.referred_user_id];
+      const safeRefLabel = refUser?.full_name || (refUser?.email ? preventAutoLink(refUser.email) : "Runner");
       return {
         id: `referral-${ref.id}`,
         type: "joined",
-        title: `Referral joined: ${refUser?.full_name || refUser?.email || "Runner"}`,
+        title: `Referral joined: ${safeRefLabel}`,
         at: ref.created_at,
       };
     }) || []),
@@ -544,6 +573,22 @@ export default function TLDashboard() {
     const query = params.toString();
     return query ? `${location.pathname}?${query}` : location.pathname;
   };
+  const handleSectionJump = (sectionId: string) => {
+    if (typeof window === "undefined") return;
+    const target = document.getElementById(sectionId);
+    if (!target) return;
+
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    if (isMobile) {
+      // Mobile offset = global mobile nav + TL panel bar + breathing space.
+      const mobileOffset = 124;
+      const top = target.getBoundingClientRect().top + window.scrollY - mobileOffset;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      return;
+    }
+
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     if (!inviteResult?.sent) return;
@@ -557,39 +602,52 @@ export default function TLDashboard() {
     navigate(cleanQuery ? `${location.pathname}?${cleanQuery}` : location.pathname, { replace: true });
   }, [inviteResult?.sent, location.pathname, location.search, navigate]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const navEntry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    if (navEntry?.type === "reload") {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  }, []);
+
+  useEffect(() => {
+    setTimelineHydrated(true);
+  }, []);
+
   const topContent = (
     <>
-      <div className="mb-3 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+      <div className="-mt-1 mb-4 px-1 text-center md:mt-0 md:mb-3 md:rounded-3xl md:border md:border-brand-200/70 md:bg-gradient-to-r md:from-brand-50 md:via-white md:to-orange-50 md:p-6 md:text-left md:shadow-sm">
         <h1 className="font-display text-2xl font-bold text-gray-900">{t("tl_dashboard.title")}</h1>
         <p className="mt-1 text-gray-600">{t("tl_dashboard.subtitle")}</p>
       </div>
-      <div className="mb-3 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm">
-        <div className="flex flex-wrap gap-2">
-          <a href="#activity-kpi" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+      <div className="mb-0 rounded-3xl border border-gray-200 bg-white p-2.5 shadow-sm md:mb-3 md:p-3">
+        <div className="flex flex-wrap justify-center gap-2">
+          <button type="button" onClick={() => handleSectionJump("activity-kpi")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
             Activity
-          </a>
-          <a href="#activity-timeline" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+          </button>
+          <button type="button" onClick={() => handleSectionJump("activity-timeline")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
             Timeline
-          </a>
-          <a href="#referral-link" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+          </button>
+          <button type="button" onClick={() => handleSectionJump("referral-link")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
             Referral link
-          </a>
-          <a href="#invite-email" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+          </button>
+          <button type="button" onClick={() => handleSectionJump("invite-email")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
             Invite by email
-          </a>
-          <a href="#reserved-emails" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+          </button>
+          <button type="button" onClick={() => handleSectionJump("reserved-emails")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
             Reserved emails
-          </a>
-          <a href="#welcome-message" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+          </button>
+          <button type="button" onClick={() => handleSectionJump("welcome-message")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
             Welcome message
-          </a>
-          <a href="#your-referrals" className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+          </button>
+          <button type="button" onClick={() => handleSectionJump("your-referrals")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
             Your referrals
-          </a>
+          </button>
         </div>
       </div>
     </>
   );
+  const renderedTimelineItems = timelineHydrated ? timelineItems : [];
 
   return (
     <ControlPanelLayout
@@ -605,8 +663,7 @@ export default function TLDashboard() {
       navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
       topContent={topContent}
     >
-      <div className="min-h-full">
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+      <div className="mx-auto min-h-full max-w-7xl px-4 pt-0 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
       {inviteSuccessCount !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 px-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-gray-200">
@@ -642,7 +699,7 @@ export default function TLDashboard() {
         <div className="mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm">{actionMessage}</div>
       )}
 
-      <div id="activity-kpi" className="mb-6 scroll-mt-24 grid grid-cols-1 gap-5 2xl:grid-cols-2">
+      <div id="activity-kpi" className="mb-4 scroll-mt-32 md:scroll-mt-24 grid grid-cols-1 gap-5 md:mb-6 2xl:grid-cols-2">
         {/* Your activity */}
         <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
           <h2 className="mb-3 font-display text-lg font-semibold text-gray-900">Your activity</h2>
@@ -695,14 +752,14 @@ export default function TLDashboard() {
       </div>
 
       {/* Activity timeline */}
-      <div id="activity-timeline" className="scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div id="activity-timeline" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-semibold text-gray-900">Activity timeline</h2>
           <span className="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-medium">Latest updates</span>
         </div>
-        {timelineItems.length > 0 ? (
+        {renderedTimelineItems.length > 0 ? (
           <div className="space-y-2">
-            {timelineItems.map((item) => (
+            {renderedTimelineItems.map((item) => (
               <div key={item.id} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
                 <div className="flex items-center gap-3">
                   <span
@@ -712,7 +769,9 @@ export default function TLDashboard() {
                   />
                   <p className="text-sm font-medium text-gray-800">{item.title}</p>
                 </div>
-                <span className="text-xs text-gray-500">{new Date(item.at).toLocaleString()}</span>
+                <span className="text-xs text-gray-500" suppressHydrationWarning>
+                  {formatDateTime(item.at)}
+                </span>
               </div>
             ))}
           </div>
@@ -722,7 +781,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Referral Link */}
-      <div id="referral-link" className="scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div id="referral-link" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
         <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.referral_link_title")}</h2>
         <p className="text-sm text-gray-500 mb-4">{t("tl_dashboard.referral_link_help")}</p>
 
@@ -763,7 +822,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Invite by email */}
-      <div id="invite-email" className="scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div id="invite-email" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
         <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.invite_by_email")}</h2>
 
         <Form method="post" className="space-y-3">
@@ -806,7 +865,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Reserved emails */}
-      <div id="reserved-emails" className="scroll-mt-24 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+      <div id="reserved-emails" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.reserved_emails")}</h2>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -854,10 +913,10 @@ export default function TLDashboard() {
             reservedEmails.map((invite: any) => (
               <div key={invite.id} className="p-4 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{invite.email}</p>
+                  <p className="text-sm font-medium text-gray-900 truncate">{preventAutoLink(invite.email)}</p>
                   <p className="text-xs text-gray-500">
-                    {t("tl_dashboard.added")} {new Date(invite.created_at).toLocaleDateString()}
-                    {invite.claimed_at ? ` · ${t("tl_dashboard.claimed")} ${new Date(invite.claimed_at).toLocaleDateString()}` : ""}
+                    {t("tl_dashboard.added")} {formatDate(invite.created_at)}
+                    {invite.claimed_at ? ` · ${t("tl_dashboard.claimed")} ${formatDate(invite.claimed_at)}` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -916,7 +975,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Welcome message */}
-      <div id="welcome-message" className="scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div id="welcome-message" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
         <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.welcome_message")}</h2>
         <p className="text-sm text-gray-500 mb-4">
           {t("tl_dashboard.welcome_message_help")}
@@ -938,7 +997,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Referrals list */}
-      <div id="your-referrals" className="scroll-mt-24 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+      <div id="your-referrals" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.your_referrals")}</h2>
         </div>
@@ -963,16 +1022,16 @@ export default function TLDashboard() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
-                        {refUser?.full_name || refUser?.email || t("settings.unknown_user")}
+                        {refUser?.full_name || (refUser?.email ? preventAutoLink(refUser.email) : t("settings.unknown_user"))}
                       </p>
                       {refUser?.email && refUser?.full_name && (
                         <p className="text-xs text-gray-500 truncate mt-0.5">
-                          {refUser.email}
+                          {preventAutoLink(refUser.email)}
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-gray-500">
-                          {t("tl_dashboard.joined")} {new Date(ref.created_at).toLocaleDateString()}
+                          {t("tl_dashboard.joined")} {formatDate(ref.created_at)}
                         </span>
                       </div>
                     </div>
@@ -1000,8 +1059,7 @@ export default function TLDashboard() {
           )}
         </div>
       </div>
-      </main>
-    </div>
+      </div>
     </ControlPanelLayout>
   );
 }

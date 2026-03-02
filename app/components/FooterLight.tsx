@@ -3,14 +3,16 @@ import { useI18n } from "~/hooks/useI18n";
 
 export function FooterLight() {
   const { t, locale } = useI18n();
-  const legalLabel =
+  const legalLink =
     locale === "fr"
-      ? "Mentions Légales"
+      ? { to: "/mentions-legales", label: "Mentions Legales" }
       : locale === "de"
-        ? "Impressum"
+        ? { to: "/impressum", label: "Impressum" }
         : locale === "es"
-          ? "Aviso Legal"
-          : "Legal";
+          ? { to: "/aviso-legal", label: "Aviso Legal" }
+          : locale === "it"
+            ? { to: "/note-legali", label: "Note Legali" }
+            : { to: "/legal-notes", label: t("footer.legal_notes") };
   return (
     <>
       {/* Mobile: Fixed footer */}
@@ -29,8 +31,8 @@ export function FooterLight() {
               {t("footer.terms")}
             </Link>
             <span className="text-gray-300">|</span>
-            <Link to="/legal" className="hover:text-gray-600 transition-colors">
-              {legalLabel}
+            <Link to={legalLink.to} className="hover:text-gray-600 transition-colors">
+              {legalLink.label}
             </Link>
           </div>
           <p className="text-center text-xs text-gray-500">
@@ -57,8 +59,8 @@ export function FooterLight() {
                 {t("footer.terms")}
               </Link>
               <span className="text-gray-300">|</span>
-              <Link to="/legal" className="hover:text-gray-700 transition-colors">
-                {legalLabel}
+              <Link to={legalLink.to} className="hover:text-gray-700 transition-colors">
+                {legalLink.label}
               </Link>
             </div>
           </div>

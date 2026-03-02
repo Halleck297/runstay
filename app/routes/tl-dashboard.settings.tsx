@@ -110,7 +110,7 @@ export default function TLSettingsPage() {
       navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
     >
       <div className="min-h-full">
-        <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+        <main id="tl-settings-main" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-6 pb-28 sm:px-6 md:scroll-mt-0 md:py-8 md:pb-8 lg:px-8">
           <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
             <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.settings.title")}</h1>
             <p className="mt-1 text-gray-600">{t("profile.settings.subtitle")}</p>

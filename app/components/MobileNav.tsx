@@ -62,7 +62,7 @@ export function MobileNav({ user }: MobileNavProps) {
   const myListingPath = tourOperator ? "/to-panel/listings" : "/my-listings";
   const createPath = user
     ? teamLeader
-      ? "/tl-events"
+      ? "/listings/new"
       : tourOperator
         ? "/to-panel/listings/new"
         : "/listings/new"
@@ -238,15 +238,15 @@ export function MobileNav({ user }: MobileNavProps) {
           <Link
             to={createPath}
             className={`flex w-14 flex-col items-center justify-center py-2 ${
-              location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" || location.pathname === "/tl-events"
+              location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new"
                 ? "text-accent-600"
                 : "text-gray-500"
             }`}
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" || location.pathname === "/tl-events" ? 2.5 : 2}>
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" ? 2.5 : 2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            <span className="text-[10px] mt-0.5 font-medium">{teamLeader ? t("nav.event") : t("nav.new")}</span>
+            <span className="text-[10px] mt-0.5 font-medium">{t("nav.new")}</span>
           </Link>
         </div>
 

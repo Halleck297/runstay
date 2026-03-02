@@ -4,10 +4,10 @@ import { LegalDocumentPage } from "~/components/LegalDocumentPage";
 export const meta: MetaFunction = () => {
   return [
     { title: "Legal Notes | Runoot" },
-    { name: "description", content: "Legal notes and publisher information for Runoot." },
+    { name: "description", content: "Legal notes for Runoot." },
   ];
 };
 
-export default function LegalPage() {
-  return <LegalDocumentPage />;
+export default function LegalNotesPage() {
+  return <LegalDocumentPage forcedKey="legal-notes" />;
 }

@@ -3,6 +3,7 @@ export interface SendEmailInput {
   subject: string;
   html: string;
   text: string;
+  from?: string;
 }
 
 export interface SendEmailResult {
@@ -13,7 +14,7 @@ export interface SendEmailResult {
 
 export async function sendWithResend(input: SendEmailInput): Promise<SendEmailResult> {
   const resendApiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL;
+  const fromEmail = input.from || process.env.RESEND_FROM_EMAIL;
 
   if (!resendApiKey || !fromEmail) {
     return {

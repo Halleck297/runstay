@@ -62,28 +62,28 @@ export function ControlPanelLayout({
     <div className="min-h-screen md:h-screen flex">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-x-0 top-[121px] bottom-0 bg-black/50 z-40 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
-        className={`fixed md:sticky md:top-0 inset-y-0 left-0 z-50 w-64 md:h-screen bg-navy-900 text-white flex flex-col transform transition-transform duration-200 ${
+        className={`fixed md:sticky md:top-0 top-[121px] bottom-0 md:inset-y-0 left-0 z-50 w-64 md:h-screen bg-navy-900 text-white flex flex-col transform transition-transform duration-200 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="p-6 border-b border-navy-700">
+        <div className="px-6 pb-5 pt-3 border-b border-navy-700 md:p-6">
           <Link
             to="/"
-            className="mb-2 flex items-center justify-center gap-2 text-xs text-navy-300 hover:text-white transition-colors"
+            className="mb-2 hidden items-center justify-center gap-2 text-xs text-navy-300 hover:text-white transition-colors md:flex"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             {t("common.back_to_site")}
           </Link>
-          <div className="mb-3 border-t border-navy-700" />
-          <Link to={homeTo} className="flex flex-col items-center gap-2 text-center">
+          <div className="mb-3 hidden border-t border-navy-700 md:block" />
+          <Link to={homeTo} className="flex flex-col items-center gap-1 text-center md:gap-2">
             <img
               src="/Logosin.svg"
               alt="Runoot"
@@ -128,7 +128,7 @@ export function ControlPanelLayout({
         </nav>
 
         <div className="p-4 border-t border-navy-700">
-          <div className="mb-4 flex flex-col items-center text-center">
+          <div className="mb-4 flex items-center gap-3 text-left md:flex-col md:items-center md:text-center">
             <div className="h-12 w-12 rounded-full overflow-hidden bg-brand-500 flex items-center justify-center text-white text-base font-bold">
               {user.avatarUrl ? (
                 <img
@@ -141,46 +141,46 @@ export function ControlPanelLayout({
                 userInitial
               )}
             </div>
-            <div className="mt-2 min-w-0">
+            <div className="min-w-0 md:mt-2">
               <p className="max-w-[11rem] truncate text-base font-semibold text-white">
                 {user.fullName || user.email || t("common.user")}
               </p>
               <p className="text-sm text-navy-300 capitalize">{user.roleLabel || t("common.member")}</p>
             </div>
           </div>
-          <div className="mb-3 border-t border-navy-700" />
+          <div className="mb-3 hidden border-t border-navy-700 md:block" />
           <Link
             to="/"
-            className="flex items-center justify-center gap-2 text-sm text-navy-300 hover:text-white transition-colors"
+            className="hidden items-center justify-center gap-2 text-sm text-navy-300 hover:text-white transition-colors md:flex"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+              </svg>
             {t("common.back_to_site")}
           </Link>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 md:h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
-        <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <header className="sticky top-16 z-30 md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => setSidebarOpen((current) => !current)}
             className="p-2 rounded-lg hover:bg-gray-100"
+            aria-expanded={sidebarOpen}
+            aria-label="Toggle panel menu"
           >
             <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
           <p className="font-display font-bold text-gray-900">{mobileTitle}</p>
-          <Link to="/" className="p-2 rounded-lg hover:bg-gray-100">
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+          <Link to="/" className="rounded-lg px-2 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-100">
+            Home
           </Link>
         </header>
 
-        {topContent && <div className="px-4 pt-4 md:px-8 md:pt-8">{topContent}</div>}
-        <main className={`flex-1 p-4 md:p-8 md:overflow-y-auto ${topContent ? "pt-0 md:pt-0" : ""}`}>{children}</main>
+        {topContent && <div className="px-4 pb-0 pt-2 md:px-8 md:pt-8">{topContent}</div>}
+        <main className="flex-1 p-4 md:p-8 md:overflow-y-auto">{children}</main>
       </div>
     </div>
   );
