@@ -12,6 +12,8 @@ import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
 import { SortDropdown } from "~/components/SortDropdown";
+import { analyticsEvents } from "~/lib/analytics/events";
+import { trackEvent } from "~/lib/analytics/client";
 
 
 export const meta: MetaFunction = () => {
@@ -192,6 +194,10 @@ export default function Listings() {
 
   // Handle suggestion click
   const handleSuggestionClick = (eventName: string) => {
+    trackEvent(analyticsEvents.LISTINGS_SEARCH_SUGGESTION_CLICKED, {
+      event_name: eventName,
+      type_filter: currentType,
+    });
     setSearchQuery(eventName);
     setShowSuggestions(false);
     // Navigate with the selected event name as search
@@ -210,6 +216,16 @@ export default function Listings() {
 
     const nextQuery = params.toString();
     navigate(nextQuery ? `/listings?${nextQuery}` : "/listings");
+  };
+
+  const handleSortChange = (nextSort: string) => {
+    setSortBy(nextSort);
+    trackEvent(analyticsEvents.LISTINGS_SORT_CHANGED, {
+      from: sortBy,
+      to: nextSort,
+      type_filter: currentType,
+      has_search: hasActiveSearch,
+    });
   };
 
   return (
@@ -238,7 +254,17 @@ export default function Listings() {
 
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
               {/* Search Bar with Autocomplete */}
-              <Form method="get" name="listing-search" className="w-full lg:w-[44%] xl:w-[48%]">
+              <Form
+                method="get"
+                name="listing-search"
+                onSubmit={() =>
+                  trackEvent(analyticsEvents.LISTINGS_SEARCH_SUBMITTED, {
+                    query: searchQuery.trim(),
+                    type_filter: currentType,
+                  })
+                }
+                className="w-full lg:w-[44%] xl:w-[48%]"
+              >
                 <input type="hidden" name="type" value={currentType} />
                 <div className="relative w-full" ref={searchRef}>
                   <svg
@@ -345,7 +371,7 @@ export default function Listings() {
                   )}
 
                   <div className="shrink-0">
-                    <SortDropdown value={sortBy} onChange={setSortBy} />
+                    <SortDropdown value={sortBy} onChange={handleSortChange} />
                   </div>
                 </div>
               </div>

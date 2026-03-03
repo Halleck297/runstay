@@ -25,6 +25,7 @@
     "@react-router/serve": "7.13.0",
     "@supabase/supabase-js": "^2.47.0",
     "isbot": "^4.1.0",
+    "posthog-js": "^1.357.1",
     "react": "^18.2.0",
     "react-datepicker": "^9.1.0",
     "react-dom": "^18.2.0",

@@ -10,6 +10,8 @@ import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
+import { analyticsEvents } from "~/lib/analytics/events";
+import { trackEvent } from "~/lib/analytics/client";
 
 export const meta: MetaFunction = () => {
   return [
@@ -154,6 +156,10 @@ export default function Index() {
 
     // Handle suggestion click
   const handleSuggestionClick = (eventName: string) => {
+    trackEvent(analyticsEvents.HOME_SEARCH_SUGGESTION_CLICKED, {
+      event_name: eventName,
+      authenticated: !!user,
+    });
     setSearchQuery(eventName);
     setShowSuggestions(false);
     // Navigate anon users to login before opening listings
@@ -166,7 +172,7 @@ export default function Index() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header user={user} />
+      <Header user={user} isHome />
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative overflow-hidden">
@@ -211,6 +217,12 @@ export default function Index() {
             <Form
               method="get"
               action={user ? "/listings" : "/login"}
+              onSubmit={() =>
+                trackEvent(analyticsEvents.HOME_SEARCH_SUBMITTED, {
+                  query: searchQuery.trim(),
+                  authenticated: !!user,
+                })
+              }
               className="mx-auto w-full max-w-3xl rounded-full bg-white px-4 py-3 shadow-[0_14px_36px_rgba(0,0,0,0.18)]"
             >
               {!user && <input type="hidden" name="redirectTo" value="/listings" />}
@@ -286,6 +298,11 @@ export default function Index() {
               <div className="mt-6 flex justify-center">
                 <Link
                   to={user ? "/listings" : "/login"}
+                  onClick={() =>
+                    trackEvent(analyticsEvents.HOME_VIEW_ALL_LISTINGS_CLICKED, {
+                      authenticated: !!user,
+                    })
+                  }
                   className="px-6 py-2.5 bg-brand-500 text-white text-sm font-semibold uppercase tracking-wide rounded-full hover:bg-brand-600 transition-all"
                 >
                   {t("home.view_all")}
@@ -329,6 +346,11 @@ export default function Index() {
                 <div className="mt-6 flex justify-center">
                   <Link
                     to={user ? "/events" : "/login"}
+                    onClick={() =>
+                      trackEvent(analyticsEvents.HOME_VIEW_ALL_EVENTS_CLICKED, {
+                        authenticated: !!user,
+                      })
+                    }
                     className="px-6 py-2.5 bg-brand-500 text-white text-sm font-semibold uppercase tracking-wide rounded-full hover:bg-brand-600 transition-all"
                   >
                     {t("home.view_all")}

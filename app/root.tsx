@@ -1,4 +1,4 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, redirect, data, useRouteLoaderData } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, redirect, data, useRouteLoaderData, useLocation } from "react-router";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { useEffect, useState } from "react";
 import { getUser, getAccessToken, getImpersonationContext } from "~/lib/session.server";
@@ -13,6 +13,7 @@ import {
 } from "~/lib/locale";
 import CookieBanner from "~/components/CookieBanner";
 import { MobileNav } from "~/components/MobileNav";
+import { trackPage } from "~/lib/analytics/client";
 import "./styles/tailwind.css";
 
 export const links: LinksFunction = () => [
@@ -98,6 +99,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
         SUPABASE_URL: process.env.SUPABASE_URL!,
         SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY!,
         ACCESS_TOKEN: accessToken,
+        ANALYTICS_PROVIDER: process.env.ANALYTICS_PROVIDER || "none",
+        ANALYTICS_WRITE_KEY: process.env.ANALYTICS_WRITE_KEY || "",
+        ANALYTICS_HOST: process.env.ANALYTICS_HOST || "",
+        ANALYTICS_DEBUG: process.env.ANALYTICS_DEBUG || "false",
+        ANALYTICS_PLAUSIBLE_DOMAIN: process.env.ANALYTICS_PLAUSIBLE_DOMAIN || "",
+        ANALYTICS_GA_MEASUREMENT_ID: process.env.ANALYTICS_GA_MEASUREMENT_ID || "",
       },
     },
     shouldSetLocaleCookie
@@ -146,6 +153,7 @@ export function ErrorBoundary() {
 
 export default function App() {
   const { user, impersonation, ENV, locale, localeCookieName } = useLoaderData<typeof loader>();
+  const location = useLocation();
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -157,6 +165,13 @@ export default function App() {
     document.documentElement.lang = locale;
     document.documentElement.dataset.locale = locale;
   }, [locale]);
+
+  useEffect(() => {
+    trackPage(`${location.pathname}${location.search}`, {
+      locale,
+      has_user: !!user,
+    });
+  }, [location.pathname, location.search, locale, user]);
 
   return (
     <>

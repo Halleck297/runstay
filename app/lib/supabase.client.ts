@@ -54,6 +54,12 @@ declare global {
       SUPABASE_URL: string;
       SUPABASE_ANON_KEY: string;
       ACCESS_TOKEN?: string | null;
+      ANALYTICS_PROVIDER?: string;
+      ANALYTICS_WRITE_KEY?: string;
+      ANALYTICS_HOST?: string;
+      ANALYTICS_DEBUG?: string;
+      ANALYTICS_PLAUSIBLE_DOMAIN?: string;
+      ANALYTICS_GA_MEASUREMENT_ID?: string;
     };
   }
 }

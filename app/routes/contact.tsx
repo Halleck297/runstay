@@ -11,6 +11,8 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { SubjectDropdown } from "~/components/SubjectDropdown";
+import { analyticsEvents } from "~/lib/analytics/events";
+import { trackEvent } from "~/lib/analytics/client";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Contact Us - Runoot" }];
@@ -201,6 +203,16 @@ export default function Contact() {
     }
   }, [actionData, defaultSubject]);
 
+  useEffect(() => {
+    if (actionData && "success" in actionData && actionData.success) {
+      trackEvent(analyticsEvents.CONTACT_FORM_SUBMITTED, {
+        phase: "success",
+        authenticated: !!user,
+        subject: subject || "unknown",
+      });
+    }
+  }, [actionData, user, subject]);
+
   return (
     <div className="min-h-screen bg-[url('/contact.jpg')] bg-cover bg-center bg-fixed">
       <div className="min-h-screen bg-[#ECF4FE]/40 flex flex-col">
@@ -265,7 +277,18 @@ export default function Contact() {
                 </div>
               )}
 
-              <Form key={formKey} method="post" className="mt-6 space-y-6">
+              <Form
+                key={formKey}
+                method="post"
+                onSubmit={() =>
+                  trackEvent(analyticsEvents.CONTACT_FORM_SUBMITTED, {
+                    phase: "submit",
+                    authenticated: !!user,
+                    subject: subject || "unknown",
+                  })
+                }
+                className="mt-6 space-y-6"
+              >
                 <div className="sr-only" aria-hidden="true">
                   <label htmlFor="website">Website</label>
                   <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
