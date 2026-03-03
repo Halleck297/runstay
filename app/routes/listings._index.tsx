@@ -36,7 +36,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       `
       *,
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
-      event:events(id, name, slug, country, event_date, card_image_url)
+      event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
     `
     )
     .eq("status", "active")
@@ -86,7 +86,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Get all events for autocomplete suggestions
   const { data: events } = await supabase
     .from("events")
-    .select("id, name, country, event_date")
+    .select("id, name, name_i18n, country, country_i18n, event_date")
     .order("event_date", { ascending: true });
 
   const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
@@ -233,7 +233,7 @@ export default function Listings() {
       <div className="min-h-screen flex flex-col">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 pt-16 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
+        <main className="mx-auto max-w-7xl px-4 pt-6 pb-14 md:pt-16 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
           <div className="mb-6">
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
               {t("listings.title")}
@@ -252,7 +252,7 @@ export default function Listings() {
               )}
             </div>
 
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
+            <div className="flex flex-col gap-4 max-[390px]:gap-3 lg:flex-row lg:items-center lg:gap-8">
               {/* Search Bar with Autocomplete */}
               <Form
                 method="get"
@@ -292,20 +292,20 @@ export default function Listings() {
                       setShowSuggestions(true);
                     }}
                     onFocus={() => setShowSuggestions(true)}
-                    className="block w-full rounded-full border-0 bg-white pl-12 pr-24 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-md ring-1 ring-gray-200"
+                    className="block w-full rounded-full border-0 bg-white pl-12 pr-20 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-md ring-1 ring-gray-200 max-[390px]:pr-16 max-[390px]:py-3"
                   />
                   {hasActiveSearch ? (
                     <button
                       type="button"
                       onClick={handleClearSearch}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-all"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-2 text-xs bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-all sm:px-4 sm:py-2.5 sm:text-sm max-[390px]:px-2.5 max-[390px]:text-[11px]"
                     >
                       {t("listings.cancel_search")}
                     </button>
                   ) : (
                     <button
                       type="submit"
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-accent-500 text-white text-sm font-medium rounded-full hover:bg-accent-600 transition-all"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-2 text-xs bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all sm:px-5 sm:py-2.5 sm:text-sm max-[390px]:px-2.5 max-[390px]:text-[11px]"
                     >
                       Search
                     </button>
@@ -333,9 +333,9 @@ export default function Listings() {
               </Form>
 
               {/* Category Filter Buttons + Sort Dropdown */}
-              <div className="flex flex-col gap-3 lg:ml-auto lg:items-end">
+              <div className="flex flex-col gap-3 max-[390px]:gap-2.5 lg:ml-auto lg:items-end">
                 <div className="overflow-x-auto pb-1 lg:pb-0">
-                  <div className="flex w-full items-center justify-end gap-2.5 min-w-max">
+                  <div className="flex w-full items-center justify-end gap-2.5 min-w-max max-[390px]:gap-2">
                     {[
                       { value: "all", label: "All" },
                       { value: "room", label: "Hotel" },
@@ -345,7 +345,7 @@ export default function Listings() {
                       <a
                         key={category.value}
                         href={category.value === "all" ? `/listings${currentSearch ? `?search=${currentSearch}` : ""}` : `/listings?type=${category.value}${currentSearch ? `&search=${currentSearch}` : ""}`}
-                        className={`px-3.5 py-2.5 sm:px-4 rounded-full text-sm font-bold uppercase tracking-wide transition-colors whitespace-nowrap ${
+                        className={`px-3.5 py-2.5 sm:px-4 rounded-full text-sm font-bold uppercase tracking-wide transition-colors whitespace-nowrap max-[390px]:px-2.5 max-[390px]:py-2 max-[390px]:text-[11px] max-[390px]:tracking-normal ${
                           currentType === category.value
                             ? "bg-brand-500 text-white shadow-sm"
                             : "bg-white text-brand-500 border border-gray-300 hover:bg-gray-50"
@@ -357,11 +357,11 @@ export default function Listings() {
                   </div>
                 </div>
 
-                <div className="flex w-full items-center justify-end gap-3">
+                <div className="flex w-full flex-wrap items-center justify-end gap-2.5 sm:gap-3">
                   {hasEvents && (
                     <Link
                       to="/events"
-                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-gray-700 text-sm font-medium uppercase tracking-wide rounded-full border border-gray-300 hover:bg-gray-50 transition-colors whitespace-nowrap"
+                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-gray-700 text-sm font-medium uppercase tracking-wide rounded-full border border-gray-300 hover:bg-gray-50 transition-colors whitespace-nowrap max-[390px]:px-2.5 max-[390px]:py-2 max-[390px]:text-[11px] max-[390px]:tracking-normal"
                     >
                       <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
@@ -370,7 +370,7 @@ export default function Listings() {
                     </Link>
                   )}
 
-                  <div className="shrink-0">
+                  <div className="shrink-0 max-[390px]:origin-left max-[390px]:scale-95">
                     <SortDropdown value={sortBy} onChange={handleSortChange} />
                   </div>
                 </div>

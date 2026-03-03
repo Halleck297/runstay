@@ -36,7 +36,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       `
       *,
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
-      event:events(id, name, slug, country, event_date, card_image_url)
+      event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
     `
     )
     .eq("status", "active")
@@ -54,7 +54,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       `
       *,
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
-      event:events(id, name, slug, country, event_date, card_image_url)
+      event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
     `
     )
     .eq("status", "active")
@@ -80,7 +80,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Get all events for autocomplete suggestions
   const { data: events } = await supabase
     .from("events")
-    .select("id, name, country, event_date")
+    .select("id, name, name_i18n, country, country_i18n, event_date")
     .order("event_date", { ascending: true });
 
     const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
@@ -178,7 +178,7 @@ export default function Index() {
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('/hero.jpg')] bg-cover bg-top" />
           <div className="absolute inset-0 bg-black/60" />
-          <div className="relative mx-auto max-w-7xl px-4 py-36 sm:py-44 lg:py-52 sm:px-6 lg:px-8">
+          <div className="relative mx-auto max-w-7xl px-4 pt-12 pb-36 sm:py-44 lg:py-52 sm:px-6 lg:px-8">
             <div className="text-center">
             <h1 className="font-display text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl [text-shadow:0_4px_20px_rgba(0,0,0,0.7)]">
               <span className="block">{t("home.hero.title.top")}</span>
@@ -212,7 +212,7 @@ export default function Index() {
         </section>
 
         {/* Search Banner */}
-        <section className="relative z-20 h-0 -mt-8 md:-mt-10 px-4 sm:px-6 lg:px-8">
+        <section className="relative z-20 h-0 -mt-16 md:-mt-10 px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <Form
               method="get"
@@ -223,10 +223,10 @@ export default function Index() {
                   authenticated: !!user,
                 })
               }
-              className="mx-auto w-full max-w-3xl rounded-full bg-white px-4 py-3 shadow-[0_14px_36px_rgba(0,0,0,0.18)]"
+              className="mx-auto w-full max-w-3xl rounded-3xl md:rounded-full bg-white px-4 py-3 shadow-[0_14px_36px_rgba(0,0,0,0.18)]"
             >
               {!user && <input type="hidden" name="redirectTo" value="/listings" />}
-              <div className="flex items-center gap-3 md:gap-4">
+              <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-4">
                 <div className="relative min-w-0 flex-1 rounded-full bg-[#ECF4FE] px-4 py-1" ref={searchRef}>
                   <input
                     type="search"
@@ -262,7 +262,7 @@ export default function Index() {
                 </div>
                 <button
                   type="submit"
-                  className="shrink-0 rounded-full bg-accent-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-white hover:bg-accent-600 transition-colors"
+                  className="w-full shrink-0 rounded-full bg-accent-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-white hover:bg-accent-600 transition-colors md:w-auto"
                 >
                   Search
                 </button>
@@ -274,7 +274,7 @@ export default function Index() {
 
         {/* Recent Listings */}
         {listings.length > 0 && (
-          <section className="pt-24 pb-20 md:pt-28 md:pb-20 bg-[#ECF4FE]">
+          <section className="pt-36 pb-20 md:pt-28 md:pb-20 bg-[#ECF4FE]">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-center">
                 <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">

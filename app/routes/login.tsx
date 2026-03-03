@@ -93,7 +93,7 @@ export default function Login() {
         </Link>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl">
+      <div className="mt-4 sm:mx-auto sm:w-full sm:max-w-xl">
         <div className="rounded-3xl border border-gray-200 bg-white px-8 py-8 shadow-sm sm:px-14">
           <h2 className="text-center font-display text-3xl font-bold tracking-tight text-gray-900 lowercase">
             {t("auth.welcome_back")}
@@ -108,7 +108,7 @@ export default function Login() {
             </Link>
           </p>
 
-          <div className="h-10" />
+          <div className="h-8" />
 
           <Form method="post" className="space-y-6">
             <input type="hidden" name="redirectTo" value={redirectTo} />
@@ -119,7 +119,7 @@ export default function Login() {
               </div>
             )}
 
-            <div className="mx-auto w-2/3">
+            <div className="mx-auto w-full max-w-md">
               <label htmlFor="email" className="label">
                 {t("auth.email")}
               </label>
@@ -133,7 +133,7 @@ export default function Login() {
               />
             </div>
 
-            <div className="mx-auto w-2/3">
+            <div className="mx-auto w-full max-w-md">
               <label htmlFor="password" className="label">
                 {t("auth.password")}
               </label>

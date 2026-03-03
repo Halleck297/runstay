@@ -416,9 +416,9 @@ export default function SavedListings() {
         <Header user={user} />
 
         <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
-          <div className="mb-4 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-white to-brand-100/55 px-5 py-8 shadow-sm sm:px-6 sm:py-10">
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center sm:text-left">{t("saved.title")}</h1>
-            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center sm:text-left">{t("saved.subtitle")}</p>
+          <div className="mb-6 text-center">
+            <h1 className="font-display text-3xl font-bold text-gray-900">{t("saved.title")}</h1>
+            <p className="mt-2 text-gray-600">{t("saved.subtitle")}</p>
           </div>
 
           <div className="relative z-10 mb-8">
@@ -447,21 +447,21 @@ export default function SavedListings() {
                     </svg>
                   </label>
 
-                  <div className="shrink-0">
+                  <div className="w-full sm:w-auto sm:shrink-0">
                     <SavedToolbarDropdown
                       value={typeFilter}
                       onChange={setTypeFilter}
                       options={typeFilterOptions}
-                      className="min-w-[180px]"
+                      className="w-full min-w-0 sm:min-w-[180px]"
                     />
                   </div>
 
-                  <div className="shrink-0">
+                  <div className="w-full sm:w-auto sm:shrink-0">
                     <SavedToolbarDropdown
                       value={sortBy}
                       onChange={setSortBy}
                       options={sortOptions}
-                      className="min-w-[230px]"
+                      className="w-full min-w-0 sm:min-w-[230px]"
                     />
                   </div>
                 </div>

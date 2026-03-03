@@ -331,6 +331,7 @@ export default function Conversation() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [hasOlderMessages, setHasOlderMessages] = useState(initialHasOlderMessages);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const isSubmitting = navigation.state === "submitting";
   const userId = (user as any).id as string;
@@ -401,6 +402,23 @@ export default function Conversation() {
   useEffect(() => {
     setHasOlderMessages(initialHasOlderMessages);
   }, [conversation.id, initialHasOlderMessages]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
+    updateViewport();
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateViewport);
+      return () => mediaQuery.removeEventListener("change", updateViewport);
+    }
+    mediaQuery.addListener(updateViewport);
+    return () => mediaQuery.removeListener(updateViewport);
+  }, []);
+
+  const fullWritePlaceholder = t("messages.write_placeholder");
+  const mobileWritePlaceholder = fullWritePlaceholder.split("(")[0].trim();
+  const writePlaceholder = isMobileViewport ? mobileWritePlaceholder : fullWritePlaceholder;
 
   useEffect(() => {
     if (olderMessagesFetcher.state !== "idle") return;
@@ -829,7 +847,7 @@ export default function Conversation() {
             <textarea
               ref={textareaRef}
               name="content"
-              placeholder={t("messages.write_placeholder")}
+              placeholder={writePlaceholder}
               autoComplete="off"
               required
               rows={1}

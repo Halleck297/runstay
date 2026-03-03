@@ -68,8 +68,8 @@ export function Header({ user, isHome = false }: HeaderProps) {
     ? "text-sm font-bold uppercase tracking-wide text-white hover:text-accent-400 hover:underline transition-colors"
     : "text-sm font-bold uppercase tracking-wide text-gray-700 hover:text-accent-500 hover:underline transition-colors";
   const userMenuButtonClass = isHome
-    ? "flex items-center gap-2 px-4 py-2.5 border border-white rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-    : "flex items-center gap-2 px-4 py-2.5 border border-accent-500 rounded-full bg-white hover:bg-[#ECF4FE] text-gray-900 transition-colors";
+    ? "flex items-center gap-2 px-4 py-2.5 border border-white rounded-full bg-white/10 text-white transition-colors"
+    : "flex items-center gap-2 px-4 py-2.5 border border-accent-500 rounded-full bg-white text-gray-900 transition-colors";
 
   return (
     <>

@@ -13,7 +13,7 @@ import {
 } from "~/lib/locale";
 import CookieBanner from "~/components/CookieBanner";
 import { MobileNav } from "~/components/MobileNav";
-import { trackPage } from "~/lib/analytics/client";
+import { identifyUser, resetAnalytics, trackPage } from "~/lib/analytics/client";
 import "./styles/tailwind.css";
 
 export const links: LinksFunction = () => [
@@ -139,7 +139,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang={htmlLang} className="h-full">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="format-detection" content="telephone=no, email=no, address=no, date=no" />
         <Meta />
         <Links />
@@ -169,6 +169,10 @@ export default function App() {
   const { user, impersonation, ENV, locale, localeCookieName } = useLoaderData<typeof loader>();
   const location = useLocation();
   const [hydrated, setHydrated] = useState(false);
+  const hideMobileNav =
+    /(^|\/)(login|register)(\/|$)/.test(location.pathname) ||
+    location.pathname.includes("/join/") ||
+    location.pathname.includes("/join-team/");
 
   useEffect(() => {
     setHydrated(true);
@@ -181,11 +185,30 @@ export default function App() {
   }, [locale]);
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("mobile-nav-hidden", hideMobileNav);
+    return () => document.body.classList.remove("mobile-nav-hidden");
+  }, [hideMobileNav]);
+
+  useEffect(() => {
     trackPage(`${location.pathname}${location.search}`, {
       locale,
       has_user: !!user,
     });
   }, [location.pathname, location.search, locale, user]);
+
+  useEffect(() => {
+    if (user?.id) {
+      identifyUser(user.id, {
+        user_type: (user as any)?.user_type || null,
+        preferred_language: (user as any)?.preferred_language || null,
+        country: (user as any)?.country || null,
+        verified: !!(user as any)?.is_verified,
+      });
+      return;
+    }
+    resetAnalytics();
+  }, [user]);
 
   return (
     <>

@@ -21,6 +21,7 @@ import {
   validateListingLimits
 } from "~/config/listing-rules";
 import type { TransferMethod } from "~/config/listing-rules";
+import { buildI18nMap, buildListingI18nFields, getSourceLanguageFromProfile } from "~/lib/listing-i18n.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Edit Listing - Runoot" }];
@@ -143,11 +144,16 @@ export async function action({ request, params }: ActionFunctionArgs) {
   let finalEventId = eventId;
 
   if (!eventId && newEventName && newEventDate) {
+    const sourceLanguageHint = getSourceLanguageFromProfile((user as any).preferred_language);
+    const eventNameI18n = await buildI18nMap(newEventName, sourceLanguageHint);
+    const eventCountryI18n = await buildI18nMap(newEventCountry || "", sourceLanguageHint);
     const { data: newEvent, error: eventError } = await supabaseAdmin
       .from("events")
       .insert({
         name: newEventName,
+        name_i18n: eventNameI18n,
         country: newEventCountry || "",
+        country_i18n: eventCountryI18n,
         event_date: newEventDate,
         created_by: (user as any).id,
       } as any)
@@ -203,6 +209,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
     "Package";
 
   const autoTitle = `${listingTypeText} for ${eventData?.name || "Marathon"}`;
+  const sourceLanguageHint = getSourceLanguageFromProfile((user as any).preferred_language);
+  const listingI18n = await buildListingI18nFields({
+    title: autoTitle,
+    description: description || null,
+    hotelName: hotelName || null,
+    hotelCity: hotelCity || null,
+    hotelCountry: hotelCountry || null,
+    sourceLanguageHint,
+  });
 
   // Handle hotel
   let finalHotelId: string | null = null;
@@ -250,10 +265,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
       event_id: finalEventId,
       listing_type: listingType as "room" | "bib" | "room_and_bib",
       title: autoTitle,
+      title_i18n: listingI18n.title_i18n,
       description: description || null,
+      description_i18n: listingI18n.description_i18n,
 
       // Hotel fields
       hotel_name: hotelName || null,
+      hotel_name_i18n: listingI18n.hotel_name_i18n,
       hotel_website: hotelWebsite || null,
       hotel_place_id: hotelPlaceId || null,
       hotel_id: finalHotelId,
@@ -261,6 +279,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
       hotel_lat: hotelLat ? parseFloat(hotelLat) : null,
       hotel_lng: hotelLng ? parseFloat(hotelLng) : null,
       hotel_rating: hotelRating ? parseFloat(hotelRating) : null,
+      hotel_city: hotelCity || null,
+      hotel_city_i18n: listingI18n.hotel_city_i18n,
+      hotel_country: hotelCountry || null,
+      hotel_country_i18n: listingI18n.hotel_country_i18n,
 
       // Room fields
       room_count: roomCount ? parseInt(roomCount) : null,

@@ -50,6 +50,7 @@ interface ListingCardCompactProps {
       slug: string | null;
       country: string;
       event_date: string;
+      card_image_url?: string | null;
     };
   };
   isUserLoggedIn?: boolean;
@@ -199,6 +200,7 @@ export function ListingCardCompact({
   // Event logo path
   const eventSlug = getEventSlug(listing.event);
   const logoPath = `/logos/${eventSlug}.png`;
+  const logoSrc = listing.event.card_image_url || logoPath;
 
   const listingHref = isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login";
 
@@ -323,7 +325,7 @@ export function ListingCardCompact({
         {/* Right: Event logo */}
         <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center self-center">
           <img
-            src={logoPath}
+            src={logoSrc}
             alt={`${listing.event.name} logo`}
             className="w-full h-full object-contain p-1"
             onError={(e) => {
@@ -375,7 +377,7 @@ export function ListingCardCompact({
             </div>
 
             {/* Center: View Details button */}
-            <div className="flex-1 flex justify-center">
+            <div className="flex-1 flex justify-center max-[390px]:hidden">
               <span className="bg-accent-500 text-white text-xs font-medium uppercase tracking-wide px-4 py-1.5 rounded-full">
                 View
               </span>

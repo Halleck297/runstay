@@ -24,6 +24,7 @@ import {
 } from "~/config/listing-rules";
 import type { TransferMethod } from "~/config/listing-rules";
 import { calculateDistanceData } from "~/lib/distance.server";
+import { buildListingI18nFields, getSourceLanguageFromProfile } from "~/lib/listing-i18n.server";
 
 
 
@@ -345,6 +346,15 @@ export async function action({ request }: ActionFunctionArgs) {
   const serializedCostNotes = toListingMeta
     ? JSON.stringify({ to_meta: toListingMeta, note: costNotes || null })
     : costNotes || null;
+  const sourceLanguageHint = getSourceLanguageFromProfile((user as any).preferred_language);
+  const listingI18n = await buildListingI18nFields({
+    title: autoTitle,
+    description: description || null,
+    hotelName: hotelName || null,
+    hotelCity: hotelCity || null,
+    hotelCountry: hotelCountry || null,
+    sourceLanguageHint,
+  });
 
   const { data: listing, error } = await supabaseAdmin
   .from("listings")
@@ -353,10 +363,13 @@ export async function action({ request }: ActionFunctionArgs) {
     event_id: finalEventId,
     listing_type: listingType as "room" | "bib" | "room_and_bib",
     title: autoTitle,
+    title_i18n: listingI18n.title_i18n,
     description: description || null,
+    description_i18n: listingI18n.description_i18n,
 
     // Campi hotel
     hotel_name: hotelName || null,
+    hotel_name_i18n: listingI18n.hotel_name_i18n,
     hotel_website: hotelWebsite || null,
     hotel_place_id: hotelPlaceId || null,
     hotel_id: finalHotelId,
@@ -364,6 +377,10 @@ export async function action({ request }: ActionFunctionArgs) {
     hotel_lat: hotelLat ? parseFloat(hotelLat) : null,
     hotel_lng: hotelLng ? parseFloat(hotelLng) : null,
     hotel_rating: hotelRating ? parseFloat(hotelRating) : null,
+    hotel_city: hotelCity || null,
+    hotel_city_i18n: listingI18n.hotel_city_i18n,
+    hotel_country: hotelCountry || null,
+    hotel_country_i18n: listingI18n.hotel_country_i18n,
 
     // Campi room
     room_count: roomCount ? parseInt(roomCount) : null,
@@ -521,8 +538,8 @@ useEffect(() => {
         className="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed"
         style={{ backgroundImage: "url('/new-listing.jpg')" }}
       >
-        <main className="mx-auto max-w-2xl px-4 py-8 pb-8 md:pb-8 sm:px-6 lg:px-8">
-          <div className="rounded-3xl bg-white/90 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
+        <main className="mx-auto max-w-2xl px-4 py-6 pb-8 md:pb-8 sm:px-6 lg:px-8 max-[390px]:px-3 max-[390px]:py-5">
+          <div className="rounded-3xl bg-white/90 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)] max-[390px]:p-4">
             <h1 className="font-display text-xl md:text-3xl font-bold text-gray-900">
               {t("create_listing.title")}
             </h1>
@@ -530,12 +547,12 @@ useEffect(() => {
               {t("create_listing.subtitle")}
             </p>
 
-          <Form method="post" className="mt-6 space-y-8" onSubmit={() => setFormSubmitted(true)}>
+          <Form method="post" className="mt-6 space-y-8 max-[390px]:mt-4 max-[390px]:space-y-6" onSubmit={() => setFormSubmitted(true)}>
             {/* Listing Type */}
             <div>
               <label className="label">{t("edit_listing.what_offering")}</label>
-              <div className="mt-2 grid grid-cols-3 gap-3">
-                <label className="relative flex cursor-pointer rounded-3xl bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-blue-300 has-[:checked]:bg-blue-100 has-[:checked]:ring-2 has-[:checked]:ring-blue-500">
+              <div className="mt-2 grid grid-cols-3 gap-3 max-[390px]:gap-2">
+                <label className="relative flex cursor-pointer rounded-3xl bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-blue-300 has-[:checked]:bg-blue-100 has-[:checked]:ring-2 has-[:checked]:ring-blue-500 max-[390px]:p-2.5">
                   <input
                     type="radio"
                     name="listingType"
@@ -546,7 +563,7 @@ useEffect(() => {
                   />
                   <span className="flex flex-1 flex-col items-center text-center">
                     <svg
-                      className="h-6 w-6 text-gray-600"
+                      className="h-6 w-6 text-gray-600 max-[390px]:h-5 max-[390px]:w-5"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -558,12 +575,12 @@ useEffect(() => {
                         d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                       />
                     </svg>
-                    <span className="mt-2 text-sm font-medium text-gray-900">
+                    <span className="mt-2 text-sm font-medium text-gray-900 max-[390px]:mt-1 max-[390px]:text-[11px] max-[390px]:leading-tight">
                       {t("edit_listing.room_only")}
                     </span>
                   </span>
                 </label>
-                <label className="relative flex cursor-pointer rounded-3xl bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-purple-300 has-[:checked]:bg-purple-100 has-[:checked]:ring-2 has-[:checked]:ring-purple-500">
+                <label className="relative flex cursor-pointer rounded-3xl bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-purple-300 has-[:checked]:bg-purple-100 has-[:checked]:ring-2 has-[:checked]:ring-purple-500 max-[390px]:p-2.5">
                   <input
                     type="radio"
                     name="listingType"
@@ -574,7 +591,7 @@ useEffect(() => {
                   />
                   <span className="flex flex-1 flex-col items-center text-center">
                     <svg
-                      className="h-6 w-6 text-gray-600"
+                      className="h-6 w-6 text-gray-600 max-[390px]:h-5 max-[390px]:w-5"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -586,12 +603,12 @@ useEffect(() => {
                         d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
                       />
                     </svg>
-                    <span className="mt-2 text-sm font-medium text-gray-900">
+                    <span className="mt-2 text-sm font-medium text-gray-900 max-[390px]:mt-1 max-[390px]:text-[11px] max-[390px]:leading-tight">
                       {t("edit_listing.bib_only")}
                     </span>
                   </span>
                 </label>
-                <label className="relative flex cursor-pointer rounded-3xl bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-green-300 has-[:checked]:bg-green-100 has-[:checked]:ring-2 has-[:checked]:ring-green-500">
+                <label className="relative flex cursor-pointer rounded-3xl bg-white p-4 shadow-sm focus:outline-none transition-all hover:ring-2 hover:ring-green-300 has-[:checked]:bg-green-100 has-[:checked]:ring-2 has-[:checked]:ring-green-500 max-[390px]:p-2.5">
                   <input
                     type="radio"
                     name="listingType"
@@ -602,7 +619,7 @@ useEffect(() => {
                   />
                   <span className="flex flex-1 flex-col items-center text-center">
                     <svg
-                      className="h-6 w-6 text-gray-600"
+                      className="h-6 w-6 text-gray-600 max-[390px]:h-5 max-[390px]:w-5"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -614,7 +631,7 @@ useEffect(() => {
                         d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
                       />
                     </svg>
-                    <span className="mt-2 text-sm font-medium text-gray-900">
+                    <span className="mt-2 text-sm font-medium text-gray-900 max-[390px]:mt-1 max-[390px]:text-[11px] max-[390px]:leading-tight">
                       {t("edit_listing.room_plus_bib")}
                     </span>
                   </span>
@@ -712,14 +729,11 @@ useEffect(() => {
                         {selectedRoomTypes.length === TO_ROOM_TYPES.length ? "Clear all" : "Select all"}
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 rounded-lg border border-gray-200 bg-white p-3">
+                    <div className="grid grid-cols-2 gap-2 rounded-lg border border-gray-200 bg-white p-3 max-[390px]:grid-cols-1">
                       {TO_ROOM_TYPES.map((type) => {
                         const checked = selectedRoomTypes.includes(type);
                         return (
-                          <div
-                            key={type}
-                            className="rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-gray-700"
-                          >
+                          <div key={type} className="rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-gray-700 max-[390px]:text-xs">
                             <label className="flex min-h-[44px] items-start gap-2">
                               <input
                                 type="checkbox"
@@ -767,9 +781,9 @@ useEffect(() => {
                                           [type]: e.target.value,
                                         }))
                                       }
-                                      className="input w-16 shrink-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                      className="input w-16 shrink-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none max-[390px]:w-14"
                                     />
-                                    <span className="w-10 text-sm text-gray-500">{currency}</span>
+                                    <span className="w-10 text-sm text-gray-500 max-[390px]:w-8 max-[390px]:text-xs">{currency}</span>
                                   </div>
                                 )}
                               </div>
@@ -1088,8 +1102,8 @@ useEffect(() => {
             )}
 
             {/* Submit */}
-            <div className="flex gap-4 pt-4">
-              <button type="submit" className="btn-primary rounded-full px-7 py-2.5 text-base">
+            <div className="flex gap-4 pt-4 max-[390px]:pt-2">
+              <button type="submit" className="btn-primary rounded-full px-7 py-2.5 text-base max-[390px]:w-full max-[390px]:justify-center">
                 {t("create_listing.submit")}
               </button>
             </div>

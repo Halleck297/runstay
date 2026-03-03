@@ -28,6 +28,7 @@ type ControlPanelLayoutProps = {
   };
   navItems: PanelNavItem[];
   topContent?: ReactNode;
+  compactSidebarUnder391?: boolean;
   children: ReactNode;
 };
 
@@ -38,6 +39,7 @@ export function ControlPanelLayout({
   user,
   navItems,
   topContent,
+  compactSidebarUnder391 = false,
   children,
 }: ControlPanelLayoutProps) {
   const { t } = useI18n();
@@ -83,13 +85,22 @@ export function ControlPanelLayout({
             {t("common.back_to_site")}
           </Link>
           <div className="mb-3 hidden border-t border-navy-700 md:block" />
-          <Link to={homeTo} className="flex flex-col items-center gap-1 text-center md:gap-2">
+          <Link
+            to={homeTo}
+            className={
+              compactSidebarUnder391
+                ? "flex flex-col items-center gap-1 text-center md:gap-2 max-[390px]:items-start max-[390px]:text-left"
+                : "flex flex-col items-center gap-1 text-center md:gap-2"
+            }
+          >
             <img
               src="/Logosin.svg"
               alt="Runoot"
-              className="h-20 w-auto"
+              className={compactSidebarUnder391 ? "h-20 w-auto max-[390px]:h-12" : "h-20 w-auto"}
             />
-            <p className="text-xs font-bold text-white">{panelLabel}</p>
+            <p className={compactSidebarUnder391 ? "text-xs font-bold text-white max-[390px]:text-[10px]" : "text-xs font-bold text-white"}>
+              {panelLabel}
+            </p>
           </Link>
         </div>
 
@@ -128,8 +139,8 @@ export function ControlPanelLayout({
         </nav>
 
         <div className="p-4 border-t border-navy-700">
-          <div className="mb-4 flex items-center gap-3 text-left md:flex-col md:items-center md:text-center">
-            <div className="h-12 w-12 rounded-full overflow-hidden bg-brand-500 flex items-center justify-center text-white text-base font-bold">
+          <div className={compactSidebarUnder391 ? "mb-4 flex items-center gap-3 text-left md:flex-col md:items-center md:text-center max-[390px]:gap-2" : "mb-4 flex items-center gap-3 text-left md:flex-col md:items-center md:text-center"}>
+            <div className={compactSidebarUnder391 ? "h-12 w-12 rounded-full overflow-hidden bg-brand-500 flex items-center justify-center text-white text-base font-bold max-[390px]:h-9 max-[390px]:w-9 max-[390px]:text-sm" : "h-12 w-12 rounded-full overflow-hidden bg-brand-500 flex items-center justify-center text-white text-base font-bold"}>
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
@@ -141,11 +152,13 @@ export function ControlPanelLayout({
                 userInitial
               )}
             </div>
-            <div className="min-w-0 md:mt-2">
-              <p className="max-w-[11rem] truncate text-base font-semibold text-white">
+            <div className={compactSidebarUnder391 ? "min-w-0 md:mt-2 max-[390px]:md:mt-1" : "min-w-0 md:mt-2"}>
+              <p className={compactSidebarUnder391 ? "max-w-[11rem] truncate text-base font-semibold text-white max-[390px]:text-sm" : "max-w-[11rem] truncate text-base font-semibold text-white"}>
                 {user.fullName || user.email || t("common.user")}
               </p>
-              <p className="text-sm text-navy-300 capitalize">{user.roleLabel || t("common.member")}</p>
+              <p className={compactSidebarUnder391 ? "text-sm text-navy-300 capitalize max-[390px]:text-xs" : "text-sm text-navy-300 capitalize"}>
+                {user.roleLabel || t("common.member")}
+              </p>
             </div>
           </div>
           <div className="mb-3 hidden border-t border-navy-700 md:block" />

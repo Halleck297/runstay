@@ -40,3 +40,26 @@ No route/component-level rewrites should be needed.
   - `ANALYTICS_WRITE_KEY=phc_...`
   - `ANALYTICS_HOST=/ph`
   - `ANALYTICS_UI_HOST=https://eu.posthog.com` (EU project) or `https://us.posthog.com` (US project)
+
+## PostHog setup checklist
+
+1. Create dashboard cards for:
+   - `page_view`
+   - `home_search_submitted`
+   - `home_search_suggestion_clicked`
+   - `home_view_all_listings_clicked`
+   - `home_view_all_events_clicked`
+   - `listings_search_submitted`
+   - `listings_search_suggestion_clicked`
+   - `listings_sort_changed`
+   - `contact_form_submitted`
+2. Build conversion funnel:
+   - `page_view` (home)
+   - `home_view_all_listings_clicked` or `home_search_submitted`
+   - `listings_search_submitted` or `listings_search_suggestion_clicked`
+   - `contact_form_submitted` (`phase=success`)
+3. Useful properties already sent:
+   - common: `locale`, `has_user`
+   - search/listings: `query`, `event_name`, `type_filter`, `has_search`
+   - contact: `phase`, `subject`, `authenticated`
+   - person properties on identify: `user_type`, `preferred_language`, `country`, `verified`

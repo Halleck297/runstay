@@ -83,6 +83,7 @@ export function MobileNav({ user }: MobileNavProps) {
         className={`md:hidden fixed top-16 right-2 w-56 bg-white rounded-2xl shadow-xl z-50 transform transition-all duration-200 ease-out ${
           isSidebarOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
+        style={{ top: "calc(4rem + env(safe-area-inset-top, 0) + 0.5rem)" }}
       >
         {/* Sidebar Header */}
         <div className="flex items-center gap-3 p-3 border-b border-gray-100">
@@ -217,18 +218,18 @@ export function MobileNav({ user }: MobileNavProps) {
 
       {/* Top Navigation (inverted from bottom) */}
       <nav className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 safe-area-top">
-      <div className="relative flex items-center justify-between h-16 px-2">
+      <div className="relative flex items-center justify-between h-16 px-3 max-[390px]:px-1">
         <div className="flex items-center">
           {/* Listings/Search */}
           <Link
             to="/listings"
-            className={`flex w-14 flex-col items-center justify-center py-2 ${
+            className={`flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 ${
               isActive("/listings") && !location.pathname.includes("/new")
                 ? "text-brand-600"
                 : "text-gray-500"
             }`}
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/listings") && !location.pathname.includes("/new") ? 2.5 : 2}>
+            <svg className="h-6 w-6 max-[390px]:h-5 max-[390px]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/listings") && !location.pathname.includes("/new") ? 2.5 : 2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <span className="text-[10px] mt-0.5 font-medium">{t("nav.search")}</span>
@@ -237,13 +238,13 @@ export function MobileNav({ user }: MobileNavProps) {
           {/* New */}
           <Link
             to={createPath}
-            className={`flex w-14 flex-col items-center justify-center py-2 ${
+            className={`flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 ${
               location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new"
                 ? "text-accent-600"
                 : "text-gray-500"
             }`}
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" ? 2.5 : 2}>
+            <svg className="h-6 w-6 max-[390px]:h-5 max-[390px]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" ? 2.5 : 2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
             <span className="text-[10px] mt-0.5 font-medium">{t("nav.new")}</span>
@@ -251,9 +252,11 @@ export function MobileNav({ user }: MobileNavProps) {
         </div>
 
         {/* Center Logo */}
-        <Link to="/" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <img src="/logo.svg" alt="Runoot" className="h-20 w-auto" />
-        </Link>
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center">
+          <Link to="/" className="pointer-events-auto">
+            <img src="/logo.svg" alt="Runoot" className="h-14 w-auto max-w-[136px] min-[391px]:h-20 min-[391px]:max-w-[192px] max-[390px]:h-[4.5rem] max-[390px]:max-w-[168px]" />
+          </Link>
+        </div>
 
         <div className="flex items-center">
 
@@ -261,14 +264,14 @@ export function MobileNav({ user }: MobileNavProps) {
         {user ? (
           <Link
             to="/messages"
-            className={`flex w-14 flex-col items-center justify-center py-2 relative ${
+            className={`flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 relative ${
               isActive("/messages")
                 ? "text-brand-600"
                 : "text-gray-500"
             }`}
           >
             <div className="relative">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/messages") ? 2.5 : 2}>
+              <svg className="h-6 w-6 max-[390px]:h-5 max-[390px]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/messages") ? 2.5 : 2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
               {/* Badge notifiche */}
@@ -283,9 +286,9 @@ export function MobileNav({ user }: MobileNavProps) {
         ) : (
           <Link
             to="/login"
-            className="flex w-14 flex-col items-center justify-center py-2 text-gray-500"
+            className="flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 text-gray-500"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-6 w-6 max-[390px]:h-5 max-[390px]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
             <span className="text-[10px] mt-0.5 font-medium">{t("nav.messages")}</span>
@@ -296,14 +299,14 @@ export function MobileNav({ user }: MobileNavProps) {
         {user ? (
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className={`flex w-14 flex-col items-center justify-center py-2 ${
+            className={`flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 ${
               isActive("/profile") || isActive("/to-panel/profile") || isActive("/tl-dashboard/profile") || isActive("/profile/settings") || isActive("/to-panel/settings") || isActive("/saved") || isActive(myListingPath)
               || isActive("/tl-dashboard/settings")
                 ? "text-brand-600"
                 : "text-gray-500"
             }`}
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/profile") || isActive("/to-panel/profile") || isActive("/tl-dashboard/profile") || isActive("/profile/settings") || isActive("/to-panel/settings") || isActive("/tl-dashboard/settings") || isActive("/saved") ? 2.5 : 2}>
+            <svg className="h-6 w-6 max-[390px]:h-5 max-[390px]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive("/profile") || isActive("/to-panel/profile") || isActive("/tl-dashboard/profile") || isActive("/profile/settings") || isActive("/to-panel/settings") || isActive("/tl-dashboard/settings") || isActive("/saved") ? 2.5 : 2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             <span className="text-[10px] mt-0.5 font-medium">{t("nav.profile")}</span>
@@ -311,9 +314,9 @@ export function MobileNav({ user }: MobileNavProps) {
         ) : (
           <Link
             to="/login"
-            className="flex w-14 flex-col items-center justify-center py-2 text-gray-500"
+            className="flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 text-gray-500"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-6 w-6 max-[390px]:h-5 max-[390px]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             <span className="text-[10px] mt-0.5 font-medium">{t("nav.login")}</span>

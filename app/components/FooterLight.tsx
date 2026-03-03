@@ -19,23 +19,23 @@ export function FooterLight() {
       <footer className="md:hidden bg-white border-t border-gray-200">
         <div className="px-4 pt-2 pb-0.5">
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-gray-500">
-            <Link to="/privacy-policy" className="hover:text-gray-600 transition-colors">
+            <Link to="/privacy-policy" className="text-sm max-[390px]:text-xs hover:text-gray-600 transition-colors">
               {t("footer.privacy")}
             </Link>
             <span className="text-gray-300">|</span>
-            <Link to="/cookie-policy" className="hover:text-gray-600 transition-colors">
+            <Link to="/cookie-policy" className="text-sm max-[390px]:text-xs hover:text-gray-600 transition-colors">
               {t("footer.cookies")}
             </Link>
             <span className="text-gray-300">|</span>
-            <Link to="/terms" className="hover:text-gray-600 transition-colors">
+            <Link to="/terms" className="text-sm max-[390px]:text-xs hover:text-gray-600 transition-colors">
               {t("footer.terms")}
             </Link>
             <span className="text-gray-300">|</span>
-            <Link to={legalLink.to} className="hover:text-gray-600 transition-colors">
+            <Link to={legalLink.to} className="text-sm max-[390px]:text-xs hover:text-gray-600 transition-colors">
               {legalLink.label}
             </Link>
           </div>
-          <p className="text-center text-xs text-gray-500">
+          <p className="mt-1 text-center text-xs text-gray-500">
             © {new Date().getFullYear()} Runoot Exchange. {t("footer.rights")}
           </p>
         </div>

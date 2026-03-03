@@ -7,9 +7,17 @@
     @apply scroll-smooth;
   }
 
+  body {
+    overflow-x: hidden;
+  }
+
   /* Safe area for mobile bottom nav */
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0);
   }
 
   /* Padding bottom with safe area (for chat input) */
@@ -27,13 +35,18 @@
   /* Mobile bottom nav height: 4rem (h-16) + safe area */
   :root {
     --mobile-nav-height: calc(4rem + env(safe-area-inset-bottom, 0));
+    --mobile-nav-top-offset: calc(4rem + env(safe-area-inset-top, 0));
   }
 
   /* Add padding to body for mobile nav - ensures content doesn't get hidden behind navbar */
   @media (max-width: 767px) {
     body {
-      padding-top: 4rem;
+      padding-top: var(--mobile-nav-top-offset);
       padding-bottom: 0;
+    }
+
+    body.mobile-nav-hidden {
+      padding-top: 0;
     }
   }
 

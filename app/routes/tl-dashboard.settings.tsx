@@ -101,6 +101,7 @@ export default function TLSettingsPage() {
       panelLabel={t("tl.panel_label")}
       mobileTitle={t("tl.mobile_title")}
       homeTo="/tl-dashboard"
+      compactSidebarUnder391
       user={{
         fullName: (user as any).full_name,
         email: (user as any).email,

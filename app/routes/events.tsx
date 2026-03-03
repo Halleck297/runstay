@@ -27,7 +27,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       `
       *,
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
-      event:events(id, name, slug, country, event_date, card_image_url)
+      event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
     `
     )
     .eq("status", "active")
@@ -63,7 +63,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const { data: events } = await supabase
     .from("events")
-    .select("id, name, country, event_date")
+    .select("id, name, name_i18n, country, country_i18n, event_date")
     .order("event_date", { ascending: true });
 
   const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
@@ -175,7 +175,7 @@ export default function EventsPage() {
       <div className="min-h-screen flex flex-col">
         <Header user={user} />
 
-        <main className="mx-auto max-w-7xl px-4 pt-16 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
+        <main className="mx-auto max-w-7xl px-4 pt-6 pb-24 md:pt-16 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
           <div className="mb-6">
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
               {t("nav.event")}
@@ -211,20 +211,20 @@ export default function EventsPage() {
                       setShowSuggestions(true);
                     }}
                     onFocus={() => setShowSuggestions(true)}
-                    className="block w-full rounded-full border-0 pl-12 pr-24 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-md ring-1 ring-gray-200"
+                    className="block w-full rounded-full border-0 pl-12 pr-20 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-md ring-1 ring-gray-200 max-[390px]:pr-16"
                   />
                   {hasActiveSearch ? (
                     <button
                       type="button"
                       onClick={handleClearSearch}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-all"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-2 text-xs bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-all sm:px-4 sm:py-2.5 sm:text-sm"
                     >
                       {t("listings.cancel_search")}
                     </button>
                   ) : (
                     <button
                       type="submit"
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-accent-500 text-white text-sm font-medium rounded-full hover:bg-accent-600 transition-all"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-2 text-xs bg-accent-500 text-white font-medium rounded-full hover:bg-accent-600 transition-all sm:px-5 sm:py-2.5 sm:text-sm"
                     >
                       Search
                     </button>

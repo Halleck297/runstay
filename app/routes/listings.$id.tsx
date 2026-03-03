@@ -30,7 +30,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       `
       *,
       author:profiles!listings_author_id_fkey(id, short_id, full_name, company_name, user_type, is_verified, email, avatar_url, public_profile_enabled),
-      event:events(id, name, slug, country, event_date, card_image_url, finish_lat, finish_lng)
+      event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url, finish_lat, finish_lng)
     `
     );
   const { data: listing, error } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
@@ -322,9 +322,8 @@ export default function ListingDetail() {
   const sellerPublicId = sellerProfile ? getProfilePublicId(sellerProfile) : null;
   const daysUntil = getDaysUntilEvent(listingData.event.event_date);
   const eventSlug = getEventSlug(listingData.event);
-  const bannerFallback = `/banners/${eventSlug}.jpg`;
-  const eventsFallback = `/events/${eventSlug}.jpg`;
-  const bannerPrimary = listingData.event.card_image_url || bannerFallback;
+  const defaultEventImage = `/events/${eventSlug}.jpg`;
+  const bannerPrimary = listingData.event.card_image_url || defaultEventImage;
   const profileBackState = { from: `${location.pathname}${location.search}` };
 
   // Genera sottotitolo contestuale
@@ -372,16 +371,10 @@ export default function ListingDetail() {
               className="w-full h-[375px] sm:h-[480px] md:h-[570px] object-cover"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                const bannerAbsolute = new URL(bannerFallback, window.location.origin).href;
-                const eventsAbsolute = new URL(eventsFallback, window.location.origin).href;
-                if (target.src !== bannerAbsolute && !target.dataset.triedBannerFallback) {
-                  target.dataset.triedBannerFallback = "true";
-                  target.src = bannerFallback;
-                  return;
-                }
-                if (target.src !== eventsAbsolute && !target.dataset.triedEventsFallback) {
-                  target.dataset.triedEventsFallback = "true";
-                  target.src = eventsFallback;
+                const fallbackAbsolute = new URL(defaultEventImage, window.location.origin).href;
+                if (target.src !== fallbackAbsolute && !target.dataset.triedFallback) {
+                  target.dataset.triedFallback = "true";
+                  target.src = defaultEventImage;
                   return;
                 }
                 target.style.display = 'none';
