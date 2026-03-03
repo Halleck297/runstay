@@ -9,6 +9,7 @@ type AnalyticsConfig = {
   provider: AnalyticsProvider;
   key?: string;
   host?: string;
+  uiHost?: string;
   debug?: boolean;
   plausibleDomain?: string;
   gaMeasurementId?: string;
@@ -24,6 +25,7 @@ type AnalyticsAdapter = {
 
 declare global {
   interface Window {
+    posthog?: typeof posthog;
     plausible?: (event: string, options?: { props?: Record<string, unknown> }) => void;
     dataLayer?: Array<Record<string, unknown>>;
     gtag?: (...args: unknown[]) => void;
@@ -39,8 +41,15 @@ function hasAnalyticsConsent(): boolean {
   try {
     const raw = window.localStorage.getItem("cookie_consent");
     if (!raw) return false;
-    const parsed = JSON.parse(raw) as { preferences?: { analytics?: boolean } };
-    return !!parsed?.preferences?.analytics;
+    const parsed = JSON.parse(raw) as {
+      type?: "all" | "necessary" | "custom";
+      preferences?: { analytics?: boolean };
+    };
+    if (typeof parsed?.preferences?.analytics === "boolean") {
+      return parsed.preferences.analytics;
+    }
+    if (parsed?.type === "all") return true;
+    return false;
   } catch {
     return false;
   }
@@ -60,6 +69,7 @@ function getConfig(): AnalyticsConfig {
     provider: safeProvider(env?.ANALYTICS_PROVIDER),
     key: env?.ANALYTICS_WRITE_KEY,
     host: env?.ANALYTICS_HOST,
+    uiHost: env?.ANALYTICS_UI_HOST,
     debug: env?.ANALYTICS_DEBUG === "true",
     plausibleDomain: env?.ANALYTICS_PLAUSIBLE_DOMAIN,
     gaMeasurementId: env?.ANALYTICS_GA_MEASUREMENT_ID,
@@ -104,18 +114,34 @@ function createPosthogAdapter(config: AnalyticsConfig): AnalyticsAdapter {
     init: () => {
       if (!config.key) return;
       posthog.init(config.key, {
-        api_host: config.host || "https://us.i.posthog.com",
+        api_host: config.host || "/ph",
+        ui_host: config.uiHost || "https://us.posthog.com",
         autocapture: false,
         capture_pageview: false,
+        persistence: "localStorage+cookie",
         loaded: () => {
+          // Expose for runtime diagnostics in browser console.
+          if (typeof window !== "undefined") {
+            window.posthog = posthog;
+          }
+          // Keep analytics state aligned with current cookie consent.
+          if (hasAnalyticsConsent()) {
+            posthog.opt_in_capturing();
+          }
           if (config.debug) {
             console.info("[analytics] posthog initialized");
           }
         },
       });
     },
-    page: (path, props) => posthog.capture("page_view", { path, ...(props || {}) }),
-    track: (event, props) => posthog.capture(event, props || {}),
+    page: (path, props) => {
+      posthog.opt_in_capturing();
+      posthog.capture("page_view", { path, ...(props || {}) });
+    },
+    track: (event, props) => {
+      posthog.opt_in_capturing();
+      posthog.capture(event, props || {});
+    },
     identify: (userId, traits) => posthog.identify(userId, traits || {}),
     reset: () => posthog.reset(),
   };

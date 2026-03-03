@@ -99,9 +99,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
         SUPABASE_URL: process.env.SUPABASE_URL!,
         SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY!,
         ACCESS_TOKEN: accessToken,
-        ANALYTICS_PROVIDER: process.env.ANALYTICS_PROVIDER || "none",
-        ANALYTICS_WRITE_KEY: process.env.ANALYTICS_WRITE_KEY || "",
-        ANALYTICS_HOST: process.env.ANALYTICS_HOST || "",
+        ANALYTICS_PROVIDER:
+          process.env.ANALYTICS_PROVIDER ||
+          (process.env.ANALYTICS_WRITE_KEY || process.env.VITE_PUBLIC_POSTHOG_KEY ? "posthog" : "none"),
+        ANALYTICS_WRITE_KEY:
+          process.env.ANALYTICS_WRITE_KEY ||
+          process.env.VITE_PUBLIC_POSTHOG_KEY ||
+          "",
+        ANALYTICS_HOST:
+          process.env.ANALYTICS_HOST ||
+          process.env.VITE_PUBLIC_POSTHOG_HOST ||
+          (process.env.ANALYTICS_PROVIDER === "posthog" || process.env.ANALYTICS_WRITE_KEY || process.env.VITE_PUBLIC_POSTHOG_KEY ? "/ph" : ""),
+        ANALYTICS_UI_HOST:
+          process.env.ANALYTICS_UI_HOST ||
+          process.env.VITE_PUBLIC_POSTHOG_UI_HOST ||
+          (process.env.ANALYTICS_HOST?.includes("eu") || process.env.VITE_PUBLIC_POSTHOG_HOST?.includes("eu")
+            ? "https://eu.posthog.com"
+            : "https://us.posthog.com"),
         ANALYTICS_DEBUG: process.env.ANALYTICS_DEBUG || "false",
         ANALYTICS_PLAUSIBLE_DOMAIN: process.env.ANALYTICS_PLAUSIBLE_DOMAIN || "",
         ANALYTICS_GA_MEASUREMENT_ID: process.env.ANALYTICS_GA_MEASUREMENT_ID || "",

@@ -57,6 +57,7 @@ declare global {
       ANALYTICS_PROVIDER?: string;
       ANALYTICS_WRITE_KEY?: string;
       ANALYTICS_HOST?: string;
+      ANALYTICS_UI_HOST?: string;
       ANALYTICS_DEBUG?: string;
       ANALYTICS_PLAUSIBLE_DOMAIN?: string;
       ANALYTICS_GA_MEASUREMENT_ID?: string;
