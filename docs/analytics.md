@@ -34,6 +34,7 @@ No route/component-level rewrites should be needed.
 ## PostHog proxy on Vercel (recommended)
 
 - `vercel.json` rewrites `/ph/*` to PostHog ingest.
+- A server route proxy `app/routes/ph.$.tsx` is also present to prevent locale catch-all routes from intercepting `/ph/*` POST requests.
 - Set:
   - `ANALYTICS_PROVIDER=posthog`
   - `ANALYTICS_WRITE_KEY=phc_...`
