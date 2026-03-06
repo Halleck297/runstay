@@ -1,6 +1,7 @@
 import { useFetcher, useNavigate } from "react-router";
 import { getListingPublicId } from "~/lib/publicIds";
 import { useI18n } from "~/hooks/useI18n";
+import type { TranslationKey } from "~/lib/i18n";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 
@@ -86,20 +87,22 @@ function isLastMinute(eventDate: string, listingType: "room" | "bib" | "room_and
 }
 
 // Helper: formatta room type
-function formatRoomType(roomType: string | null): string {
+function formatRoomType(roomType: string | null, t: (key: TranslationKey) => string): string {
   if (!roomType) return "";
 
-  const labels: Record<string, string> = {
-    single: "Single Room",
-    double: "Double Room",
-    double_single_use: "Double Single Use",
-    twin: "Twin Room",
-    twin_shared: "Twin Shared",
-    triple: "Triple Room",
-    quadruple: "Quadruple"
+  const labels: Record<string, TranslationKey> = {
+    single: "edit_listing.room_type_option.single",
+    double: "edit_listing.room_type_option.double",
+    double_single_use: "edit_listing.room_type_option.double_single_use",
+    twin: "edit_listing.room_type_option.twin",
+    twin_shared: "edit_listing.room_type_option.twin_shared",
+    double_shared: "edit_listing.room_type_option.twin_shared",
+    triple: "edit_listing.room_type_option.triple",
+    quadruple: "edit_listing.room_type_option.quadruple",
   };
 
-  return labels[roomType] || roomType;
+  const key = labels[roomType as keyof typeof labels];
+  return key ? t(key) : roomType;
 }
 
 type ToListingMeta = {
@@ -139,7 +142,7 @@ export function ListingCard({
   currentUserId = null,
   className = "",
 }: ListingCardProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const navigate = useNavigate();
   const saveFetcher = useFetcher();
   const isSavedOptimistic = saveFetcher.formData
@@ -156,7 +159,7 @@ export function ListingCard({
   const roomTypePriceValues = Object.values(roomTypePrices).filter((v): v is number => typeof v === "number" && v > 0);
   const minRoomTypePrice = roomTypePriceValues.length > 0 ? Math.min(...roomTypePriceValues) : null;
 
-  const eventDate = formatDateStable(listing.event.event_date, "en-GB", {
+  const eventDate = formatDateStable(listing.event.event_date, locale, {
     day: "numeric",
     month: "long",
   });
@@ -178,7 +181,7 @@ if (listing.listing_type === "bib") {
     ? `${listing.bib_count} ${t("common.bibs")}`
     : t("common.bib");
 } else if (listing.listing_type === "room") {
-  const roomTypeText = listing.room_type ? formatRoomType(listing.room_type) : "Room";
+  const roomTypeText = listing.room_type ? formatRoomType(listing.room_type, t) : t("edit_listing.room_type");
   subtitle = listing.room_count && listing.room_count > 1
     ? `${listing.room_count} ${roomTypeText}s Available`
     : `${roomTypeText} Available`;
@@ -334,7 +337,7 @@ if (listing.listing_type === "bib") {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
           </svg>
           <span className="font-medium truncate">
-            {bibCount} {bibLabel} Available{needsNameChange ? " / Name change required" : ""}
+            {bibCount} {bibLabel} {t("listings.available")}{needsNameChange ? ` / ${t("listings.name_change_required")}` : ""}
           </span>
         </div>
       )}
@@ -359,11 +362,11 @@ if (listing.listing_type === "bib") {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                   </svg>
                   <p className="text-[17px] font-semibold text-gray-900">
-                    {bibCount} {bibLabel} Available
+                    {bibCount} {bibLabel} {t("listings.available")}
                   </p>
                 </div>
                 {needsNameChange && (
-                  <p className="text-xs text-orange-700 mt-1">Name change required</p>
+                  <p className="text-xs text-orange-700 mt-1">{t("listings.name_change_required")}</p>
                 )}
               </div>
             </div>
@@ -374,15 +377,15 @@ if (listing.listing_type === "bib") {
             <div className="w-full md:w-[350px] md:h-[65px] rounded-2xl bg-[#ECF4FE] px-4 py-3 flex items-center justify-center overflow-hidden">
               <div className="w-full text-center">
                 <p className="text-[17px] font-semibold text-gray-900">
-                  {listing.room_type ? formatRoomType(listing.room_type) : "Room"}
+                  {listing.room_type ? formatRoomType(listing.room_type, t) : t("edit_listing.room_type")}
                 </p>
                 {listing.check_in && listing.check_out && (
                   <div className="mt-1 flex items-center justify-center gap-0.5 text-base text-gray-700">
-                    <span>{formatDateStable(listing.check_in, "en-GB", { day: "numeric", month: "short" })}</span>
+                    <span>{formatDateStable(listing.check_in, locale, { day: "numeric", month: "short" })}</span>
                     <svg className="h-4 w-12 flex-shrink-0 text-[#0C78F3]" fill="none" viewBox="0 0 32 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2 12h24m-6-6l6 6-6 6" />
                     </svg>
-                    <span>{formatDateStable(listing.check_out, "en-GB", { day: "numeric", month: "short" })}</span>
+                    <span>{formatDateStable(listing.check_out, locale, { day: "numeric", month: "short" })}</span>
                   </div>
                 )}
               </div>
@@ -394,15 +397,15 @@ if (listing.listing_type === "bib") {
             <div className="w-full md:w-[350px] md:h-[65px] rounded-2xl bg-[#ECF4FE] px-4 py-3 flex items-center justify-center overflow-hidden">
               <div className="w-full text-center">
                 <p className="text-[17px] font-semibold text-gray-900">
-                  {listing.room_type ? formatRoomType(listing.room_type) : "Room"}
+                  {listing.room_type ? formatRoomType(listing.room_type, t) : t("edit_listing.room_type")}
                 </p>
                 {listing.check_in && listing.check_out && (
                   <div className="mt-1 flex items-center justify-center gap-0.5 text-base text-gray-700">
-                    <span>{formatDateStable(listing.check_in, "en-GB", { day: "numeric", month: "short" })}</span>
+                    <span>{formatDateStable(listing.check_in, locale, { day: "numeric", month: "short" })}</span>
                     <svg className="h-4 w-12 flex-shrink-0 text-[#0C78F3]" fill="none" viewBox="0 0 32 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2 12h24m-6-6l6 6-6 6" />
                     </svg>
-                    <span>{formatDateStable(listing.check_out, "en-GB", { day: "numeric", month: "short" })}</span>
+                    <span>{formatDateStable(listing.check_out, locale, { day: "numeric", month: "short" })}</span>
                   </div>
                 )}
               </div>
@@ -487,7 +490,7 @@ if (listing.listing_type === "bib") {
 {isUserLoggedIn && (
   <div className="mt-3">
     <button className="w-full btn-primary text-sm uppercase py-2 rounded-full">
-      View Details
+      {t("listings.view_details")}
     </button>
   </div>
 )}

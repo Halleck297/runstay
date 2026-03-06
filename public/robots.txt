@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /to-panel/
+Disallow: /tl-dashboard/
+Disallow: /messages/
+Disallow: /saved/
+Disallow: /my-listings/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://runoot.com/sitemap.xml

@@ -15,12 +15,13 @@ import { trackEvent } from "~/lib/analytics/client";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Runoot - Exchange Marketplace" },
+    { title: "runoot | running exchange platform" },
     {
       name: "description",
       content:
-        "Exchange unsold race travel inventory for running events. Connect tour operators and runners.",
+        "runoot is a private platform where runners exchange hotel bookings and race bibs when plans change, so they don't go to waste.",
     },
+    { tagName: "link", rel: "canonical", href: "https://runoot.com/en" },
   ];
 };
 
