@@ -119,6 +119,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         ANALYTICS_DEBUG: process.env.ANALYTICS_DEBUG || "false",
         ANALYTICS_PLAUSIBLE_DOMAIN: process.env.ANALYTICS_PLAUSIBLE_DOMAIN || "",
         ANALYTICS_GA_MEASUREMENT_ID: process.env.ANALYTICS_GA_MEASUREMENT_ID || "",
+        ANALYTICS_COOKIELESS_MODE: process.env.ANALYTICS_COOKIELESS_MODE || "",
       },
     },
     shouldSetLocaleCookie

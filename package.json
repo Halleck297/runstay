@@ -5,7 +5,8 @@
   "type": "module",
   "overrides": {
     "esbuild": "^0.27.2",
-    "estree-util-value-to-estree": "^3.3.3"
+    "estree-util-value-to-estree": "^3.3.3",
+    "dompurify": "3.3.2"
   },
   "scripts": {
     "build": "react-router build",

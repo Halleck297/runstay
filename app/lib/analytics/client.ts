@@ -2,6 +2,7 @@ import type { AnalyticsEventName } from "~/lib/analytics/events";
 import posthog from "posthog-js";
 
 type AnalyticsProvider = "none" | "debug" | "posthog" | "plausible" | "ga4";
+type CookielessMode = "always" | "on_reject";
 
 type AnalyticsProps = Record<string, string | number | boolean | null | undefined>;
 
@@ -13,6 +14,7 @@ type AnalyticsConfig = {
   debug?: boolean;
   plausibleDomain?: string;
   gaMeasurementId?: string;
+  cookielessMode?: CookielessMode;
 };
 
 type AnalyticsAdapter = {
@@ -36,22 +38,23 @@ declare global {
 let initialized = false;
 let adapter: AnalyticsAdapter = createNoopAdapter();
 
-function hasAnalyticsConsent(): boolean {
-  if (typeof window === "undefined") return false;
+function getAnalyticsConsentStatus(): "granted" | "denied" | "unknown" {
+  if (typeof window === "undefined") return "unknown";
   try {
     const raw = window.localStorage.getItem("cookie_consent");
-    if (!raw) return false;
+    if (!raw) return "unknown";
     const parsed = JSON.parse(raw) as {
       type?: "all" | "necessary" | "custom";
       preferences?: { analytics?: boolean };
     };
     if (typeof parsed?.preferences?.analytics === "boolean") {
-      return parsed.preferences.analytics;
+      return parsed.preferences.analytics ? "granted" : "denied";
     }
-    if (parsed?.type === "all") return true;
-    return false;
+    if (parsed?.type === "all") return "granted";
+    if (parsed?.type === "necessary") return "denied";
+    return "unknown";
   } catch {
-    return false;
+    return "unknown";
   }
 }
 
@@ -60,6 +63,23 @@ function safeProvider(value?: string): AnalyticsProvider {
     return value;
   }
   return "none";
+}
+
+function safeCookielessMode(value?: string): CookielessMode | undefined {
+  if (value === "always" || value === "on_reject") return value;
+  return undefined;
+}
+
+function shouldCaptureEvents(config: AnalyticsConfig): boolean {
+  const consent = getAnalyticsConsentStatus();
+  if (consent === "granted") return true;
+  if (config.provider === "posthog" && config.cookielessMode === "always") return true;
+  if (config.provider === "posthog" && config.cookielessMode === "on_reject" && consent === "denied") return true;
+  return false;
+}
+
+function shouldIdentifyUsers(): boolean {
+  return getAnalyticsConsentStatus() === "granted";
 }
 
 function getConfig(): AnalyticsConfig {
@@ -73,6 +93,7 @@ function getConfig(): AnalyticsConfig {
     debug: env?.ANALYTICS_DEBUG === "true",
     plausibleDomain: env?.ANALYTICS_PLAUSIBLE_DOMAIN,
     gaMeasurementId: env?.ANALYTICS_GA_MEASUREMENT_ID,
+    cookielessMode: safeCookielessMode(env?.ANALYTICS_COOKIELESS_MODE),
   };
 }
 
@@ -116,6 +137,7 @@ function createPosthogAdapter(config: AnalyticsConfig): AnalyticsAdapter {
       posthog.init(config.key, {
         api_host: config.host || "/ph",
         ui_host: config.uiHost || "https://us.posthog.com",
+        cookieless_mode: config.cookielessMode,
         autocapture: false,
         capture_pageview: false,
         persistence: "localStorage+cookie",
@@ -124,9 +146,12 @@ function createPosthogAdapter(config: AnalyticsConfig): AnalyticsAdapter {
           if (typeof window !== "undefined") {
             window.posthog = posthog;
           }
-          // Keep analytics state aligned with current cookie consent.
-          if (hasAnalyticsConsent()) {
+          // Keep analytics state aligned with current cookie consent/cookieless mode.
+          const consent = getAnalyticsConsentStatus();
+          if (consent === "granted") {
             posthog.opt_in_capturing();
+          } else if (consent === "denied") {
+            posthog.opt_out_capturing();
           }
           if (config.debug) {
             console.info("[analytics] posthog initialized");
@@ -135,11 +160,9 @@ function createPosthogAdapter(config: AnalyticsConfig): AnalyticsAdapter {
       });
     },
     page: (path, props) => {
-      posthog.opt_in_capturing();
       posthog.capture("page_view", { path, ...(props || {}) });
     },
     track: (event, props) => {
-      posthog.opt_in_capturing();
       posthog.capture(event, props || {});
     },
     identify: (userId, traits) => posthog.identify(userId, traits || {}),
@@ -209,21 +232,23 @@ export function initAnalytics(): void {
 
 export function trackEvent(event: AnalyticsEventName, props?: AnalyticsProps): void {
   if (typeof window === "undefined") return;
-  if (!hasAnalyticsConsent()) return;
+  const config = getConfig();
+  if (!shouldCaptureEvents(config)) return;
   initAnalytics();
   adapter.track(event, props);
 }
 
 export function trackPage(path: string, props?: AnalyticsProps): void {
   if (typeof window === "undefined") return;
-  if (!hasAnalyticsConsent()) return;
+  const config = getConfig();
+  if (!shouldCaptureEvents(config)) return;
   initAnalytics();
   adapter.page(path, props);
 }
 
 export function identifyUser(userId: string, traits?: AnalyticsProps): void {
   if (typeof window === "undefined") return;
-  if (!hasAnalyticsConsent()) return;
+  if (!shouldIdentifyUsers()) return;
   initAnalytics();
   adapter.identify(userId, traits);
 }

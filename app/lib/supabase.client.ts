@@ -61,6 +61,7 @@ declare global {
       ANALYTICS_DEBUG?: string;
       ANALYTICS_PLAUSIBLE_DOMAIN?: string;
       ANALYTICS_GA_MEASUREMENT_ID?: string;
+      ANALYTICS_COOKIELESS_MODE?: string;
     };
   }
 }

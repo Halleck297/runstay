@@ -94,6 +94,13 @@ export default function Index() {
     const { user, listings, eventListings, savedListingIds, events } = useLoaderData<typeof loader>();
     const navigate = useNavigate();
     const searchRef = useRef<HTMLDivElement>(null);
+    const organizationJsonLd = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "runoot",
+      url: "https://runoot.com",
+      logo: "https://runoot.com/logo.svg",
+    });
 
     const [searchQuery, setSearchQuery] = useState("");
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -173,6 +180,10 @@ export default function Index() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: organizationJsonLd }}
+      />
       <Header user={user} isHome />
       <main className="flex-1">
         {/* Hero Section */}

@@ -3,6 +3,7 @@ import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useFetcher, useLocation } from "react-router";
 import { useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
+import type { TranslationKey } from "~/lib/i18n";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { applyListingPublicIdFilter, getListingPublicId, getProfilePublicId } from "~/lib/publicIds";
@@ -142,13 +143,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const { data: listing } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
 
   if (!listing) {
-    return data({ error: "Listing not found" }, { status: 404 });
+    return data({ errorKey: "listings.error.not_found" }, { status: 404 });
   }
 
   // Handle delete action
   if (actionType === "delete") {
     if (listing.author_id !== userId) {
-      return data({ error: "Unauthorized" }, { status: 403 });
+      return data({ errorKey: "listings.error.unauthorized" }, { status: 403 });
     }
 
     // Get user type to determine redirect destination
@@ -164,7 +165,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .eq("id", listing.id);
 
     if (error) {
-      return data({ error: "Failed to delete listing" }, { status: 500 });
+      return data({ errorKey: "listings.error.delete_failed" }, { status: 500 });
     }
 
     // Redirect based on user type
@@ -173,29 +174,31 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   // No other actions - contact flow now handled by /listings/:id/contact
-  return data({ error: "Invalid action" }, { status: 400 });
+  return data({ errorKey: "listings.error.invalid_action" }, { status: 400 });
 }
 
 // Helper per formattare room type
-function formatRoomType(roomType: string | null): string {
-  if (!roomType) return "Room";
-  
-  const labels: Record<string, string> = {
-    single: "Single",
-    double: "Double",
-    double_single_use: "Double Single Use",
-    twin: "Twin",
-    twin_shared: "Twin Shared",
-    triple: "Triple",
-    quadruple: "Quadruple"
+function formatRoomType(roomType: string | null, t: (key: TranslationKey) => string): string {
+  if (!roomType) return t("edit_listing.room_type");
+
+  const labels: Record<string, TranslationKey> = {
+    single: "edit_listing.room_type_option.single",
+    double: "edit_listing.room_type_option.double",
+    double_single_use: "edit_listing.room_type_option.double_single_use",
+    twin: "edit_listing.room_type_option.twin",
+    twin_shared: "edit_listing.room_type_option.twin_shared",
+    double_shared: "edit_listing.room_type_option.twin_shared",
+    triple: "edit_listing.room_type_option.triple",
+    quadruple: "edit_listing.room_type_option.quadruple",
   };
-  
-  return labels[roomType] || roomType;
+
+  const labelKey = labels[roomType];
+  return labelKey ? t(labelKey) : roomType;
 }
 
-function formatCurrencyAmount(value: number | null | undefined, currency = "EUR"): string {
+function formatCurrencyAmount(value: number | null | undefined, locale: string, currency = "EUR"): string {
   if (typeof value !== "number" || Number.isNaN(value)) return "";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
 }
 
 type ToListingMeta = {
@@ -251,7 +254,7 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
 }
 
 export default function ListingDetail() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const location = useLocation();
   const { user, listing, isSaved, isEventListing, eventOrganizer, sellerAccessMode } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
@@ -285,19 +288,13 @@ export default function ListingDetail() {
     toMeta?.extra_night?.price;
   const extraNightPriceLabel =
     hasExtraNight && typeof extraNightDisplayAmount === "number"
-      ? `${formatCurrencyAmount(extraNightDisplayAmount, listingData.currency || "EUR")} ${
-          toMeta?.extra_night?.price_unit === "per_room" ? "per room" : "per person"
+      ? `${formatCurrencyAmount(extraNightDisplayAmount, locale, listingData.currency || "EUR")} ${
+          toMeta?.extra_night?.price_unit === "per_room" ? t("listings.per_room") : t("listings.per_person")
         }`
       : null;
   
   const eventDate = new Date(listingData.event.event_date);
-  const eventDateFormatted = eventDate.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  
-  const eventDateShort = eventDate.toLocaleDateString("en-GB", {
+  const eventDateShort = eventDate.toLocaleDateString(locale, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -332,17 +329,15 @@ export default function ListingDetail() {
     const nights = listingData.check_in && listingData.check_out 
       ? Math.ceil((new Date(listingData.check_out).getTime() - new Date(listingData.check_in).getTime()) / (1000 * 60 * 60 * 24))
       : 0;
-    subtitle = `${formatRoomType(listingData.room_type)} · ${nights > 0 ? `${nights} nights` : "Race weekend"}`;
+    subtitle = `${formatRoomType(listingData.room_type, t)} · ${nights > 0 ? `${nights} ${t("listings.nights")}` : t("listings.race_weekend")}`;
   } else if (listingData.listing_type === "bib") {
-    subtitle = `${listingData.bib_count || 1} ${(listingData.bib_count || 1) > 1 ? bibsLabel : bibLabel} available`;
+    subtitle = `${listingData.bib_count || 1} ${(listingData.bib_count || 1) > 1 ? bibsLabel : bibLabel} ${t("listings.available")}`;
   } else {
-    subtitle = "Complete race weekend package";
+    subtitle = t("listings.complete_race_weekend_package");
   }
 
   // Price anchor (stima comparativa)
-  const priceAnchor = listingData.hotel_stars 
-    ? `Comparable ${listingData.hotel_stars}-star hotels from €${Math.round((listingData.hotel_stars * 80) + 100)}`
-    : "Comparable hotels from €200+";
+  const priceAnchor = t("listings.price_details_available_from_seller");
 
   return (
     <div className="min-h-screen bg-[#ECF4FE]">
@@ -452,7 +447,7 @@ export default function ListingDetail() {
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900">
-                        {listingData.room_count || 1} {formatRoomType(listingData.room_type)} room{(listingData.room_count || 1) > 1 ? "s" : ""}
+                        {listingData.room_count || 1} {formatRoomType(listingData.room_type, t)} {(listingData.room_count || 1) > 1 ? t("listings.rooms") : t("listings.room")}
                       </p>
                       {roomTypes.length > 0 && (
                         <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -461,7 +456,7 @@ export default function ListingDetail() {
                               key={type}
                               className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700"
                             >
-                              {formatRoomType(type)}
+                              {formatRoomType(type, t)}
                             </span>
                           ))}
                         </div>
@@ -471,14 +466,14 @@ export default function ListingDetail() {
 
                   {hasToRoomTypePrices && (
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Room type pricing</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("listings.room_type_pricing")}</p>
                       <div className="space-y-1.5">
                         {roomTypes.map((type) => (
                           typeof roomTypePrices[type] === "number" ? (
                             <div key={type} className="flex items-center justify-between text-sm">
-                              <span className="text-slate-700">{formatRoomType(type)}</span>
+                              <span className="text-slate-700">{formatRoomType(type, t)}</span>
                               <span className="font-semibold text-slate-900">
-                                {formatCurrencyAmount(roomTypePrices[type], listingData.currency || "EUR")}
+                                {formatCurrencyAmount(roomTypePrices[type], locale, listingData.currency || "EUR")}
                               </span>
                             </div>
                           ) : null
@@ -501,14 +496,14 @@ export default function ListingDetail() {
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-gray-900">
-                            {checkIn.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} → {checkOut.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                            {checkIn.toLocaleDateString(locale, { day: "numeric", month: "short" })} → {checkOut.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}
                             <span className="text-sm text-gray-500 font-normal ml-2">
-                              ({nights} night{nights > 1 ? "s" : ""})
+                              ({nights} {nights > 1 ? t("listings.nights") : t("listings.night")})
                             </span>
                           </p>
                           {isFlexibleDates && (
                             <p className="mt-1 text-xs font-medium text-amber-700">
-                              Flexible dates available on request
+                              {t("listings.flexible_dates_available_on_request")}
                             </p>
                           )}
                         </div>
@@ -524,7 +519,7 @@ export default function ListingDetail() {
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-gray-900">Extra night available</p>
+                        <p className="font-semibold text-gray-900">{t("listings.extra_night_available")}</p>
                         {extraNightPriceLabel && <p className="text-sm text-gray-600">{extraNightPriceLabel}</p>}
                       </div>
                     </div>
@@ -539,7 +534,7 @@ export default function ListingDetail() {
               listingData.transit_duration !== null) && (
               <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                  Distance to Finish Line
+                  {t("listings.distance_to_finish_line")}
                 </h3>
                 <div className="space-y-3">
                   {/* Distance */}
@@ -558,7 +553,7 @@ export default function ListingDetail() {
                             ? `${listingData.distance_to_finish}m`
                             : `${(listingData.distance_to_finish / 1000).toFixed(1)}km`}
                       </p>
-                      <p className="text-sm text-gray-500">Straight-line distance</p>
+                      <p className="text-sm text-gray-500">{t("listings.straight_line_distance")}</p>
                     </div>
                   </div>
 
@@ -573,7 +568,7 @@ export default function ListingDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">{listingData.walking_duration} min</p>
-                        <p className="text-sm text-gray-500">Walking</p>
+                        <p className="text-sm text-gray-500">{t("listings.walking")}</p>
                       </div>
                     </div>
                   )}
@@ -591,7 +586,7 @@ export default function ListingDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">{listingData.transit_duration} min</p>
-                        <p className="text-sm text-gray-500">Public transit</p>
+                        <p className="text-sm text-gray-500">{t("listings.public_transit")}</p>
                       </div>
                     </div>
                   )}
@@ -603,7 +598,7 @@ export default function ListingDetail() {
             {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && (
               <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                  {bibLabel} Transfer Details
+                  {t("listings.transfer_details")}
                 </h3>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
@@ -613,7 +608,6 @@ export default function ListingDetail() {
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-gray-500 mb-1">Available {bibsLabel.toLowerCase()}</p>
                       <p className="font-semibold text-gray-900">
                         {listingData.bib_count || 1} {(listingData.bib_count || 1) > 1 ? bibsLabel : bibLabel}
                       </p>
@@ -622,11 +616,11 @@ export default function ListingDetail() {
                   
                   {listingData.transfer_type && (
                     <div className="bg-blue-50 border border-blue-200 rounded-3xl p-4">
-                      <p className="text-sm font-medium text-blue-900 mb-1">Transfer method</p>
+                      <p className="text-sm font-medium text-blue-900 mb-1">{t("listings.transfer_method")}</p>
                       <p className="text-sm text-blue-800">
-                        {listingData.transfer_type === "official_process" && "✓ Official organizer name change process"}
-                        {listingData.transfer_type === "package" && "✓ Included in complete race package"}
-                        {listingData.transfer_type === "contact" && "Contact seller for transfer details"}
+                        {listingData.transfer_type === "official_process" && `✓ ${t("listings.transfer_method_official_process")}`}
+                        {listingData.transfer_type === "package" && `✓ ${t("listings.transfer_method_package")}`}
+                        {listingData.transfer_type === "contact" && t("listings.transfer_method_contact_seller")}
                       </p>
                     </div>
                   )}
@@ -638,7 +632,7 @@ export default function ListingDetail() {
             {listingData.description && (
               <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-3">
-                  Additional Information
+                  {t("listings.additional_information")}
                 </h3>
                 <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                   {listingData.description}
@@ -653,7 +647,7 @@ export default function ListingDetail() {
                   onClick={() => setShowHowTo(!showHowTo)}
                   className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50 lg:cursor-default lg:hover:bg-white"
                 >
-                  <span className="font-display text-lg font-semibold text-gray-900">How to Proceed</span>
+                  <span className="font-display text-lg font-semibold text-gray-900">{t("listings.how_to_proceed")}</span>
                   <svg
                     className={`h-5 w-5 text-gray-400 transition-transform lg:hidden ${showHowTo ? "rotate-180" : ""}`}
                     fill="none"
@@ -668,22 +662,22 @@ export default function ListingDetail() {
                     <li className="flex gap-3">
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">1</span>
                       <div>
-                        <p className="font-medium text-gray-900">Confirm package details</p>
-                        <p className="text-sm text-gray-600">Review inclusions, dates, and participant details with the organizer.</p>
+                        <p className="font-medium text-gray-900">{t("listings.step.confirm_package_details_title")}</p>
+                        <p className="text-sm text-gray-600">{t("listings.step.confirm_package_details_desc")}</p>
                       </div>
                     </li>
                     <li className="flex gap-3">
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">2</span>
                       <div>
-                        <p className="font-medium text-gray-900">Share required participant info</p>
-                        <p className="text-sm text-gray-600">Provide runner data needed for registrations, rooming, and logistics.</p>
+                        <p className="font-medium text-gray-900">{t("listings.step.share_participant_info_title")}</p>
+                        <p className="text-sm text-gray-600">{t("listings.step.share_participant_info_desc")}</p>
                       </div>
                     </li>
                     <li className="flex gap-3">
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">3</span>
                       <div>
-                        <p className="font-medium text-gray-900">Receive final confirmation</p>
-                        <p className="text-sm text-gray-600">The organizer will confirm your slot and send operational details.</p>
+                        <p className="font-medium text-gray-900">{t("listings.step.receive_final_confirmation_title")}</p>
+                        <p className="text-sm text-gray-600">{t("listings.step.receive_final_confirmation_desc")}</p>
                       </div>
                     </li>
                   </ol>
@@ -699,7 +693,7 @@ export default function ListingDetail() {
                     <svg className="h-5 w-5 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z" />
                     </svg>
-                    <span className="font-display text-sm font-semibold text-gray-900 sm:text-base lg:text-lg whitespace-nowrap">How to Complete Transaction</span>
+                    <span className="font-display text-sm font-semibold text-gray-900 sm:text-base lg:text-lg whitespace-nowrap">{t("listings.how_to_complete_transaction")}</span>
                   </span>
                   <svg
                     className={`h-5 w-5 text-gray-400 transition-transform lg:hidden ${showHowTo ? "rotate-180" : ""}`}
@@ -715,35 +709,35 @@ export default function ListingDetail() {
                   {listingData.listing_type === "room" && (
                     <div className="space-y-4">
                       <p className="text-gray-600">
-                        Follow these steps after agreeing with the seller:
+                        {t("listings.follow_steps_after_agreement")}
                       </p>
                       <ol className="space-y-3">
                         <li className="flex gap-3">
                           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">1</span>
                           <div>
-                            <p className="font-medium text-gray-900">Confirm booking details</p>
-                            <p className="text-sm text-gray-600">Verify check-in/out dates, room type, and hotel name with the seller.</p>
+                            <p className="font-medium text-gray-900">{t("listings.step.confirm_booking_details_title")}</p>
+                            <p className="text-sm text-gray-600">{t("listings.step.confirm_booking_details_desc")}</p>
                           </div>
                         </li>
                         <li className="flex gap-3">
                           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">2</span>
                           <div>
-                            <p className="font-medium text-gray-900">Arrange name change</p>
-                            <p className="text-sm text-gray-600">The seller will contact the hotel to transfer the reservation to your name. Some hotels may charge a fee.</p>
+                            <p className="font-medium text-gray-900">{t("listings.step.arrange_name_change_title")}</p>
+                            <p className="text-sm text-gray-600">{t("listings.step.arrange_name_change_desc")}</p>
                           </div>
                         </li>
                         <li className="flex gap-3">
                           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">3</span>
                           <div>
-                            <p className="font-medium text-gray-900">Get written confirmation</p>
-                            <p className="text-sm text-gray-600">Request the updated booking confirmation directly from the hotel with your name.</p>
+                            <p className="font-medium text-gray-900">{t("listings.step.get_written_confirmation_title")}</p>
+                            <p className="text-sm text-gray-600">{t("listings.step.get_written_confirmation_desc")}</p>
                           </div>
                         </li>
                         <li className="flex gap-3">
                           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">4</span>
                           <div>
-                            <p className="font-medium text-gray-900">Complete payment</p>
-                            <p className="text-sm text-gray-600">Pay the seller only after receiving the hotel confirmation. Use PayPal or bank transfer for safety.</p>
+                            <p className="font-medium text-gray-900">{t("listings.step.complete_payment_title")}</p>
+                            <p className="text-sm text-gray-600">{t("listings.step.complete_payment_desc")}</p>
                           </div>
                         </li>
                       </ol>
@@ -753,41 +747,41 @@ export default function ListingDetail() {
                   {listingData.listing_type === "bib" && (
                   <div className="space-y-4">
                     <p className="text-gray-600">
-                      Follow these steps after agreeing with the seller:
+                      {t("listings.follow_steps_after_agreement")}
                     </p>
                     <ol className="space-y-3">
                       <li className="flex gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">1</span>
                         <div>
-                          <p className="font-medium text-gray-900">Check race transfer policy</p>
-                          <p className="text-sm text-gray-600">Visit the official race website to verify if {bibsLabel.toLowerCase()} transfers are allowed and the deadline.</p>
+                          <p className="font-medium text-gray-900">{t("listings.step.check_race_transfer_policy_title")}</p>
+                          <p className="text-sm text-gray-600">{t("listings.step.check_race_transfer_policy_desc")}</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">2</span>
                         <div>
-                          <p className="font-medium text-gray-900">Initiate official transfer</p>
-                          <p className="text-sm text-gray-600">The seller must start the name change process through the race organizer's system. You may need to provide your details.</p>
+                          <p className="font-medium text-gray-900">{t("listings.step.initiate_official_transfer_title")}</p>
+                          <p className="text-sm text-gray-600">{t("listings.step.initiate_official_transfer_desc")}</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">3</span>
                         <div>
-                          <p className="font-medium text-gray-900">Receive confirmation</p>
-                          <p className="text-sm text-gray-600">Wait for official confirmation from the race organizer that the {bibLabel.toLowerCase()} is now registered in your name.</p>
+                          <p className="font-medium text-gray-900">{t("listings.step.receive_confirmation_title")}</p>
+                          <p className="text-sm text-gray-600">{t("listings.step.receive_confirmation_desc")}</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">4</span>
                         <div>
-                          <p className="font-medium text-gray-900">Complete payment</p>
-                          <p className="text-sm text-gray-600">Pay the seller only after the transfer is confirmed. Use PayPal or bank transfer for safety.</p>
+                          <p className="font-medium text-gray-900">{t("listings.step.complete_payment_title")}</p>
+                          <p className="text-sm text-gray-600">{t("listings.step.complete_payment_after_transfer_desc")}</p>
                         </div>
                       </li>
                     </ol>
                     <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-3xl">
                       <p className="text-sm text-amber-800">
-                        <span className="font-medium">Important:</span> Never run with someone else's {bibLabel.toLowerCase()} without an official transfer. This violates race rules and insurance coverage.
+                        <span className="font-medium">{t("listings.important")}:</span> {t("listings.important_bib_transfer_note")}
                       </p>
                     </div>
                   </div>
@@ -796,48 +790,48 @@ export default function ListingDetail() {
                   {listingData.listing_type === "room_and_bib" && (
                   <div className="space-y-4">
                     <p className="text-gray-600">
-                      This is a complete package. Follow these steps after agreeing with the seller:
+                      {t("listings.package_follow_steps_after_agreement")}
                     </p>
                     <ol className="space-y-3">
                       <li className="flex gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">1</span>
                         <div>
-                          <p className="font-medium text-gray-900">Verify package contents</p>
-                          <p className="text-sm text-gray-600">Confirm exactly what's included: hotel dates, room type, race {bibLabel.toLowerCase()}, and any extras.</p>
+                          <p className="font-medium text-gray-900">{t("listings.step.verify_package_contents_title")}</p>
+                          <p className="text-sm text-gray-600">{t("listings.step.verify_package_contents_desc")}</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">2</span>
                         <div>
-                          <p className="font-medium text-gray-900">Start {bibLabel.toLowerCase()} transfer first</p>
-                          <p className="text-sm text-gray-600">The race {bibLabel.toLowerCase()} transfer often has strict deadlines. The seller should initiate this through the official organizer.</p>
+                          <p className="font-medium text-gray-900">{t("listings.step.start_bib_transfer_first_title")}</p>
+                          <p className="text-sm text-gray-600">{t("listings.step.start_bib_transfer_first_desc")}</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">3</span>
                         <div>
-                          <p className="font-medium text-gray-900">Transfer hotel booking</p>
-                          <p className="text-sm text-gray-600">The seller contacts the hotel to change the reservation name. Request confirmation directly from the hotel.</p>
+                          <p className="font-medium text-gray-900">{t("listings.step.transfer_hotel_booking_title")}</p>
+                          <p className="text-sm text-gray-600">{t("listings.step.transfer_hotel_booking_desc")}</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">4</span>
                         <div>
-                          <p className="font-medium text-gray-900">Get all confirmations</p>
-                          <p className="text-sm text-gray-600">Collect written confirmation for both the race entry and hotel booking in your name.</p>
+                          <p className="font-medium text-gray-900">{t("listings.step.get_all_confirmations_title")}</p>
+                          <p className="text-sm text-gray-600">{t("listings.step.get_all_confirmations_desc")}</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF4FE] text-brand-500 text-base font-semibold flex-shrink-0">5</span>
                         <div>
-                          <p className="font-medium text-gray-900">Complete payment</p>
-                          <p className="text-sm text-gray-600">Pay only after receiving all confirmations. Use PayPal or bank transfer for safety.</p>
+                          <p className="font-medium text-gray-900">{t("listings.step.complete_payment_title")}</p>
+                          <p className="text-sm text-gray-600">{t("listings.step.complete_payment_after_all_confirmations_desc")}</p>
                         </div>
                       </li>
                     </ol>
                     <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-3xl">
                       <p className="text-sm text-blue-800">
-                        <span className="font-medium">Tip:</span> For packages, consider splitting the payment — partial after {bibLabel.toLowerCase()} confirmation, remainder after hotel confirmation.
+                        <span className="font-medium">{t("listings.tip")}:</span> {t("listings.package_tip")}
                       </p>
                     </div>
                   </div>
@@ -857,7 +851,7 @@ export default function ListingDetail() {
                 <div className="flex items-center justify-between mb-4">
                   <span className="px-3 py-1 rounded-full bg-brand-500 text-white text-xs font-semibold uppercase tracking-wide">
                     {listingData.listing_type === "room"
-                      ? "Room Only"
+                      ? t("edit_listing.room_only")
                       : listingData.listing_type === "bib"
                       ? t("edit_listing.bib_only")
                       : t("edit_listing.room_plus_bib")}
@@ -874,7 +868,7 @@ export default function ListingDetail() {
                             ? "bg-red-50 text-red-500 hover:bg-red-100"
                             : "bg-slate-50 text-slate-700 ring-slate-300 hover:bg-slate-200 hover:text-red-500"
                         }`}
-                        title={isSavedOptimistic ? "Remove from saved" : "Save listing"}
+                        title={isSavedOptimistic ? t("listings.remove_from_saved") : t("listings.save_listing")}
                       >
                         <svg
                           className="h-5 w-5"
@@ -910,36 +904,36 @@ export default function ListingDetail() {
                   {listingData.status === "active" ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
                       <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                      Active
+                      {t("listings.status_active")}
                     </span>
                   ) : listingData.status === "sold" || listingData.status === "expired" ? (
                     <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                      {listingData.status === "sold" ? "Sold" : "Expired"}
+                      {listingData.status === "sold" ? t("listings.status_sold") : t("listings.status_expired")}
                     </span>
                   ) : !isOwner ? (
                     <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                      Listing unavailable
+                      {t("listings.status_unavailable")}
                     </span>
                   ) : null}
                 </div>
 
                 {listingData.status === "pending" && isOwner && (
                   <div className="mt-3 rounded-3xl border border-yellow-200 bg-yellow-50 px-4 py-3">
-                    <p className="text-sm font-semibold text-yellow-800">Pending review</p>
+                    <p className="text-sm font-semibold text-yellow-800">{t("listings.status_pending_review")}</p>
                     <p className="mt-0.5 text-xs text-yellow-700">
-                      Your listing is being reviewed by our team. We'll notify you once it's approved.
+                      {t("listings.status_pending_review_desc")}
                     </p>
                   </div>
                 )}
 
                 {listingData.status === "rejected" && isOwner && (
                   <div className="mt-3 rounded-3xl border border-red-200 bg-red-50 px-4 py-3">
-                    <p className="text-sm font-semibold text-red-800">Listing not approved</p>
+                    <p className="text-sm font-semibold text-red-800">{t("listings.status_not_approved")}</p>
                     {(listingData as any).admin_note && (
                       <p className="mt-0.5 text-xs text-red-700">{(listingData as any).admin_note}</p>
                     )}
                     <p className="mt-1 text-xs text-red-600">
-                      Please contact us if you have questions.
+                      {t("listings.status_contact_us_questions")}
                     </p>
                   </div>
                 )}
@@ -947,7 +941,7 @@ export default function ListingDetail() {
                 {listingData.status === "rejected" && !isOwner && (
                   <div className="mt-3">
                     <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                      Listing unavailable
+                      {t("listings.status_unavailable")}
                     </span>
                   </div>
                 )}
@@ -955,7 +949,7 @@ export default function ListingDetail() {
                 {listingData.status === "pending" && !isOwner && (
                   <div className="mt-3">
                     <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                      Listing unavailable
+                      {t("listings.status_unavailable")}
                     </span>
                   </div>
                 )}
@@ -972,7 +966,7 @@ export default function ListingDetail() {
                           alt={
                             (isEventListing
                               ? getPublicDisplayName(eventOrganizer)
-                              : getPublicDisplayName(listingData.author)) || "User avatar"
+                              : getPublicDisplayName(listingData.author)) || t("common.user")
                           }
                           className="h-full w-full object-cover"
                           loading="lazy"
@@ -1007,9 +1001,9 @@ export default function ListingDetail() {
                         {isEventListing
                           ? t("listings.team_leader_organizer")
                           : listingData.author.user_type === "tour_operator"
-                          ? "Tour Operator"
-                          : "Runner"}
-                        {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && " · Verified"}
+                          ? t("common.tour_operator")
+                          : t("common.private")}
+                        {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && ` · ${t("public_profile.verified")}`}
                       </p>
                       </div>
                     </div>
@@ -1031,18 +1025,18 @@ export default function ListingDetail() {
                 <div className="text-center">
                   <p className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-900">
                     {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && !isEventListing
-                      ? "Associated costs"
-                      : "Price"}
+                      ? t("listings.associated_costs")
+                      : t("listings.price")}
                   </p>
                   {/* For event listings, prioritize explicit listing price across all types */}
                   {isEventListing && listingData.price ? (
                     <>
                       <p className="text-3xl font-bold text-gray-900">
-                        €{listingData.price.toLocaleString()}
+                        {formatCurrencyAmount(listingData.price, locale, listingData.currency || "EUR")}
                       </p>
                       {listingData.price_negotiable && (
                         <p className="mt-1 text-sm text-green-600 font-medium">
-                          Price negotiable
+                          {t("listings.price_negotiable")}
                         </p>
                       )}
                     </>
@@ -1050,7 +1044,7 @@ export default function ListingDetail() {
                     listingData.associated_costs ? (
                       <>
                         <p className="text-3xl font-bold text-gray-900">
-                          €{listingData.associated_costs.toLocaleString()}
+                          {formatCurrencyAmount(listingData.associated_costs, locale, listingData.currency || "EUR")}
                         </p>
                         {listingData.cost_notes && (
                           <p className="mt-2 text-sm text-gray-600">
@@ -1061,28 +1055,28 @@ export default function ListingDetail() {
                     ) : (
                       <div className="rounded-3xl border border-slate-200 bg-white px-4 py-3">
                         <p className="text-lg font-semibold text-gray-700 mb-0.5">
-                          Contact for price
+                          {t("listings.contact_for_price")}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Price details available from seller
+                          {t("listings.price_details_available_from_seller")}
                         </p>
                       </div>
                     )
                   ) : listingData.price ? (
                     <>
                       <p className="text-3xl font-bold text-gray-900">
-                        €{listingData.price.toLocaleString()}
+                        {formatCurrencyAmount(listingData.price, locale, listingData.currency || "EUR")}
                       </p>
                       {listingData.price_negotiable && (
                         <p className="mt-1 text-sm text-green-600 font-medium">
-                          Price negotiable
+                          {t("listings.price_negotiable")}
                         </p>
                       )}
                     </>
                   ) : (
                     <div className="rounded-3xl border border-slate-200 bg-white px-4 py-3">
                       <p className="text-lg font-semibold text-gray-700 mb-0.5">
-                        Contact for price
+                        {t("listings.contact_for_price")}
                       </p>
                       <p className="text-xs text-gray-500">
                         {priceAnchor}
@@ -1091,9 +1085,9 @@ export default function ListingDetail() {
                   )}
                 </div>
 
-                {(actionData as any)?.error && (
+                {(actionData as any)?.errorKey && (
                   <div className="mb-4 rounded-3xl bg-red-50 p-3 text-sm text-red-700">
-                    {(actionData as any).error}
+                    {t((actionData as any).errorKey as TranslationKey)}
                   </div>
                 )}
 
@@ -1102,7 +1096,7 @@ export default function ListingDetail() {
       to={`/listings/${getListingPublicId(listingData)}/contact`}
                     className="mt-4 block w-full rounded-full bg-accent-500 px-4 py-3 text-center text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-accent-600"
                   >
-                    {t("listings.contact")} {getPublicDisplayName(listingData.author) || "Seller"}
+                    {t("listings.contact")} {getPublicDisplayName(listingData.author) || t("listings.seller")}
                   </Link>
                 )}
 
@@ -1115,7 +1109,7 @@ export default function ListingDetail() {
                       {t("listings.edit_listing")}
                     </Link>
                     <Form method="post" onSubmit={(e) => {
-                      if (!confirm("Are you sure you want to delete this listing? This action cannot be undone.")) {
+                      if (!confirm(t("listings.delete_confirm"))) {
                         e.preventDefault();
                       }
                     }}>
@@ -1136,7 +1130,7 @@ export default function ListingDetail() {
                       to={`/admin/events/new?listingId=${getListingPublicId(listingData)}`}
                       className="block w-full rounded-full border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                     >
-                      Edit Event Listing
+                      {t("listings.edit_event_listing")}
                     </Link>
                   </div>
                 )}
@@ -1162,7 +1156,7 @@ export default function ListingDetail() {
                     <svg className="h-5 w-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    <span className="font-medium text-gray-900">Safety & Payments</span>
+                    <span className="font-medium text-gray-900">{t("listings.safety_payments")}</span>
                   </div>
                   <svg
                     className={`h-5 w-5 text-gray-400 transition-transform lg:hidden ${showSafety ? "rotate-180" : ""}`}
@@ -1178,26 +1172,26 @@ export default function ListingDetail() {
                     <ul className="text-sm text-gray-700 space-y-2 mt-3">
                       <li className="flex items-start gap-2">
                         <span className="text-brand-500 flex-shrink-0">•</span>
-                        <span>Always verify seller identity before payment</span>
+                        <span>{t("listings.safety_verify_identity")}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-brand-500 flex-shrink-0">•</span>
-                        <span>Use secure payment methods (PayPal, bank transfer)</span>
+                        <span>{t("listings.safety_use_secure_payments")}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-brand-500 flex-shrink-0">•</span>
-                        <span>Get written confirmation of all details</span>
+                        <span>{t("listings.safety_get_written_confirmation")}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-brand-500 flex-shrink-0">•</span>
-                        <span>Report suspicious activity immediately</span>
+                        <span>{t("listings.safety_report_suspicious")}</span>
                       </li>
                     </ul>
                     <Link
                       to="/safety"
                       className="mt-3 inline-block text-sm text-brand-600 hover:text-brand-700 font-medium"
                     >
-                      Read full safety guidelines →
+                      {t("listings.read_full_safety_guidelines")} →
                     </Link>
                   </div>
               </div>

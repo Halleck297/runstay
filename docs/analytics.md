@@ -22,6 +22,7 @@ This project now uses a vendor-agnostic client analytics layer.
 - `ANALYTICS_DEBUG`: `true` or `false`
 - `ANALYTICS_PLAUSIBLE_DOMAIN`: Plausible domain (required for Plausible)
 - `ANALYTICS_GA_MEASUREMENT_ID`: GA4 measurement ID (required for GA4)
+- `ANALYTICS_COOKIELESS_MODE`: PostHog only, optional (`always` | `on_reject`)
 
 ## Switching provider
 
@@ -40,6 +41,9 @@ No route/component-level rewrites should be needed.
   - `ANALYTICS_WRITE_KEY=phc_...`
   - `ANALYTICS_HOST=/ph`
   - `ANALYTICS_UI_HOST=https://eu.posthog.com` (EU project) or `https://us.posthog.com` (US project)
+  - Optional: `ANALYTICS_COOKIELESS_MODE=on_reject` (or `always`)
+
+Important: when using cookieless mode, you must also enable it in PostHog project settings, otherwise cookieless events are ignored.
 
 ## PostHog setup checklist
 
