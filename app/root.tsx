@@ -41,6 +41,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   if (url.pathname === "/") {
     return redirect(`/${locale}${url.search}`, {
+      status: 307,
       headers: {
         "Set-Cookie": buildLocaleCookie(locale),
       },

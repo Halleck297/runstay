@@ -21,7 +21,7 @@ export const meta: MetaFunction = () => {
       content:
         "runoot is a private platform where runners exchange hotel bookings and race bibs when plans change, so they don't go to waste.",
     },
-    { tagName: "link", rel: "canonical", href: "https://runoot.com/en" },
+    { tagName: "link", rel: "canonical", href: "https://www.runoot.com/en" },
   ];
 };
 
@@ -98,8 +98,8 @@ export default function Index() {
       "@context": "https://schema.org",
       "@type": "Organization",
       name: "runoot",
-      url: "https://runoot.com",
-      logo: "https://runoot.com/logo.svg",
+      url: "https://www.runoot.com",
+      logo: "https://www.runoot.com/logo.svg",
     });
 
     const [searchQuery, setSearchQuery] = useState("");

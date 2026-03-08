@@ -13,4 +13,4 @@ Disallow: /register
 Disallow: /forgot-password
 Disallow: /reset-password
 
-Sitemap: https://runoot.com/sitemap.xml
+Sitemap: https://www.runoot.com/sitemap.xml

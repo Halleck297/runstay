@@ -25,6 +25,13 @@ export const LOCALE_FLAGS: Record<SupportedLocale, string> = {
 };
 
 const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
+const BOT_UA_REGEX = /bot|crawler|spider|slurp|bingpreview|mediapartners-google/i;
+
+function isLikelyCrawler(request: Request): boolean {
+  const userAgent = request.headers.get("user-agent") || "";
+  if (!userAgent) return false;
+  return BOT_UA_REGEX.test(userAgent);
+}
 
 export function getSupportedLocales(): readonly SupportedLocale[] {
   return SUPPORTED_LOCALES;
@@ -100,6 +107,10 @@ export function resolveLocaleForRequest(
   const url = new URL(request.url);
   const fromPath = getLocaleFromPathname(url.pathname);
   if (fromPath) return fromPath;
+
+  // Shared non-locale URLs (for example /contact) should be stable for crawlers.
+  // Force English there to avoid mixed-language indexing on a single URL.
+  if (isLikelyCrawler(request)) return DEFAULT_LOCALE;
 
   // Respect active locale chosen in UI (cookie) during navigation.
   const fromCookie = getLocaleFromCookie(request.headers.get("Cookie"));
