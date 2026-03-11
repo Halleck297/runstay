@@ -199,7 +199,7 @@ export function ListingCardCompact({
 
   // Event logo path
   const eventSlug = getEventSlug(listing.event);
-  const logoPath = `/logos/${eventSlug}.png`;
+  const logoPath = `/logos/${eventSlug}.webp`;
   const logoSrc = listing.event.card_image_url || logoPath;
 
   const listingHref = isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login";
