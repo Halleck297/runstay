@@ -1,7 +1,7 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, redirect, data, useRouteLoaderData, useLocation } from "react-router";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { useEffect, useState } from "react";
-import { getUser, getAccessToken, getImpersonationContext } from "~/lib/session.server";
+import { getUser, getAccessTokenWithRefresh, getImpersonationContext } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { NotFoundPage } from "~/components/NotFoundPage";
 import { ServerErrorPage } from "~/components/ServerErrorPage";
@@ -48,7 +48,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
   }
 
-  const accessToken = await getAccessToken(request);
+  const accessTokenResult = await getAccessTokenWithRefresh(request);
+  const accessToken = accessTokenResult.accessToken;
 
   // Se l'utente è loggato, conta i messaggi non letti + notifiche
   let unreadCount = 0;
@@ -90,6 +91,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     console.error("Impersonation context error:", e);
   }
 
+  const responseHeaders = new Headers();
+  if (shouldSetLocaleCookie) {
+    responseHeaders.append("Set-Cookie", buildLocaleCookie(locale));
+  }
+  if (accessTokenResult.setCookie) {
+    responseHeaders.append("Set-Cookie", accessTokenResult.setCookie);
+  }
+
   return data(
     {
       user: user ? { ...user, unreadCount, unreadNotifications } : null,
@@ -123,11 +132,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
         ANALYTICS_COOKIELESS_MODE: process.env.ANALYTICS_COOKIELESS_MODE || "",
       },
     },
-    shouldSetLocaleCookie
+    responseHeaders.has("Set-Cookie")
       ? {
-          headers: {
-            "Set-Cookie": buildLocaleCookie(locale),
-          },
+          headers: responseHeaders,
         }
       : undefined
   );

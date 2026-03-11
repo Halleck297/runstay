@@ -46,6 +46,7 @@ interface UseRealtimeConversationsOptions {
 const FALLBACK_POLL_INTERVAL = 15000;
 const REFRESH_DEBOUNCE_MS = 400;
 const MIN_SYNC_INTERVAL_MS = 1200;
+const REALTIME_CONNECT_DELAY_MS = 150;
 const shouldDisableRealtime =
   typeof window !== "undefined" &&
   window.location.hostname === "localhost" &&
@@ -128,51 +129,59 @@ export function useRealtimeConversations({
       debounceTimerRef.current = setTimeout(runSync, REFRESH_DEBOUNCE_MS);
     };
 
-    const channel = supabase
-      .channel(`conversations:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-        },
-        requestSync
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-        },
-        requestSync
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "conversations",
-        },
-        requestSync
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "conversations",
-        },
-        requestSync
-      )
-      .subscribe((status) => {
-        setIsConnected(status === "SUBSCRIBED");
-      });
+    let isMounted = true;
+    const connectTimer = window.setTimeout(() => {
+      if (!isMounted) return;
 
-    channelRef.current = channel;
+      const channel = supabase
+        .channel(`conversations:${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+          },
+          requestSync
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "messages",
+          },
+          requestSync
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "conversations",
+          },
+          requestSync
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "conversations",
+          },
+          requestSync
+        )
+        .subscribe((status) => {
+          if (!isMounted) return;
+          setIsConnected(status === "SUBSCRIBED");
+        });
+
+      channelRef.current = channel;
+    }, REALTIME_CONNECT_DELAY_MS);
 
     return () => {
+      isMounted = false;
+      window.clearTimeout(connectTimer);
       setIsConnected(false);
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);

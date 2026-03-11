@@ -2,7 +2,7 @@
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
 import { useActionData, Form, Link, useSearchParams } from "react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
@@ -272,8 +272,16 @@ export default function AdminCreateUser() {
   const initialMode = searchParams.get("mode") === "mock" ? "mock" : "user";
   const [createMode, setCreateMode] = useState<"user" | "mock">(initialMode);
   const [mockAccessMode, setMockAccessMode] = useState<"internal_only" | "external_password">("internal_only");
+  const formRef = useRef<HTMLFormElement>(null);
 
   const isMockMode = createMode === "mock";
+
+  useEffect(() => {
+    if (!actionData || !("success" in actionData) || !actionData.success) return;
+    formRef.current?.reset();
+    setCreateMode("user");
+    setMockAccessMode("internal_only");
+  }, [actionData]);
 
   return (
     <div className="max-w-2xl">
@@ -302,7 +310,7 @@ export default function AdminCreateUser() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <Form method="post" noValidate className="space-y-5">
+        <Form ref={formRef} method="post" noValidate className="space-y-5">
           <div>
             <label className="label">Mode</label>
             <div className="flex items-center gap-2 rounded-full bg-gray-100 p-1 w-fit">

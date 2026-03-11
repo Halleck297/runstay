@@ -124,15 +124,15 @@ export default function MessagesLayout() {
   });
 
   const messagesContent = (
-    <div className="flex-1 overflow-hidden bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
-      <div className="mx-auto h-full max-w-7xl px-0 py-0 md:px-4 md:py-8 lg:px-8">
+    <div className="flex-1 overflow-hidden md:overflow-x-auto md:overflow-y-hidden bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
+      <div className="mx-auto h-full min-w-full md:min-w-[980px] max-w-7xl px-0 py-0 md:px-4 md:py-8 lg:px-8">
         <div className="flex h-full overflow-hidden border border-gray-200/80 bg-white/85 shadow-xl backdrop-blur-[2px] md:rounded-3xl">
 
       {/* Colonna sinistra: Lista conversazioni */}
       {/* Mobile: mostra solo quando NON c'è conversazione attiva */}
       {/* Desktop: mostra sempre */}
       <aside
-        className={`w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-[2px] md:rounded-l-3xl flex flex-col overflow-hidden border-r border-gray-200 ${
+        className={`w-full md:w-80 lg:w-96 md:shrink-0 bg-white/95 backdrop-blur-[2px] md:rounded-l-3xl flex flex-col overflow-hidden border-r border-gray-200 ${
           activeConversationId ? "hidden md:flex" : "flex"
         }`}
       >
@@ -284,7 +284,7 @@ export default function MessagesLayout() {
 
       {/* Area centrale: Conversazione attiva */}
       <main
-        className={`flex-1 flex flex-col min-w-0 overflow-hidden ${
+        className={`flex-1 flex flex-col min-w-0 md:min-w-[620px] overflow-hidden ${
           activeConversationId ? "flex" : "hidden md:flex"
         }`}
       >

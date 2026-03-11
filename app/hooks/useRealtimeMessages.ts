@@ -24,6 +24,7 @@ interface UseRealtimeMessagesOptions {
 }
 
 const FALLBACK_POLL_INTERVAL = 15000;
+const REALTIME_CONNECT_DELAY_MS = 150;
 const shouldDisableRealtime =
   typeof window !== "undefined" &&
   window.location.hostname === "localhost" &&
@@ -104,67 +105,74 @@ export function useRealtimeMessages({
 
     const supabase = getSupabaseBrowserClient();
     setIsConnected(false);
+    let isMounted = true;
+    const connectTimer = window.setTimeout(() => {
+      if (!isMounted) return;
 
-    const channel = supabase
-      .channel(`messages:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const newMessage = payload.new as Message;
+      const channel = supabase
+        .channel(`messages:${conversationId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            const newMessage = payload.new as Message;
 
-          setMessages((currentMessages) => {
-            if (currentMessages.some((m) => m.id === newMessage.id)) {
-              return currentMessages;
-            }
+            setMessages((currentMessages) => {
+              if (currentMessages.some((m) => m.id === newMessage.id)) {
+                return currentMessages;
+              }
 
-            const withoutConfirmedTemp = currentMessages.filter((m) => {
-              if (!m.id.startsWith("temp-")) return true;
-              return !(
-                m.sender_id === newMessage.sender_id &&
-                m.content === newMessage.content
-              );
+              const withoutConfirmedTemp = currentMessages.filter((m) => {
+                if (!m.id.startsWith("temp-")) return true;
+                return !(
+                  m.sender_id === newMessage.sender_id &&
+                  m.content === newMessage.content
+                );
+              });
+
+              return sortByCreatedAt([...withoutConfirmedTemp, newMessage]);
             });
 
-            return sortByCreatedAt([...withoutConfirmedTemp, newMessage]);
-          });
-
-          if (newMessage.sender_id !== currentUserId) {
-            onNewMessage?.(newMessage);
-            playNotificationSound();
+            if (newMessage.sender_id !== currentUserId) {
+              onNewMessage?.(newMessage);
+              playNotificationSound();
+            }
           }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const updatedMessage = payload.new as Message;
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            const updatedMessage = payload.new as Message;
 
-          setMessages((currentMessages) =>
-            currentMessages.map((m) =>
-              m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m
-            )
-          );
-        }
-      )
-      .subscribe((status) => {
-        setIsConnected(status === "SUBSCRIBED");
-      });
+            setMessages((currentMessages) =>
+              currentMessages.map((m) =>
+                m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m
+              )
+            );
+          }
+        )
+        .subscribe((status) => {
+          if (!isMounted) return;
+          setIsConnected(status === "SUBSCRIBED");
+        });
 
-    channelRef.current = channel;
+      channelRef.current = channel;
+    }, REALTIME_CONNECT_DELAY_MS);
 
     return () => {
+      isMounted = false;
+      window.clearTimeout(connectTimer);
       setIsConnected(false);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);

@@ -131,11 +131,22 @@ function createDebugAdapter(config: AnalyticsConfig): AnalyticsAdapter {
 }
 
 function createPosthogAdapter(config: AnalyticsConfig): AnalyticsAdapter {
+  const resolvePosthogApiHost = (): string => {
+    const configured = (config.host || "/ph").trim();
+    if (typeof window === "undefined") return configured;
+
+    try {
+      return new URL(configured, window.location.origin).toString().replace(/\/$/, "");
+    } catch {
+      return `${window.location.origin}/ph`;
+    }
+  };
+
   return {
     init: () => {
       if (!config.key) return;
       posthog.init(config.key, {
-        api_host: config.host || "/ph",
+        api_host: resolvePosthogApiHost(),
         ui_host: config.uiHost || "https://us.posthog.com",
         cookieless_mode: config.cookielessMode,
         autocapture: false,

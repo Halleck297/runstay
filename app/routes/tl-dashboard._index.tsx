@@ -1,7 +1,7 @@
 // app/routes/tl-dashboard.tsx - Team Leader Dashboard
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { useLoaderData, useActionData, Form, Link, useLocation, useNavigate } from "react-router";
+import { useLoaderData, useActionData, Form } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useEffect, useState, type MouseEvent } from "react";
@@ -481,10 +481,6 @@ export default function TLDashboard() {
     appUrl,
     referrals,
     referredUsers,
-    reservedEmails,
-    reservedPagination,
-    reservedCounts,
-    inviteResult,
     stats,
     recentInvites,
     eventUnreadCount,
@@ -494,11 +490,7 @@ export default function TLDashboard() {
     | { errorKey?: string; error?: never; success?: boolean; message?: never; messageKey?: never }
     | { success?: boolean; messageKey?: string; message?: never; error?: never; errorKey?: never }
     | undefined;
-  const location = useLocation();
-  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-  const [inviteFields, setInviteFields] = useState(1);
-  const [inviteSuccessCount, setInviteSuccessCount] = useState<number | null>(null);
   const [timelineHydrated, setTimelineHydrated] = useState(false);
 
   const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
@@ -557,22 +549,10 @@ export default function TLDashboard() {
   ]
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
     .slice(0, 10);
-  const reservedStatusLabel: Record<string, string> = {
-    pending: t("tl_dashboard.reserved"),
-    accepted: t("tl_dashboard.linked"),
-  };
   const actionError =
     actionData?.errorKey ? t(`tl_dashboard.error.${actionData.errorKey}` as any) : actionData?.error;
   const actionMessage =
     actionData?.messageKey ? t(actionData.messageKey as any) : actionData?.message;
-  const reservedBuildUrl = (updates: Record<string, string | number>) => {
-    const params = new URLSearchParams(location.search);
-    for (const [key, value] of Object.entries(updates)) {
-      params.set(key, String(value));
-    }
-    const query = params.toString();
-    return query ? `${location.pathname}?${query}` : location.pathname;
-  };
   const handleSectionJump = (sectionId: string) => {
     if (typeof window === "undefined") return;
     const target = document.getElementById(sectionId);
@@ -589,18 +569,6 @@ export default function TLDashboard() {
 
     target.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-
-  useEffect(() => {
-    if (!inviteResult?.sent) return;
-
-    setInviteSuccessCount(inviteResult.sent);
-    setInviteFields(1);
-
-    const params = new URLSearchParams(location.search);
-    params.delete("inviteSent");
-    const cleanQuery = params.toString();
-    navigate(cleanQuery ? `${location.pathname}?${cleanQuery}` : location.pathname, { replace: true });
-  }, [inviteResult?.sent, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -631,12 +599,6 @@ export default function TLDashboard() {
           <button type="button" onClick={() => handleSectionJump("referral-link")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
             Referral link
           </button>
-          <button type="button" onClick={() => handleSectionJump("invite-email")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
-            Invite by email
-          </button>
-          <button type="button" onClick={() => handleSectionJump("reserved-emails")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
-            Reserved emails
-          </button>
           <button type="button" onClick={() => handleSectionJump("welcome-message")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
             Welcome message
           </button>
@@ -665,31 +627,6 @@ export default function TLDashboard() {
       topContent={topContent}
     >
       <div className="mx-auto min-h-full max-w-7xl px-4 pt-0 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-      {inviteSuccessCount !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-gray-200">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-success-100">
-              <svg className="h-6 w-6 text-success-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h3 className="text-center font-display text-lg font-semibold text-gray-900">{t("tl_dashboard.success_title")}</h3>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              {inviteSuccessCount === 1
-                ? t("tl_dashboard.invite_sent_single")
-                : `${t("tl_dashboard.invite_sent_multi_prefix")} ${inviteSuccessCount} ${t("tl_dashboard.invite_sent_multi_suffix")}`}
-            </p>
-            <button
-              type="button"
-              className="btn-primary rounded-full w-full mt-5"
-              onClick={() => setInviteSuccessCount(null)}
-            >
-              {t("tl_dashboard.ok")}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Action feedback */}
       {actionError && (
         <div className="mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm">
@@ -820,159 +757,6 @@ export default function TLDashboard() {
             {t("tl_dashboard.save_code")}
           </button>
         </Form>
-      </div>
-
-      {/* Invite by email */}
-      <div id="invite-email" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
-        <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.invite_by_email")}</h2>
-
-        <Form method="post" className="space-y-3">
-          <input type="hidden" name="_action" value="sendInvites" />
-          {Array.from({ length: inviteFields }).map((_, index) => (
-            <input
-              key={index}
-              type="email"
-              name={`inviteEmail${index}`}
-              placeholder={t("tl_dashboard.email_placeholder")}
-              className="input"
-              required={index === 0}
-            />
-          ))}
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="btn-secondary rounded-full text-xs px-3 py-1.5"
-              onClick={() => setInviteFields((prev) => Math.min(MAX_BATCH_INVITES, prev + 1))}
-              disabled={inviteFields >= MAX_BATCH_INVITES}
-            >
-              {t("tl_dashboard.add_email")}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary rounded-full text-xs px-3 py-1.5"
-              onClick={() => setInviteFields((prev) => Math.max(1, prev - 1))}
-              disabled={inviteFields <= 1}
-            >
-              {t("tl_dashboard.remove")}
-            </button>
-            <span className="text-xs text-gray-500">{inviteFields}/{MAX_BATCH_INVITES}</span>
-          </div>
-
-          <button type="submit" className="btn-primary rounded-full text-sm px-4 py-2">
-            {t("tl_dashboard.send_invitations")}
-          </button>
-        </Form>
-      </div>
-
-      {/* Reserved emails */}
-      <div id="reserved-emails" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.reserved_emails")}</h2>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Link
-              to={reservedBuildUrl({ reservedView: "not_joined", reservedPage: 1 })}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                reservedPagination.view === "not_joined"
-                  ? "bg-brand-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {t("tl_dashboard.not_joined_yet")} ({reservedCounts.notJoined})
-            </Link>
-            <Link
-              to={reservedBuildUrl({ reservedView: "linked", reservedPage: 1 })}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                reservedPagination.view === "linked"
-                  ? "bg-brand-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {t("tl_dashboard.linked")} ({reservedCounts.linked})
-            </Link>
-          </div>
-          <div className="mt-3 flex items-center gap-2 text-xs text-gray-600">
-            <span>{t("tl_dashboard.show")}</span>
-            {reservedPagination.perPageOptions.map((option: number) => (
-              <Link
-                key={option}
-                to={reservedBuildUrl({ reservedPerPage: option, reservedPage: 1 })}
-                className={`px-2.5 py-1 rounded-full ${
-                  reservedPagination.perPage === option
-                    ? "bg-brand-100 text-brand-700 font-medium"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                {option}
-              </Link>
-            ))}
-            <span>{t("tl_dashboard.per_page")}</span>
-          </div>
-        </div>
-        <div className="divide-y divide-gray-100">
-          {reservedEmails.length > 0 ? (
-            reservedEmails.map((invite: any) => (
-              <div key={invite.id} className="p-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{preventAutoLink(invite.email)}</p>
-                  <p className="text-xs text-gray-500">
-                    {t("tl_dashboard.added")} {formatDate(invite.created_at)}
-                    {invite.claimed_at ? ` · ${t("tl_dashboard.claimed")} ${formatDate(invite.claimed_at)}` : ""}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      invite.status === "accepted"
-                        ? "bg-success-100 text-success-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {reservedStatusLabel[invite.status] || invite.status}
-                  </span>
-                  {invite.status !== "accepted" && (
-                    <Form method="post">
-                      <input type="hidden" name="_action" value="resendInvite" />
-                      <input type="hidden" name="inviteId" value={invite.id} />
-                      <button type="submit" className="btn-secondary rounded-full text-xs px-3 py-1.5">
-                        {t("tl_dashboard.resend_invitation")}
-                      </button>
-                    </Form>
-                  )}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="p-6 text-sm text-gray-500">
-              {reservedPagination.view === "linked" ? t("tl_dashboard.no_linked_emails") : t("tl_dashboard.no_pending_reserved_emails")}
-            </div>
-          )}
-        </div>
-        <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600">
-          <span>
-            {t("tl_dashboard.page")} {reservedPagination.page} {t("tl_dashboard.of")} {reservedPagination.totalPages} · {reservedPagination.totalCount} {t("tl_dashboard.total")}
-          </span>
-          <div className="flex items-center gap-2">
-            <Link
-              to={reservedBuildUrl({ reservedPage: Math.max(1, reservedPagination.page - 1) })}
-              className={`px-2.5 py-1 rounded-full ${
-                reservedPagination.page <= 1 ? "bg-gray-100 text-gray-400 pointer-events-none" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {t("tl_dashboard.prev")}
-            </Link>
-            <Link
-              to={reservedBuildUrl({ reservedPage: Math.min(reservedPagination.totalPages, reservedPagination.page + 1) })}
-              className={`px-2.5 py-1 rounded-full ${
-                reservedPagination.page >= reservedPagination.totalPages
-                  ? "bg-gray-100 text-gray-400 pointer-events-none"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {t("tl_dashboard.next")}
-            </Link>
-          </div>
-        </div>
       </div>
 
       {/* Welcome message */}

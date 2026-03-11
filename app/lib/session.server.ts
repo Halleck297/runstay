@@ -1,6 +1,7 @@
 import { createCookieSessionStorage, redirect } from "react-router";
 import { getSupabaseClient, supabase, supabaseAdmin } from "./supabase.server";
 import { isAdmin, isSuperAdmin } from "./user-access";
+import { resolveLocaleForRequest } from "./locale";
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -10,7 +11,9 @@ if (!sessionSecret) {
 const isExplicitSecure = process.env.SESSION_COOKIE_SECURE === "true";
 const isExplicitInsecure = process.env.SESSION_COOKIE_SECURE === "false";
 const isHttpsOrigin = process.env.APP_ORIGIN?.startsWith("https://") ?? false;
-const cookieSecure = isExplicitSecure || (!isExplicitInsecure && isHttpsOrigin);
+const isProduction = process.env.NODE_ENV === "production";
+const defaultSecureInEnv = isProduction ? isHttpsOrigin : false;
+const cookieSecure = isExplicitSecure || (!isExplicitInsecure && defaultSecureInEnv);
 
 const storage = createCookieSessionStorage({
   cookie: {
@@ -61,6 +64,72 @@ export async function getUserId(request: Request) {
 export async function getAccessToken(request: Request) {
   const session = await getUserSession(request);
   return session.get("accessToken") as string | null;
+}
+
+function decodeJwtExpiry(token: string): number | null {
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+
+  try {
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const payload = JSON.parse(Buffer.from(normalized, "base64").toString("utf8")) as { exp?: number };
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpiringSoon(token: string, leewaySeconds = 60): boolean {
+  const exp = decodeJwtExpiry(token);
+  if (!exp) return true;
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  return exp <= nowInSeconds + leewaySeconds;
+}
+
+export async function getAccessTokenWithRefresh(request: Request): Promise<{
+  accessToken: string | null;
+  setCookie?: string;
+}> {
+  const session = await getUserSession(request);
+  const accessToken = session.get("accessToken");
+  const refreshToken = session.get("refreshToken");
+
+  if (!accessToken || typeof accessToken !== "string") {
+    return { accessToken: null };
+  }
+
+  if (!isTokenExpiringSoon(accessToken)) {
+    return { accessToken };
+  }
+
+  if (!refreshToken || typeof refreshToken !== "string") {
+    return { accessToken: null };
+  }
+
+  const { data: refreshed, error } = await supabase.auth.refreshSession({
+    refresh_token: refreshToken,
+  });
+
+  const nextAccessToken = refreshed.session?.access_token;
+  const nextRefreshToken = refreshed.session?.refresh_token;
+
+  if (error || !nextAccessToken || !nextRefreshToken) {
+    session.unset("accessToken");
+    session.unset("refreshToken");
+    return {
+      accessToken: null,
+      setCookie: await storage.commitSession(session),
+    };
+  }
+
+  session.set("accessToken", nextAccessToken);
+  session.set("refreshToken", nextRefreshToken);
+
+  return {
+    accessToken: nextAccessToken,
+    setCookie: await storage.commitSession(session),
+  };
 }
 
 /**
@@ -359,7 +428,8 @@ export async function logAdminAction(
 
 export async function logout(request: Request) {
   const session = await getUserSession(request);
-  return redirect("/", {
+  const locale = resolveLocaleForRequest(request, null);
+  return redirect(`/${locale}`, {
     headers: {
       "Set-Cookie": await storage.destroySession(session),
     },

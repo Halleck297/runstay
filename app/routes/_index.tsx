@@ -3,8 +3,8 @@ import { Link, useLoaderData, useNavigate, Form } from "react-router";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
-import { supabase, supabaseAdmin } from "~/lib/supabase.server";
-import { localizeListing, localizeEvent, resolveLocaleForRequest } from "~/lib/locale";
+import { supabaseAdmin } from "~/lib/supabase.server";
+import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
@@ -12,6 +12,13 @@ import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
 import { analyticsEvents } from "~/lib/analytics/events";
 import { trackEvent } from "~/lib/analytics/client";
+
+type HomeEventSuggestion = {
+  id: string;
+  name: string;
+  country: string;
+  event_date: string;
+};
 
 export const meta: MetaFunction = () => {
   return [
@@ -78,20 +85,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     savedListingIds = savedListings?.map((s: any) => s.listing_id) || [];
   }
 
-  // Get all events for autocomplete suggestions
-  const { data: events } = await supabase
-    .from("events")
-    .select("id, name, name_i18n, country, country_i18n, event_date")
-    .order("event_date", { ascending: true });
-
-    const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
-    return { user, listings, eventListings, savedListingIds, events: localizedEvents };
+  return { user, listings, eventListings, savedListingIds };
 
 }
 
 export default function Index() {
     const { t } = useI18n();
-    const { user, listings, eventListings, savedListingIds, events } = useLoaderData<typeof loader>();
+    const { user, listings, eventListings, savedListingIds } = useLoaderData<typeof loader>();
     const navigate = useNavigate();
     const searchRef = useRef<HTMLDivElement>(null);
     const organizationJsonLd = JSON.stringify({
@@ -104,6 +104,7 @@ export default function Index() {
 
     const [searchQuery, setSearchQuery] = useState("");
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [eventSuggestions, setEventSuggestions] = useState<HomeEventSuggestion[]>([]);
 
     // Rotating words for hero title
     const [subjectIndex, setSubjectIndex] = useState(0);
@@ -143,13 +144,39 @@ export default function Index() {
       return () => clearInterval(interval);
     }, [words.length]);
 
-    // Filter events based on search query (min 2 chars)
-    const filteredEvents = searchQuery.length >= 2
-      ? (events as any[]).filter((event) =>
-          event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          event.country.toLowerCase().includes(searchQuery.toLowerCase())
-        ).slice(0, 5)
-      : [];
+    // Fetch event suggestions on-demand to keep SSR home payload light.
+    useEffect(() => {
+      const query = searchQuery.trim();
+      if (query.length < 2) {
+        setEventSuggestions([]);
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(async () => {
+        try {
+          const response = await fetch(`/api/events/search?q=${encodeURIComponent(query)}`, {
+            signal: controller.signal,
+            credentials: "same-origin",
+          });
+          if (!response.ok) {
+            setEventSuggestions([]);
+            return;
+          }
+          const payload = (await response.json()) as { events?: HomeEventSuggestion[] };
+          setEventSuggestions(payload.events || []);
+        } catch {
+          if (!controller.signal.aborted) {
+            setEventSuggestions([]);
+          }
+        }
+      }, 220);
+
+      return () => {
+        controller.abort();
+        window.clearTimeout(timeoutId);
+      };
+    }, [searchQuery]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -188,7 +215,7 @@ export default function Index() {
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('/hero.jpg')] bg-cover bg-top" />
+          <div className="absolute inset-0 bg-[url('/hero.webp')] bg-cover bg-top" />
           <div className="absolute inset-0 bg-black/60" />
           <div className="relative mx-auto max-w-7xl px-4 pt-12 pb-36 sm:py-44 lg:py-52 sm:px-6 lg:px-8">
             <div className="text-center">
@@ -254,9 +281,9 @@ export default function Index() {
                     className="block w-full border-0 bg-transparent px-1 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none"
                   />
 
-                  {showSuggestions && filteredEvents.length > 0 && (
+                  {showSuggestions && eventSuggestions.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 z-20 overflow-hidden">
-                      {filteredEvents.map((event: any) => (
+                      {eventSuggestions.map((event) => (
                         <button
                           key={event.id}
                           type="button"
