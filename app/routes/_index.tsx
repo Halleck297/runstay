@@ -215,7 +215,17 @@ export default function Index() {
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('/hero.webp')] bg-cover bg-top" />
+          <picture className="absolute inset-0" aria-hidden="true">
+            <source media="(max-width: 767px)" srcSet="/hero-mobile.webp" type="image/webp" />
+            <img
+              src="/hero.webp"
+              alt=""
+              fetchPriority="high"
+              loading="eager"
+              decoding="async"
+              className="h-full w-full object-cover object-top"
+            />
+          </picture>
           <div className="absolute inset-0 bg-black/60" />
           <div className="relative mx-auto max-w-7xl px-4 pt-12 pb-36 sm:py-44 lg:py-52 sm:px-6 lg:px-8">
             <div className="text-center">
