@@ -1,5 +1,4 @@
 import type { AnalyticsEventName } from "~/lib/analytics/events";
-import posthog from "posthog-js";
 
 type AnalyticsProvider = "none" | "debug" | "posthog" | "plausible" | "ga4";
 type CookielessMode = "always" | "on_reject";
@@ -27,7 +26,7 @@ type AnalyticsAdapter = {
 
 declare global {
   interface Window {
-    posthog?: typeof posthog;
+    posthog?: PosthogClient;
     plausible?: (event: string, options?: { props?: Record<string, unknown> }) => void;
     dataLayer?: Array<Record<string, unknown>>;
     gtag?: (...args: unknown[]) => void;
@@ -35,8 +34,39 @@ declare global {
   }
 }
 
+type PosthogClient = {
+  init: (key: string, options: Record<string, unknown>) => void;
+  capture: (event: string, props?: AnalyticsProps) => void;
+  identify: (userId: string, traits?: AnalyticsProps) => void;
+  reset: () => void;
+  opt_in_capturing: () => void;
+  opt_out_capturing: () => void;
+};
+
 let initialized = false;
 let adapter: AnalyticsAdapter = createNoopAdapter();
+let posthogClient: PosthogClient | null = null;
+let posthogLoadPromise: Promise<PosthogClient | null> | null = null;
+
+async function loadPosthogClient(): Promise<PosthogClient | null> {
+  if (posthogClient) return posthogClient;
+  if (typeof window !== "undefined" && window.posthog) {
+    posthogClient = window.posthog;
+    return posthogClient;
+  }
+  if (!posthogLoadPromise) {
+    posthogLoadPromise = import("posthog-js")
+      .then((mod) => {
+        posthogClient = mod.default as unknown as PosthogClient;
+        if (typeof window !== "undefined") {
+          window.posthog = posthogClient;
+        }
+        return posthogClient;
+      })
+      .catch(() => null);
+  }
+  return posthogLoadPromise;
+}
 
 function getAnalyticsConsentStatus(): "granted" | "denied" | "unknown" {
   if (typeof window === "undefined") return "unknown";
@@ -131,6 +161,19 @@ function createDebugAdapter(config: AnalyticsConfig): AnalyticsAdapter {
 }
 
 function createPosthogAdapter(config: AnalyticsConfig): AnalyticsAdapter {
+  let posthogInitialized = false;
+
+  const withPosthog = (callback: (client: PosthogClient) => void): void => {
+    if (posthogClient) {
+      callback(posthogClient);
+      return;
+    }
+    void loadPosthogClient().then((client) => {
+      if (!client) return;
+      callback(client);
+    });
+  };
+
   const resolvePosthogApiHost = (): string => {
     const configured = (config.host || "/ph").trim();
     if (typeof window === "undefined") return configured;
@@ -145,39 +188,40 @@ function createPosthogAdapter(config: AnalyticsConfig): AnalyticsAdapter {
   return {
     init: () => {
       if (!config.key) return;
-      posthog.init(config.key, {
-        api_host: resolvePosthogApiHost(),
-        ui_host: config.uiHost || "https://us.posthog.com",
-        cookieless_mode: config.cookielessMode,
-        autocapture: false,
-        capture_pageview: false,
-        persistence: "localStorage+cookie",
-        loaded: () => {
-          // Expose for runtime diagnostics in browser console.
-          if (typeof window !== "undefined") {
-            window.posthog = posthog;
-          }
-          // Keep analytics state aligned with current cookie consent/cookieless mode.
-          const consent = getAnalyticsConsentStatus();
-          if (consent === "granted") {
-            posthog.opt_in_capturing();
-          } else if (consent === "denied") {
-            posthog.opt_out_capturing();
-          }
-          if (config.debug) {
-            console.info("[analytics] posthog initialized");
-          }
-        },
+      if (posthogInitialized) return;
+      posthogInitialized = true;
+      void loadPosthogClient().then((client) => {
+        if (!client) return;
+        client.init(config.key!, {
+          api_host: resolvePosthogApiHost(),
+          ui_host: config.uiHost || "https://us.posthog.com",
+          cookieless_mode: config.cookielessMode,
+          autocapture: false,
+          capture_pageview: false,
+          persistence: "localStorage+cookie",
+          loaded: () => {
+            // Keep analytics state aligned with current cookie consent/cookieless mode.
+            const consent = getAnalyticsConsentStatus();
+            if (consent === "granted") {
+              client.opt_in_capturing();
+            } else if (consent === "denied") {
+              client.opt_out_capturing();
+            }
+            if (config.debug) {
+              console.info("[analytics] posthog initialized");
+            }
+          },
+        });
       });
     },
     page: (path, props) => {
-      posthog.capture("page_view", { path, ...(props || {}) });
+      withPosthog((client) => client.capture("page_view", { path, ...(props || {}) }));
     },
     track: (event, props) => {
-      posthog.capture(event, props || {});
+      withPosthog((client) => client.capture(event, props || {}));
     },
-    identify: (userId, traits) => posthog.identify(userId, traits || {}),
-    reset: () => posthog.reset(),
+    identify: (userId, traits) => withPosthog((client) => client.identify(userId, traits || {})),
+    reset: () => withPosthog((client) => client.reset()),
   };
 }
 
