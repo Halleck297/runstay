@@ -103,7 +103,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function Index() {
     const { t } = useI18n();
-    const { user, listings, eventListings, savedListingIds } = useLoaderData<typeof loader>();
+    const loaderData = useLoaderData<typeof loader>() as {
+      user?: any;
+      listings?: any[];
+      eventListings?: any[];
+      savedListingIds?: string[];
+    };
+    const user = loaderData.user ?? null;
+    const listings = loaderData.listings ?? [];
+    const eventListings = loaderData.eventListings ?? [];
+    const savedListingIds = loaderData.savedListingIds ?? [];
     const navigate = useNavigate();
     const searchRef = useRef<HTMLDivElement>(null);
     const organizationJsonLd = JSON.stringify({

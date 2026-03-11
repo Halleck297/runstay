@@ -11,10 +11,21 @@ export async function loader(args: LoaderFunctionArgs) {
   }
 
   const payload = await homeLoader(args);
+  const localeCookie = buildLocaleCookie(localeParam);
+
+  if (payload instanceof Response) {
+    const headers = new Headers(payload.headers);
+    headers.append("Set-Cookie", localeCookie);
+    return new Response(payload.body, {
+      status: payload.status,
+      statusText: payload.statusText,
+      headers,
+    });
+  }
 
   return data(payload, {
     headers: {
-      "Set-Cookie": buildLocaleCookie(localeParam),
+      "Set-Cookie": localeCookie,
     },
   });
 }
