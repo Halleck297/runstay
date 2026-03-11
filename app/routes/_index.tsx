@@ -1,4 +1,5 @@
 import type { MetaFunction, LoaderFunctionArgs } from "react-router";
+import { data } from "react-router";
 import { Link, useLoaderData, useNavigate, Form } from "react-router";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
@@ -85,7 +86,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
     savedListingIds = savedListings?.map((s: any) => s.listing_id) || [];
   }
 
-  return { user, listings, eventListings, savedListingIds };
+  const cacheControl = user
+    ? "private, no-store"
+    : "public, max-age=60, s-maxage=300, stale-while-revalidate=600";
+
+  return data(
+    { user, listings, eventListings, savedListingIds },
+    {
+      headers: {
+        "Cache-Control": cacheControl,
+      },
+    }
+  );
 
 }
 

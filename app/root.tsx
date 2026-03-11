@@ -2,7 +2,6 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, u
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { useEffect, useState } from "react";
 import { getUser, getAccessTokenWithRefresh, getImpersonationContext } from "~/lib/session.server";
-import { supabaseAdmin } from "~/lib/supabase.server";
 import { NotFoundPage } from "~/components/NotFoundPage";
 import { ServerErrorPage } from "~/components/ServerErrorPage";
 import {
@@ -76,38 +75,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const accessTokenResult = await getAccessTokenWithRefresh(request);
   const accessToken = accessTokenResult.accessToken;
 
-  // Se l'utente è loggato, conta i messaggi non letti + notifiche
-  let unreadCount = 0;
-  let unreadNotifications = 0;
-  if (user) {
-    const [convResult, notifResult] = await Promise.all([
-      supabaseAdmin
-        .from("conversations")
-        .select(`
-          id,
-          messages(id, sender_id, read_at)
-        `)
-        .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`),
-      supabaseAdmin
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .is("read_at", null),
-    ]);
-
-    if (convResult.data) {
-      convResult.data.forEach((conv: any) => {
-        conv.messages?.forEach((msg: any) => {
-          if (msg.sender_id !== user.id && !msg.read_at) {
-            unreadCount++;
-          }
-        });
-      });
-    }
-
-    unreadNotifications = notifResult.count || 0;
-  }
-
   // Check if admin is impersonating someone
   let impersonation = null;
   try {
@@ -123,10 +90,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (accessTokenResult.setCookie) {
     responseHeaders.append("Set-Cookie", accessTokenResult.setCookie);
   }
+  if (user) {
+    responseHeaders.set("Cache-Control", "private, no-store");
+  } else if (responseHeaders.has("Set-Cookie")) {
+    responseHeaders.set("Cache-Control", "private, no-store");
+  } else {
+    responseHeaders.set("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+  }
 
   return data(
     {
-      user: user ? { ...user, unreadCount, unreadNotifications } : null,
+      user: user ? { ...user, unreadCount: 0, unreadNotifications: 0 } : null,
       impersonation,
       locale,
       localeCookieName: LOCALE_COOKIE_NAME,
@@ -157,11 +131,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
         ANALYTICS_COOKIELESS_MODE: process.env.ANALYTICS_COOKIELESS_MODE || "",
       },
     },
-    responseHeaders.has("Set-Cookie")
-      ? {
-          headers: responseHeaders,
-        }
-      : undefined
+    {
+      headers: responseHeaders,
+    }
   );
 }
 
