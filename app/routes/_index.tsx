@@ -37,61 +37,54 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
   const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
+  const userAgent = request.headers.get("user-agent") || "";
+  const preferCompactCards = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(userAgent);
 
-  // Recent listings on home must be consistent for all users.
-  const { data: homeListings } = await (supabaseAdmin as any)
-    .from("listings")
-    .select(
-      `
+  const listingSelect = `
       *,
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
       event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
-    `
-    )
-    .eq("status", "active")
-    .eq("listing_mode", "exchange")
-    .order("created_at", { ascending: false })
-    .limit(3);
+    `;
 
-  const listings = (homeListings || []).map((listing: any) =>
+  const [homeListingsResult, homeEventListingsResult, savedListingsResult] = await Promise.all([
+    (supabaseAdmin as any)
+      .from("listings")
+      .select(listingSelect)
+      .eq("status", "active")
+      .eq("listing_mode", "exchange")
+      .order("created_at", { ascending: false })
+      .limit(3),
+    (supabaseAdmin as any)
+      .from("listings")
+      .select(listingSelect)
+      .eq("status", "active")
+      .eq("listing_mode", "event")
+      .order("created_at", { ascending: false })
+      .limit(4),
+    user
+      ? (supabaseAdmin as any)
+          .from("saved_listings")
+          .select("listing_id")
+          .eq("user_id", (user as any).id)
+      : Promise.resolve({ data: [] as Array<{ listing_id: string }> }),
+  ]);
+
+  const listings = (homeListingsResult.data || []).map((listing: any) =>
     applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
   );
 
-  const { data: homeEventListings } = await (supabaseAdmin as any)
-    .from("listings")
-    .select(
-      `
-      *,
-      author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
-      event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
-    `
-    )
-    .eq("status", "active")
-    .eq("listing_mode", "event")
-    .order("created_at", { ascending: false })
-    .limit(4);
-
-  const eventListings = (homeEventListings || []).map((listing: any) =>
+  const eventListings = (homeEventListingsResult.data || []).map((listing: any) =>
     applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
   );
 
-  // Get saved listing IDs for this user
-  let savedListingIds: string[] = [];
-  if (user) {
-    const { data: savedListings } = await (supabaseAdmin as any)
-      .from("saved_listings")
-      .select("listing_id")
-      .eq("user_id", (user as any).id);
-    
-    savedListingIds = savedListings?.map((s: any) => s.listing_id) || [];
-  }
+  const savedListingIds = (savedListingsResult.data || []).map((s: any) => s.listing_id);
 
   const cacheControl = user
     ? "private, no-store"
     : "public, max-age=60, s-maxage=300, stale-while-revalidate=600";
 
   return data(
-    { user, listings, eventListings, savedListingIds },
+    { user, listings, eventListings, savedListingIds, preferCompactCards },
     {
       headers: {
         "Cache-Control": cacheControl,
@@ -108,11 +101,13 @@ export default function Index() {
       listings?: any[];
       eventListings?: any[];
       savedListingIds?: string[];
+      preferCompactCards?: boolean;
     };
     const user = loaderData.user ?? null;
     const listings = loaderData.listings ?? [];
     const eventListings = loaderData.eventListings ?? [];
     const savedListingIds = loaderData.savedListingIds ?? [];
+    const preferCompactCards = loaderData.preferCompactCards ?? false;
     const navigate = useNavigate();
     const searchRef = useRef<HTMLDivElement>(null);
     const organizationJsonLd = JSON.stringify({
@@ -352,19 +347,19 @@ export default function Index() {
                 </h2>
               </div>
 
-              {/* Desktop: Grid di card */}
-              <div className="mt-8 hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {listings.map((listing: any) => (
-                  <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} currentUserId={(user as any)?.id ?? null} />
-                ))}
-              </div>
-
-              {/* Mobile: Lista verticale compatta */}
-              <div className="mt-6 flex flex-col gap-3 md:hidden">
-                {listings.map((listing: any) => (
-                  <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} currentUserId={(user as any)?.id ?? null} />
-                ))}
-              </div>
+              {preferCompactCards ? (
+                <div className="mt-6 flex flex-col gap-3">
+                  {listings.map((listing: any) => (
+                    <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} currentUserId={(user as any)?.id ?? null} />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {listings.map((listing: any) => (
+                    <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} currentUserId={(user as any)?.id ?? null} />
+                  ))}
+                </div>
+              )}
               <div className="mt-6 flex justify-center">
                 <Link
                   to={user ? "/listings" : "/login"}
@@ -390,28 +385,31 @@ export default function Index() {
                   {t("nav.event")}
                 </h2>
               </div>
-              <div className="mt-8 hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {visibleEventListings.map((listing: any) => (
-                  <ListingCard
-                    key={listing.id}
-                    listing={listing}
-                    isUserLoggedIn={!!user}
-                    isSaved={(savedListingIds || []).includes(listing.id)}
-                    currentUserId={(user as any)?.id ?? null}
-                  />
-                ))}
-              </div>
-              <div className="mt-6 flex flex-col gap-3 md:hidden">
-                {visibleEventListings.map((listing: any) => (
-                  <ListingCardCompact
-                    key={listing.id}
-                    listing={listing}
-                    isUserLoggedIn={!!user}
-                    isSaved={(savedListingIds || []).includes(listing.id)}
-                    currentUserId={(user as any)?.id ?? null}
-                  />
-                ))}
-              </div>
+              {preferCompactCards ? (
+                <div className="mt-6 flex flex-col gap-3">
+                  {visibleEventListings.map((listing: any) => (
+                    <ListingCardCompact
+                      key={listing.id}
+                      listing={listing}
+                      isUserLoggedIn={!!user}
+                      isSaved={(savedListingIds || []).includes(listing.id)}
+                      currentUserId={(user as any)?.id ?? null}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {visibleEventListings.map((listing: any) => (
+                    <ListingCard
+                      key={listing.id}
+                      listing={listing}
+                      isUserLoggedIn={!!user}
+                      isSaved={(savedListingIds || []).includes(listing.id)}
+                      currentUserId={(user as any)?.id ?? null}
+                    />
+                  ))}
+                </div>
+              )}
               {hasMoreEventListings && (
                 <div className="mt-6 flex justify-center">
                   <Link

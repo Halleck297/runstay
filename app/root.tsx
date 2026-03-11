@@ -46,6 +46,7 @@ export const links: LinksFunction = () => [
     as: "image",
     type: "image/webp",
     media: "(max-width: 767px)",
+    fetchPriority: "high",
   },
   {
     rel: "preload",
@@ -53,6 +54,7 @@ export const links: LinksFunction = () => [
     as: "image",
     type: "image/webp",
     media: "(min-width: 768px)",
+    fetchPriority: "high",
   },
 ];
 
