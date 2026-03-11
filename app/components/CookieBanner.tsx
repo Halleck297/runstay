@@ -96,8 +96,11 @@ export default function CookieBanner({
                   We use essential cookies to make our site work. With your consent, we may also use
                   analytics cookies to improve your experience. You can accept all cookies or
                   customize your preferences.{" "}
-                  <a href="/cookie-policy" className="text-brand-600 hover:underline">
-                    Learn more
+                  <a
+                    href="/cookie-policy"
+                    className="font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
+                  >
+                    Read our Cookie Policy
                   </a>
                 </p>
               </div>

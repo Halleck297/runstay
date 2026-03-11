@@ -206,8 +206,8 @@ if (listing.listing_type === "bib") {
 
   // Border per TO (gold border)
   const cardClass = isTourOperator
-  ? "card overflow-hidden transition-all border-2 border-amber-400 h-full w-full md:w-[380px] md:h-[630px] md:mx-auto md:rounded-[32px] flex flex-col [box-shadow:0_4px_15px_rgba(0,0,0,0.25)]"
-  : "card overflow-hidden transition-all h-full w-full md:w-[380px] md:h-[630px] md:mx-auto md:rounded-[32px] flex flex-col [box-shadow:0_4px_15px_rgba(0,0,0,0.25)]";
+  ? "card overflow-hidden transition-all border-2 border-amber-400 h-full w-full md:max-w-[380px] md:h-[630px] md:mx-auto md:rounded-[32px] flex flex-col [box-shadow:0_4px_15px_rgba(0,0,0,0.25)]"
+  : "card overflow-hidden transition-all h-full w-full md:max-w-[380px] md:h-[630px] md:mx-auto md:rounded-[32px] flex flex-col [box-shadow:0_4px_15px_rgba(0,0,0,0.25)]";
 
 
   const listingHref = isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login";

@@ -390,7 +390,6 @@ export async function action({ request }: ActionFunctionArgs) {
             to: email,
             templateId: "referral_invite",
             locale: (user as any).preferred_language || null,
-            from: "support@runoot.com",
             payload: {
               inviterName: (user as any).full_name || "Your Team Leader",
               referralLink,
@@ -450,7 +449,6 @@ export async function action({ request }: ActionFunctionArgs) {
         to: invite.email,
         templateId: "referral_invite",
         locale: (user as any).preferred_language || null,
-        from: "support@runoot.com",
         payload: {
           inviterName: (user as any).full_name || "Your Team Leader",
           referralLink,

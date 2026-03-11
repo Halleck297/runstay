@@ -327,9 +327,9 @@ export default function Index() {
                 </div>
                 <button
                   type="submit"
-                  className="w-full shrink-0 rounded-full bg-accent-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-white hover:bg-accent-600 transition-colors md:w-auto"
+                  className="h-12 w-full shrink-0 rounded-full bg-accent-500 px-6 text-sm font-bold uppercase tracking-wide text-white hover:bg-accent-600 transition-colors md:w-auto"
                 >
-                  Search
+                  {t("nav.search")}
                 </button>
               </div>
             </Form>
@@ -338,16 +338,16 @@ export default function Index() {
 
 
         {/* Recent Listings */}
-        {listings.length > 0 && (
-          <section className="pt-36 pb-20 md:pt-28 md:pb-20 bg-[#ECF4FE]">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-center">
-                <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
-                  {t("home.recent_listings")}
-                </h2>
-              </div>
+        <section className="pt-36 pb-20 md:pt-28 md:pb-20 bg-[#ECF4FE]">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-center">
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
+                {t("home.recent_listings")}
+              </h2>
+            </div>
 
-              {preferCompactCards ? (
+            {listings.length > 0 ? (
+              preferCompactCards ? (
                 <div className="mt-6 flex flex-col gap-3">
                   {listings.map((listing: any) => (
                     <ListingCardCompact key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} currentUserId={(user as any)?.id ?? null} />
@@ -359,24 +359,26 @@ export default function Index() {
                     <ListingCard key={listing.id} listing={listing} isUserLoggedIn={!!user} isSaved={(savedListingIds || []).includes(listing.id)} currentUserId={(user as any)?.id ?? null} />
                   ))}
                 </div>
-              )}
-              <div className="mt-6 flex justify-center">
-                <Link
-                  to={user ? "/listings" : "/login"}
-                  onClick={() =>
-                    trackEvent(analyticsEvents.HOME_VIEW_ALL_LISTINGS_CLICKED, {
-                      authenticated: !!user,
-                    })
-                  }
-                  className="px-6 py-2.5 bg-brand-500 text-white text-sm font-semibold uppercase tracking-wide rounded-full hover:bg-brand-600 transition-all"
-                >
-                  {t("home.view_all")}
-                </Link>
-              </div>
-
+              )
+            ) : (
+              <p className="mt-8 text-center text-sm text-gray-600">{t("my_listings.no_listings")}</p>
+            )}
+            <div className="mt-10 flex justify-center">
+              <Link
+                to={user ? "/listings" : "/login"}
+                onClick={() =>
+                  trackEvent(analyticsEvents.HOME_VIEW_ALL_LISTINGS_CLICKED, {
+                    authenticated: !!user,
+                  })
+                }
+                className="px-8 py-3 bg-brand-500 text-white text-base font-semibold uppercase tracking-wide rounded-full hover:bg-brand-600 transition-all"
+              >
+                {t("home.view_all")}
+              </Link>
             </div>
-          </section>
-        )}
+
+          </div>
+        </section>
         {eventListings.length > 0 && (
           <section className="pb-20 md:pb-24 bg-[#ECF4FE]">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
