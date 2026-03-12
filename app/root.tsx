@@ -179,7 +179,6 @@ export default function App() {
   const [hydrated, setHydrated] = useState(false);
   const hideMobileNav =
     /(^|\/)(login|register)(\/|$)/.test(location.pathname) ||
-    location.pathname.includes("/join/") ||
     location.pathname.includes("/join-team/");
 
   useEffect(() => {

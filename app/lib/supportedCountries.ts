@@ -20,6 +20,64 @@ export type SupportedCountry = {
   nameEn: string;
 };
 
+const COUNTRY_DIALING_PREFIX: Record<SupportedCountryCode, string> = {
+  AL: "+355",
+  AT: "+43",
+  BE: "+32",
+  BA: "+387",
+  BG: "+359",
+  HR: "+385",
+  CY: "+357",
+  CZ: "+420",
+  DK: "+45",
+  EE: "+372",
+  FI: "+358",
+  FR: "+33",
+  DE: "+49",
+  GR: "+30",
+  HU: "+36",
+  IS: "+354",
+  IE: "+353",
+  IT: "+39",
+  LV: "+371",
+  LI: "+423",
+  LT: "+370",
+  LU: "+352",
+  MT: "+356",
+  MC: "+377",
+  ME: "+382",
+  NL: "+31",
+  NO: "+47",
+  PL: "+48",
+  PT: "+351",
+  RO: "+40",
+  RS: "+381",
+  RU: "+7",
+  SK: "+421",
+  SI: "+386",
+  ES: "+34",
+  SE: "+46",
+  CH: "+41",
+  UA: "+380",
+  GB: "+44",
+  US: "+1",
+  CA: "+1",
+  MX: "+52",
+  AR: "+54",
+  BR: "+55",
+  CL: "+56",
+  CO: "+57",
+  CR: "+506",
+  DO: "+1",
+  EC: "+593",
+  PA: "+507",
+  PE: "+51",
+  PY: "+595",
+  UY: "+598",
+  AU: "+61",
+  JP: "+81",
+};
+
 function normalizeText(value: string): string {
   return value
     .normalize("NFKD")
@@ -56,6 +114,43 @@ export function getSupportedCountries(locale: SupportedLocale): SupportedCountry
       nameEn: getEnglishName(code),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function getDialingPrefix(code: SupportedCountryCode): string {
+  return COUNTRY_DIALING_PREFIX[code];
+}
+
+const COUNTRY_TO_LOCALE: Partial<Record<SupportedCountryCode, SupportedLocale>> = {
+  IT: "it",
+  ES: "es",
+  MX: "es",
+  AR: "es",
+  CL: "es",
+  CO: "es",
+  CR: "es",
+  DO: "es",
+  EC: "es",
+  PA: "es",
+  PE: "es",
+  PY: "es",
+  UY: "es",
+  PT: "pt",
+  BR: "pt",
+  FR: "fr",
+  MC: "fr",
+  LU: "fr",
+  DE: "de",
+  AT: "de",
+  CH: "de",
+  NL: "nl",
+  BE: "nl",
+};
+
+export function getSuggestedLocaleForCountry(
+  code: SupportedCountryCode,
+  fallback: SupportedLocale = DEFAULT_LOCALE
+): SupportedLocale {
+  return COUNTRY_TO_LOCALE[code] ?? fallback;
 }
 
 export function getCountryDisplayName(rawInput: string | null | undefined, locale: SupportedLocale): string {

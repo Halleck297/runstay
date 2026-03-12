@@ -48,7 +48,7 @@ export function MobileNav({ user }: MobileNavProps) {
   }, [location.pathname]);
 
   // Don't show on login/register/join pages
-  if (location.pathname === "/login" || location.pathname === "/register" || location.pathname.startsWith("/join/")) {
+  if (location.pathname === "/login" || location.pathname === "/register") {
     return null;
   }
 

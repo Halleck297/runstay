@@ -10,6 +10,16 @@ const footerByLocale: Record<EmailLocale, string> = {
   pt: "Voce esta recebendo este e-mail por causa da sua atividade no Runoot.",
 };
 
+const fallbackLinkLabelByLocale: Record<EmailLocale, string> = {
+  en: "here",
+  it: "qui",
+  de: "hier",
+  fr: "ici",
+  es: "aqui",
+  nl: "hier",
+  pt: "aqui",
+};
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -50,7 +60,7 @@ export function renderBaseEmailLayout(args: BaseLayoutArgs): string {
     : "";
   const ctaFallback =
     args.ctaLabel && args.ctaUrl && args.ctaFallbackText
-      ? `<p style=\"margin:16px 0 0;color:#6b7280;font-size:12px;\">${escapeHtml(args.ctaFallbackText)}</p><p style=\"margin:8px 0 0;color:#6b7280;font-size:12px;word-break:break-all;\">${escapeHtml(args.ctaUrl)}</p>`
+      ? `<p style=\"margin:16px 0 0;color:#6b7280;font-size:12px;\">${escapeHtml(args.ctaFallbackText)} <a href=\"${escapeHtml(args.ctaUrl)}\" style=\"color:#0C78F3;text-decoration:underline;font-weight:600;\">${escapeHtml(fallbackLinkLabelByLocale[args.locale])}</a>.</p>`
       : "";
   const footerText = escapeHtml(args.footerText || footerByLocale[args.locale]);
 

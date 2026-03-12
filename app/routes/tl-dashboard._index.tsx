@@ -206,32 +206,6 @@ export async function action({ request }: ActionFunctionArgs) {
   const actionType = formData.get("_action") as string;
 
   switch (actionType) {
-    case "updateCode": {
-      const newCode = (formData.get("referralCode") as string || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-
-      if (newCode.length < 3 || newCode.length > 20) {
-        return data({ errorKey: "code_length_invalid" as const }, { status: 400 });
-      }
-
-      // Check uniqueness
-      const { data: existing } = await supabaseAdmin
-        .from("profiles")
-        .select("id")
-        .eq("referral_code", newCode)
-        .neq("id", (user as any).id)
-        .single();
-
-      if (existing) {
-        return data({ errorKey: "code_taken" as const }, { status: 400 });
-      }
-
-      await (supabaseAdmin.from("profiles") as any)
-        .update({ referral_code: newCode })
-        .eq("id", (user as any).id);
-
-      return data({ success: true, messageKey: "tl_dashboard.success.code_updated" as const });
-    }
-
     case "updateWelcome": {
       const welcomeMessage = (formData.get("welcomeMessage") as string || "").trim();
 
@@ -273,7 +247,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
       const now = new Date().toISOString();
       const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
-      const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
+      const referralLink = `${appUrl}/${String((user as any).referral_code || "").toLowerCase()}`;
       const currentUserEmail = normalizeEmail(String((user as any).email || ""));
 
       const { data: existingInvites } = await (supabaseAdmin.from("referral_invites") as any)
@@ -443,7 +417,7 @@ export async function action({ request }: ActionFunctionArgs) {
       }
 
       const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
-      const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
+      const referralLink = `${appUrl}/${String((user as any).referral_code || "").toLowerCase()}`;
 
       const sendResult = await sendTemplatedEmail({
         to: invite.email,
@@ -491,7 +465,7 @@ export default function TLDashboard() {
   const [copied, setCopied] = useState(false);
   const [timelineHydrated, setTimelineHydrated] = useState(false);
 
-  const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
+  const referralLink = `${appUrl}/${String((user as any).referral_code || "").toLowerCase()}`;
   const formatDate = (value: string) => {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
@@ -601,7 +575,7 @@ export default function TLDashboard() {
             Welcome message
           </button>
           <button type="button" onClick={() => handleSectionJump("your-referrals")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
-            Your referrals
+            {t("tl_dashboard.your_referrals")}
           </button>
         </div>
       </div>
@@ -733,28 +707,6 @@ export default function TLDashboard() {
           </button>
         </div>
 
-        {/* Customize code */}
-        <Form method="post" className="flex items-end gap-3">
-          <input type="hidden" name="_action" value="updateCode" />
-          <div className="flex-1">
-            <label htmlFor="referralCode" className="label">{t("tl_dashboard.custom_code")}</label>
-            <div className="flex items-center">
-              <span className="text-sm text-gray-400 mr-1">/join/</span>
-              <input
-                type="text"
-                id="referralCode"
-                name="referralCode"
-                defaultValue={(user as any).referral_code || ""}
-                placeholder={t("tl_dashboard.code_placeholder")}
-                className="input flex-1 uppercase"
-                maxLength={20}
-              />
-            </div>
-          </div>
-          <button type="submit" className="btn-secondary rounded-full text-sm px-4 py-2">
-            {t("tl_dashboard.save_code")}
-          </button>
-        </Form>
       </div>
 
       {/* Welcome message */}

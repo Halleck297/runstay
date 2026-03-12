@@ -8,7 +8,7 @@ const copy = {
     title: "You have been invited to join Runoot.",
     intro: "invited you to become part of their team.",
     cta: "Accept invitation",
-    fallback: "If the button does not work, copy and paste this link into your browser:",
+    fallback: "If the button does not work, click",
     description:
       "Runoot is a platform built for runners - a private space to connect and securely exchange race bibs, hotel bookings, and race packages when plans change.",
     joinLine:
@@ -23,7 +23,7 @@ const copy = {
     title: "Sei invitato su Runoot",
     intro: "ti ha invitato nella sua community di corsa.",
     cta: "Accetta invito",
-    fallback: "Se il pulsante non funziona, apri questo link:",
+    fallback: "Se il pulsante non funziona, fai clic",
     description:
       "Runoot e una piattaforma per runner: uno spazio privato per connettersi e scambiare in sicurezza pettorali, hotel e pacchetti gara quando i piani cambiano.",
     joinLine:
@@ -38,7 +38,7 @@ const copy = {
     title: "Du bist zu Runoot eingeladen",
     intro: "hat dich in die Lauf-Community eingeladen.",
     cta: "Einladung annehmen",
-    fallback: "Wenn der Button nicht funktioniert, oeffne diesen Link:",
+    fallback: "Wenn der Button nicht funktioniert, klicke",
     description:
       "Runoot ist eine Plattform fur Laufer - ein privater Bereich, um sich zu vernetzen und Startnummern, Hotelbuchungen und Laufpakete sicher zu tauschen, wenn sich Plane andern.",
     joinLine:
@@ -53,7 +53,7 @@ const copy = {
     title: "Vous etes invite sur Runoot",
     intro: "vous a invite dans la communaute running.",
     cta: "Accepter l'invitation",
-    fallback: "Si le bouton ne fonctionne pas, ouvrez ce lien :",
+    fallback: "Si le bouton ne fonctionne pas, cliquez",
     description:
       "Runoot est une plateforme pour les coureurs - un espace prive pour se connecter et echanger en toute securite des dossards, des reservations d'hotel et des packages course quand les plans changent.",
     joinLine:
@@ -68,7 +68,7 @@ const copy = {
     title: "Estas invitado a Runoot",
     intro: "te ha invitado a su comunidad de running.",
     cta: "Aceptar invitacion",
-    fallback: "Si el boton no funciona, abre este enlace:",
+    fallback: "Si el boton no funciona, haz clic",
     description:
       "Runoot es una plataforma para corredores: un espacio privado para conectar y cambiar de forma segura dorsales, reservas de hotel y paquetes de carrera cuando cambian los planes.",
     joinLine:
@@ -83,7 +83,7 @@ const copy = {
     title: "Je bent uitgenodigd voor Runoot",
     intro: "heeft je uitgenodigd om deel uit te maken van het team.",
     cta: "Uitnodiging accepteren",
-    fallback: "Als de knop niet werkt, open dan deze link:",
+    fallback: "Als de knop niet werkt, klik",
     description:
       "Runoot is een platform voor hardlopers - een priveomgeving om veilig startnummers, hotelboekingen en racepakketten te ruilen wanneer plannen veranderen.",
     joinLine:
@@ -98,7 +98,7 @@ const copy = {
     title: "Voce foi convidado para a Runoot",
     intro: "convidou voce para fazer parte do time.",
     cta: "Aceitar convite",
-    fallback: "Se o botao nao funcionar, abra este link:",
+    fallback: "Se o botao nao funcionar, clique",
     description:
       "Runoot e uma plataforma para corredores - um espaco privado para conectar e trocar com seguranca dorsais, reservas de hotel e pacotes de corrida quando os planos mudam.",
     joinLine:

@@ -7,11 +7,11 @@ export const LOCALE_COOKIE_NAME = "runoot_locale";
 export const LOCALE_LABELS: Record<SupportedLocale, string> = {
   en: "English",
   de: "Deutsch",
-  fr: "Francais",
+  fr: "Français",
   it: "Italiano",
-  es: "Espanol",
+  es: "Español",
   nl: "Nederlands",
-  pt: "Portugues",
+  pt: "Português",
 };
 
 export const LOCALE_FLAGS: Record<SupportedLocale, string> = {

@@ -5,6 +5,7 @@ import { useLoaderData, useActionData, Form } from "react-router";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useState } from "react";
+import { generateUniqueReferralCode } from "~/lib/referral-code.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Team Leaders - Admin - Runoot" }];
@@ -74,15 +75,6 @@ function generateToken(): string {
   return token;
 }
 
-function generateReferralCode(name: string): string {
-  const base = name
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .substring(0, 8);
-  const year = new Date().getFullYear();
-  return `${base}${year}`;
-}
-
 export async function action({ request }: ActionFunctionArgs) {
   const admin = await requireAdmin(request);
   const formData = await request.formData();
@@ -121,28 +113,16 @@ export async function action({ request }: ActionFunctionArgs) {
         user_type: newStatus ? "team_leader" : "private",
       };
       if (newStatus) {
-        // Generate referral code from user name
         const { data: userProfile } = await supabaseAdmin
           .from("profiles")
           .select("full_name, email")
           .eq("id", userId)
           .single();
-
-        const baseName = (userProfile as any)?.full_name || (userProfile as any)?.email?.split("@")[0] || "TL";
-        let code = generateReferralCode(baseName);
-
-        // Check if code already exists, add random suffix if so
-        const { data: existing } = await supabaseAdmin
-          .from("profiles")
-          .select("id")
-          .eq("referral_code", code)
-          .single();
-
-        if (existing) {
-          code = code + Math.floor(Math.random() * 100);
-        }
-
-        updateData.referral_code = code;
+        updateData.referral_code = await generateUniqueReferralCode({
+          fullName: (userProfile as any)?.full_name || null,
+          email: (userProfile as any)?.email || null,
+          excludeUserId: userId,
+        });
       }
 
       const { error } = await (supabaseAdmin.from("profiles") as any)
@@ -375,7 +355,7 @@ export default function AdminTeamLeaders() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {tl.referral_code && (
                     <button
-                      onClick={() => copyToClipboard(`${baseUrl}/join/${tl.referral_code}`, `tl-${tl.id}`)}
+                      onClick={() => copyToClipboard(`${baseUrl}/${String(tl.referral_code || "").toLowerCase()}`, `tl-${tl.id}`)}
                       className="text-xs text-brand-600 hover:text-brand-700 px-2 py-1 rounded bg-brand-50"
                     >
                       {copiedToken === `tl-${tl.id}` ? "Copied!" : "Copy Referral"}

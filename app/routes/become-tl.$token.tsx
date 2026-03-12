@@ -6,6 +6,7 @@ import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useI18n } from "~/hooks/useI18n";
 import { isTeamLeader } from "~/lib/user-access";
+import { generateUniqueReferralCode } from "~/lib/referral-code.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Become a Team Leader - Runoot" }];
@@ -79,20 +80,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return data({ errorKey: "token_expired" as const }, { status: 400 });
   }
 
-  // Generate referral code
-  const baseName = (user as any).full_name || (user as any).email.split("@")[0] || "TL";
-  let code = baseName.toUpperCase().replace(/[^A-Z0-9]/g, "").substring(0, 8) + new Date().getFullYear();
-
-  // Check uniqueness
-  const { data: existing } = await supabaseAdmin
-    .from("profiles")
-    .select("id")
-    .eq("referral_code", code)
-    .single();
-
-  if (existing) {
-    code = code + Math.floor(Math.random() * 100);
-  }
+  const code = await generateUniqueReferralCode({
+    fullName: (user as any).full_name || null,
+    email: (user as any).email || null,
+    excludeUserId: String((user as any).id),
+  });
 
   // Promote to TL
   await (supabaseAdmin.from("profiles") as any)

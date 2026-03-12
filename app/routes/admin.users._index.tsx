@@ -7,6 +7,7 @@ import { requireAdmin, logAdminAction, startImpersonation } from "~/lib/session.
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { getProfilePublicId } from "~/lib/publicIds";
 import { isSuperAdmin } from "~/lib/user-access";
+import { generateUniqueReferralCode } from "~/lib/referral-code.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Users - Admin - Runoot" }];
@@ -137,6 +138,21 @@ export async function action({ request }: ActionFunctionArgs) {
           break;
         case "team_leader":
           updateData.user_type = "team_leader";
+          {
+            const { data: userProfile } = await supabaseAdmin
+              .from("profiles")
+              .select("full_name, email, referral_code")
+              .eq("id", userId)
+              .maybeSingle();
+            const existingCode = String((userProfile as any)?.referral_code || "").trim();
+            if (!existingCode) {
+              updateData.referral_code = await generateUniqueReferralCode({
+                fullName: (userProfile as any)?.full_name || null,
+                email: (userProfile as any)?.email || null,
+                excludeUserId: userId,
+              });
+            }
+          }
           break;
         case "tour_operator":
           updateData.user_type = "tour_operator";

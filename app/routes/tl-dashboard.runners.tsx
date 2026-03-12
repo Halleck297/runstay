@@ -125,7 +125,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
       const now = new Date().toISOString();
       const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
-      const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
+      const referralLink = `${appUrl}/${String((user as any).referral_code || "").toLowerCase()}`;
       const currentUserEmail = normalizeEmail(String((user as any).email || ""));
 
       const { data: existingInvites } = await (supabaseAdmin.from("referral_invites") as any)
@@ -288,7 +288,7 @@ export async function action({ request }: ActionFunctionArgs) {
       }
 
       const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
-      const referralLink = `${appUrl}/join/${(user as any).referral_code}`;
+      const referralLink = `${appUrl}/${String((user as any).referral_code || "").toLowerCase()}`;
 
       const sendResult = await sendTemplatedEmail({
         to: invite.email,
