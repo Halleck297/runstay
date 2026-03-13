@@ -86,7 +86,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const page = Number.parseInt(url.searchParams.get("page") || "1", 10) || 1;
 
   let query = (supabaseAdmin.from("access_requests" as any) as any)
-    .select("id, full_name, email, country, city, phone, preferred_language, note, source, status, reviewed_by, reviewed_at, created_at", {
+    .select("id, full_name, email, country, city, phone, date_of_birth, preferred_language, note, source, status, reviewed_by, reviewed_at, created_at", {
       count: "exact",
     })
     .order("created_at", { ascending: false })
@@ -135,7 +135,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   const { data: accessRequest } = await (supabaseAdmin.from("access_requests" as any) as any)
-    .select("id, full_name, email, country, city, phone, preferred_language, status")
+    .select("id, full_name, email, country, city, phone, date_of_birth, preferred_language, status")
     .eq("id", requestId)
     .maybeSingle();
 
@@ -200,6 +200,7 @@ export async function action({ request }: ActionFunctionArgs) {
       country: ((accessRequest as any).country as string | null) || null,
       city: ((accessRequest as any).city as string | null) || null,
       phone: ((accessRequest as any).phone as string | null) || null,
+      date_of_birth: ((accessRequest as any).date_of_birth as string | null) || null,
       preferred_language: ((accessRequest as any).preferred_language as string | null) || null,
     };
 
@@ -326,6 +327,7 @@ export default function AdminAccessRequests() {
                   <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
                     {req.country ? <span className="rounded bg-gray-100 px-2 py-1">Country: {req.country}</span> : null}
                     {req.city ? <span className="rounded bg-gray-100 px-2 py-1">City: {req.city}</span> : null}
+                    {req.date_of_birth ? <span className="rounded bg-gray-100 px-2 py-1">DOB: {formatDateStable(req.date_of_birth)}</span> : null}
                     {req.phone ? <span className="rounded bg-gray-100 px-2 py-1">Phone: {req.phone}</span> : null}
                     {req.preferred_language ? <span className="rounded bg-gray-100 px-2 py-1">Language: {req.preferred_language}</span> : null}
                     <span className="rounded bg-gray-100 px-2 py-1">Source: {req.source}</span>

@@ -14,6 +14,25 @@ export const LOCALE_LABELS: Record<SupportedLocale, string> = {
   pt: "Português",
 };
 
+function capitalizeLabel(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export function getLocaleLabelsForUi(uiLocale: SupportedLocale): Record<SupportedLocale, string> {
+  try {
+    const languageNames = new Intl.DisplayNames([uiLocale], { type: "language" });
+    const labels = {} as Record<SupportedLocale, string>;
+    for (const locale of SUPPORTED_LOCALES) {
+      const localized = languageNames.of(locale);
+      labels[locale] = localized ? capitalizeLabel(localized) : LOCALE_LABELS[locale];
+    }
+    return labels;
+  } catch {
+    return LOCALE_LABELS;
+  }
+}
+
 export const LOCALE_FLAGS: Record<SupportedLocale, string> = {
   en: "🇬🇧",
   de: "🇩🇪",

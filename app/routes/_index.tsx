@@ -117,6 +117,13 @@ export default function Index() {
       url: "https://www.runoot.com",
       logo: "https://www.runoot.com/logo.svg",
     });
+    const webSiteJsonLd = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "runoot",
+      url: "https://www.runoot.com",
+      inLanguage: "en",
+    });
 
     const [searchQuery, setSearchQuery] = useState("");
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -226,6 +233,10 @@ export default function Index() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: organizationJsonLd }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: webSiteJsonLd }}
       />
       <Header user={user} isHome />
       <main className="flex-1">

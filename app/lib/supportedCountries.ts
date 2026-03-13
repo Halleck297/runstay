@@ -78,8 +78,8 @@ const COUNTRY_DIALING_PREFIX: Record<SupportedCountryCode, string> = {
   JP: "+81",
 };
 
-function normalizeText(value: string): string {
-  return value
+function normalizeText(value: string | null | undefined): string {
+  return String(value || "")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")

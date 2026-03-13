@@ -3,7 +3,7 @@ import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-router";
 import { useMemo, useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
-import { isSupportedLocale, LOCALE_LABELS, resolveLocaleForRequest, type SupportedLocale } from "~/lib/locale";
+import { getLocaleLabelsForUi, isSupportedLocale, resolveLocaleForRequest, type SupportedLocale } from "~/lib/locale";
 import { getDialingPrefix, getSuggestedLocaleForCountry, getSupportedCountries, resolveSupportedCountry } from "~/lib/supportedCountries";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -16,6 +16,22 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 };
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function toIsoDateOnly(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function getDobBounds() {
+  const now = new Date();
+  const max = new Date(now);
+  max.setFullYear(max.getFullYear() - 18);
+  const min = new Date(now);
+  min.setFullYear(min.getFullYear() - 80);
+  return {
+    minDob: toIsoDateOnly(min),
+    maxDob: toIsoDateOnly(max),
+  };
+}
 
 function normalizeEmail(value: string): string {
   return value
@@ -36,7 +52,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 type ActionData =
-  | { errorKey: "register.error.invite_code_required" | "register.error.first_name_required" | "register.error.last_name_required" | "register.error.valid_email_required" | "register.error.country_required" | "register.error.country_unsupported" | "register.error.city_required" | "register.error.note_required" | "register.error.note_too_long" | "register.error.submit_failed" | "register.error.invalid_action"; field?: string }
+  | { errorKey: "register.error.invite_code_required" | "register.error.first_name_required" | "register.error.last_name_required" | "register.error.valid_email_required" | "register.error.country_required" | "register.error.country_unsupported" | "register.error.city_required" | "register.error.date_of_birth_required" | "register.error.date_of_birth_invalid" | "register.error.date_of_birth_too_young" | "register.error.date_of_birth_too_old" | "register.error.note_required" | "register.error.note_too_long" | "register.error.submit_failed" | "register.error.invalid_action"; field?: string }
   | { success: true; type: "invite_redirect" }
   | { success: true; type: "lead_created"; alreadyPending?: boolean };
 
@@ -61,6 +77,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const country = String(formData.get("country") || "").trim();
     const city = String(formData.get("city") || "").trim();
     const phone = String(formData.get("phone") || "").trim();
+    const dateOfBirth = String(formData.get("dateOfBirth") || "").trim();
     const note = String(formData.get("note") || "").trim();
     const preferredLanguageRaw = String(formData.get("language") || "").trim().toLowerCase();
     const preferredLanguage = isSupportedLocale(preferredLanguageRaw)
@@ -91,6 +108,21 @@ export async function action({ request }: ActionFunctionArgs) {
       return data<ActionData>({ errorKey: "register.error.city_required", field: "city" }, { status: 400 });
     }
 
+    if (!dateOfBirth) {
+      return data<ActionData>({ errorKey: "register.error.date_of_birth_required", field: "dateOfBirth" }, { status: 400 });
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+      return data<ActionData>({ errorKey: "register.error.date_of_birth_invalid", field: "dateOfBirth" }, { status: 400 });
+    }
+    const { minDob, maxDob } = getDobBounds();
+    if (dateOfBirth > maxDob) {
+      return data<ActionData>({ errorKey: "register.error.date_of_birth_too_young", field: "dateOfBirth" }, { status: 400 });
+    }
+    if (dateOfBirth < minDob) {
+      return data<ActionData>({ errorKey: "register.error.date_of_birth_too_old", field: "dateOfBirth" }, { status: 400 });
+    }
+
     const dialingPrefix = getDialingPrefix(resolvedCountry.code);
     let normalizedNationalPhone = phone.replace(/[^\d]/g, "");
     const dialingDigits = dialingPrefix.replace("+", "");
@@ -115,6 +147,7 @@ export async function action({ request }: ActionFunctionArgs) {
       country: resolvedCountry.nameEn,
       city: city || null,
       phone: normalizedPhone,
+      date_of_birth: dateOfBirth,
       preferred_language: preferredLanguage,
       note: note || null,
       source: "public_signup",
@@ -148,6 +181,8 @@ export default function Register() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
   const countries = getSupportedCountries(locale);
+  const { minDob, maxDob } = useMemo(() => getDobBounds(), []);
+  const localeLabels = useMemo(() => getLocaleLabelsForUi(locale), [locale]);
   const [countryValue, setCountryValue] = useState("");
   const [languageValue, setLanguageValue] = useState<SupportedLocale>(detectedLocale);
   const [languageTouched, setLanguageTouched] = useState(false);
@@ -186,9 +221,9 @@ export default function Register() {
             <p className="mt-1 text-sm text-gray-600">{t("register.invite.subtitle")}</p>
             <Form method="post" className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
               <input type="hidden" name="intent" value="use_invite" />
-              <div className="flex-1">
+              <div className="w-full sm:max-w-[240px]">
                 <label htmlFor="inviteCode" className="label">{t("register.invite.code_label")}</label>
-                <input id="inviteCode" name="inviteCode" type="text" className="input w-full rounded-full bg-white" placeholder={t("register.invite.code_placeholder")} required />
+                <input id="inviteCode" name="inviteCode" type="text" className="input w-full rounded-full bg-white" required />
               </div>
               <button type="submit" className="btn-primary rounded-full sm:mb-[1px]" disabled={isSubmitting}>
                 {t("register.invite.cta")}
@@ -214,22 +249,22 @@ export default function Register() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label htmlFor="firstName" className="label">{t("register.form.first_name")}</label>
-                  <input id="firstName" name="firstName" type="text" autoComplete="given-name" className="input w-full rounded-full bg-gray-100" required />
+                  <input id="firstName" name="firstName" type="text" autoComplete="given-name" className="input w-full rounded-full bg-white" required />
                 </div>
                 <div>
                   <label htmlFor="lastName" className="label">{t("register.form.last_name")}</label>
-                  <input id="lastName" name="lastName" type="text" autoComplete="family-name" className="input w-full rounded-full bg-gray-100" required />
+                  <input id="lastName" name="lastName" type="text" autoComplete="family-name" className="input w-full rounded-full bg-white" required />
                 </div>
                 <div>
                   <label htmlFor="email" className="label">{t("auth.email")}</label>
-                  <input id="email" name="email" type="email" autoComplete="email" className="input w-full rounded-full bg-gray-100" required />
+                  <input id="email" name="email" type="email" autoComplete="email" className="input w-full rounded-full bg-white" required />
                 </div>
                 <div>
                   <label htmlFor="country" className="label">{t("profile.form.country")}</label>
                   <select
                     id="country"
                     name="country"
-                    className="input w-full rounded-full bg-gray-100"
+                    className="input w-full rounded-full bg-white"
                     required
                     value={countryValue}
                     onChange={(event) => {
@@ -255,12 +290,16 @@ export default function Register() {
                 </div>
                 <div>
                   <label htmlFor="city" className="label">{t("profile.form.city")}</label>
-                  <input id="city" name="city" type="text" className="input w-full rounded-full bg-gray-100" required />
+                  <input id="city" name="city" type="text" className="input w-full rounded-full bg-white" required />
+                </div>
+                <div>
+                  <label htmlFor="dateOfBirth" className="label">{t("register.form.date_of_birth")}</label>
+                  <input id="dateOfBirth" name="dateOfBirth" type="date" min={minDob} max={maxDob} className="input w-full rounded-full bg-white" required />
                 </div>
                 <div>
                   <label htmlFor="phone" className="label">{t("profile.form.phone_number")}</label>
                   <div className="flex items-stretch">
-                    <span className="input rounded-r-none rounded-l-full bg-gray-100 px-4 text-sm text-gray-700 flex items-center border-r-0">
+                    <span className="shrink-0 rounded-r-none rounded-l-full bg-gray-100 px-3 py-2.5 text-sm text-gray-700 flex items-center justify-center border-none border-r-0 shadow-[0_2px_8px_rgba(0,0,0,0.15)] md:px-4 min-w-[72px]">
                       {phonePrefix}
                     </span>
                     <input
@@ -268,8 +307,7 @@ export default function Register() {
                       name="phone"
                       type="tel"
                       autoComplete="tel-national"
-                      className="input w-full rounded-l-none rounded-r-full bg-gray-100"
-                      placeholder="123 4567890"
+                      className="input w-full rounded-l-none rounded-r-full bg-white"
                     />
                   </div>
                 </div>
@@ -287,7 +325,7 @@ export default function Register() {
                       if (isSupportedLocale(nextValue)) setLanguageValue(nextValue);
                     }}
                   >
-                    {Object.entries(LOCALE_LABELS).map(([langCode, label]) => (
+                    {Object.entries(localeLabels).map(([langCode, label]) => (
                       <option key={langCode} value={langCode}>
                         {label}
                       </option>
@@ -301,8 +339,8 @@ export default function Register() {
                 <textarea
                   id="note"
                   name="note"
-                  rows={4}
-                  className="input w-full rounded-2xl bg-gray-100 py-2"
+                  rows={7}
+                  className="input w-full resize-none rounded-2xl bg-white py-2"
                   placeholder={t("register.form.note_placeholder")}
                   maxLength={1000}
                   required

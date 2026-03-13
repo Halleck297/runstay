@@ -122,7 +122,17 @@
   }
 
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1.5;
+    @apply block mb-1.5 text-sm font-medium text-gray-700;
+  }
+
+  /* Align labels with text inset only for rounded fields */
+  .label:has(+ .input.rounded-full),
+  .label:has(+ .input.rounded-3xl),
+  .label:has(+ .input.rounded-r-full),
+  .label:has(+ div .input.rounded-full),
+  .label:has(+ div .input.rounded-3xl),
+  .label:has(+ div .input.rounded-r-full) {
+    @apply pl-4;
   }
 
   .card {

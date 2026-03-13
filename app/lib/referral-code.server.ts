@@ -39,6 +39,7 @@ const RESERVED_BASE_SLUGS = [
   "ph",
   "privacy-policy",
   "profile",
+  "professional-access",
   "profiles",
   "pt",
   "register",
