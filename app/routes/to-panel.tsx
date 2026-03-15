@@ -171,8 +171,8 @@ export default function ToPanel() {
       navItems={panelNavItems}
     >
       <div className="-m-4 min-h-full bg-[#ECF4FE] md:-m-8">
-        <main className="mx-auto max-w-7xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-          <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+        <main className="px-0 py-6 pb-24 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
+          <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
             <h1 className="font-display text-2xl font-bold text-gray-900 sm:text-3xl">
               {t("dashboard.welcome_back")}, {publicName}
             </h1>
@@ -181,7 +181,7 @@ export default function ToPanel() {
 
           <div className="grid gap-6 lg:grid-cols-3">
             <section className="space-y-6 lg:col-span-2">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="border-y border-slate-200 bg-white p-5 md:rounded-2xl md:border md:shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="font-display text-lg font-semibold text-gray-900">{t("dashboard.needs_action")}</h2>
                   <Link to="/to-panel/listings" className="text-sm font-medium text-brand-600 hover:text-brand-700">
@@ -209,7 +209,7 @@ export default function ToPanel() {
                 )}
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="border-y border-slate-200 bg-white p-5 md:rounded-2xl md:border md:shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="font-display text-lg font-semibold text-gray-900">{t("dashboard.new_leads")}</h2>
                   <Link to="/messages" className="text-sm font-medium text-brand-600 hover:text-brand-700">
@@ -254,7 +254,7 @@ export default function ToPanel() {
             </section>
 
             <aside className="space-y-6">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="border-y border-slate-200 bg-white p-5 md:rounded-2xl md:border md:shadow-sm">
                 <h2 className="mb-4 font-display text-lg font-semibold text-gray-900">{t("dashboard.quick_actions")}</h2>
                 <div className="space-y-2.5">
                   <Link to="/to-panel/listings/new" className="btn-primary block w-full rounded-full px-4 py-2.5 text-center text-sm">
@@ -275,7 +275,7 @@ export default function ToPanel() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="border-y border-slate-200 bg-white p-5 md:rounded-2xl md:border md:shadow-sm">
                 <h2 className="mb-4 font-display text-lg font-semibold text-gray-900">{t("dashboard.snapshot")}</h2>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">

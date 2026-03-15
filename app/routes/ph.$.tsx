@@ -16,7 +16,8 @@ function buildTargetUrl(request: Request, splat?: string): string {
   const { ingestHost, assetsHost } = resolveProxyTargets();
   const url = new URL(request.url);
   const proxyPath = extractProxyPath(request, splat);
-  const base = proxyPath.startsWith("static/") ? assetsHost : ingestHost;
+  // PostHog serves config.js via /array/<project_api_key>/config.js from the assets host.
+  const base = proxyPath.startsWith("static/") || proxyPath.startsWith("array/") ? assetsHost : ingestHost;
   return `${base}/${proxyPath}${url.search}`;
 }
 

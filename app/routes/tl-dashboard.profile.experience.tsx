@@ -149,18 +149,18 @@ export default function RunningExperience() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
+    <div className="min-h-screen bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
 
-      <div className="mx-auto max-w-7xl px-4 pt-14 pb-28 sm:px-6 md:pt-16 md:pb-8 lg:px-8">
+      <div className="px-0 pt-18 pb-8 md:mx-auto md:max-w-7xl md:px-8 md:pt-16 md:pb-8">
         <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
           <aside className="flex-shrink-0 lg:w-72">
-            <div className="rounded-3xl border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:p-6">
+            <div className="border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:rounded-3xl md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
                 <button
                   type="button"
                   onClick={() => setIsAvatarModalOpen(true)}
                   className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-2xl font-bold text-white ring-offset-2 transition-all md:h-24 md:w-24 md:text-3xl"
-                  aria-label="Choose avatar"
+                  aria-label={t("profile.avatar.click_to_change")}
                 >
                   {user.avatar_url ? (
                     <img
@@ -222,14 +222,14 @@ export default function RunningExperience() {
             </div>
           </aside>
 
-          <main id="tl-experience-main" className="min-w-0 flex-1 scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:scroll-mt-0 md:p-6">
-            <div className="mb-6">
+          <main id="tl-experience-main" className="min-w-0 flex-1 scroll-mt-36 border-y border-gray-200 bg-white p-4 md:scroll-mt-0 md:rounded-3xl md:border md:p-6 md:shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)]">
+            <div className="mb-6 rounded-3xl border border-brand-500 bg-white p-4 md:p-5">
               <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.experience.title")}</h1>
               <p className="mt-1 text-gray-900">{t("profile.experience.subtitle")}</p>
             </div>
 
             {actionData && "success" in actionData && actionData.success && (
-              <div className="mb-6 flex items-center gap-2 rounded-xl bg-success-50 p-4 text-sm text-success-700">
+              <div className="mb-6 flex items-center gap-2 bg-success-50 p-4 text-sm text-success-700 md:rounded-xl">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -238,7 +238,7 @@ export default function RunningExperience() {
             )}
 
             {actionData && "error" in actionData && actionData.error && (
-              <div className="mb-6 flex items-center gap-2 rounded-xl bg-alert-50 p-4 text-sm text-alert-700">
+              <div className="mb-6 flex items-center gap-2 bg-alert-50 p-4 text-sm text-alert-700 md:rounded-xl">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -249,7 +249,7 @@ export default function RunningExperience() {
             <Form method="post">
               <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.experience.marathons")}</h3>
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.completed")}</label>
                   <input
                     name="marathonsCompleted"
@@ -261,7 +261,7 @@ export default function RunningExperience() {
                   />
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.personal_best")}</label>
                   <input
                     name="marathonPB"
@@ -272,21 +272,21 @@ export default function RunningExperience() {
                   />
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.pb_location")}</label>
                   <input
                     name="marathonPBLocation"
                     type="text"
                     defaultValue={(user as any).marathon_pb_location || ""}
                     className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder="Berlin 2023"
+                    placeholder={t("profile.experience.pb_location")}
                   />
                 </div>
               </div>
 
               <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.experience.half_marathons")}</h3>
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.completed")}</label>
                   <input
                     name="halfMarathonsCompleted"
@@ -298,7 +298,7 @@ export default function RunningExperience() {
                   />
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.personal_best")}</label>
                   <input
                     name="halfMarathonPB"
@@ -309,20 +309,20 @@ export default function RunningExperience() {
                   />
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.pb_location")}</label>
                   <input
                     name="halfMarathonPBLocation"
                     type="text"
                     defaultValue={(user as any).half_marathon_pb_location || ""}
                     className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder="Valencia 2024"
+                    placeholder={t("profile.experience.pb_location")}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5 md:col-span-2">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:col-span-2 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.favorite_races")}</label>
                   <textarea
                     name="favoriteRaces"
@@ -334,7 +334,7 @@ export default function RunningExperience() {
                   <p className="mt-2 text-xs text-gray-400">{t("profile.experience.favorite_races_help")}</p>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5 md:col-span-2">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:col-span-2 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.running_goals")}</label>
                   <textarea
                     name="runningGoals"

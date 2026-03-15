@@ -3,7 +3,8 @@ import type { TranslationKey } from "~/lib/i18n";
 
 type PanelNavKeyItem = {
   to: string;
-  labelKey: TranslationKey;
+  labelKey?: TranslationKey;
+  label?: string;
   icon: ReactNode;
   exact?: boolean;
   spacerTop?: boolean;
@@ -24,8 +25,17 @@ export const teamLeaderNavItems: PanelNavKeyItem[] = [
     ),
   },
   {
+    to: "/tl-dashboard/referrals",
+    labelKey: "nav.invites",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 11-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 115.656 5.656l-1.5 1.5" />
+      </svg>
+    ),
+  },
+  {
     to: "/tl-dashboard/runners",
-    labelKey: "tl_dashboard.your_referrals",
+    labelKey: "nav.team",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />

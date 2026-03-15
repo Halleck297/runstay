@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useFetcher, useLoaderData, useNavigation, useNavigate } from "react-router";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -325,13 +326,19 @@ export default function Conversation() {
   const navigate = useNavigate();
   const olderMessagesFetcher = useFetcher<{ messages: any[]; hasOlderMessages?: boolean }>();
   const formRef = useRef<HTMLFormElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previousLastMessageIdRef = useRef<string | null>(null);
+  const hasInitializedScrollRef = useRef(false);
+  const shouldStickToBottomRef = useRef(true);
+  const olderMessagesScrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [hasOlderMessages, setHasOlderMessages] = useState(initialHasOlderMessages);
   const menuRef = useRef<HTMLDivElement>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [mobileHeaderSlot, setMobileHeaderSlot] = useState<HTMLElement | null>(null);
 
   const isSubmitting = navigation.state === "submitting";
   const userId = (user as any).id as string;
@@ -369,6 +376,7 @@ export default function Conversation() {
 
   // Function to add optimistic message
   const addOptimisticMessage = (content: string) => {
+    shouldStickToBottomRef.current = true;
     const optimisticMessage = {
       id: `temp-${Date.now()}`,
       conversation_id: conversation.id,
@@ -396,7 +404,32 @@ export default function Conversation() {
   }, [navigation.state, actionData]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const updateStickiness = () => {
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      shouldStickToBottomRef.current = distanceFromBottom < 80;
+    };
+
+    updateStickiness();
+    container.addEventListener("scroll", updateStickiness, { passive: true });
+    return () => container.removeEventListener("scroll", updateStickiness);
+  }, []);
+
+  useEffect(() => {
+    const latestMessage = realtimeMessages?.[realtimeMessages.length - 1];
+    const latestMessageId = latestMessage?.id ?? null;
+    const lastMessageChanged = latestMessageId !== previousLastMessageIdRef.current;
+
+    if (!hasInitializedScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      hasInitializedScrollRef.current = true;
+    } else if (lastMessageChanged && shouldStickToBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    previousLastMessageIdRef.current = latestMessageId;
   }, [realtimeMessages]);
 
   useEffect(() => {
@@ -414,6 +447,11 @@ export default function Conversation() {
     }
     mediaQuery.addListener(updateViewport);
     return () => mediaQuery.removeListener(updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    setMobileHeaderSlot(document.getElementById("panel-mobile-extra-row"));
   }, []);
 
   const fullWritePlaceholder = t("messages.write_placeholder");
@@ -439,6 +477,13 @@ export default function Conversation() {
     if (typeof olderMessagesFetcher.data.hasOlderMessages === "boolean") {
       setHasOlderMessages(olderMessagesFetcher.data.hasOlderMessages);
     }
+
+    if (olderMessagesScrollAnchorRef.current && scrollContainerRef.current) {
+      const { scrollHeight, scrollTop } = olderMessagesScrollAnchorRef.current;
+      const nextScrollHeight = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTop = nextScrollHeight - scrollHeight + scrollTop;
+      olderMessagesScrollAnchorRef.current = null;
+    }
   }, [olderMessagesFetcher.data, olderMessagesFetcher.state, setMessages]);
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -455,15 +500,111 @@ export default function Conversation() {
         ? (isBlockedByOther ? t("messages.blocked_by_other_send") : t("messages.blocked_send"))
         : t(`messages.error.${actionData.errorKey}` as any)
       : null;
+  const menuDropdown = isMenuOpen ? (
+    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 origin-top-right transition-all duration-150">
+      <Form method="post">
+        <input type="hidden" name="intent" value={isBlocked ? "unblock" : "block"} />
+        <button
+          type="submit"
+          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+        >
+          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+          {isBlocked ? t("messages.unblock_user") : t("messages.block_user")}
+        </button>
+      </Form>
+
+      <Link
+        to={`/report?type=user&id=${otherUser?.id}&from=conversation`}
+        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+        onClick={() => setIsMenuOpen(false)}
+      >
+        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        {t("messages.report")}
+      </Link>
+
+      <div className="border-t border-gray-100 my-1" />
+
+      <button
+        type="button"
+        onClick={() => {
+          setIsMenuOpen(false);
+          setShowDeleteConfirm(true);
+        }}
+        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+      >
+        <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        {t("messages.delete_conversation")}
+      </button>
+    </div>
+  ) : null;
+
+  const mobileConversationHeader = (
+    <div className="px-3 pb-2 pt-0.5">
+      <div className="flex items-center gap-2">
+        <Link to="/messages" className="text-gray-900 hover:text-black flex-shrink-0">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+
+        <div className="min-w-0 flex-1 text-center">
+          <div className="inline-flex min-w-0 max-w-full items-center justify-center gap-1">
+            <p className="max-w-full truncate text-base font-bold text-gray-900">
+              {getPublicDisplayName(otherUser) || t("messages.user")}
+            </p>
+            {otherUser?.is_verified && (
+              <svg className="h-4 w-4 text-brand-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+          </div>
+        </div>
+
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="p-2 text-gray-900 hover:text-black hover:bg-gray-100 rounded-lg min-w-[40px] min-h-[40px] flex items-center justify-center transition-colors duration-150"
+          >
+            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+            </svg>
+          </button>
+          {menuDropdown}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="flex-1 flex flex-col bg-white/85 backdrop-blur-[1px] md:rounded-r-3xl overflow-hidden">
-      {/* Header conversazione */}
-      <div className="flex items-center gap-4 p-4 border-b border-gray-200 bg-white/85 h-[72px]">
+    <div className="flex-1 flex h-full min-h-0 flex-col overflow-hidden bg-white/85 backdrop-blur-[1px] md:rounded-r-3xl">
+      {isMobileViewport && mobileHeaderSlot
+        ? createPortal(mobileConversationHeader, mobileHeaderSlot)
+        : null}
+
+      {isMobileViewport && !mobileHeaderSlot && (
+        <div className="md:hidden border-b border-gray-200 bg-white/95">
+          {mobileConversationHeader}
+        </div>
+      )}
+
+      {/* Header conversazione desktop */}
+      {!isMobileViewport && (
+        <div className="hidden md:flex md:sticky md:top-0 md:z-20 md:h-[72px] md:shrink-0 md:items-center md:gap-4 md:border-b md:border-gray-200 md:bg-white/95 md:p-4">
         {/* Back button (mobile only) */}
         <Link
           to="/messages"
-          className="md:hidden text-gray-400 hover:text-gray-600 flex-shrink-0"
+          className="md:hidden text-gray-900 hover:text-black flex-shrink-0"
         >
           <svg
             className="h-6 w-6"
@@ -481,9 +622,9 @@ export default function Conversation() {
         </Link>
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
-            <div className="min-w-0 flex items-center gap-1">
-              <p className="text-[15px] md:text-base font-semibold text-gray-900 truncate">
+          <div className="min-w-0 flex flex-col items-center gap-1.5 text-center">
+            <div className="inline-flex min-w-0 max-w-full items-center justify-center gap-1">
+              <p className="max-w-full truncate text-[15px] font-semibold text-gray-900 md:text-lg">
                 {getPublicDisplayName(otherUser) || t("messages.user")}
               </p>
               {otherUser?.is_verified && (
@@ -507,7 +648,7 @@ export default function Conversation() {
             </div>
             <Link
               to={`/listings/${conversation.listing?.id}`}
-              className="inline-flex max-w-full items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-gray-100 transition-colors"
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium text-brand-700 transition-colors hover:bg-gray-100 md:px-2.5 md:text-xs"
               title={conversation.listing?.title || ""}
             >
               <svg className="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -534,56 +675,10 @@ export default function Conversation() {
             </svg>
           </button>
 
-          {/* Dropdown menu */}
-          {isMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 origin-top-right transition-all duration-150">
-              {/* Block/Unblock */}
-              <Form method="post">
-                <input type="hidden" name="intent" value={isBlocked ? "unblock" : "block"} />
-                <button
-                  type="submit"
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                  {isBlocked ? t("messages.unblock_user") : t("messages.block_user")}
-                </button>
-              </Form>
-
-              {/* Report */}
-              <Link
-                to={`/report?type=user&id=${otherUser?.id}&from=conversation`}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                {t("messages.report")}
-              </Link>
-
-              <div className="border-t border-gray-100 my-1" />
-
-              {/* Delete */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  setShowDeleteConfirm(true);
-                }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-              >
-                <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                {t("messages.delete_conversation")}
-              </button>
-            </div>
-          )}
+          {menuDropdown}
         </div>
-      </div>
-
+        </div>
+      )}
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -611,14 +706,24 @@ export default function Conversation() {
         </div>
       )}
 
+      <div className="grid min-h-0 flex-1 grid-rows-[1fr_auto]">
       {/* Area messaggi scrollabile */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-4">
-        <div className="space-y-4">
+      <div
+        ref={scrollContainerRef}
+        className="min-h-0 overflow-y-auto px-2 pb-2 md:px-8 md:pb-4"
+      >
+        <div className="space-y-2 md:space-y-4">
           {hasOlderMessages && (
-            <div className="pt-4 text-center">
+            <div className="pt-2 text-center md:pt-4">
               <button
                 type="button"
                 onClick={() => {
+                  if (scrollContainerRef.current) {
+                    olderMessagesScrollAnchorRef.current = {
+                      scrollHeight: scrollContainerRef.current.scrollHeight,
+                      scrollTop: scrollContainerRef.current.scrollTop,
+                    };
+                  }
                   const oldestMessage = realtimeMessages?.[0];
                   if (!oldestMessage?.created_at) return;
                   const before = encodeURIComponent(oldestMessage.created_at);
@@ -632,282 +737,274 @@ export default function Conversation() {
             </div>
           )}
 
-          {realtimeMessages?.map((message: any, index: number) => {
-            const isOwnMessage = message.sender_id === userId;
-            const messageDate = new Date(message.created_at);
-            const prevMessage = realtimeMessages[index - 1];
-            const prevDate = prevMessage ? new Date(prevMessage.created_at) : null;
-            const isHeartMessage = message.message_type === "heart";
+          <div className="space-y-2 md:space-y-4">
+            {realtimeMessages?.map((message: any, index: number) => {
+              const isOwnMessage = message.sender_id === userId;
+              const messageDate = new Date(message.created_at);
+              const prevMessage = realtimeMessages[index - 1];
+              const prevDate = prevMessage ? new Date(prevMessage.created_at) : null;
+              const isHeartMessage = message.message_type === "heart";
 
-            // Check if we need a date separator
-            const showDateSeparator = !prevDate ||
-              messageDate.toDateString() !== prevDate.toDateString();
+              // Check if we need a date separator
+              const showDateSeparator = !prevDate ||
+                messageDate.toDateString() !== prevDate.toDateString();
 
-            // Smart timestamp: show time only if it's the first message or
-            // more than 5 minutes since previous message from same sender
-            const prevMessageFromSameSender = prevMessage?.sender_id === message.sender_id;
-            const timeDiffMinutes = prevDate
-              ? (messageDate.getTime() - prevDate.getTime()) / 60000
-              : Infinity;
-            const showTimestamp = !prevMessageFromSameSender || timeDiffMinutes > 5 || showDateSeparator;
+              // Smart timestamp: show time only if it's the first message or
+              // more than 5 minutes since previous message from same sender
+              const prevMessageFromSameSender = prevMessage?.sender_id === message.sender_id;
+              const timeDiffMinutes = prevDate
+                ? (messageDate.getTime() - prevDate.getTime()) / 60000
+                : Infinity;
+              const showTimestamp = !prevMessageFromSameSender || timeDiffMinutes > 5 || showDateSeparator;
 
-            const currentDisplayContent = getDisplayContent(message);
+              const currentDisplayContent = getDisplayContent(message);
 
-            return (
-              <div key={message.id}>
-                {/* Date separator */}
-                {showDateSeparator && (
-                  <div className="flex items-center gap-4 my-4">
-                    <div className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs text-gray-400 font-medium">
-                      {messageDate.toLocaleDateString([], {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </span>
-                    <div className="flex-1 h-px bg-gray-200" />
-                  </div>
-                )}
-
-                {/* Heart notification message */}
-                {isHeartMessage ? (
-                  <div className="my-4 flex justify-center">
-                    <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-4 py-2 text-sm shadow-sm">
-                      <svg className="h-4 w-4 flex-shrink-0 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                      </svg>
-                      <span className="truncate text-gray-700">
-                        {t("messages.listing_saved")} · {t("messages.start_conversation")}
+              return (
+                <div key={message.id}>
+                  {/* Date separator */}
+                  {showDateSeparator && (
+                    <div className="my-2 flex items-center gap-3 md:my-4 md:gap-4">
+                      <div className="flex-1 h-px bg-gray-200" />
+                      <span className="text-xs text-gray-400 font-medium">
+                        {messageDate.toLocaleDateString([], {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                        })}
                       </span>
+                      <div className="flex-1 h-px bg-gray-200" />
                     </div>
-                  </div>
-                ) : (
-                  (() => {
-                    return (
-                      <div className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}>
-                        {/* Avatar for received messages */}
-                        {!isOwnMessage && (
-                          <div className="mr-2 flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
-                            {otherUser?.avatar_url ? (
-                              <img
-                                src={otherUser.avatar_url}
-                                alt={getPublicDisplayName(otherUser)}
-                                className="h-full w-full object-cover"
-                                loading="lazy"
-                              />
-                            ) : (
-                              getPublicInitial(otherUser)
-                            )}
-                          </div>
-                        )}
+                  )}
 
-                        <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[85%] md:max-w-[70%]`}>
-                          {/* Message bubble */}
-                          <div
-                            className={`rounded-2xl px-4 py-2.5 ${
-                              isOwnMessage
-                                ? "bg-accent-100/90 border border-accent-200 text-gray-900 rounded-br-lg shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-                                : "bg-white/92 border border-gray-200 text-gray-900 rounded-bl-lg shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-                            } transition-colors duration-200`}
-                          >
-                          {/* Message content */}
-                          <p className="whitespace-pre-wrap break-words">
-                            {currentDisplayContent.content}
-                          </p>
-
-                          {/* Translation loading indicator inside bubble */}
-                          {currentDisplayContent.isLoading && (
-                            <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400">
-                              <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                              </svg>
-                              <span>{t("messages.translating")}</span>
+                  {/* Heart notification message */}
+                  {isHeartMessage ? (
+                    <div className="my-2 flex justify-center md:my-4">
+                      <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-4 py-2 text-xs md:text-sm shadow-sm">
+                        <svg className="h-4 w-4 flex-shrink-0 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                        <span className="truncate text-gray-700">
+                          {t("messages.listing_saved")} · {t("messages.start_conversation")}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    (() => {
+                      return (
+                        <div className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}>
+                          {/* Avatar for received messages */}
+                          {!isOwnMessage && (
+                            <div className="mr-2 flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
+                              {otherUser?.avatar_url ? (
+                                <img
+                                  src={otherUser.avatar_url}
+                                  alt={getPublicDisplayName(otherUser)}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                getPublicInitial(otherUser)
+                              )}
                             </div>
                           )}
-                        </div>
 
-                        {/* Timestamp and translation toggle - outside bubble */}
-                        {(showTimestamp || isOwnMessage) && (
-                          <div
-                            className={`flex items-center gap-2 text-xs mt-1 px-1 ${
-                              isOwnMessage ? "flex-row-reverse" : "flex-row"
-                            }`}
-                          >
-                            {/* Timestamp */}
-                            {showTimestamp && (
-                              <span className={isOwnMessage ? "text-accent-600" : "text-gray-500"}>
-                                {messageDate.toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
+                          <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[88%] md:max-w-[70%]`}>
+                            {/* Message bubble */}
+                            <div
+                              className={`rounded-2xl px-3 py-2 md:px-4 md:py-2.5 ${
+                                isOwnMessage
+                                  ? "bg-accent-100/90 border border-accent-200 text-gray-900 rounded-br-lg shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                                  : "bg-white/92 border border-gray-200 text-gray-900 rounded-bl-lg shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+                              } transition-colors duration-200`}
+                            >
+                            {/* Message content */}
+                            <p className="whitespace-pre-wrap break-words text-[13px] leading-5 md:text-base md:leading-6">
+                              {currentDisplayContent.content}
+                            </p>
+
+                            {/* Translation loading indicator inside bubble */}
+                            {currentDisplayContent.isLoading && (
+                              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400">
+                                <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                </svg>
+                                <span>{t("messages.translating")}</span>
+                              </div>
                             )}
-
-                            {/* Read receipt for own messages */}
-                            {isOwnMessage && (
-                              <span className="flex items-center">
-                                {message.read_at ? (
-                                  <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/>
-                                  </svg>
-                                ) : (
-                                  <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                                  </svg>
-                                )}
-                              </span>
-                            )}
-
-                            {/* Translation toggle moved to composer area */}
                           </div>
-                        )}
+
+                          {/* Timestamp and translation toggle - outside bubble */}
+                          {(showTimestamp || isOwnMessage) && (
+                            <div
+                              className={`flex items-center gap-2 text-[11px] md:text-xs mt-1 px-1 ${
+                                isOwnMessage ? "flex-row-reverse" : "flex-row"
+                              }`}
+                            >
+                              {/* Timestamp */}
+                              {showTimestamp && (
+                                <span className={isOwnMessage ? "text-accent-600" : "text-gray-500"}>
+                                  {messageDate.toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              )}
+
+                              {/* Read receipt for own messages */}
+                              {isOwnMessage && (
+                                <span className="flex items-center">
+                                  {message.read_at ? (
+                                    <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/>
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                    </svg>
+                                  )}
+                                </span>
+                              )}
+
+                              {/* Translation toggle moved to composer area */}
+                            </div>
+                          )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })()
-                )}
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
+                      );
+                    })()
+                  )}
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+        </div>
         </div>
       </div>
-
       {/* Campo risposta */}
       <div
         className={
           showGlobalTranslationToggle
-            ? "px-2 pt-0 pb-3 md:px-4 md:pt-0 md:pb-4 bg-white/88 backdrop-blur-[1px] shadow-[0_-6px_14px_rgba(15,23,42,0.05)]"
-            : "border-t border-gray-200 px-2 pt-4 pb-3 md:p-4 bg-white/88 backdrop-blur-[1px] shadow-[0_-6px_14px_rgba(15,23,42,0.05)]"
+            ? "shrink-0 border-t border-gray-200 bg-white px-2 pb-[calc(18px+env(safe-area-inset-bottom,0px))] pt-0 md:border-t-0 md:bg-white/88 md:px-4 md:pb-4 md:pt-0 md:shadow-[0_-6px_14px_rgba(15,23,42,0.05)] md:backdrop-blur-[1px]"
+            : "shrink-0 border-t border-gray-200 bg-white px-2 pb-[calc(18px+env(safe-area-inset-bottom,0px))] pt-4 md:border-t md:bg-white/88 md:p-4 md:shadow-[0_-6px_14px_rgba(15,23,42,0.05)] md:backdrop-blur-[1px]"
         }
       >
-        {showGlobalTranslationToggle && (
-          <div className="-mx-2 md:-mx-4 mb-3">
-            <div
-              role="button"
-              tabIndex={0}
-              aria-disabled={!hasTranslatableMessages}
-              onClick={() => {
-                if (!hasTranslatableMessages) return;
-                toggleShowOriginalAll();
-              }}
-              onKeyDown={(event) => {
-                if (!hasTranslatableMessages) return;
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  toggleShowOriginalAll();
-                }
-              }}
-              className={`w-full border-y px-4 py-2.5 text-center text-xs font-medium transition-all duration-200 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 ${
-                !hasTranslatableMessages
-                  ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                  : showOriginalAll
-                  ? "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100"
-                  : "cursor-pointer active:scale-[0.995] border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <svg className="h-3.5 w-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                </svg>
-                <span>
-                  {hasTranslatableMessages
-                    ? showOriginalAll
-                      ? t("messages.show_translation")
-                      : t("messages.show_original")
-                    : t("messages.show_original")}
-                </span>
-              </span>
-            </div>
-          </div>
-        )}
+            {showGlobalTranslationToggle && (
+              <div className="-mx-2 md:-mx-4 mb-3">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-disabled={!hasTranslatableMessages}
+                  onClick={() => {
+                    if (!hasTranslatableMessages) return;
+                    toggleShowOriginalAll();
+                  }}
+                  onKeyDown={(event) => {
+                    if (!hasTranslatableMessages) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      toggleShowOriginalAll();
+                    }
+                  }}
+                  className={`w-full border-y px-4 py-2.5 text-center text-xs font-medium transition-all duration-200 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 ${
+                    !hasTranslatableMessages
+                      ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
+                      : showOriginalAll
+                      ? "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100"
+                      : "cursor-pointer active:scale-[0.995] border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                    </svg>
+                    <span>
+                      {hasTranslatableMessages
+                        ? showOriginalAll
+                          ? t("messages.show_translation")
+                          : t("messages.show_original")
+                        : t("messages.show_original")}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            )}
 
-        {errorMessage && (
-          <p className="text-sm text-red-600 mb-2">{errorMessage}</p>
-        )}
-        {isBlocked || isBlockedByOther ? (
-          <p className="text-sm text-gray-500 text-center py-2">
-            {isBlockedByOther ? t("messages.blocked_by_other_send") : t("messages.blocked_send")}
-          </p>
-        ) : (
-          <Form
-            ref={formRef}
-            method="post"
-            className="flex gap-2 md:gap-3 items-end"
-            onSubmit={() => {
-              // Add message immediately (optimistic update)
-              const content = textareaRef.current?.value;
-              if (content?.trim()) {
-                addOptimisticMessage(content.trim());
-              }
-            }}
-          >
-            <textarea
-              ref={textareaRef}
-              name="content"
-              placeholder={writePlaceholder}
-              autoComplete="off"
-              required
-              rows={1}
-              className="input flex-1 resize-none py-2 md:py-3 px-3 md:px-4 min-h-[40px] md:min-h-[48px] max-h-[150px] overflow-hidden rounded-full"
-              disabled={isSubmitting}
-              onChange={handleTextareaChange}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                if (event.shiftKey) return;
-                if (event.nativeEvent.isComposing) return;
-
-                event.preventDefault();
-                if (!isSubmitting) {
-                  formRef.current?.requestSubmit();
-                }
-              }}
-            />
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="btn-primary px-2 md:px-4 h-10 md:h-12 flex items-center justify-center rounded-full transition-all duration-200 md:hover:-translate-y-[1px] md:hover:shadow-md disabled:transform-none"
+            {errorMessage && (
+              <p className="text-sm text-red-600 mb-2">{errorMessage}</p>
+            )}
+            {isBlocked || isBlockedByOther ? (
+              <p className="text-sm text-gray-500 text-center py-2">
+                {isBlockedByOther ? t("messages.blocked_by_other_send") : t("messages.blocked_send")}
+              </p>
+            ) : (
+              <Form
+                ref={formRef}
+                method="post"
+                className="flex gap-2 md:gap-3 items-end"
+                onSubmit={() => {
+                  // Add message immediately (optimistic update)
+                  const content = textareaRef.current?.value;
+                  if (content?.trim()) {
+                    addOptimisticMessage(content.trim());
+                  }
+                }}
               >
-              {isSubmitting ? (
-                <svg
-                  className="animate-spin h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M14 5l7 7m0 0l-7 7m7-7H3"
-                  />
-                </svg>
-              )}
-            </button>
-          </Form>
-        )}
+                <textarea
+                  ref={textareaRef}
+                  name="content"
+                  placeholder={writePlaceholder}
+                  autoComplete="off"
+                  required
+                  rows={1}
+                  className="flex-1 resize-none rounded-3xl border border-accent-500 bg-white px-3 py-2 text-base leading-5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-500/20 md:min-h-[48px] md:px-4 md:py-3 md:text-base min-h-[40px] max-h-[150px] overflow-hidden shadow-none"
+                  disabled={isSubmitting}
+                  onChange={handleTextareaChange}
+                />
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="btn-primary px-2 md:px-4 h-10 md:h-12 flex items-center justify-center rounded-full transition-all duration-200 md:hover:-translate-y-[1px] md:hover:shadow-md disabled:transform-none"
+                  >
+                  {isSubmitting ? (
+                    <svg
+                      className="animate-spin h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M14 5l7 7m0 0l-7 7m7-7H3"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </Form>
+            )}
+      </div>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/curren
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { getPublicDisplayName } from "~/lib/user-display";
+import { isEventExpired } from "~/lib/listing-status";
 
 export const meta: MetaFunction = () => {
   return [{ title: "My Listings - TO Panel - Runoot" }];
@@ -49,23 +50,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     unreadCount = count || 0;
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const isAutoExpiredByEventDate = (eventDateString: string): boolean => {
-    const eventDate = new Date(eventDateString);
-    eventDate.setHours(0, 0, 0, 0);
-    const expiryThreshold = new Date(eventDate);
-    expiryThreshold.setDate(expiryThreshold.getDate() - 1);
-    return today >= expiryThreshold;
-  };
-
   const pendingListings = localizedListings.filter((listing: any) => listing.status === "pending");
   const rejectedListings = localizedListings.filter((listing: any) => listing.status === "rejected");
-  const activeListings = localizedListings.filter((listing: any) => listing.status === "active" && !isAutoExpiredByEventDate(listing.event.event_date));
+  const activeListings = localizedListings.filter((listing: any) => listing.status === "active" && !isEventExpired(listing.event.event_date));
   const endedListings = localizedListings.filter(
     (listing: any) =>
       (listing.status === "active" || listing.status === "sold" || listing.status === "expired") &&
-      isAutoExpiredByEventDate(listing.event.event_date)
+      isEventExpired(listing.event.event_date)
   );
 
   return {
@@ -110,8 +101,8 @@ export default function ToPanelListings() {
       navItems={navItems}
     >
       <div className="-m-4 min-h-full bg-[#ECF4FE] md:-m-8">
-        <main className="mx-auto max-w-7xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-          <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+        <main className="px-0 py-6 pb-24 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
+          <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
             <h1 className="font-display text-2xl font-bold text-gray-900">My listings</h1>
             <p className="mt-1 text-gray-600">
               {totalListings === 0 ? "No listings yet." : `You have ${totalListings} listings.`}
@@ -152,7 +143,7 @@ export default function ToPanelListings() {
           )}
 
           {totalListings === 0 && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+            <div className="border-y border-gray-200 bg-white p-10 text-center md:rounded-2xl md:border md:shadow-sm">
               <p className="text-gray-600">Create your first listing to start receiving requests.</p>
               <Link to="/to-panel/listings/new" className="btn-primary mt-4 inline-flex rounded-full px-5 py-2.5 text-sm">
                 Create listing

@@ -1,7 +1,7 @@
 // app/routes/tl-dashboard.tsx - Team Leader Dashboard
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { useLoaderData, useActionData, Form } from "react-router";
+import { useLoaderData, useActionData } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useEffect, useState, type MouseEvent } from "react";
@@ -450,7 +450,6 @@ export default function TLDashboard() {
   const { t, locale } = useI18n();
   const {
     user,
-    appUrl,
     referrals,
     referredUsers,
     stats,
@@ -462,20 +461,7 @@ export default function TLDashboard() {
     | { errorKey?: string; error?: never; success?: boolean; message?: never; messageKey?: never }
     | { success?: boolean; messageKey?: string; message?: never; error?: never; errorKey?: never }
     | undefined;
-  const [copied, setCopied] = useState(false);
   const [timelineHydrated, setTimelineHydrated] = useState(false);
-
-  const referralLink = `${appUrl}/${String((user as any).referral_code || "").toLowerCase()}`;
-  const formatDate = (value: string) => {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
-    return new Intl.DateTimeFormat(locale, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    }).format(parsed);
-  };
   const formatDateTime = (value: string) => {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
@@ -495,26 +481,30 @@ export default function TLDashboard() {
   const preventAutoLink = (value: string) =>
     value.replace(/@/g, "@\u200B").replace(/\./g, ".\u200B");
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(referralLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const timelineItems = [
     ...((recentInvites || []).map((invite: any) => ({
       id: `invite-${invite.id}`,
       type: invite.status === "accepted" ? "accepted" : "sent",
-      title: invite.status === "accepted" ? "Invite accepted" : "Invite sent",
+      title: (() => {
+        const invitedEmail = invite.email ? preventAutoLink(String(invite.email)) : t("common.user");
+        if (invite.status === "accepted") {
+          const acceptedProfile = Object.values(referredUsers || {}).find(
+            (profile: any) => String(profile?.email || "").toLowerCase() === String(invite.email || "").toLowerCase(),
+          ) as any;
+          const acceptedLabel = acceptedProfile?.full_name || (acceptedProfile?.email ? preventAutoLink(acceptedProfile.email) : invitedEmail);
+          return `${t("tl_dashboard.timeline.invite_accepted")}:\n${acceptedLabel}`;
+        }
+        return `${t("tl_dashboard.timeline.invite_sent")}:\n${invitedEmail}`;
+      })(),
       at: invite.claimed_at || invite.updated_at || invite.created_at,
     })) || []),
     ...((referrals || []).map((ref: any) => {
       const refUser = referredUsers[ref.referred_user_id];
-      const safeRefLabel = refUser?.full_name || (refUser?.email ? preventAutoLink(refUser.email) : "Runner");
+      const safeRefLabel = refUser?.full_name || (refUser?.email ? preventAutoLink(refUser.email) : t("tl_dashboard.timeline.runner_fallback"));
       return {
         id: `referral-${ref.id}`,
         type: "joined",
-        title: `Referral joined: ${safeRefLabel}`,
+        title: `${t("common.user")} ${t("tl_dashboard.joined").toLowerCase()}:\n${safeRefLabel}`,
         at: ref.created_at,
       };
     }) || []),
@@ -556,28 +546,9 @@ export default function TLDashboard() {
 
   const topContent = (
     <>
-      <div className="-mt-1 mb-4 px-1 text-center md:mt-0 md:mb-3 md:rounded-3xl md:border md:border-brand-200/70 md:bg-gradient-to-r md:from-brand-50 md:via-white md:to-orange-50 md:p-6 md:text-left md:shadow-sm">
-        <h1 className="font-display text-2xl font-bold text-gray-900">{t("tl_dashboard.title")}</h1>
+      <div className="mt-3 mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 text-center md:mx-auto md:mt-0 md:mb-3 md:w-[78%] md:border-2 md:border-brand-500 md:bg-white md:p-6 md:text-center md:shadow-sm lg:w-[72%]">
+        <h1 className="font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("nav.dashboard")}</h1>
         <p className="mt-1 text-gray-600">{t("tl_dashboard.subtitle")}</p>
-      </div>
-      <div className="mb-0 rounded-3xl border border-gray-200 bg-white p-2.5 shadow-sm md:mb-3 md:p-3">
-        <div className="flex flex-wrap justify-center gap-2">
-          <button type="button" onClick={() => handleSectionJump("activity-kpi")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
-            Activity
-          </button>
-          <button type="button" onClick={() => handleSectionJump("activity-timeline")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
-            Timeline
-          </button>
-          <button type="button" onClick={() => handleSectionJump("referral-link")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
-            Referral link
-          </button>
-          <button type="button" onClick={() => handleSectionJump("welcome-message")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
-            Welcome message
-          </button>
-          <button type="button" onClick={() => handleSectionJump("your-referrals")} className="basis-[31%] text-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100 md:basis-auto md:hover:bg-gray-50">
-            {t("tl_dashboard.your_referrals")}
-          </button>
-        </div>
       </div>
     </>
   );
@@ -598,202 +569,99 @@ export default function TLDashboard() {
       navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
       topContent={topContent}
     >
-      <div className="mx-auto min-h-full max-w-7xl px-4 pt-0 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+      <div className="min-h-full px-0 pt-0 pb-8 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
       {/* Action feedback */}
       {actionError && (
-        <div className="mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm">
+        <div className="mb-4 p-3 bg-alert-50 text-alert-700 text-sm md:rounded-lg">
           {actionError}
         </div>
       )}
       {actionData?.success && actionMessage && (
-        <div className="mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm">{actionMessage}</div>
+        <div className="mb-4 p-3 bg-success-50 text-success-700 text-sm md:rounded-lg">{actionMessage}</div>
       )}
 
-      <div id="activity-kpi" className="mb-4 scroll-mt-32 md:scroll-mt-24 grid grid-cols-1 gap-5 md:mb-6 2xl:grid-cols-2">
+      <div id="activity-kpi" className="mb-4 scroll-mt-32 md:scroll-mt-24 grid grid-cols-1 gap-4 md:mb-6 md:gap-5 2xl:grid-cols-2">
         {/* Your activity */}
         <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 font-display text-lg font-semibold text-gray-900">Your activity</h2>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="h-full min-h-[104px] rounded-xl border border-brand-200 bg-brand-50 p-3 flex flex-col">
-              <p className="text-[11px] uppercase tracking-wide text-brand-700">Total runners</p>
-              <div className="flex flex-1 items-center justify-center">
-                <p className="text-2xl font-bold text-brand-700">{stats.totalReferrals}</p>
-              </div>
+          <h2 className="mb-3 font-display text-lg font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.section.your_activity")}</h2>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-200 bg-brand-50 p-3 md:min-h-[104px] md:flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-brand-700 md:text-center">{t("tl_dashboard.metric.total_runners")}</p>
+              <p className="text-2xl font-bold text-brand-700">{stats.totalReferrals}</p>
             </div>
-            <div className="h-full min-h-[104px] rounded-xl border border-gray-200 bg-gray-50 p-3 flex flex-col">
-              <p className="text-[11px] uppercase tracking-wide text-gray-600">{t("tl_dashboard.new_last_30")}</p>
-              <div className="flex flex-1 items-center justify-center">
-                <p className="text-2xl font-bold text-gray-900">{stats.newInLast30Days}</p>
-              </div>
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-gray-600 md:text-center">{t("tl_dashboard.new_last_30")}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.newInLast30Days}</p>
             </div>
-            <div className="h-full min-h-[104px] rounded-xl border border-gray-200 bg-gray-50 p-3 flex flex-col">
-              <p className="text-[11px] uppercase tracking-wide text-gray-600">Active runners</p>
-              <div className="flex flex-1 items-center justify-center">
-                <p className="text-2xl font-bold text-brand-600">{stats.activeReferrals}</p>
-              </div>
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-gray-600 md:text-center">{t("tl_dashboard.metric.active_runners")}</p>
+              <p className="text-2xl font-bold text-brand-600">{stats.activeReferrals}</p>
             </div>
           </div>
         </section>
 
         {/* Team activity */}
         <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 font-display text-lg font-semibold text-gray-900">Team activity</h2>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="h-full min-h-[104px] rounded-xl border border-brand-200 bg-brand-50 p-3 flex flex-col">
-              <p className="text-[11px] uppercase tracking-wide text-brand-700">Team listings</p>
-              <div className="flex flex-1 items-center justify-center">
-                <p className="text-2xl font-bold text-brand-700">{stats.teamListings}</p>
-              </div>
+          <h2 className="mb-3 font-display text-lg font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.section.team_activity")}</h2>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-200 bg-brand-50 p-3 md:min-h-[104px] md:flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-brand-700 md:text-center">{t("tl_dashboard.metric.team_listings")}</p>
+              <p className="text-2xl font-bold text-brand-700">{stats.teamListings}</p>
             </div>
-            <div className="h-full min-h-[104px] rounded-xl border border-gray-200 bg-gray-50 p-3 flex flex-col">
-              <p className="text-[11px] uppercase tracking-wide text-gray-600">Conversations started</p>
-              <div className="flex flex-1 items-center justify-center">
-                <p className="text-2xl font-bold text-gray-900">{stats.teamConversationsStarted}</p>
-              </div>
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-gray-600 md:text-center">{t("tl_dashboard.metric.conversations_started")}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.teamConversationsStarted}</p>
             </div>
-            <div className="h-full min-h-[104px] rounded-xl border border-gray-200 bg-gray-50 p-3 flex flex-col">
-              <p className="text-[11px] uppercase tracking-wide text-gray-600">Saved listings</p>
-              <div className="flex flex-1 items-center justify-center">
-                <p className="text-2xl font-bold text-brand-600">{stats.teamSaved}</p>
-              </div>
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
+              <p className="text-[11px] uppercase tracking-wide text-gray-600 md:text-center">{t("tl_dashboard.metric.saved_listings")}</p>
+              <p className="text-2xl font-bold text-brand-600">{stats.teamSaved}</p>
             </div>
           </div>
         </section>
       </div>
 
       {/* Activity timeline */}
-      <div id="activity-timeline" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
+      <div id="activity-timeline" className="scroll-mt-32 md:scroll-mt-24 mb-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm md:mb-6 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-semibold text-gray-900">Activity timeline</h2>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-medium">Latest updates</span>
+          <h2 className="font-display font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.section.activity_timeline")}</h2>
+          <span className="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-medium">{t("tl_dashboard.timeline.latest_updates")}</span>
         </div>
         {renderedTimelineItems.length > 0 ? (
           <div className="space-y-2">
-            {renderedTimelineItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${
-                      item.type === "accepted" ? "bg-success-500" : item.type === "joined" ? "bg-brand-500" : "bg-amber-500"
-                    }`}
-                  />
-                  <p className="text-sm font-medium text-gray-800">{item.title}</p>
+            {renderedTimelineItems.map((item) => {
+              const [activityTypeRaw, ...detailLines] = String(item.title || "").split("\n");
+              const activityType = activityTypeRaw || t("tl_dashboard.section.activity_timeline");
+              const activityDetails = detailLines.join("\n").trim();
+
+              return (
+                <div key={item.id} className="rounded-3xl border border-gray-100 bg-gray-50/60 px-3 py-3">
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <span
+                      className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${
+                        item.type === "accepted" ? "bg-success-500" : item.type === "joined" ? "bg-brand-500" : "bg-amber-500"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="min-w-0 truncate text-sm font-medium text-gray-800">{activityType}</p>
+                        <span className="flex-shrink-0 whitespace-nowrap text-xs text-gray-500" suppressHydrationWarning>
+                          {formatDateTime(item.at)}
+                        </span>
+                      </div>
+                      {activityDetails ? (
+                        <p className="mt-0.5 whitespace-pre-line break-words text-sm text-gray-700">{activityDetails}</p>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-500" suppressHydrationWarning>
-                  {formatDateTime(item.at)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <p className="text-sm text-gray-500">No recent activity yet.</p>
+          <p className="text-sm text-gray-500">{t("tl_dashboard.timeline.no_recent_activity")}</p>
         )}
       </div>
 
-      {/* Referral Link */}
-      <div id="referral-link" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
-        <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.referral_link_title")}</h2>
-        <p className="text-sm text-gray-500 mb-4">{t("tl_dashboard.referral_link_help")}</p>
-
-        <div className="flex items-center gap-2 mb-4">
-          <div className="flex-1 bg-gray-50 rounded-lg px-4 py-2.5 font-mono text-sm text-gray-700 border border-gray-200 truncate">
-            {referralLink}
-          </div>
-          <button
-            onClick={copyLink}
-            className="btn-primary rounded-full text-sm px-4 py-2.5 flex-shrink-0"
-          >
-            {copied ? t("tl_dashboard.copied") : t("tl_dashboard.copy")}
-          </button>
-        </div>
-
-      </div>
-
-      {/* Welcome message */}
-      <div id="welcome-message" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm mb-6">
-        <h2 className="font-display font-semibold text-gray-900 mb-2">{t("tl_dashboard.welcome_message")}</h2>
-        <p className="text-sm text-gray-500 mb-4">
-          {t("tl_dashboard.welcome_message_help")}
-        </p>
-        <Form method="post">
-          <input type="hidden" name="_action" value="updateWelcome" />
-          <textarea
-            name="welcomeMessage"
-            rows={3}
-            defaultValue={(user as any).tl_welcome_message || ""}
-            placeholder={t("tl_dashboard.welcome_message_placeholder")}
-            className="input w-full mb-3"
-            maxLength={500}
-          />
-          <button type="submit" className="btn-secondary rounded-full text-sm">
-            {t("tl_dashboard.save_message")}
-          </button>
-        </Form>
-      </div>
-
-      {/* Referrals list */}
-      <div id="your-referrals" className="scroll-mt-32 md:scroll-mt-24 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="font-display font-semibold text-gray-900">{t("tl_dashboard.your_referrals")}</h2>
-        </div>
-        <div className="divide-y divide-gray-100">
-          {referrals.length > 0 ? (
-            referrals.map((ref: any) => {
-              const refUser = referredUsers[ref.referred_user_id];
-              return (
-                <div key={ref.id} className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-full overflow-hidden bg-brand-100 flex items-center justify-center text-brand-700 font-semibold flex-shrink-0 text-sm">
-                      {refUser?.avatar_url ? (
-                        <img
-                          src={refUser.avatar_url}
-                          alt={refUser?.full_name || refUser?.email || t("settings.unknown_user")}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        refUser?.full_name?.charAt(0) || refUser?.email?.charAt(0)?.toUpperCase() || "?"
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {refUser?.full_name || (refUser?.email ? preventAutoLink(refUser.email) : t("settings.unknown_user"))}
-                      </p>
-                      {refUser?.email && refUser?.full_name && (
-                        <p className="text-xs text-gray-500 truncate mt-0.5">
-                          {preventAutoLink(refUser.email)}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-gray-500">
-                          {t("tl_dashboard.joined")} {formatDate(ref.created_at)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
-                      ref.status === "active"
-                        ? "bg-success-100 text-success-700"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {ref.status === "active" ? t("tl_dashboard.active") : t("tl_dashboard.registered")}
-                  </span>
-                </div>
-              );
-            })
-          ) : (
-            <div className="p-8 text-center">
-              <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <p className="text-sm text-gray-500 mb-1">{t("tl_dashboard.no_referrals_yet")}</p>
-              <p className="text-xs text-gray-400">{t("tl_dashboard.no_referrals_help")}</p>
-            </div>
-          )}
-        </div>
-      </div>
       </div>
     </ControlPanelLayout>
   );

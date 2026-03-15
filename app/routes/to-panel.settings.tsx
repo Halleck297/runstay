@@ -124,14 +124,14 @@ export default function ToPanelSettings() {
       navItems={navItems}
     >
       <div className="-m-4 min-h-full bg-[#ECF4FE] md:-m-8">
-        <main className="mx-auto max-w-4xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-          <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+        <main className="px-0 py-6 pb-24 md:mx-auto md:max-w-4xl md:px-8 md:py-8 md:pb-8">
+          <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
             <h1 className="font-display text-2xl font-bold text-gray-900">{t("settings.title")}</h1>
             <p className="mt-1 text-gray-600">Manage account preferences, privacy, and support options.</p>
           </div>
 
           {actionData && "error" in actionData && actionData.error && (
-            <div className="mb-6 flex items-center gap-2 rounded-xl bg-alert-50 p-4 text-sm text-alert-700">
+            <div className="mb-6 flex items-center gap-2 bg-alert-50 p-4 text-sm text-alert-700 md:rounded-xl">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -139,7 +139,7 @@ export default function ToPanelSettings() {
             </div>
           )}
 
-          <section className="mb-6 rounded-3xl border border-gray-200/80 bg-white/95 p-6 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm">
+          <section className="mb-6 border-y border-gray-200/80 bg-white p-4 md:rounded-3xl md:border md:bg-white/95 md:p-6 md:shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:backdrop-blur-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">{t("settings.blocked_users")}</h2>
 
             {actionData && "success" in actionData && actionData.action === "unblocked" && (
@@ -183,7 +183,7 @@ export default function ToPanelSettings() {
             )}
           </section>
 
-          <section className="mb-6 rounded-3xl border border-gray-200/80 bg-white/95 p-6 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm">
+          <section className="mb-6 border-y border-gray-200/80 bg-white p-4 md:rounded-3xl md:border md:bg-white/95 md:p-6 md:shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:backdrop-blur-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">{t("settings.notifications")}</h2>
             {actionData && "success" in actionData && actionData.action === "notifications_updated" && (
               <div className="mb-4 flex items-center gap-2 rounded-xl bg-success-50 p-4 text-sm text-success-700">
@@ -278,7 +278,7 @@ export default function ToPanelSettings() {
             </Form>
           </section>
 
-          <section className="mb-6 rounded-3xl border border-gray-200/80 bg-white/95 p-6 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm">
+          <section className="mb-6 border-y border-gray-200/80 bg-white p-4 md:rounded-3xl md:border md:bg-white/95 md:p-6 md:shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:backdrop-blur-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">{t("settings.support")}</h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between py-3 border-b border-gray-100">

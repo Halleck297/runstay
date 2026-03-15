@@ -34,11 +34,13 @@ function SavedToolbarDropdown<T extends string>({
   onChange,
   options,
   className = "",
+  buttonClassName = "",
 }: {
   value: T;
   onChange: (value: T) => void;
   options: Array<{ value: T; label: string }>;
   className?: string;
+  buttonClassName?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,7 @@ function SavedToolbarDropdown<T extends string>({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between gap-2 rounded-full border border-gray-300 bg-white px-3.5 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+        className={`flex w-full items-center justify-between gap-2 rounded-full border border-gray-300 bg-white px-3.5 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 ${buttonClassName}`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
@@ -416,9 +418,11 @@ export default function SavedListings() {
         <Header user={user} />
 
         <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
-          <div className="mb-6 text-center">
-            <h1 className="font-display text-3xl font-bold text-gray-900">{t("saved.title")}</h1>
-            <p className="mt-2 text-gray-600">{t("saved.subtitle")}</p>
+          <div className="mb-6">
+            <div className="rounded-3xl border border-brand-500 bg-white px-4 py-4 text-center md:mx-auto md:max-w-4xl md:px-6 md:py-5">
+              <h1 className="font-display text-3xl font-bold text-gray-900">{t("saved.title")}</h1>
+              <p className="mt-2 text-gray-600">{t("saved.subtitle")}</p>
+            </div>
           </div>
 
           <div className="relative z-10 mb-8">
@@ -462,6 +466,7 @@ export default function SavedListings() {
                       onChange={setSortBy}
                       options={sortOptions}
                       className="w-full min-w-0 sm:min-w-[230px]"
+                      buttonClassName="!border-accent-500"
                     />
                   </div>
                 </div>

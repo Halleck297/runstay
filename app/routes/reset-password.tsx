@@ -11,6 +11,10 @@ export const meta: MetaFunction = () => {
 
 type ResetState = "checking" | "ready" | "invalid" | "saving" | "success" | "error";
 
+function isStrongEnoughPassword(value: string): boolean {
+  return /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(value);
+}
+
 export default function ResetPassword() {
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -90,6 +94,11 @@ export default function ResetPassword() {
       setMessage(t("auth.password_too_short"));
       return;
     }
+    if (!isStrongEnoughPassword(password)) {
+      setState("error");
+      setMessage("Password must include at least one number and one symbol.");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setState("error");
@@ -144,8 +153,13 @@ export default function ResetPassword() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   required
                   minLength={8}
+                  pattern="(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}"
+                  title="Minimum 8 characters, at least one number and one symbol."
                   className="input"
                 />
               </div>
@@ -158,8 +172,13 @@ export default function ResetPassword() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   autoComplete="new-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   required
                   minLength={8}
+                  pattern="(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}"
+                  title="Minimum 8 characters, at least one number and one symbol."
                   className="input"
                 />
               </div>

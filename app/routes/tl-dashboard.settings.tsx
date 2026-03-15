@@ -111,14 +111,14 @@ export default function TLSettingsPage() {
       navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
     >
       <div className="min-h-full">
-        <main id="tl-settings-main" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-6 pb-28 sm:px-6 md:scroll-mt-0 md:py-8 md:pb-8 lg:px-8">
-          <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+        <main id="tl-settings-main" className="scroll-mt-24 px-0 py-6 pb-28 md:mx-auto md:max-w-7xl md:scroll-mt-0 md:px-8 md:py-8 md:pb-8">
+          <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
             <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.settings.title")}</h1>
             <p className="mt-1 text-gray-600">{t("profile.settings.subtitle")}</p>
           </div>
 
           {actionData && "success" in actionData && actionData.success && (
-            <div className="mb-6 flex items-center gap-2 rounded-xl bg-success-50 p-4 text-sm text-success-700">
+            <div className="mb-6 flex items-center gap-2 bg-success-50 p-4 text-sm text-success-700 md:rounded-xl">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
@@ -127,7 +127,7 @@ export default function TLSettingsPage() {
           )}
 
           {actionData && "error" in actionData && actionData.error && (
-            <div className="mb-6 flex items-center gap-2 rounded-xl bg-alert-50 p-4 text-sm text-alert-700">
+            <div className="mb-6 flex items-center gap-2 bg-alert-50 p-4 text-sm text-alert-700 md:rounded-xl">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -135,9 +135,9 @@ export default function TLSettingsPage() {
             </div>
           )}
 
-          <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.account")}</h3>
-          <div className="mb-6 grid grid-cols-1 gap-4">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.account")}</h3>
+          <div className="mb-6 border-y border-gray-200 bg-white md:rounded-2xl md:border md:shadow-sm">
+            <div className="p-4 transition-colors hover:border-gray-300 md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-500">{t("profile.settings.email")}</label>
@@ -149,21 +149,21 @@ export default function TLSettingsPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
-              <div className="flex items-center justify-between">
-                <div>
+            <div className="border-t border-gray-100 p-4 transition-colors hover:border-gray-300 md:p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.change_password")}</label>
                   <p className="mt-1 text-sm text-gray-500">{t("profile.settings.update_password")}</p>
                 </div>
-                <Link to="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                <Link to="/forgot-password" className="ml-auto shrink-0 text-sm font-medium text-brand-600 hover:text-brand-700">
                   {t("profile.settings.reset_password")}
                 </Link>
               </div>
             </div>
           </div>
 
-          <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.public_profile")}</h3>
-          <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.public_profile")}</h3>
+          <div className="mb-6 border-y border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 md:rounded-2xl md:border md:shadow-sm md:p-5">
             <Form method="post" className="space-y-4">
               <input type="hidden" name="intent" value="update_profile_visibility" />
 
@@ -217,8 +217,8 @@ export default function TLSettingsPage() {
             </Form>
           </div>
 
-          <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.blocked_users")}</h3>
-          <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.blocked_users")}</h3>
+          <div className="mb-6 border-y border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 md:rounded-2xl md:border md:shadow-sm md:p-5">
             {blockedUsers.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {blockedUsers.map((block: any) => (
@@ -264,9 +264,9 @@ export default function TLSettingsPage() {
             )}
           </div>
 
-          <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.notifications")}</h3>
+          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.notifications")}</h3>
           <div className="mb-6 grid grid-cols-1 gap-4">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+            <div className="border-y border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 md:rounded-2xl md:border md:shadow-sm md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.email_notifications")}</label>
@@ -277,9 +277,9 @@ export default function TLSettingsPage() {
             </div>
           </div>
 
-          <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.support")}</h3>
-          <div className="mb-6 grid grid-cols-1 gap-4">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.support")}</h3>
+          <div className="mb-6 border-y border-gray-200 bg-white md:rounded-2xl md:border md:shadow-sm">
+            <div className="p-4 transition-colors hover:border-gray-300 md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.contact_us")}</label>
@@ -291,7 +291,7 @@ export default function TLSettingsPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 md:p-5">
+            <div className="border-t border-gray-100 p-4 transition-colors hover:border-gray-300 md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.terms_privacy")}</label>
@@ -309,9 +309,9 @@ export default function TLSettingsPage() {
             </div>
           </div>
 
-          <h3 className="mb-3 font-display text-lg font-semibold text-alert-600">{t("profile.settings.danger_zone")}</h3>
+          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-alert-600 md:px-0">{t("profile.settings.danger_zone")}</h3>
           <div className="mb-6 grid grid-cols-1 gap-4">
-            <div className="rounded-2xl border border-alert-200 bg-alert-50/40 p-4 shadow-sm transition-colors hover:border-alert-300 md:p-5">
+            <div className="border-y border-alert-200 bg-alert-50/40 p-4 transition-colors hover:border-alert-300 md:rounded-2xl md:border md:shadow-sm md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.delete_account")}</label>

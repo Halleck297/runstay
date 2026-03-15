@@ -86,15 +86,15 @@ export default function Login() {
   const redirectTo = searchParams.get("redirectTo") || "";
 
   return (
-    <div className="min-h-full flex flex-col justify-start pt-1 pb-12 sm:pt-2 sm:px-6 lg:px-8 bg-[#ECF4FE]">
+    <div className="min-h-full flex flex-col justify-start pt-1 pb-12 sm:pt-2 sm:px-6 lg:px-8 bg-white">
       <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
         <Link to="/" className="flex justify-center" aria-label="Go to home">
-          <img src="/logo.svg" alt="Runoot" className="h-32 w-auto sm:h-40" />
+          <img src="/logo225px.png" alt="Runoot" className="h-[4.5rem] w-auto sm:h-[5.5rem]" />
         </Link>
       </div>
 
       <div className="mt-4 sm:mx-auto sm:w-full sm:max-w-xl">
-        <div className="rounded-3xl border border-gray-200 bg-white px-8 py-8 shadow-sm sm:px-14">
+        <div className="px-4 py-6 sm:px-2">
           <h2 className="text-center font-display text-3xl font-bold tracking-tight text-gray-900 lowercase">
             {t("auth.welcome_back")}
           </h2>
@@ -110,7 +110,7 @@ export default function Login() {
 
           <div className="h-8" />
 
-          <Form method="post" className="space-y-6">
+          <Form method="post" className="space-y-6 [&_.input]:border [&_.input]:border-solid [&_.input]:border-accent-500 [&_.input]:shadow-none">
             <input type="hidden" name="redirectTo" value={redirectTo} />
 
             {actionData?.error && (
@@ -129,7 +129,7 @@ export default function Login() {
                 type="email"
                 autoComplete="email"
                 required
-                className="input w-full rounded-full bg-[#ECF4FE]"
+                className="input w-full rounded-full bg-white"
               />
             </div>
 
@@ -143,11 +143,11 @@ export default function Login() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="input w-full rounded-full bg-[#ECF4FE]"
+                className="input w-full rounded-full bg-white"
               />
-              <div className="mt-2 text-right">
-                <Link to="/forgot-password" className="text-xs font-medium text-brand-600 hover:text-brand-700">
-                  {t("auth.forgot_password")} 
+              <div className="mt-2 ml-4 text-left">
+                <Link to="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                  {t("auth.forgot_password")}?
                 </Link>
               </div>
             </div>

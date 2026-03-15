@@ -88,7 +88,15 @@ export function MobileNav({ user }: MobileNavProps) {
         {/* Sidebar Header */}
         <div className="flex items-center gap-3 p-3 border-b border-gray-100">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-600 font-semibold text-sm">
-            {getPublicInitial(user)}
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={displayName || t("common.user")}
+                className="h-full w-full rounded-full object-cover"
+              />
+            ) : (
+              getPublicInitial(user)
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-gray-900 text-sm truncate">{displayName || t("common.user")}</p>
@@ -202,7 +210,7 @@ export function MobileNav({ user }: MobileNavProps) {
             {t("nav.settings")}
           </Link>
 
-          <Form method="post" action="/logout">
+          <Form method="post" action="/logout" reloadDocument>
             <button
               type="submit"
               className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -218,7 +226,7 @@ export function MobileNav({ user }: MobileNavProps) {
 
       {/* Top Navigation (inverted from bottom) */}
       <nav className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 safe-area-top">
-      <div className="relative flex items-center justify-between h-16 px-3 max-[390px]:px-1">
+      <div className="relative flex items-center justify-between h-[4.375rem] px-3 max-[390px]:px-1">
         <div className="flex items-center">
           {/* Listings/Search */}
           <Link
@@ -236,32 +244,34 @@ export function MobileNav({ user }: MobileNavProps) {
           </Link>
 
           {/* New */}
-          <Link
-            to={createPath}
-            className={`flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 ${
-              location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new"
-                ? "text-accent-600"
-                : "text-gray-500"
-            }`}
-          >
-            <svg className="h-6 w-6 max-[390px]:h-5 max-[390px]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" ? 2.5 : 2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="text-[10px] mt-0.5 font-medium">{t("nav.new")}</span>
-          </Link>
+          {user && (
+            <Link
+              to={createPath}
+              className={`flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 ${
+                location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new"
+                  ? "text-accent-600"
+                  : "text-gray-500"
+              }`}
+            >
+              <svg className="h-6 w-6 max-[390px]:h-5 max-[390px]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={location.pathname === "/listings/new" || location.pathname === "/to-panel/listings/new" ? 2.5 : 2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="text-[10px] mt-0.5 font-medium">{t("nav.new")}</span>
+            </Link>
+          )}
         </div>
 
         {/* Center Logo */}
         <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center">
           <Link to="/" className="pointer-events-auto">
-            <img src="/logo.svg" alt="Runoot" className="h-14 w-auto max-w-[136px] min-[391px]:h-20 min-[391px]:max-w-[192px] max-[390px]:h-[4.5rem] max-[390px]:max-w-[168px]" />
+            <img src="/logo225px.png" alt="Runoot" className="h-[3.75rem] w-auto max-w-[168px] min-[391px]:h-[4.25rem] min-[391px]:max-w-[186px] max-[390px]:h-[3.5rem] max-[390px]:max-w-[156px]" />
           </Link>
         </div>
 
         <div className="flex items-center">
 
         {/* Messages */}
-        {user ? (
+        {user && (
           <Link
             to="/messages"
             className={`flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 relative ${
@@ -281,16 +291,6 @@ export function MobileNav({ user }: MobileNavProps) {
                 </span>
               )}
             </div>
-            <span className="text-[10px] mt-0.5 font-medium">{t("nav.messages")}</span>
-          </Link>
-        ) : (
-          <Link
-            to="/login"
-            className="flex w-16 min-[391px]:w-[3.75rem] max-[390px]:w-12 flex-col items-center justify-center py-2 text-gray-500"
-          >
-            <svg className="h-6 w-6 max-[390px]:h-5 max-[390px]:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
             <span className="text-[10px] mt-0.5 font-medium">{t("nav.messages")}</span>
           </Link>
         )}

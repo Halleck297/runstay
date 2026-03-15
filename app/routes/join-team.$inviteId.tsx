@@ -228,10 +228,10 @@ export default function JoinTeamInvite() {
 
   if (actionData?.success) {
     return (
-      <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
-          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("team_invite.joined_title")}</h1>
-          <p className="text-gray-600 mb-6">{t("team_invite.joined_body")} {teamLeaderName}.</p>
+      <div className="min-h-screen bg-[#ECF4FE] flex items-start justify-center px-3 pt-6 pb-24 sm:items-center sm:px-4 sm:pt-0 sm:pb-0">
+        <div className="max-w-md w-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-8 text-center">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t("team_invite.joined_title")}</h1>
+          <p className="text-sm sm:text-base text-gray-600 mb-6 break-words">{t("team_invite.joined_body")} {teamLeaderName}.</p>
           <Link to="/listings" className="btn-primary inline-block w-full py-3">
             {t("team_invite.go_listings")}
           </Link>
@@ -252,10 +252,10 @@ export default function JoinTeamInvite() {
 
   if (status !== "ready") {
     return (
-      <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
-          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("team_invite.title")}</h1>
-          <p className="text-gray-600 mb-6">{messageByStatus[status]}</p>
+      <div className="min-h-screen bg-[#ECF4FE] flex items-start justify-center px-3 pt-6 pb-24 sm:items-center sm:px-4 sm:pt-0 sm:pb-0">
+        <div className="max-w-md w-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-8 text-center">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t("team_invite.title")}</h1>
+          <p className="text-sm sm:text-base text-gray-600 mb-6 break-words">{messageByStatus[status]}</p>
           {status === "login_required" ? (
             <Link to={loaderData.loginPath} className="btn-primary inline-block w-full py-3">
               {t("team_invite.signin_continue")}
@@ -271,14 +271,14 @@ export default function JoinTeamInvite() {
   }
 
   return (
-    <div className="min-h-screen bg-[#ECF4FE] flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
-        <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("team_invite.join_prefix")} {teamLeaderName}</h1>
-        <p className="text-gray-600 mb-6">
+    <div className="min-h-screen bg-[#ECF4FE] flex items-start justify-center px-3 pt-6 pb-24 sm:items-center sm:px-4 sm:pt-0 sm:pb-0">
+      <div className="max-w-md w-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-8 text-center">
+        <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">{t("team_invite.join_prefix")} {teamLeaderName}</h1>
+        <p className="text-sm sm:text-base text-gray-600 mb-6 break-words">
           {t("team_invite.ready_body")}
         </p>
         {actionError && (
-          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</div>
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 break-words">{actionError}</div>
         )}
         <Form method="post">
           <button type="submit" className="btn-primary inline-block w-full py-3">

@@ -3,6 +3,7 @@ import { getListingPublicId } from "~/lib/publicIds";
 import { useI18n } from "~/hooks/useI18n";
 import type { TranslationKey } from "~/lib/i18n";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { isEventExpired } from "~/lib/listing-status";
 
 
 interface ListingCardProps {
@@ -21,6 +22,7 @@ interface ListingCardProps {
     price_negotiable: boolean;
     transfer_type: "official_process" | "package" | "contact" | null;
     associated_costs: number | null;
+    status?: string | null;
     currency?: string | null;
     cost_notes?: string | null;
     check_in: string | null;
@@ -166,6 +168,7 @@ export function ListingCard({
 
   const mainTitle = listing.event.name;
   const isLM = isLastMinute(listing.event.event_date, listing.listing_type);
+  const isExpired = isEventExpired(listing.event.event_date);
   const isTourOperator = listing.author.user_type === "tour_operator";
   const needsNameChange = listing.transfer_type === "official_process";
   const bibCount = listing.bib_count || 1;
@@ -210,7 +213,7 @@ if (listing.listing_type === "bib") {
   : "card overflow-hidden transition-all h-full w-full md:max-w-[380px] md:h-[630px] md:mx-auto md:rounded-[32px] flex flex-col [box-shadow:0_4px_15px_rgba(0,0,0,0.25)]";
 
 
-  const listingHref = isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login";
+  const listingHref = `/listings/${getListingPublicId(listing)}`;
 
   return (
     <div
@@ -223,8 +226,12 @@ if (listing.listing_type === "bib") {
           navigate(listingHref);
         }
       }}
-      className={`${cardClass} ${className} cursor-pointer`}
+      className={`${cardClass} relative ${className} cursor-pointer`}
     >
+      {isExpired && (
+        <div className="pointer-events-none absolute inset-0 z-10 bg-gray-300/45" />
+      )}
+
       {/* Sezione Immagine */}
       <div className="md:flex md:justify-center md:pt-5">
         <div className="relative md:h-[260px] md:w-[350px]">
@@ -250,19 +257,24 @@ if (listing.listing_type === "bib") {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-
+          {isExpired && (
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-gray-300/45 md:rounded-[24px]">
+              <span className="rounded-full border border-red-300 bg-white/90 px-6 py-2.5 text-base font-bold uppercase tracking-[0.2em] text-red-600 md:border-2">
+                {t("listings.status_expired")}
+              </span>
+            </div>
+          )}
           {/* Badge sovrapposti all'immagine */}
           <div className="absolute top-3 left-3 flex gap-2">
             <span className={`px-3 py-1.5 rounded-full text-sm font-semibold uppercase shadow-[0_4px_10px_rgba(0,0,0,0.22)] ${badgeColor}`}>
               {badgeText}
             </span>
-            {isLM && (
+            {!isExpired && isLM && (
               <span className="px-3 py-1.5 rounded-full text-sm font-semibold uppercase bg-accent-500 text-white shadow-[0_4px_10px_rgba(0,0,0,0.22)]">Last Minute</span>
             )}
           </div>
 
-          {/* Save button sovrapposto all'immagine */}
-          {canSaveListing && (
+          {canSaveListing && !isExpired && (
             <saveFetcher.Form
               method="post"
               action="/api/saved"
@@ -305,6 +317,7 @@ if (listing.listing_type === "bib") {
               </button>
             </saveFetcher.Form>
           )}
+
         </div>
       </div>
 

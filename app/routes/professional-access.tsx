@@ -131,7 +131,7 @@ export default function ProfessionalAccessPage() {
     <div className="min-h-full flex flex-col justify-start bg-[#ECF4FE] pt-2 pb-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
         <Link to="/" className="flex justify-center" aria-label={t("register.go_home_aria")}>
-          <img src="/logo.svg" alt="Runoot" className="h-32 w-auto sm:h-40" />
+          <img src="/logo225px.png" alt="Runoot" className="h-[4.5rem] w-auto sm:h-[5.5rem]" />
         </Link>
       </div>
 

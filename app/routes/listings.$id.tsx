@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { Form, Link, useActionData, useLoaderData, useFetcher, useLocation } from "react-router";
+import { Form, Link, useActionData, useLoaderData, useLocation } from "react-router";
 import { useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import type { TranslationKey } from "~/lib/i18n";
@@ -14,6 +14,7 @@ import { FooterLight } from "~/components/FooterLight";
 import { isAdmin } from "~/lib/user-access";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 import { calculateDistanceData } from "~/lib/distance.server";
+import { isEventExpired } from "~/lib/listing-status";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: (data as any)?.listing?.title || "Listing - Runoot" }];
@@ -256,14 +257,10 @@ function getEventSlug(event: { name: string; slug: string | null }): string {
 export default function ListingDetail() {
   const { t, locale } = useI18n();
   const location = useLocation();
-  const { user, listing, isSaved, isEventListing, eventOrganizer, sellerAccessMode } = useLoaderData<typeof loader>();
+  const { user, listing, isEventListing, eventOrganizer, sellerAccessMode } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [showHowTo, setShowHowTo] = useState(false);
   const [showSafety, setShowSafety] = useState(false);
-  const saveFetcher = useFetcher();
-  const isSavedOptimistic = saveFetcher.formData
-    ? saveFetcher.formData.get("action") === "save"
-    : isSaved;
   
   const listingData = listing as any;
   const userData = user as any;
@@ -299,6 +296,7 @@ export default function ListingDetail() {
     month: "short",
     year: "numeric",
   });
+  const isExpired = isEventExpired(listingData.event.event_date);
 
   const isOwner = userData?.id === listingData.author_id;
   const isAdminViewer = isAdmin(userData);
@@ -359,7 +357,7 @@ export default function ListingDetail() {
           </div>
 
           {/* Event Image Banner */}
-          <div className="rounded-3xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.15)] mb-6">
+          <div className="relative rounded-3xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.15)] mb-6">
             <img
               src={bannerPrimary}
               alt={listingData.event.name}
@@ -382,6 +380,13 @@ export default function ListingDetail() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
+            {isExpired && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-gray-300/45">
+                <span className="rounded-full border border-red-300 bg-white/90 px-7 py-3 text-lg font-bold uppercase tracking-[0.2em] text-red-600 md:border-2">
+                  {t("listings.status_expired")}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
@@ -857,35 +862,6 @@ export default function ListingDetail() {
                       : t("edit_listing.room_plus_bib")}
                   </span>
 
-                  {user && !isOwner && listingData.status === "active" && (
-                    <saveFetcher.Form method="post" action="/api/saved">
-                      <input type="hidden" name="listingId" value={listingData.id} />
-                      <input type="hidden" name="action" value={isSavedOptimistic ? "unsave" : "save"} />
-                      <button
-                        type="submit"
-                        className={`rounded-full p-2.5 ring-1 ring-slate-200 shadow-sm transition-colors ${
-                          isSavedOptimistic
-                            ? "bg-red-50 text-red-500 hover:bg-red-100"
-                            : "bg-slate-50 text-slate-700 ring-slate-300 hover:bg-slate-200 hover:text-red-500"
-                        }`}
-                        title={isSavedOptimistic ? t("listings.remove_from_saved") : t("listings.save_listing")}
-                      >
-                        <svg
-                          className="h-5 w-5"
-                          fill={isSavedOptimistic ? "currentColor" : "none"}
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                          />
-                        </svg>
-                      </button>
-                    </saveFetcher.Form>
-                  )}
                 </div>
 
                 {/* Titolo - mostra solo il nome evento */}
@@ -901,7 +877,11 @@ export default function ListingDetail() {
                     </svg>
                     <span>{eventDateShort}</span>
                   </div>
-                  {listingData.status === "active" ? (
+                  {isExpired ? (
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                      {t("listings.status_expired")}
+                    </span>
+                  ) : listingData.status === "active" ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
                       <span className="h-2 w-2 rounded-full bg-green-500"></span>
                       {t("listings.status_active")}
@@ -1023,32 +1003,61 @@ export default function ListingDetail() {
               {/* Price + CTA section */}
               <div className="border-t border-slate-200 bg-slate-50 p-6">
                 <div className="text-center">
-                  <p className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-900">
-                    {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && !isEventListing
-                      ? t("listings.associated_costs")
-                      : t("listings.price")}
-                  </p>
-                  {/* For event listings, prioritize explicit listing price across all types */}
-                  {isEventListing && listingData.price ? (
-                    <>
-                      <p className="text-3xl font-bold text-gray-900">
-                        {formatCurrencyAmount(listingData.price, locale, listingData.currency || "EUR")}
+                  {isExpired ? (
+                    <div className="rounded-3xl border border-red-300 bg-white px-4 py-4 md:border-2">
+                      <p className="text-2xl font-bold uppercase tracking-[0.14em] text-red-600">
+                        {t("listings.status_expired")}
                       </p>
-                      {listingData.price_negotiable && (
-                        <p className="mt-1 text-sm text-green-600 font-medium">
-                          {t("listings.price_negotiable")}
-                        </p>
-                      )}
-                    </>
-                  ) : (listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") ? (
-                    listingData.associated_costs ? (
+                    </div>
+                  ) : (
+                    <>
+                      <p className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-900">
+                        {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && !isEventListing
+                          ? t("listings.associated_costs")
+                          : t("listings.price")}
+                      </p>
+                      {/* For event listings, prioritize explicit listing price across all types */}
+                      {isEventListing && listingData.price ? (
+                        <>
+                          <p className="text-3xl font-bold text-gray-900">
+                            {formatCurrencyAmount(listingData.price, locale, listingData.currency || "EUR")}
+                          </p>
+                          {listingData.price_negotiable && (
+                            <p className="mt-1 text-sm text-green-600 font-medium">
+                              {t("listings.price_negotiable")}
+                            </p>
+                          )}
+                        </>
+                      ) : (listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") ? (
+                        listingData.associated_costs ? (
+                          <>
+                            <p className="text-3xl font-bold text-gray-900">
+                              {formatCurrencyAmount(listingData.associated_costs, locale, listingData.currency || "EUR")}
+                            </p>
+                            {listingData.cost_notes && (
+                              <p className="mt-2 text-sm text-gray-600">
+                                {parsedCostNotes.note || ""}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <div className="rounded-3xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-lg font-semibold text-gray-700 mb-0.5">
+                              {t("listings.contact_for_price")}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {t("listings.price_details_available_from_seller")}
+                            </p>
+                          </div>
+                        )
+                      ) : listingData.price ? (
                       <>
                         <p className="text-3xl font-bold text-gray-900">
-                          {formatCurrencyAmount(listingData.associated_costs, locale, listingData.currency || "EUR")}
+                          {formatCurrencyAmount(listingData.price, locale, listingData.currency || "EUR")}
                         </p>
-                        {listingData.cost_notes && (
-                          <p className="mt-2 text-sm text-gray-600">
-                            {parsedCostNotes.note || ""}
+                        {listingData.price_negotiable && (
+                          <p className="mt-1 text-sm text-green-600 font-medium">
+                            {t("listings.price_negotiable")}
                           </p>
                         )}
                       </>
@@ -1058,30 +1067,11 @@ export default function ListingDetail() {
                           {t("listings.contact_for_price")}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {t("listings.price_details_available_from_seller")}
+                          {priceAnchor}
                         </p>
                       </div>
-                    )
-                  ) : listingData.price ? (
-                    <>
-                      <p className="text-3xl font-bold text-gray-900">
-                        {formatCurrencyAmount(listingData.price, locale, listingData.currency || "EUR")}
-                      </p>
-                      {listingData.price_negotiable && (
-                        <p className="mt-1 text-sm text-green-600 font-medium">
-                          {t("listings.price_negotiable")}
-                        </p>
-                      )}
+                    )}
                     </>
-                  ) : (
-                    <div className="rounded-3xl border border-slate-200 bg-white px-4 py-3">
-                      <p className="text-lg font-semibold text-gray-700 mb-0.5">
-                        {t("listings.contact_for_price")}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {priceAnchor}
-                      </p>
-                    </div>
                   )}
                 </div>
 

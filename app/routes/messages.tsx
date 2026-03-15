@@ -92,6 +92,7 @@ export default function MessagesLayout() {
   const [searchParams] = useSearchParams();
   const params = useParams();
   const activeConversationId = searchParams.get("c") || params.id;
+  const mobileSubtitle = activeConversationId ? undefined : t("messages.title");
 
   const formatTimeAgo = (dateString: string): string => {
     const date = new Date(dateString);
@@ -124,27 +125,27 @@ export default function MessagesLayout() {
   });
 
   const messagesContent = (
-    <div className="flex-1 overflow-hidden md:overflow-x-auto md:overflow-y-hidden bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
+    <div className="flex-1 overflow-hidden md:overflow-x-auto md:overflow-y-hidden md:bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
       <div className="mx-auto h-full min-w-full md:min-w-[980px] max-w-7xl px-0 py-0 md:px-4 md:py-8 lg:px-8">
-        <div className="flex h-full overflow-hidden border border-gray-200/80 bg-white/85 shadow-xl backdrop-blur-[2px] md:rounded-3xl">
+        <div className="flex h-full overflow-hidden bg-white md:border md:border-gray-200/80 md:bg-white/85 md:shadow-xl md:backdrop-blur-[2px] md:rounded-3xl">
 
       {/* Colonna sinistra: Lista conversazioni */}
       {/* Mobile: mostra solo quando NON c'è conversazione attiva */}
       {/* Desktop: mostra sempre */}
       <aside
-        className={`w-full md:w-80 lg:w-96 md:shrink-0 bg-white/95 backdrop-blur-[2px] md:rounded-l-3xl flex flex-col overflow-hidden border-r border-gray-200 ${
+        className={`w-full md:w-80 lg:w-96 md:shrink-0 bg-white/95 backdrop-blur-[2px] md:rounded-l-3xl flex flex-col overflow-y-auto border-r border-gray-200 ${
           activeConversationId ? "hidden md:flex" : "flex"
         }`}
       >
         {/* Header lista */}
-        <div className="p-4 border-b border-gray-200 bg-white/95 flex items-center h-[72px]">
-          <h1 className="font-display text-xl font-bold text-gray-900">
+        <div className="hidden sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-4 py-2.5 items-center justify-center h-[58px] md:flex md:h-[84px] md:p-4 md:pt-6">
+          <h1 className="text-center font-display text-xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">
             {t("messages.title")}
           </h1>
         </div>
 
         {/* Lista conversazioni scrollabile */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1">
           {conversations.length > 0 ? (
             <div>
               {conversations.map((conv: any) => {
@@ -159,6 +160,9 @@ export default function MessagesLayout() {
                     new Date(a.created_at).getTime()
                 );
                 const lastMessage = sortedMessages[0];
+                const previewMessage =
+                  sortedMessages.find((m: any) => m.message_type !== "heart") || lastMessage;
+                const hasListingSavedMarker = sortedMessages.some((m: any) => m.message_type === "heart");
 
                 const unreadCount =
                   typeof conv.unread_count === "number"
@@ -176,11 +180,11 @@ export default function MessagesLayout() {
                     key={conv.id}
                     to={`/messages?c=${convPublicId}`}
                     className={`relative flex items-center gap-3 border-y border-gray-200 p-4 hover:bg-[#ECF4FE] transition-all duration-200 ease-out ${
-                      isActive ? "bg-[#ECF4FE] shadow-sm" : "md:hover:-translate-y-[1px] md:hover:shadow-sm"
+                      isActive ? "md:bg-[#ECF4FE] md:shadow-sm" : "md:hover:-translate-y-[1px] md:hover:shadow-sm"
                     }`}
                   >
                     {isActive && (
-                      <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-accent-500 transition-all duration-200" />
+                      <span className="absolute left-0 top-2 bottom-2 hidden w-1 rounded-r-full bg-accent-500 transition-all duration-200 md:block" />
                     )}
 
                     {/* Avatar */}
@@ -207,9 +211,9 @@ export default function MessagesLayout() {
                         >
                           {getPublicDisplayName(otherUser) || t("messages.user")}
                         </p>
-                        {lastMessage && (
+                        {previewMessage && (
                           <span className={`text-xs flex-shrink-0 ${unreadCount > 0 ? "text-gray-500" : "text-gray-400"}`}>
-                            {formatTimeAgo(lastMessage.created_at)}
+                            {formatTimeAgo(previewMessage.created_at)}
                           </span>
                         )}
                       </div>
@@ -218,25 +222,47 @@ export default function MessagesLayout() {
                         {conv.listing?.title || t("messages.listing")}
                       </p>
 
-                      {lastMessage && (
-                        <p
-                          className={`text-sm truncate mt-1 leading-5 ${
-                            unreadCount > 0 ? "text-gray-800 font-medium" : "text-gray-500"
-                          }`}
-                        >
-                          {lastMessage.sender_id === (user as any).id ? (
-                            <>
-                              <span className="text-gray-400">{t("messages.you_prefix")} </span>
-                              {lastMessage.message_type === "heart"
-                                ? t("messages.listing_saved")
-                                : lastMessage.content}
-                            </>
-                          ) : (
-                            lastMessage.message_type === "heart"
-                              ? t("messages.listing_saved")
-                              : lastMessage.translated_content || t("messages.new_message")
+                      {previewMessage && (
+                        <div className="mt-1 flex items-center gap-2">
+                          {(() => {
+                            const previewText =
+                              previewMessage.message_type === "heart"
+                                ? ""
+                                : previewMessage.sender_id === (user as any).id
+                                  ? (previewMessage.content || "").trim()
+                                  : (previewMessage.translated_content || previewMessage.content || "").trim();
+                            const ownPrefix = t("messages.you_prefix");
+                            return (
+                          <p
+                            className={`min-w-0 flex-1 truncate text-sm leading-5 ${
+                              unreadCount > 0 ? "text-gray-800 font-medium" : "text-gray-500"
+                            }`}
+                          >
+                            {previewText
+                              ? previewMessage.sender_id === (user as any).id
+                                ? (
+                                  <>
+                                    <span className="text-gray-400">{ownPrefix} </span>
+                                    {previewText}
+                                  </>
+                                )
+                                : previewText
+                              : ""}
+                          </p>
+                            );
+                          })()}
+                          {hasListingSavedMarker && (
+                            <span
+                              className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-red-500"
+                              aria-label={t("messages.listing_saved")}
+                              title={t("messages.listing_saved")}
+                            >
+                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                              </svg>
+                            </span>
                           )}
-                        </p>
+                        </div>
                       )}
                     </div>
 
@@ -284,7 +310,7 @@ export default function MessagesLayout() {
 
       {/* Area centrale: Conversazione attiva */}
       <main
-        className={`flex-1 flex flex-col min-w-0 md:min-w-[620px] overflow-hidden ${
+        className={`flex-1 flex flex-col min-h-0 min-w-0 md:min-w-[620px] overflow-hidden ${
           activeConversationId ? "flex" : "hidden md:flex"
         }`}
       >
@@ -299,7 +325,8 @@ export default function MessagesLayout() {
     return (
       <ControlPanelLayout
         panelLabel="Team Leader Panel"
-        mobileTitle="TL Panel"
+        mobileTitle="Team Leader"
+        mobileSubtitle={mobileSubtitle}
         homeTo="/tl-dashboard"
         user={{
           fullName: (user as any).full_name as string | null | undefined,
@@ -309,7 +336,7 @@ export default function MessagesLayout() {
         }}
         navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
       >
-        <div className="messages-page h-full flex flex-col">
+        <div className="messages-page m-0 flex h-full min-h-0 flex-col">
           {messagesContent}
         </div>
       </ControlPanelLayout>
@@ -320,7 +347,8 @@ export default function MessagesLayout() {
     return (
       <ControlPanelLayout
         panelLabel="Tour Operator Panel"
-        mobileTitle="TO Panel"
+        mobileTitle="Tour Operator"
+        mobileSubtitle={mobileSubtitle}
         homeTo="/to-panel"
         user={{
           fullName: (user as any).full_name as string | null | undefined,
@@ -330,7 +358,7 @@ export default function MessagesLayout() {
         }}
         navItems={tourOperatorNavItems}
       >
-        <div className="messages-page h-full flex flex-col">
+        <div className="messages-page m-0 flex h-full min-h-0 flex-col">
           {messagesContent}
         </div>
       </ControlPanelLayout>

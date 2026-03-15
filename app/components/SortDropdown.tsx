@@ -14,9 +14,10 @@ interface SortDropdownProps {
   value: string;
   onChange: (value: string) => void;
   options?: Array<{ value: string; label: string }>;
+  buttonClassName?: string;
 }
 
-export function SortDropdown({ value, onChange, options }: SortDropdownProps) {
+export function SortDropdown({ value, onChange, options, buttonClassName = "" }: SortDropdownProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -42,7 +43,7 @@ export function SortDropdown({ value, onChange, options }: SortDropdownProps) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors whitespace-nowrap"
+        className={`flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors whitespace-nowrap ${buttonClassName}`}
       >
         <svg
           className="h-4 w-4 text-gray-500"

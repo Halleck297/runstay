@@ -26,36 +26,6 @@ export const links: LinksFunction = () => [
     type: "font/woff2",
     crossOrigin: "anonymous",
   },
-  {
-    rel: "preload",
-    href: "/fonts/dm-sans-700.woff2",
-    as: "font",
-    type: "font/woff2",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "preload",
-    href: "/fonts/sora-v17-700.woff2",
-    as: "font",
-    type: "font/woff2",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "preload",
-    href: "/hero-mobile.webp",
-    as: "image",
-    type: "image/webp",
-    media: "(max-width: 767px)",
-    fetchPriority: "high",
-  },
-  {
-    rel: "preload",
-    href: "/hero.webp",
-    as: "image",
-    type: "image/webp",
-    media: "(min-width: 768px)",
-    fetchPriority: "high",
-  },
 ];
 
 export async function loader({ request }: LoaderFunctionArgs) {

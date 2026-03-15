@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getLocaleLabelsForUi, isSupportedLocale, resolveLocaleForRequest, type SupportedLocale } from "~/lib/locale";
 import { getDialingPrefix, getSuggestedLocaleForCountry, getSupportedCountries, resolveSupportedCountry } from "~/lib/supportedCountries";
@@ -26,7 +26,7 @@ function getDobBounds() {
   const max = new Date(now);
   max.setFullYear(max.getFullYear() - 18);
   const min = new Date(now);
-  min.setFullYear(min.getFullYear() - 80);
+  min.setFullYear(min.getFullYear() - 75);
   return {
     minDob: toIsoDateOnly(min),
     maxDob: toIsoDateOnly(max),
@@ -43,6 +43,29 @@ function normalizeEmail(value: string): string {
     .toLowerCase();
 }
 
+const LEGAL_TERMS_VERSION = "2026-03-15";
+const LEGAL_PRIVACY_VERSION = "2026-03-15";
+
+async function logLegalConsent(args: {
+  accessRequestId?: string | null;
+  email: string;
+  locale: SupportedLocale;
+  source: "register_request";
+}) {
+  const now = new Date().toISOString();
+  await (supabaseAdmin.from("legal_consents" as any) as any).insert({
+    access_request_id: args.accessRequestId ?? null,
+    email: args.email,
+    source: args.source,
+    locale: args.locale,
+    terms_accepted_at: now,
+    privacy_accepted_at: now,
+    terms_version: LEGAL_TERMS_VERSION,
+    privacy_version: LEGAL_PRIVACY_VERSION,
+    created_at: now,
+  });
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   if (user) {
@@ -52,7 +75,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 type ActionData =
-  | { errorKey: "register.error.invite_code_required" | "register.error.first_name_required" | "register.error.last_name_required" | "register.error.valid_email_required" | "register.error.country_required" | "register.error.country_unsupported" | "register.error.city_required" | "register.error.date_of_birth_required" | "register.error.date_of_birth_invalid" | "register.error.date_of_birth_too_young" | "register.error.date_of_birth_too_old" | "register.error.note_required" | "register.error.note_too_long" | "register.error.submit_failed" | "register.error.invalid_action"; field?: string }
+  | { errorKey: "register.error.invite_code_required" | "register.error.first_name_required" | "register.error.last_name_required" | "register.error.valid_email_required" | "register.error.country_required" | "register.error.country_unsupported" | "register.error.city_required" | "register.error.date_of_birth_required" | "register.error.date_of_birth_invalid" | "register.error.date_of_birth_too_young" | "register.error.date_of_birth_too_old" | "register.error.note_required" | "register.error.note_too_long" | "register.error.terms_required" | "register.error.privacy_required" | "register.error.submit_failed" | "register.error.invalid_action"; field?: string }
   | { success: true; type: "invite_redirect" }
   | { success: true; type: "lead_created"; alreadyPending?: boolean };
 
@@ -79,6 +102,8 @@ export async function action({ request }: ActionFunctionArgs) {
     const phone = String(formData.get("phone") || "").trim();
     const dateOfBirth = String(formData.get("dateOfBirth") || "").trim();
     const note = String(formData.get("note") || "").trim();
+    const termsAccepted = String(formData.get("termsAccepted") || "") === "on";
+    const privacyAccepted = String(formData.get("privacyAccepted") || "") === "on";
     const preferredLanguageRaw = String(formData.get("language") || "").trim().toLowerCase();
     const preferredLanguage = isSupportedLocale(preferredLanguageRaw)
       ? preferredLanguageRaw
@@ -138,10 +163,16 @@ export async function action({ request }: ActionFunctionArgs) {
     if (note.length > 1000) {
       return data<ActionData>({ errorKey: "register.error.note_too_long", field: "note" }, { status: 400 });
     }
+    if (!termsAccepted) {
+      return data<ActionData>({ errorKey: "register.error.terms_required", field: "termsAccepted" }, { status: 400 });
+    }
+    if (!privacyAccepted) {
+      return data<ActionData>({ errorKey: "register.error.privacy_required", field: "privacyAccepted" }, { status: 400 });
+    }
 
     const email = normalizeEmail(emailRaw);
 
-    const { error } = await (supabaseAdmin.from("access_requests" as any) as any).insert({
+    const { data: insertedRequest, error } = await (supabaseAdmin.from("access_requests" as any) as any).insert({
       full_name: fullName,
       email,
       country: resolvedCountry.nameEn,
@@ -152,7 +183,7 @@ export async function action({ request }: ActionFunctionArgs) {
       note: note || null,
       source: "public_signup",
       status: "pending",
-    });
+    }).select("id").maybeSingle();
 
     if (error) {
       const message = String((error as any).message || "").toLowerCase();
@@ -162,11 +193,24 @@ export async function action({ request }: ActionFunctionArgs) {
         message.includes("duplicate key");
 
       if (duplicate) {
+        await logLegalConsent({
+          accessRequestId: null,
+          email,
+          locale: preferredLanguage,
+          source: "register_request",
+        });
         return data<ActionData>({ success: true, type: "lead_created", alreadyPending: true });
       }
 
       return data<ActionData>({ errorKey: "register.error.submit_failed" }, { status: 500 });
     }
+
+    await logLegalConsent({
+      accessRequestId: insertedRequest?.id || null,
+      email,
+      locale: preferredLanguage,
+      source: "register_request",
+    });
 
     return data<ActionData>({ success: true, type: "lead_created" });
   }
@@ -186,19 +230,77 @@ export default function Register() {
   const [countryValue, setCountryValue] = useState("");
   const [languageValue, setLanguageValue] = useState<SupportedLocale>(detectedLocale);
   const [languageTouched, setLanguageTouched] = useState(false);
+  const [dateOfBirthDigits, setDateOfBirthDigits] = useState("");
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
+  const datePickerRef = useRef<HTMLInputElement | null>(null);
+  const dobCaretModeRef = useRef<"forward" | "backward">("forward");
   const selectedCountry = useMemo(() => resolveSupportedCountry(countryValue, locale), [countryValue, locale]);
   const phonePrefix = selectedCountry ? getDialingPrefix(selectedCountry.code) : "+--";
+  const isUsDobFormat = countryValue === "US";
+  const dobHint = isUsDobFormat ? t("join_referral.dob_hint_us") : t("join_referral.dob_hint_default");
+  const dobMask = "__/__/____";
+  const dobDigitSlots = [0, 1, 3, 4, 6, 7, 8, 9];
+
+  const formatDobForDisplay = (isoDate: string) => {
+    const match = String(isoDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return "";
+    const year = match[1];
+    const month = match[2];
+    const day = match[3];
+    return isUsDobFormat ? `${month}/${day}/${year}` : `${day}/${month}/${year}`;
+  };
+  const formatDobMaskedValue = (digits: string) => {
+    const chars = dobMask.split("");
+    const limitedDigits = digits.slice(0, 8);
+    for (let i = 0; i < limitedDigits.length; i += 1) {
+      chars[dobDigitSlots[i]] = limitedDigits[i];
+    }
+    return chars.join("");
+  };
+  const parseDobDigitsToIso = (digits: string) => {
+    if (digits.length !== 8) return "";
+    const first = Number.parseInt(digits.slice(0, 2), 10);
+    const second = Number.parseInt(digits.slice(2, 4), 10);
+    const year = Number.parseInt(digits.slice(4, 8), 10);
+    if (!Number.isFinite(first) || !Number.isFinite(second) || !Number.isFinite(year)) return "";
+    const day = isUsDobFormat ? second : first;
+    const month = isUsDobFormat ? first : second;
+    const iso = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const testDate = new Date(Date.UTC(year, month - 1, day));
+    const isValid =
+      testDate.getUTCFullYear() === year &&
+      testDate.getUTCMonth() === month - 1 &&
+      testDate.getUTCDate() === day;
+    if (!isValid) return "";
+    if (iso < minDob || iso > maxDob) return "";
+    return iso;
+  };
+  const getDobCaretPosition = (digitCount: number, mode: "forward" | "backward" = "forward") => {
+    const capped = Math.max(0, Math.min(digitCount, 8));
+    if (capped >= dobDigitSlots.length) return dobMask.length;
+    const nextSlot = dobDigitSlots[capped];
+    return mode === "backward" ? nextSlot : nextSlot + 1;
+  };
+  const dateOfBirthIsoValue = parseDobDigitsToIso(dateOfBirthDigits);
+
+  useEffect(() => {
+    const input = dateInputRef.current;
+    if (!input || document.activeElement !== input) return;
+    const nextPosition = getDobCaretPosition(dateOfBirthDigits.length, dobCaretModeRef.current);
+    input.setSelectionRange(nextPosition, nextPosition);
+    dobCaretModeRef.current = "forward";
+  }, [dateOfBirthDigits, isUsDobFormat]);
 
   return (
-    <div className="min-h-full flex flex-col justify-start bg-[#ECF4FE] pt-1 pb-12 sm:pt-2 sm:px-6 lg:px-8">
+    <div className="min-h-full flex flex-col justify-start bg-white pt-1 pb-12 sm:pt-2 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
         <Link to="/" className="flex justify-center" aria-label={t("register.go_home_aria")}>
-          <img src="/logo.svg" alt="Runoot" className="h-32 w-auto sm:h-40" />
+          <img src="/logo225px.png" alt="Runoot" className="h-[4.5rem] w-auto sm:h-[5.5rem]" />
         </Link>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-3xl">
-        <div className="rounded-3xl border border-gray-200 bg-white px-8 py-8 shadow-sm sm:px-14">
+      <div className="mt-4 sm:mx-auto sm:w-full sm:max-w-3xl">
+        <div className="px-4 py-6 sm:px-2">
           <h1 className="text-center font-display text-3xl font-bold tracking-tight text-gray-900">{t("register.title")}</h1>
           <p className="mt-2 text-center text-sm text-gray-600">
             {t("register.subtitle")}
@@ -243,7 +345,7 @@ export default function Register() {
               {t("register.request.subtitle")}
             </p>
 
-            <Form method="post" className="mt-5 space-y-4">
+            <Form method="post" className="mt-5 space-y-4 [&_.input]:border [&_.input]:border-solid [&_.input]:border-accent-500 [&_.input]:shadow-none [&_.input:focus]:border-brand-500 [&_.input:focus]:ring-brand-500/20">
               <input type="hidden" name="intent" value="request_access" />
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -264,7 +366,8 @@ export default function Register() {
                   <select
                     id="country"
                     name="country"
-                    className="input w-full rounded-full bg-white"
+                    className="input h-11 w-full rounded-full bg-white !pl-10"
+                    style={{ textIndent: "0.45rem" }}
                     required
                     value={countryValue}
                     onChange={(event) => {
@@ -279,7 +382,7 @@ export default function Register() {
                     }}
                   >
                     <option value="" disabled>
-                      {t("profile.form.country")}
+                      {" "}
                     </option>
                     {countries.map((countryOption) => (
                       <option key={countryOption.code} value={countryOption.code}>
@@ -290,16 +393,85 @@ export default function Register() {
                 </div>
                 <div>
                   <label htmlFor="city" className="label">{t("profile.form.city")}</label>
-                  <input id="city" name="city" type="text" className="input w-full rounded-full bg-white" required />
+                  <input id="city" name="city" type="text" className="input w-full rounded-full bg-white !pl-4" required />
                 </div>
                 <div>
                   <label htmlFor="dateOfBirth" className="label">{t("register.form.date_of_birth")}</label>
-                  <input id="dateOfBirth" name="dateOfBirth" type="date" min={minDob} max={maxDob} className="input w-full rounded-full bg-white" required />
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={dateInputRef}
+                      id="dateOfBirth"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="bday"
+                      required
+                      value={formatDobMaskedValue(dateOfBirthDigits)}
+                      onKeyDown={(event) => {
+                        if (event.metaKey || event.ctrlKey || event.altKey) return;
+                        if (/^\d$/.test(event.key)) {
+                          event.preventDefault();
+                          dobCaretModeRef.current = "forward";
+                          setDateOfBirthDigits((current) => (current.length >= 8 ? current : `${current}${event.key}`));
+                          return;
+                        }
+                        if (event.key === "Backspace" || event.key === "Delete") {
+                          event.preventDefault();
+                          dobCaretModeRef.current = "backward";
+                          setDateOfBirthDigits((current) => current.slice(0, -1));
+                          return;
+                        }
+                        if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Home" || event.key === "End") return;
+                        if (event.key === "/") {
+                          event.preventDefault();
+                        }
+                      }}
+                      onPaste={(event) => {
+                        event.preventDefault();
+                        const pastedDigits = event.clipboardData.getData("text").replace(/[^\d]/g, "");
+                        if (!pastedDigits) return;
+                        dobCaretModeRef.current = "forward";
+                        setDateOfBirthDigits((current) => `${current}${pastedDigits}`.slice(0, 8));
+                      }}
+                      onFocus={(event) => {
+                        const nextPosition = getDobCaretPosition(dateOfBirthDigits.length, "forward");
+                        event.currentTarget.setSelectionRange(nextPosition, nextPosition);
+                      }}
+                      onClick={(event) => {
+                        const nextPosition = getDobCaretPosition(dateOfBirthDigits.length, "forward");
+                        event.currentTarget.setSelectionRange(nextPosition, nextPosition);
+                      }}
+                      placeholder={dobHint}
+                      className="input h-11 w-[10rem] rounded-full bg-white !pl-5 !text-[16px] !leading-[1.2]"
+                    />
+                    <input type="hidden" name="dateOfBirth" value={dateOfBirthIsoValue} />
+                    <div className="relative h-11 w-11">
+                      <input
+                        ref={datePickerRef}
+                        type="date"
+                        aria-label={t("join_referral.open_calendar")}
+                        min={minDob}
+                        max={maxDob}
+                        value={dateOfBirthIsoValue || maxDob}
+                        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                        onChange={(event) => {
+                          const isoValue = event.target.value;
+                          if (!isoValue) return;
+                          setDateOfBirthDigits(formatDobForDisplay(isoValue).replace(/[^\d]/g, "").slice(0, 8));
+                        }}
+                      />
+                      <div className="pointer-events-none flex h-11 w-11 items-center justify-center rounded-full border border-accent-500 bg-white text-gray-600">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-1 ml-4 text-xs text-gray-500">{dobHint}</p>
                 </div>
                 <div>
                   <label htmlFor="phone" className="label">{t("profile.form.phone_number")}</label>
                   <div className="flex items-stretch">
-                    <span className="shrink-0 rounded-r-none rounded-l-full bg-gray-100 px-3 py-2.5 text-sm text-gray-700 flex items-center justify-center border-none border-r-0 shadow-[0_2px_8px_rgba(0,0,0,0.15)] md:px-4 min-w-[72px]">
+                    <span className="shrink-0 rounded-r-none rounded-l-full bg-gray-100 px-3 py-2.5 text-sm text-gray-700 flex items-center justify-center border border-accent-500 border-r-0 shadow-none md:px-4 min-w-[72px]">
                       {phonePrefix}
                     </span>
                     <input
@@ -316,7 +488,8 @@ export default function Register() {
                   <select
                     id="language"
                     name="language"
-                    className="input w-full rounded-3xl bg-white pr-10"
+                    className="input h-11 w-full rounded-3xl bg-white pr-10 !pl-10"
+                    style={{ textIndent: "0.45rem" }}
                     required
                     value={languageValue}
                     onChange={(event) => {
@@ -335,7 +508,7 @@ export default function Register() {
               </div>
 
               <div>
-                <label htmlFor="note" className="label">{t("register.form.note")}</label>
+                <label htmlFor="note" className="label pl-4">{t("register.form.note")}</label>
                 <textarea
                   id="note"
                   name="note"
@@ -345,6 +518,27 @@ export default function Register() {
                   maxLength={1000}
                   required
                 />
+              </div>
+
+              <div className="space-y-2 sm:w-3/5 sm:mr-auto ml-2">
+                <label className="flex items-start gap-2 text-sm text-gray-700">
+                  <input type="checkbox" name="termsAccepted" required className="mt-0.5 h-[1.05rem] w-[1.05rem] rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                  <span>
+                    {t("register.legal_accept_terms_prefix")}{" "}
+                    <Link to="/terms" className="font-medium text-brand-600 underline underline-offset-2 hover:text-brand-700">
+                      {t("legal.terms_of_service")}
+                    </Link>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-sm text-gray-700">
+                  <input type="checkbox" name="privacyAccepted" required className="mt-0.5 h-[1.05rem] w-[1.05rem] rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                  <span>
+                    {t("register.legal_accept_privacy_prefix")}{" "}
+                    <Link to="/privacy-policy" className="font-medium text-brand-600 underline underline-offset-2 hover:text-brand-700">
+                      {t("legal.privacy_policy")}
+                    </Link>
+                  </span>
+                </label>
               </div>
 
               <div className="pt-8 flex justify-center">

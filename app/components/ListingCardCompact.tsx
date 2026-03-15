@@ -2,6 +2,7 @@ import { useFetcher, useNavigate } from "react-router";
 import { getListingPublicId } from "~/lib/publicIds";
 import { useI18n } from "~/hooks/useI18n";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { isEventExpired } from "~/lib/listing-status";
 
 const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
 
@@ -34,6 +35,7 @@ interface ListingCardCompactProps {
     price_negotiable: boolean;
     transfer_type: "official_process" | "package" | "contact" | null;
     associated_costs: number | null;
+    status?: string | null;
     currency?: string | null;
     cost_notes?: string | null;
     author: {
@@ -170,6 +172,7 @@ export function ListingCardCompact({
   });
 
   const isLM = isLastMinute(listing.event.event_date, listing.listing_type);
+  const isExpired = isEventExpired(listing.event.event_date);
   const isTourOperator = listing.author.user_type === "tour_operator";
 
   // Sottotitolo compatto
@@ -190,8 +193,8 @@ export function ListingCardCompact({
 
   // Border per TO
   const cardClass = isTourOperator
-    ? "block bg-white border border-gray-200 rounded-3xl p-4 hover:shadow-md hover:border-brand-300 transition-all border-l-4 border-l-brand-500"
-    : "block bg-white border border-gray-200 rounded-3xl p-4 hover:shadow-md hover:border-brand-300 transition-all";
+    ? "block overflow-hidden bg-white border border-brand-300 rounded-3xl p-4 hover:shadow-md transition-all border-l-4 border-l-brand-500"
+    : "block overflow-hidden bg-white border border-brand-300 rounded-3xl p-4 hover:shadow-md transition-all";
 
   // Nome venditore
   const sellerName = getPublicDisplayName(listing.author);
@@ -202,7 +205,7 @@ export function ListingCardCompact({
   const logoPath = `/logos/${eventSlug}.webp`;
   const logoSrc = listing.event.card_image_url || logoPath;
 
-  const listingHref = isUserLoggedIn ? `/listings/${getListingPublicId(listing)}` : "/login";
+  const listingHref = `/listings/${getListingPublicId(listing)}`;
 
   return (
     <div
@@ -217,8 +220,15 @@ export function ListingCardCompact({
       }}
       className={`${cardClass} relative ${className} cursor-pointer`}
     >
-      {/* Save button - absolute top right */}
-      {canSaveListing && (
+      {isExpired && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-gray-300/45">
+          <span className="rounded-full border border-red-200 bg-white/90 px-5 py-2 text-sm font-bold uppercase tracking-[0.22em] text-red-600">
+            {t("listings.status_expired")}
+          </span>
+        </div>
+      )}
+
+      {canSaveListing && !isExpired && (
         <div className="absolute top-3 right-3 z-10">
           <saveFetcher.Form
             method="post"
@@ -272,8 +282,8 @@ export function ListingCardCompact({
             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${badgeColor}`}>
               {listing.listing_type === "bib" ? t("common.bib") : listing.listing_type === "room" ? "Hotel" : "Package"}
             </span>
-            {isLM && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide bg-accent-500 text-white">Last Minute</span>
+            {!isExpired && isLM && (
+              <span className="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.08em] bg-accent-500 text-white">Last Minute</span>
             )}
           </div>
 
@@ -323,11 +333,11 @@ export function ListingCardCompact({
         </div>
 
         {/* Right: Event logo */}
-        <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center self-center">
+        <div className="mt-2 flex-shrink-0 self-center">
           <img
             src={logoSrc}
             alt={`${listing.event.name} logo`}
-            className="w-full h-full object-contain p-1"
+            className="block h-auto w-auto max-h-16 max-w-[7rem] object-contain"
             onError={(e) => {
               // Hide if logo doesn't exist
               const target = e.target as HTMLImageElement;

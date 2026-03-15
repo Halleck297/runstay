@@ -14,6 +14,7 @@ import { ListingCardCompact } from "~/components/ListingCardCompact";
 import { SortDropdown } from "~/components/SortDropdown";
 import { analyticsEvents } from "~/lib/analytics/events";
 import { trackEvent } from "~/lib/analytics/client";
+import { isEventExpired } from "~/lib/listing-status";
 
 
 export const meta: MetaFunction = () => {
@@ -168,10 +169,14 @@ export default function Listings() {
     ? sortedListings.filter((l) => l.price == null)
     : sortedListings;
 
+  const nonExpiredListings = filteredBySort.filter((listing: any) => !isEventExpired(listing.event?.event_date || ""));
+  const expiredListings = filteredBySort.filter((listing: any) => isEventExpired(listing.event?.event_date || ""));
+  const prioritizedListings = [...nonExpiredListings, ...expiredListings];
+
   // Pagination
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
-  const visibleListings = filteredBySort.slice(0, visibleCount);
-  const hasMore = visibleCount < filteredBySort.length;
+  const visibleListings = prioritizedListings.slice(0, visibleCount);
+  const hasMore = visibleCount < prioritizedListings.length;
 
   // Filter events based on search query (min 2 chars)
   const filteredEvents = searchQuery.length >= 2
@@ -235,12 +240,14 @@ export default function Listings() {
 
         <main className="mx-auto max-w-7xl px-4 pt-6 pb-14 md:pt-16 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
           <div className="mb-6">
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
-              {t("listings.title")}
-            </h1>
-            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center">
-              {t("listings.subtitle")}
-            </p>
+            <div className="rounded-3xl border border-brand-500 bg-white px-4 py-4 opacity-100 md:mx-auto md:max-w-4xl md:px-6 md:py-5" style={{ backgroundColor: "#ffffff" }}>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center underline decoration-accent-500 underline-offset-4">
+                {t("listings.title")}
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-gray-600 text-center">
+                {t("listings.subtitle")}
+              </p>
+            </div>
           </div>
 
           <div className="relative z-10 mb-8">
@@ -266,7 +273,7 @@ export default function Listings() {
                 className="w-full lg:w-[44%] xl:w-[48%]"
               >
                 <input type="hidden" name="type" value={currentType} />
-                <div className="relative w-full" ref={searchRef}>
+                <div className="relative w-full rounded-full bg-white" ref={searchRef}>
                   <svg
                     className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10"
                     fill="none"
@@ -292,7 +299,8 @@ export default function Listings() {
                       setShowSuggestions(true);
                     }}
                     onFocus={() => setShowSuggestions(true)}
-                    className="block w-full rounded-full border-0 bg-white pl-12 pr-20 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-md ring-1 ring-gray-200 max-[390px]:pr-16 max-[390px]:py-3"
+                    className="block w-full appearance-none rounded-full border border-accent-500 bg-white pl-12 pr-20 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-none max-[390px]:pr-16 max-[390px]:py-3"
+                    style={{ backgroundColor: "#ffffff" }}
                   />
                   {hasActiveSearch ? (
                     <button
@@ -333,8 +341,8 @@ export default function Listings() {
               </Form>
 
               {/* Category Filter Buttons + Sort Dropdown */}
-              <div className="flex flex-col gap-3 max-[390px]:gap-2.5 lg:ml-auto lg:items-end">
-                <div className="overflow-x-auto pb-1 lg:pb-0">
+              <div className="flex w-full flex-col gap-3 max-[390px]:gap-2.5 lg:ml-auto lg:w-auto lg:flex-row lg:items-center lg:gap-2.5">
+                <div className="overflow-x-auto pb-1 lg:overflow-visible lg:pb-0">
                   <div className="flex w-full items-center justify-end gap-2.5 min-w-max max-[390px]:gap-2">
                     {[
                       { value: "all", label: "All" },
@@ -348,7 +356,9 @@ export default function Listings() {
                         className={`px-3.5 py-2.5 sm:px-4 rounded-full text-sm font-bold uppercase tracking-wide transition-colors whitespace-nowrap max-[390px]:px-2.5 max-[390px]:py-2 max-[390px]:text-[11px] max-[390px]:tracking-normal ${
                           currentType === category.value
                             ? "bg-brand-500 text-white shadow-sm"
-                            : "bg-white text-brand-500 border border-gray-300 hover:bg-gray-50"
+                            : category.value === "all"
+                              ? "bg-white text-brand-500 border border-gray-300 hover:bg-gray-50"
+                              : "bg-white text-brand-500 border border-brand-500 hover:bg-gray-50"
                         }`}
                       >
                         {category.label}
@@ -357,11 +367,11 @@ export default function Listings() {
                   </div>
                 </div>
 
-                <div className="flex w-full flex-wrap items-center justify-end gap-2.5 sm:gap-3">
+                <div className="flex w-full flex-wrap items-center justify-end gap-2.5 sm:gap-3 lg:w-auto lg:flex-nowrap">
                   {hasEvents && (
                     <Link
                       to="/events"
-                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-gray-700 text-sm font-medium uppercase tracking-wide rounded-full border border-gray-300 hover:bg-gray-50 transition-colors whitespace-nowrap max-[390px]:px-2.5 max-[390px]:py-2 max-[390px]:text-[11px] max-[390px]:tracking-normal"
+                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-gray-700 text-sm font-medium uppercase tracking-wide rounded-full border border-gray-300 hover:bg-gray-50 transition-colors whitespace-nowrap md:hidden max-[390px]:px-2.5 max-[390px]:py-2 max-[390px]:text-[11px] max-[390px]:tracking-normal"
                     >
                       <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
@@ -371,7 +381,7 @@ export default function Listings() {
                   )}
 
                   <div className="shrink-0 max-[390px]:origin-left max-[390px]:scale-95">
-                    <SortDropdown value={sortBy} onChange={handleSortChange} />
+                    <SortDropdown value={sortBy} onChange={handleSortChange} buttonClassName="!border-accent-500" />
                   </div>
                 </div>
               </div>
@@ -415,7 +425,7 @@ export default function Listings() {
           onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
           className="px-8 py-3 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors shadow-md"
         >
-          Load More ({filteredBySort.length - visibleCount} remaining)
+          Load More ({prioritizedListings.length - visibleCount} remaining)
         </button>
       </div>
     )}

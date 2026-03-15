@@ -5,9 +5,9 @@ export function ServerErrorPage({ statusCode = 500 }: { statusCode?: number }) {
     <main className="min-h-[70vh] flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
         <img
-          src="/logo.svg"
+          src="/logo225px.png"
           alt="Runoot"
-          className="mx-auto mb-4 h-28 w-auto"
+          className="mx-auto mb-4 h-16 w-auto"
         />
         <p className="text-sm font-semibold tracking-wide text-alert-600">{statusCode}</p>
         <h1 className="mt-2 font-display text-3xl font-bold text-gray-900">Something went wrong</h1>

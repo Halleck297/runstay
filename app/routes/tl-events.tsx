@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
 import { Form, useActionData, useLoaderData } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
@@ -59,6 +59,46 @@ function slugify(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function getLocalTodayIso() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getLocalMaxFutureIso(yearsAhead = 2) {
+  const now = new Date();
+  now.setFullYear(now.getFullYear() + yearsAhead);
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isValidIsoDate(value: string) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return false;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function isDateInAllowedWindow(
+  value: string,
+  todayIso = getLocalTodayIso(),
+  maxFutureIso = getLocalMaxFutureIso(2),
+) {
+  return isValidIsoDate(value) && value >= todayIso && value <= maxFutureIso;
 }
 
 async function uploadEventRequestImage(args: {
@@ -159,7 +199,7 @@ function RequestTypeDropdown({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`input w-full flex items-center justify-between gap-3 text-left ${value ? "text-gray-900" : "text-gray-400"}`}
+        className={`input w-full border border-solid border-accent-500 shadow-none flex items-center justify-between gap-3 text-left ${value ? "text-gray-900" : "text-gray-400"}`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
@@ -184,7 +224,7 @@ function RequestTypeDropdown({
                 setIsOpen(false);
               }}
               className={`w-full px-4 py-2.5 text-left transition-colors hover:bg-gray-50 ${
-                value === option.value ? "bg-brand-50 font-medium text-brand-700" : "text-gray-700"
+                value === option.value ? "bg-accent-100 font-medium text-accent-700" : "text-gray-700"
               }`}
             >
               {option.label}
@@ -389,6 +429,14 @@ export async function action({ request }: ActionFunctionArgs) {
     if (!eventName || !eventLocation || !eventCountry || !eventDate || !["bib", "hotel", "package"].includes(requestType) || peopleCountRaw <= 0) {
       return data({ errorKey: "fill_required" as const }, { status: 400 });
     }
+    const todayIso = getLocalTodayIso();
+    const maxFutureIso = getLocalMaxFutureIso(2);
+    if (
+      !isDateInAllowedWindow(eventDate, todayIso, maxFutureIso) ||
+      (desiredDeadline && !isDateInAllowedWindow(desiredDeadline, todayIso, maxFutureIso))
+    ) {
+      return data({ errorKey: "date_today_or_future" as const }, { status: 400 });
+    }
     const eventLocationCombined = `${eventLocation}, ${eventCountry}`;
 
     const now = new Date().toISOString();
@@ -558,6 +606,14 @@ export async function action({ request }: ActionFunctionArgs) {
 
     if (!requestId || !eventName || !eventLocation || !eventCountry || !eventDate || !["bib", "hotel", "package"].includes(requestType) || peopleCountRaw <= 0) {
       return data({ errorKey: "fill_required" as const }, { status: 400 });
+    }
+    const todayIso = getLocalTodayIso();
+    const maxFutureIso = getLocalMaxFutureIso(2);
+    if (
+      !isDateInAllowedWindow(eventDate, todayIso, maxFutureIso) ||
+      (desiredDeadline && !isDateInAllowedWindow(desiredDeadline, todayIso, maxFutureIso))
+    ) {
+      return data({ errorKey: "date_today_or_future" as const }, { status: 400 });
     }
     const eventLocationCombined = `${eventLocation}, ${eventCountry}`;
 
@@ -750,13 +806,25 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function TLEventsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user, requests, updatesByRequest, quotesByRequest, unreadByRequest, statusUnreadByRequest, eventUnreadCount } = useLoaderData<typeof loader>();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
   const [createRequestType, setCreateRequestType] = useState("package");
   const [editRequestTypeById, setEditRequestTypeById] = useState<Record<string, string>>({});
   const [openConversationByRequest, setOpenConversationByRequest] = useState<Record<string, boolean>>({});
+  const isUsDateFormat = locale === "en";
+  const dateHint = isUsDateFormat ? t("join_referral.dob_hint_us") : t("join_referral.dob_hint_default");
+  const dateMask = "__/__/____";
+  const dateDigitSlots = [0, 1, 3, 4, 6, 7, 8, 9];
+  const [createEventDateDigits, setCreateEventDateDigits] = useState("");
+  const [createDeadlineDigits, setCreateDeadlineDigits] = useState("");
+  const createEventDateInputRef = useRef<HTMLInputElement | null>(null);
+  const createDeadlineInputRef = useRef<HTMLInputElement | null>(null);
+  const createEventDatePickerRef = useRef<HTMLInputElement | null>(null);
+  const createDeadlinePickerRef = useRef<HTMLInputElement | null>(null);
+  const createEventDateCaretModeRef = useRef<"forward" | "backward">("forward");
+  const createDeadlineCaretModeRef = useRef<"forward" | "backward">("forward");
   const [popupState, setPopupState] = useState<{
     open: boolean;
     type: "success" | "error";
@@ -780,6 +848,65 @@ export default function TLEventsPage() {
     actionData?.errorKey ? t(`tl_events.error.${actionData.errorKey}` as any) : actionData?.error;
   const actionMessage =
     actionData?.messageKey ? t(actionData.messageKey as any) : actionData?.message;
+  const todayIso = getLocalTodayIso();
+  const maxFutureIso = getLocalMaxFutureIso(2);
+  const formatIsoForDisplay = (isoDate: string) => {
+    const match = String(isoDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return "";
+    const year = match[1];
+    const month = match[2];
+    const day = match[3];
+    return isUsDateFormat ? `${month}/${day}/${year}` : `${day}/${month}/${year}`;
+  };
+  const formatDateMaskedValue = (digits: string) => {
+    const chars = dateMask.split("");
+    const limitedDigits = digits.slice(0, 8);
+    for (let i = 0; i < limitedDigits.length; i += 1) {
+      chars[dateDigitSlots[i]] = limitedDigits[i];
+    }
+    return chars.join("");
+  };
+  const parseDateDigitsToIso = (digits: string) => {
+    if (digits.length !== 8) return "";
+    const first = Number.parseInt(digits.slice(0, 2), 10);
+    const second = Number.parseInt(digits.slice(2, 4), 10);
+    const year = Number.parseInt(digits.slice(4, 8), 10);
+    if (!Number.isFinite(first) || !Number.isFinite(second) || !Number.isFinite(year)) return "";
+    const day = isUsDateFormat ? second : first;
+    const month = isUsDateFormat ? first : second;
+    const iso = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const testDate = new Date(Date.UTC(year, month - 1, day));
+    const isValid =
+      testDate.getUTCFullYear() === year &&
+      testDate.getUTCMonth() === month - 1 &&
+      testDate.getUTCDate() === day;
+    if (!isValid) return "";
+    return iso >= todayIso && iso <= maxFutureIso ? iso : "";
+  };
+  const getDateCaretPosition = (digitCount: number, mode: "forward" | "backward" = "forward") => {
+    const capped = Math.max(0, Math.min(digitCount, 8));
+    if (capped >= dateDigitSlots.length) return dateMask.length;
+    const nextSlot = dateDigitSlots[capped];
+    return mode === "backward" ? nextSlot : nextSlot + 1;
+  };
+  const createEventDateIsoValue = parseDateDigitsToIso(createEventDateDigits);
+  const createDeadlineIsoValue = parseDateDigitsToIso(createDeadlineDigits);
+
+  useEffect(() => {
+    const input = createEventDateInputRef.current;
+    if (!input || document.activeElement !== input) return;
+    const nextPosition = getDateCaretPosition(createEventDateDigits.length, createEventDateCaretModeRef.current);
+    input.setSelectionRange(nextPosition, nextPosition);
+    createEventDateCaretModeRef.current = "forward";
+  }, [createEventDateDigits, isUsDateFormat]);
+
+  useEffect(() => {
+    const input = createDeadlineInputRef.current;
+    if (!input || document.activeElement !== input) return;
+    const nextPosition = getDateCaretPosition(createDeadlineDigits.length, createDeadlineCaretModeRef.current);
+    input.setSelectionRange(nextPosition, nextPosition);
+    createDeadlineCaretModeRef.current = "forward";
+  }, [createDeadlineDigits, isUsDateFormat]);
 
   useEffect(() => {
     if (!actionData) return;
@@ -865,8 +992,8 @@ export default function TLEventsPage() {
       )}
       <div className="min-h-full">
       <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-        <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
-          <h1 className="font-display text-2xl font-bold text-gray-900">{t("tl_events.title")}</h1>
+        <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
+          <h1 className="text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_events.title")}</h1>
           <p className="mt-1 text-gray-600">{t("tl_events.subtitle")}</p>
         </div>
 
@@ -877,7 +1004,7 @@ export default function TLEventsPage() {
           <div className="mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm">{actionMessage}</div>
         )}
 
-        <div className="mb-6 rounded-3xl border border-brand-200/70 bg-white/95 shadow-[0_10px_28px_rgba(249,115,22,0.10)] transition-colors hover:border-brand-300">
+        <div className="mb-6 rounded-3xl border border-brand-200/70 bg-white/95 transition-colors hover:border-brand-300">
           <button
             type="button"
             onClick={() => setIsCreateOpen((prev) => !prev)}
@@ -902,20 +1029,86 @@ export default function TLEventsPage() {
                 <input type="hidden" name="_action" value="create" />
                 <div className="md:max-w-md">
                   <label className="label">{t("tl_events.event_name")} *</label>
-                  <input type="text" name="eventName" className="input" placeholder={t("tl_events.event_name_placeholder")} required />
+                  <input type="text" name="eventName" className="input border border-solid border-accent-500 shadow-none" placeholder={t("tl_events.event_name_placeholder")} required />
                 </div>
                 <div className="grid md:grid-cols-3 gap-3">
                   <div>
                     <label className="label">{t("tl_events.location")} *</label>
-                    <input type="text" name="eventLocation" className="input" required placeholder={t("tl_events.location_placeholder")} />
+                    <input type="text" name="eventLocation" className="input border border-solid border-accent-500 shadow-none" required placeholder={t("tl_events.location_placeholder")} />
                   </div>
                   <div>
                     <label className="label">{t("tl_events.country")} *</label>
-                    <input type="text" name="eventCountry" className="input" required placeholder={t("tl_events.country_placeholder")} />
+                    <input type="text" name="eventCountry" className="input border border-solid border-accent-500 shadow-none" required placeholder={t("tl_events.country_placeholder")} />
                   </div>
                   <div>
                     <label className="label">{t("tl_events.event_date")} *</label>
-                    <DatePicker id="tl-event-date" name="eventDate" placeholder={t("tl_events.date_placeholder_short")} />
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={createEventDateInputRef}
+                        id="tl-event-date"
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        value={formatDateMaskedValue(createEventDateDigits)}
+                        onKeyDown={(event) => {
+                          if (event.metaKey || event.ctrlKey || event.altKey) return;
+                          if (/^\d$/.test(event.key)) {
+                            event.preventDefault();
+                            createEventDateCaretModeRef.current = "forward";
+                            setCreateEventDateDigits((current) => (current.length >= 8 ? current : `${current}${event.key}`));
+                            return;
+                          }
+                          if (event.key === "Backspace" || event.key === "Delete") {
+                            event.preventDefault();
+                            createEventDateCaretModeRef.current = "backward";
+                            setCreateEventDateDigits((current) => current.slice(0, -1));
+                            return;
+                          }
+                          if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Home" || event.key === "End") return;
+                          if (event.key === "/") event.preventDefault();
+                        }}
+                        onPaste={(event) => {
+                          event.preventDefault();
+                          const pastedDigits = event.clipboardData.getData("text").replace(/[^\d]/g, "");
+                          if (!pastedDigits) return;
+                          createEventDateCaretModeRef.current = "forward";
+                          setCreateEventDateDigits((current) => `${current}${pastedDigits}`.slice(0, 8));
+                        }}
+                        onFocus={(event) => {
+                          const nextPosition = getDateCaretPosition(createEventDateDigits.length, "forward");
+                          event.currentTarget.setSelectionRange(nextPosition, nextPosition);
+                        }}
+                        onClick={(event) => {
+                          const nextPosition = getDateCaretPosition(createEventDateDigits.length, "forward");
+                          event.currentTarget.setSelectionRange(nextPosition, nextPosition);
+                        }}
+                        placeholder={dateHint}
+                        className="input h-11 w-[10rem] rounded-full border border-solid border-accent-500 bg-white !pl-5 !text-[16px] !leading-[1.2] shadow-none"
+                      />
+                      <input type="hidden" name="eventDate" value={createEventDateIsoValue} />
+                      <div className="relative h-11 w-11">
+                        <input
+                          ref={createEventDatePickerRef}
+                          type="date"
+                          aria-label={t("join_referral.open_calendar")}
+                          min={todayIso}
+                          max={maxFutureIso}
+                          value={createEventDateIsoValue || todayIso}
+                          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                          onChange={(event) => {
+                            const isoValue = event.target.value;
+                            if (!isoValue) return;
+                            setCreateEventDateDigits(formatIsoForDisplay(isoValue).replace(/[^\d]/g, "").slice(0, 8));
+                          }}
+                        />
+                        <div className="pointer-events-none flex h-11 w-11 items-center justify-center rounded-full border border-accent-500 bg-white text-gray-600">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="mt-1 ml-4 text-xs text-gray-500">{dateHint}</p>
                   </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-3">
@@ -935,7 +1128,7 @@ export default function TLEventsPage() {
                       inputMode="numeric"
                       pattern="[0-9]*"
                       name="peopleCount"
-                      className="input"
+                      className="input border border-solid border-accent-500 shadow-none"
                       required
                       defaultValue={1}
                       placeholder={t("tl_events.people_count_placeholder")}
@@ -948,7 +1141,72 @@ export default function TLEventsPage() {
                 <div className="grid md:grid-cols-2 gap-3">
                   <div>
                     <label className="label">{t("tl_events.desired_deadline")}</label>
-                    <DatePicker id="tl-deadline-date" name="desiredDeadline" placeholder={t("tl_events.date_placeholder_short")} />
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={createDeadlineInputRef}
+                        id="tl-deadline-date"
+                        type="text"
+                        inputMode="numeric"
+                        value={formatDateMaskedValue(createDeadlineDigits)}
+                        onKeyDown={(event) => {
+                          if (event.metaKey || event.ctrlKey || event.altKey) return;
+                          if (/^\d$/.test(event.key)) {
+                            event.preventDefault();
+                            createDeadlineCaretModeRef.current = "forward";
+                            setCreateDeadlineDigits((current) => (current.length >= 8 ? current : `${current}${event.key}`));
+                            return;
+                          }
+                          if (event.key === "Backspace" || event.key === "Delete") {
+                            event.preventDefault();
+                            createDeadlineCaretModeRef.current = "backward";
+                            setCreateDeadlineDigits((current) => current.slice(0, -1));
+                            return;
+                          }
+                          if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Home" || event.key === "End") return;
+                          if (event.key === "/") event.preventDefault();
+                        }}
+                        onPaste={(event) => {
+                          event.preventDefault();
+                          const pastedDigits = event.clipboardData.getData("text").replace(/[^\d]/g, "");
+                          if (!pastedDigits) return;
+                          createDeadlineCaretModeRef.current = "forward";
+                          setCreateDeadlineDigits((current) => `${current}${pastedDigits}`.slice(0, 8));
+                        }}
+                        onFocus={(event) => {
+                          const nextPosition = getDateCaretPosition(createDeadlineDigits.length, "forward");
+                          event.currentTarget.setSelectionRange(nextPosition, nextPosition);
+                        }}
+                        onClick={(event) => {
+                          const nextPosition = getDateCaretPosition(createDeadlineDigits.length, "forward");
+                          event.currentTarget.setSelectionRange(nextPosition, nextPosition);
+                        }}
+                        placeholder={dateHint}
+                        className="input h-11 w-[10rem] rounded-full border border-solid border-accent-500 bg-white !pl-5 !text-[16px] !leading-[1.2] shadow-none"
+                      />
+                      <input type="hidden" name="desiredDeadline" value={createDeadlineIsoValue} />
+                      <div className="relative h-11 w-11">
+                        <input
+                          ref={createDeadlinePickerRef}
+                          type="date"
+                          aria-label={t("join_referral.open_calendar")}
+                          min={todayIso}
+                          max={maxFutureIso}
+                          value={createDeadlineIsoValue || todayIso}
+                          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                          onChange={(event) => {
+                            const isoValue = event.target.value;
+                            if (!isoValue) return;
+                            setCreateDeadlineDigits(formatIsoForDisplay(isoValue).replace(/[^\d]/g, "").slice(0, 8));
+                          }}
+                        />
+                        <div className="pointer-events-none flex h-11 w-11 items-center justify-center rounded-full border border-accent-500 bg-white text-gray-600">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="mt-1 ml-4 text-xs text-gray-500">{dateHint}</p>
                   </div>
                   <div />
                 </div>
@@ -957,7 +1215,7 @@ export default function TLEventsPage() {
                   <textarea
                     name="publicNote"
                     rows={4}
-                    className="input w-full"
+                    className="input w-full border border-solid border-accent-500 shadow-none"
                     placeholder={t("tl_events.announcement_note_placeholder")}
                   />
                 </div>
@@ -966,13 +1224,13 @@ export default function TLEventsPage() {
                   <textarea
                     name="quotingNotes"
                     rows={4}
-                    className="input w-full"
+                    className="input w-full border border-solid border-accent-500 shadow-none"
                     placeholder={t("tl_events.quoting_notes_placeholder")}
                   />
                 </div>
                 <div>
                   <label className="label">{t("tl_events.event_photo")}</label>
-                  <input type="file" name="eventImage" accept="image/jpeg,image/png,image/webp" className="input pt-2" />
+                  <input type="file" name="eventImage" accept="image/jpeg,image/png,image/webp" className="input border border-solid border-accent-500 pt-2 shadow-none" />
                   <p className="mt-1 text-xs text-gray-500">{t("tl_events.event_photo_help")}</p>
                 </div>
                 <button type="submit" className="btn-primary rounded-full">{t("tl_events.submit_request")}</button>
@@ -1229,6 +1487,8 @@ export default function TLEventsPage() {
                             name="eventDate"
                             defaultValue={req.event_date}
                             placeholder={t("tl_events.date_placeholder_short")}
+                            minDate={new Date(`${todayIso}T00:00:00`)}
+                            maxDate={new Date(`${maxFutureIso}T00:00:00`)}
                           />
                         </div>
                       </div>
@@ -1267,6 +1527,8 @@ export default function TLEventsPage() {
                             name="desiredDeadline"
                             defaultValue={req.desired_deadline || ""}
                             placeholder={t("tl_events.date_placeholder_short")}
+                            minDate={new Date(`${todayIso}T00:00:00`)}
+                            maxDate={new Date(`${maxFutureIso}T00:00:00`)}
                           />
                         </div>
                         <div />

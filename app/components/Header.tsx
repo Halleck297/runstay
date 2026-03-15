@@ -63,7 +63,7 @@ export function Header({ user, isHome = false }: HeaderProps) {
   const hasAnyUnread = unreadMessages > 0;
   const headerClass = isHome
     ? "hidden md:block absolute top-0 left-0 right-0 z-50 bg-black/30"
-    : "hidden md:block sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 [box-shadow:0_4px_11px_rgba(71,85,105,0.42)]";
+    : "hidden md:block sticky top-0 z-50 bg-white border-b border-gray-200 [box-shadow:0_4px_11px_rgba(71,85,105,0.42)]";
   const centerNavLinkClass = isHome
     ? "text-sm font-bold uppercase tracking-wide text-white hover:text-accent-400 hover:underline transition-colors"
     : "text-sm font-bold uppercase tracking-wide text-gray-700 hover:text-accent-500 hover:underline transition-colors";
@@ -77,14 +77,14 @@ export function Header({ user, isHome = false }: HeaderProps) {
       <div className="mx-auto max-w-7xl px-4 md:px-0">
 
         {/* Desktop Header */}
-        <div className="hidden md:flex h-20 items-center justify-between">
+        <div className="hidden md:flex h-[5.5rem] items-center justify-between">
 
           {/* Logo */}
-          <Link to="/" className={`flex items-center ${isHome ? "-mt-1" : "mt-2"}`}>
+          <Link to="/" className={`flex items-center ${isHome ? "-mt-1" : "mt-2 translate-x-3"}`}>
            <img
-             src={isHome ? "/logowhite.png" : "/logo.svg"}
+             src={isHome ? "/logowhite.png" : "/logo225px.png"}
              alt="Runoot"
-             className={isHome ? "h-12 w-auto" : "h-28 w-auto"}
+             className={isHome ? "h-12 w-auto" : "h-20 w-auto"}
            />
          </Link>
 
@@ -112,7 +112,7 @@ export function Header({ user, isHome = false }: HeaderProps) {
 
 {/* Right Side Navigation */}
 {user ? (
-  <nav className="flex items-center">
+  <nav className={`flex items-center ${isHome ? "" : "-translate-x-3"}`}>
     <div className="hidden md:flex items-center gap-6">
       {/* User menu dropdown - hidden on mobile, shown on desktop */}
 <div

@@ -13,6 +13,7 @@ import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
 import { analyticsEvents } from "~/lib/analytics/events";
 import { trackEvent } from "~/lib/analytics/client";
+import { isEventExpired } from "~/lib/listing-status";
 
 type HomeEventSuggestion = {
   id: string;
@@ -53,14 +54,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
       .eq("status", "active")
       .eq("listing_mode", "exchange")
       .order("created_at", { ascending: false })
-      .limit(3),
+      .limit(12),
     (supabaseAdmin as any)
       .from("listings")
       .select(listingSelect)
       .eq("status", "active")
       .eq("listing_mode", "event")
       .order("created_at", { ascending: false })
-      .limit(4),
+      .limit(12),
     user
       ? (supabaseAdmin as any)
           .from("saved_listings")
@@ -77,17 +78,29 @@ export async function loader({ request }: LoaderFunctionArgs) {
     applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
   );
 
+  const prioritizedListings = [
+    ...listings.filter((listing: any) => !isEventExpired(listing.event?.event_date || "")),
+    ...listings.filter((listing: any) => isEventExpired(listing.event?.event_date || "")),
+  ];
+
+  const prioritizedEventListings = [
+    ...eventListings.filter((listing: any) => !isEventExpired(listing.event?.event_date || "")),
+    ...eventListings.filter((listing: any) => isEventExpired(listing.event?.event_date || "")),
+  ];
+
   const savedListingIds = (savedListingsResult.data || []).map((s: any) => s.listing_id);
 
-  const cacheControl = user
-    ? "private, no-store"
-    : "public, max-age=60, s-maxage=300, stale-while-revalidate=600";
-
   return data(
-    { user, listings, eventListings, savedListingIds, preferCompactCards },
+    {
+      user,
+      listings: prioritizedListings.slice(0, 3),
+      eventListings: prioritizedEventListings.slice(0, 4),
+      savedListingIds,
+      preferCompactCards,
+    },
     {
       headers: {
-        "Cache-Control": cacheControl,
+        "Cache-Control": "private, no-store",
       },
     }
   );
@@ -115,7 +128,7 @@ export default function Index() {
       "@type": "Organization",
       name: "runoot",
       url: "https://www.runoot.com",
-      logo: "https://www.runoot.com/logo.svg",
+      logo: "https://www.runoot.com/logo225px.png",
     });
     const webSiteJsonLd = JSON.stringify({
       "@context": "https://schema.org",
@@ -220,11 +233,6 @@ export default function Index() {
     });
     setSearchQuery(eventName);
     setShowSuggestions(false);
-    // Navigate anon users to login before opening listings
-    if (!user) {
-      navigate(`/login?redirectTo=${encodeURIComponent(`/listings?search=${eventName}`)}`);
-      return;
-    }
     navigate(`/listings?search=${encodeURIComponent(eventName)}`);
   };
 
@@ -247,7 +255,7 @@ export default function Index() {
             <img
               src="/hero.webp"
               alt=""
-              fetchPriority="high"
+              {...({ fetchpriority: "high" } as any)}
               loading="eager"
               decoding="async"
               className="h-full w-full object-cover object-top"
@@ -292,7 +300,7 @@ export default function Index() {
           <div className="mx-auto max-w-7xl">
             <Form
               method="get"
-              action={user ? "/listings" : "/login"}
+              action="/listings"
               onSubmit={() =>
                 trackEvent(analyticsEvents.HOME_SEARCH_SUBMITTED, {
                   query: searchQuery.trim(),
@@ -301,7 +309,6 @@ export default function Index() {
               }
               className="mx-auto w-full max-w-3xl rounded-3xl md:rounded-full bg-white px-4 py-3 shadow-[0_14px_36px_rgba(0,0,0,0.18)]"
             >
-              {!user && <input type="hidden" name="redirectTo" value="/listings" />}
               <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-4">
                 <div className="relative min-w-0 flex-1 rounded-full bg-[#ECF4FE] px-4 py-1" ref={searchRef}>
                   <input
@@ -376,7 +383,7 @@ export default function Index() {
             )}
             <div className="mt-10 flex justify-center">
               <Link
-                to={user ? "/listings" : "/login"}
+                to="/listings"
                 onClick={() =>
                   trackEvent(analyticsEvents.HOME_VIEW_ALL_LISTINGS_CLICKED, {
                     authenticated: !!user,
@@ -390,7 +397,7 @@ export default function Index() {
 
           </div>
         </section>
-        {eventListings.length > 0 && (
+        {user && eventListings.length > 0 && (
           <section className="pb-20 md:pb-24 bg-[#ECF4FE]">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-center">
@@ -426,7 +433,7 @@ export default function Index() {
               {hasMoreEventListings && (
                 <div className="mt-6 flex justify-center">
                   <Link
-                    to={user ? "/events" : "/login"}
+                    to="/events"
                     onClick={() =>
                       trackEvent(analyticsEvents.HOME_VIEW_ALL_EVENTS_CLICKED, {
                         authenticated: !!user,

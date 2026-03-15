@@ -11,6 +11,7 @@ import { FooterLight } from "~/components/FooterLight";
 import { ListingCard } from "~/components/ListingCard";
 import { ListingCardCompact } from "~/components/ListingCardCompact";
 import { SortDropdown } from "~/components/SortDropdown";
+import { isEventExpired } from "~/lib/listing-status";
 
 export const meta: MetaFunction = () => [{ title: "Browse Events - Runoot" }];
 
@@ -126,8 +127,11 @@ export default function EventsPage() {
   });
 
   const filteredBySort = sortBy === "contact_price" ? sortedListings.filter((l) => l.price == null) : sortedListings;
-  const visibleListings = filteredBySort.slice(0, visibleCount);
-  const hasMore = visibleCount < filteredBySort.length;
+  const nonExpiredListings = filteredBySort.filter((listing: any) => !isEventExpired(listing.event?.event_date || ""));
+  const expiredListings = filteredBySort.filter((listing: any) => isEventExpired(listing.event?.event_date || ""));
+  const prioritizedListings = [...nonExpiredListings, ...expiredListings];
+  const visibleListings = prioritizedListings.slice(0, visibleCount);
+  const hasMore = visibleCount < prioritizedListings.length;
 
   const filteredEvents = searchQuery.length >= 2
     ? (events as any[])
@@ -177,12 +181,14 @@ export default function EventsPage() {
 
         <main className="mx-auto max-w-7xl px-4 pt-6 pb-24 md:pt-16 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
           <div className="mb-6">
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center">
-              {t("nav.event")}
-            </h1>
-            <p className="mt-2 text-sm sm:text-base text-gray-600 text-center">
-              {t("events.subtitle")}
-            </p>
+            <div className="rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mx-auto md:max-w-4xl md:px-6 md:py-5">
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 text-center underline decoration-accent-500 underline-offset-4">
+                {t("nav.event")}
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-gray-600 text-center">
+                {t("events.subtitle")}
+              </p>
+            </div>
           </div>
 
           <div className="relative z-10 mb-8">
@@ -211,7 +217,7 @@ export default function EventsPage() {
                       setShowSuggestions(true);
                     }}
                     onFocus={() => setShowSuggestions(true)}
-                    className="block w-full rounded-full border-0 pl-12 pr-20 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-md ring-1 ring-gray-200 max-[390px]:pr-16"
+                    className="block w-full rounded-full border border-accent-500 bg-white pl-12 pr-20 py-3.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-colors shadow-none max-[390px]:pr-16"
                   />
                   {hasActiveSearch ? (
                     <button
@@ -250,9 +256,9 @@ export default function EventsPage() {
                 </div>
               </Form>
 
-              <div className="flex items-center gap-3 lg:ml-auto lg:justify-end">
+              <div className="flex w-full items-center justify-end gap-3 lg:w-auto lg:ml-auto lg:justify-end">
                 <div className="shrink-0">
-                  <SortDropdown value={sortBy} onChange={setSortBy} options={eventSortOptions} />
+                  <SortDropdown value={sortBy} onChange={setSortBy} options={eventSortOptions} buttonClassName="!border-accent-500" />
                 </div>
               </div>
             </div>
@@ -291,7 +297,7 @@ export default function EventsPage() {
                     onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
                     className="px-8 py-3 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors shadow-md"
                   >
-                    {t("events.load_more")} ({filteredBySort.length - visibleCount} remaining)
+                    {t("events.load_more")} ({prioritizedListings.length - visibleCount} remaining)
                   </button>
                 </div>
               )}

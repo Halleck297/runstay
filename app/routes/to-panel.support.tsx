@@ -152,25 +152,25 @@ export default function ToPanelSupport() {
       navItems={navItems}
     >
       <div className="-m-4 min-h-full bg-[#ECF4FE] md:-m-8">
-        <main className="mx-auto max-w-4xl px-4 py-6 pb-24 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-          <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+        <main className="px-0 py-6 pb-24 md:mx-auto md:max-w-4xl md:px-8 md:py-8 md:pb-8">
+          <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
             <h1 className="font-display text-2xl font-bold text-gray-900">Support</h1>
             <p className="mt-1 text-gray-600">Contact the Runoot team for account, listing, or platform assistance.</p>
           </div>
 
           {actionData?.error && (
-            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div className="mb-6 border-y border-red-200 bg-red-50 p-4 text-sm text-red-700 md:rounded-xl md:border">
               {actionData.error}
             </div>
           )}
 
           {actionData?.success ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+            <div className="border-y border-emerald-200 bg-emerald-50 p-6 md:rounded-2xl md:border">
               <h2 className="font-semibold text-emerald-800">Message sent</h2>
               <p className="mt-1 text-sm text-emerald-700">Our team received your request and will reply as soon as possible.</p>
             </div>
           ) : (
-            <section className="rounded-3xl border border-brand-200/70 bg-gradient-to-br from-white via-slate-50 to-brand-50/40 p-6 shadow-[0_14px_38px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm">
+            <section className="border-y border-brand-200/70 bg-white p-4 md:rounded-3xl md:border md:bg-gradient-to-br md:from-white md:via-slate-50 md:to-brand-50/40 md:p-6 md:shadow-[0_14px_38px_-18px_rgba(15,23,42,0.35)] md:backdrop-blur-sm">
               <Form method="post" className="space-y-6">
                 <div>
                   <SubjectDropdown

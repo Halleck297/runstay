@@ -104,8 +104,8 @@ export default function ToProfileBusiness() {
   const stripUrlProtocol = (value: string | null | undefined) => (value ? value.replace(/^https?:\/\//i, "") : "");
 
   return (
-    <div className="min-h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
-      <div className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+    <div className="min-h-screen bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
+      <div className="px-0 py-6 pb-28 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
         <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
           <ToProfileSidebar
             user={user}
@@ -115,13 +115,13 @@ export default function ToProfileBusiness() {
           />
 
           <main className="min-w-0 flex-1">
-            <div className="mb-6 rounded-3xl border border-brand-200/70 bg-gradient-to-r from-brand-50 via-white to-orange-50 p-6 shadow-sm">
+            <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
               <h1 className="font-display text-2xl font-bold text-gray-900">Business details</h1>
               <p className="mt-1 text-gray-600">Update your business information.</p>
             </div>
 
             {actionData?.success && (
-              <div className="mb-6 flex items-center gap-2 rounded-xl bg-success-50 p-4 text-sm text-success-700">
+              <div className="mb-6 flex items-center gap-2 bg-success-50 p-4 text-sm text-success-700 md:rounded-xl">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -129,7 +129,7 @@ export default function ToProfileBusiness() {
               </div>
             )}
             {actionData?.error && (
-              <div className="mb-6 flex items-center gap-2 rounded-xl bg-alert-50 p-4 text-sm text-alert-700">
+              <div className="mb-6 flex items-center gap-2 bg-alert-50 p-4 text-sm text-alert-700 md:rounded-xl">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>

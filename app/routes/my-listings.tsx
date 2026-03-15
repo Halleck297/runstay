@@ -9,6 +9,7 @@ import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { isEventExpired } from "~/lib/listing-status";
 
 export const meta: MetaFunction = () => {
   return [{ title: "My Listings - Runoot" }];
@@ -37,26 +38,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return redirect("/to-panel/listings");
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const isAutoExpiredByEventDate = (eventDateString: string): boolean => {
-    const eventDate = new Date(eventDateString);
-    eventDate.setHours(0, 0, 0, 0);
-    const expiryThreshold = new Date(eventDate);
-    expiryThreshold.setDate(expiryThreshold.getDate() - 1);
-    return today >= expiryThreshold;
-  };
-
   const pendingListings = localized.filter((listing: any) => listing.status === "pending");
   const rejectedListings = localized.filter((listing: any) => listing.status === "rejected");
 
   const activeListings = localized.filter((listing: any) => {
-    return listing.status === "active" && !isAutoExpiredByEventDate(listing.event.event_date);
+    return listing.status === "active" && !isEventExpired(listing.event.event_date);
   });
 
   const endedListings = localized.filter((listing: any) => {
-    return (listing.status === "active" || listing.status === "sold" || listing.status === "expired") && isAutoExpiredByEventDate(listing.event.event_date);
+    return (listing.status === "active" || listing.status === "sold" || listing.status === "expired") && isEventExpired(listing.event.event_date);
   });
 
   return { user, activeListings, endedListings, pendingListings, rejectedListings };
@@ -73,7 +63,7 @@ export default function MyListings() {
     { label: "Approved", href: "#approved-section", count: activeListings.length, activeClass: "bg-blue-100 text-blue-700 ring-blue-200" },
     { label: "Pending", href: "#pending-section", count: pendingListings.length, activeClass: "bg-yellow-100 text-yellow-700 ring-yellow-200" },
     { label: "Rejected", href: "#rejected-section", count: rejectedListings.length, activeClass: "bg-red-100 text-red-700 ring-red-200" },
-    { label: "Expired", href: "#expired-section", count: endedListings.length, activeClass: "bg-gray-200 text-gray-700 ring-gray-300" },
+    { label: t("listings.status_expired"), href: "#expired-section", count: endedListings.length, activeClass: "bg-gray-200 text-gray-700 ring-gray-300" },
   ];
 
   return (
@@ -227,7 +217,7 @@ export default function MyListings() {
                   <div className="my-8 h-0.5 w-full bg-black/90" />
                   <section id="expired-section" className="scroll-mt-28">
                     <h2 className="mb-4 font-display text-xl font-semibold text-gray-700">
-                      Expired ({endedListings.length})
+                      {t("listings.status_expired")} ({endedListings.length})
                     </h2>
                     <div className="hidden gap-5 opacity-75 sm:grid sm:grid-cols-2 lg:grid-cols-3">
                       {endedListings.map((listing: any) => (
