@@ -199,7 +199,7 @@ export function ControlPanelLayout({
       </aside>
 
       <div className="flex-1 flex min-h-0 flex-col min-w-0 bg-[#ECF4FE] md:h-screen md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
-        <header className="sticky top-16 z-30 md:hidden bg-white border-b border-gray-200">
+        <header className="sticky top-[var(--mobile-nav-top-offset)] z-30 md:hidden bg-white border-b border-gray-200">
           <div className="px-4 py-3 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen((current) => !current)}
@@ -216,7 +216,7 @@ export function ControlPanelLayout({
               Home
             </Link>
           </div>
-          <div id="panel-mobile-extra-row">
+          <div id="panel-mobile-extra-row" className="relative z-40 bg-white">
             {mobileSubtitle && (
               <div className="px-4 pb-2 pt-0.5 text-center">
                 <p className="font-display text-base font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{mobileSubtitle}</p>

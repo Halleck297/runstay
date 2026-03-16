@@ -6,6 +6,7 @@ import { Header } from "~/components/Header";
 import { useI18n } from "~/hooks/useI18n";
 import { localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
+import { isEventExpired } from "~/lib/listing-status";
 import { getListingPublicId } from "~/lib/publicIds";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -73,7 +74,7 @@ function SavedToolbarDropdown<T extends string>({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`flex w-full items-center justify-between gap-2 rounded-full border border-gray-300 bg-white px-3.5 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 ${buttonClassName}`}
+        className={`flex w-full items-center justify-between gap-2 rounded-full border border-brand-300 bg-white px-3.5 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 ${buttonClassName}`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
@@ -89,7 +90,7 @@ function SavedToolbarDropdown<T extends string>({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-30 mt-2 w-full min-w-[220px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.15)]">
+        <div className="absolute right-0 z-30 mt-2 w-full min-w-[220px] overflow-hidden rounded-2xl border border-brand-300 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.15)]">
           <ul role="listbox" className="py-1">
             {options.map((option) => {
               const isSelected = option.value === value;
@@ -310,7 +311,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
         price_negotiable,
         transfer_type,
         associated_costs,
-        associated_costs_converted,
         check_in,
         check_out,
         status,
@@ -329,7 +329,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const activeListings =
     savedListings
-      ?.filter((s: any) => s.listing && s.listing.status === "active")
+      ?.filter((s: any) => {
+        if (!s.listing || s.listing.status !== "active") return false;
+        const eventDate = s.listing.event?.event_date;
+        if (!eventDate) return false;
+        return !isEventExpired(eventDate);
+      })
       .map((s: any) => ({
         ...applyListingDisplayCurrency(localizeListing(s.listing, locale), viewerCurrency),
         saved_at: s.created_at,
@@ -420,7 +425,7 @@ export default function SavedListings() {
         <main className="mx-auto max-w-7xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-grow w-full">
           <div className="mb-6">
             <div className="rounded-3xl border border-brand-500 bg-white px-4 py-4 text-center md:mx-auto md:max-w-4xl md:px-6 md:py-5">
-              <h1 className="font-display text-3xl font-bold text-gray-900">{t("saved.title")}</h1>
+              <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-3xl font-bold text-gray-900">{t("saved.title")}</h1>
               <p className="mt-2 text-gray-600">{t("saved.subtitle")}</p>
             </div>
           </div>
@@ -436,15 +441,15 @@ export default function SavedListings() {
                   )}
                 </div>
 
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
-                  <label className="relative block">
+                <div className="flex flex-col items-center gap-5 lg:flex-row lg:items-center lg:justify-center lg:gap-8">
+                  <label className="relative block w-full lg:w-[460px]">
                     <span className="sr-only">{t("saved.search_placeholder")}</span>
                     <input
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       type="text"
                       placeholder={t("saved.search_placeholder")}
-                      className="block w-full rounded-full border-0 bg-white px-4 py-3.5 pr-10 text-gray-900 placeholder:text-gray-400 ring-1 ring-gray-200 shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/30 lg:w-[460px]"
+                      className="block w-full rounded-full border border-accent-500 bg-white px-4 py-3.5 pr-10 text-gray-900 placeholder:text-gray-400 shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/30 lg:w-[460px]"
                     />
                     <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -456,7 +461,7 @@ export default function SavedListings() {
                       value={typeFilter}
                       onChange={setTypeFilter}
                       options={typeFilterOptions}
-                      className="w-full min-w-0 sm:min-w-[180px]"
+                      className="w-full min-w-0 sm:min-w-[220px]"
                     />
                   </div>
 
@@ -465,8 +470,7 @@ export default function SavedListings() {
                       value={sortBy}
                       onChange={setSortBy}
                       options={sortOptions}
-                      className="w-full min-w-0 sm:min-w-[230px]"
-                      buttonClassName="!border-accent-500"
+                      className="w-full min-w-0 sm:min-w-[220px]"
                     />
                   </div>
                 </div>

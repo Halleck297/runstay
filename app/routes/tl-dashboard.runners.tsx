@@ -134,15 +134,22 @@ export default function TLRunnersPage() {
       navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
     >
       <div className="min-h-full px-0 pt-0 pb-2 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
-        <div className="mt-3 mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mt-0 md:mb-6 md:p-6">
+        <div className="mt-3 mb-6 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mx-auto md:mt-0 md:mb-8 md:w-[58%] md:border-2 md:p-6 lg:w-[52%]">
           <h1 className="text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.your_team")}</h1>
-          <p className="mt-1 text-gray-600">{t("tl_dashboard.runners_subtitle")}</p>
+          <p className="mt-1 text-center text-gray-600">{t("tl_dashboard.runners_subtitle")}</p>
         </div>
 
-        <div id="your-referrals" className="overflow-hidden border-t border-gray-200 bg-white md:rounded-3xl md:border md:shadow-sm">
+        <div id="your-referrals" className="overflow-hidden border-t border-brand-300 bg-white md:mx-auto md:w-[74%] md:rounded-3xl md:border md:border-brand-300 lg:w-[68%]">
           <div className="border-b border-gray-100 px-4 py-4 md:px-6">
-            <h2 className="text-center font-display text-xl font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.your_referrals")}</h2>
+            <h2 className="ml-2 text-left font-display text-xl font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.your_referrals")}</h2>
             <div className="mt-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={t("tl_dashboard.search_name_or_email")}
+                className="w-full rounded-full border border-accent-500 bg-white px-3 py-2 text-base text-gray-900 placeholder:text-gray-400 md:max-w-xs md:text-sm"
+              />
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -170,13 +177,6 @@ export default function TLRunnersPage() {
                   {statusButtonLabel}
                 </button>
               </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={t("tl_dashboard.search_name_or_email")}
-                className="w-full rounded-full border border-accent-500 bg-white px-3 py-2 text-base text-gray-900 placeholder:text-gray-400 md:max-w-xs md:text-sm"
-              />
             </div>
           </div>
           <div className="divide-y divide-gray-100">

@@ -209,7 +209,7 @@ export default function ProfileIndex() {
     <div className="min-h-screen bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
 
       <div className="px-0 pt-18 pb-8 md:mx-auto md:max-w-7xl md:px-8 md:pt-16 md:pb-8">
-        <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
+        <div className="flex flex-col gap-0 md:gap-8 lg:flex-row">
           <aside className="flex-shrink-0 lg:w-72">
             <div className="border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:rounded-3xl md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
@@ -279,9 +279,9 @@ export default function ProfileIndex() {
             </div>
           </aside>
 
-          <main id="tl-profile-main" className="min-w-0 flex-1 scroll-mt-36 border-y border-gray-200 bg-white p-4 md:scroll-mt-0 md:rounded-3xl md:border md:p-6 md:shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)]">
-            <div className="mb-6 rounded-3xl border border-brand-500 bg-white p-4 md:p-5">
-              <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.main.personal_info_title")}</h1>
+          <main id="tl-profile-main" className="min-w-0 flex-1 scroll-mt-40 border-y border-gray-200 bg-white p-4 md:scroll-mt-0 md:rounded-3xl md:border md:p-6 md:shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)]">
+            <div className="mb-6 pt-4 text-center md:pt-5">
+              <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-2xl font-bold text-gray-900">{t("profile.main.personal_info_title")}</h1>
               <p className="mt-1 text-gray-900">{t("profile.main.personal_info_subtitle")}</p>
             </div>
 
@@ -305,7 +305,7 @@ export default function ProfileIndex() {
 
             <Form method="post" className="pb-0 md:pb-8">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.form.full_name")}</label>
                   <input
                     name="fullName"
@@ -317,7 +317,7 @@ export default function ProfileIndex() {
                   />
                 </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <label className="text-sm font-medium text-gray-500">
@@ -332,7 +332,7 @@ export default function ProfileIndex() {
                 </div>
 
                 {isTourOperator ? (
-                  <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                  <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                     <label className="text-sm font-medium text-gray-500">{t("profile.form.phone_number")}</label>
                     <input
                       name="phone"
@@ -343,7 +343,7 @@ export default function ProfileIndex() {
                     />
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                  <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <label className="text-sm font-medium text-gray-500">
@@ -358,7 +358,7 @@ export default function ProfileIndex() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <label className="text-sm font-medium text-gray-500">{t("profile.form.account_type")}</label>
@@ -371,7 +371,7 @@ export default function ProfileIndex() {
                 </div>
 
                 {isTourOperator && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                     <label className="text-sm font-medium text-gray-500">{t("profile.agency.company_name_required")}</label>
                     <input
                       name="companyName"
@@ -383,7 +383,7 @@ export default function ProfileIndex() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                   <div className="flex items-start justify-between">
                     <label className="text-sm font-medium text-gray-500">{t("profile.form.country")}</label>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -401,7 +401,7 @@ export default function ProfileIndex() {
                   <p className="mt-2 text-xs text-gray-400">To update country, contact admin.</p>
                 </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.form.city")}</label>
                   <input
                     name="city"
@@ -412,16 +412,20 @@ export default function ProfileIndex() {
                   />
                 </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:col-span-2 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.form.about_me")}</label>
+                <div className="md:col-span-2">
+                  <h3 className="mb-2 ml-2 mt-1 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">
+                    {t("profile.form.about_me")}
+                  </h3>
+                </div>
+
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:col-span-2 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                   <textarea
                     name="bio"
                     rows={3}
                     defaultValue={(user as any).bio || ""}
-                    className="mt-1 block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder={t("profile.form.about_me_placeholder")}
                   />
-                  <p className="mt-2 text-xs text-gray-400">{t("profile.form.about_me_help")}</p>
                 </div>
 
                 {isTourOperator && (
@@ -432,7 +436,7 @@ export default function ProfileIndex() {
                       </p>
                     </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.company_website")}</label>
                       <input
                         name="website"
@@ -447,7 +451,7 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.languages_spoken")}</label>
                       <input
                         name="languages_spoken"
@@ -458,7 +462,7 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.years_business")}</label>
                       <input
                         name="yearsExperience"
@@ -470,7 +474,7 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.specialties")}</label>
                       <textarea
                         name="specialties"
@@ -487,7 +491,7 @@ export default function ProfileIndex() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.social.instagram")}</label>
                       <div className="mt-1 flex items-center">
                         <span className="mr-1 text-gray-400">@</span>
@@ -501,7 +505,7 @@ export default function ProfileIndex() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.facebook_page")}</label>
                       <input
                         name="facebook"
@@ -516,7 +520,7 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
                       <label className="text-sm font-medium text-gray-500">{t("profile.agency.linkedin_company")}</label>
                       <input
                         name="linkedin"
@@ -553,7 +557,7 @@ export default function ProfileIndex() {
                       type="button"
                       onClick={() => setSelectedAvatar(NO_AVATAR_VALUE)}
                       className={`flex h-24 flex-col items-center justify-center gap-2 rounded-xl border p-2 transition-all ${
-                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200 hover:border-gray-300"
+                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
                       }`}
                     >
                       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
@@ -567,7 +571,7 @@ export default function ProfileIndex() {
                         type="button"
                         onClick={() => setSelectedAvatar(avatar)}
                         className={`rounded-xl border p-2 transition-all ${
-                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200 hover:border-gray-300"
+                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
                         }`}
                       >
                         <img src={avatar} alt="Avatar option" className="mx-auto h-20 w-20 rounded-full object-cover" loading="lazy" />
@@ -578,7 +582,7 @@ export default function ProfileIndex() {
                     <button
                       type="button"
                       onClick={() => setIsAvatarModalOpen(false)}
-                      className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700"
                     >
                       {t("messages.cancel")}
                     </button>

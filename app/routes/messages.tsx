@@ -127,7 +127,7 @@ export default function MessagesLayout() {
   const messagesContent = (
     <div className="flex-1 overflow-hidden md:overflow-x-auto md:overflow-y-hidden md:bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
       <div className="mx-auto h-full min-w-full md:min-w-[980px] max-w-7xl px-0 py-0 md:px-4 md:py-8 lg:px-8">
-        <div className="flex h-full overflow-hidden bg-white md:border md:border-gray-200/80 md:bg-white/85 md:shadow-xl md:backdrop-blur-[2px] md:rounded-3xl">
+        <div className="flex h-full overflow-hidden bg-white md:rounded-3xl md:border md:border-brand-300 md:bg-white/85 md:backdrop-blur-[2px]">
 
       {/* Colonna sinistra: Lista conversazioni */}
       {/* Mobile: mostra solo quando NON c'è conversazione attiva */}

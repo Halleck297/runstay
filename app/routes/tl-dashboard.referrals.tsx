@@ -429,14 +429,14 @@ export default function TLReferralsPage() {
       navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
     >
       <div className="min-h-full px-0 pt-0 pb-2 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
-        <div className="mt-3 mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mt-0 md:mb-6 md:p-6">
+        <div className="mt-3 mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mx-auto md:mt-0 md:mb-6 md:w-[58%] md:border-2 md:p-6 lg:w-[52%]">
           <h1 className="text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.invite_users_title")}</h1>
           <p className="mt-1 text-center text-gray-600">{t("tl_dashboard.referrals_subtitle")}</p>
         </div>
 
         {inviteSuccessCount !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 px-4">
-            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-gray-200">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-brand-300">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-success-100">
                 <svg className="h-6 w-6 text-success-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -456,23 +456,23 @@ export default function TLReferralsPage() {
         )}
 
         {actionError && (
-          <div className="mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm">
+          <div className="mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm md:mx-auto md:w-[78%] lg:w-[72%]">
             {actionError}
           </div>
         )}
         {actionData?.success && actionMessage && (
-          <div className="mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm">{actionMessage}</div>
+          <div className="mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm md:mx-auto md:w-[78%] lg:w-[72%]">{actionMessage}</div>
         )}
 
-        <div id="referral-link" className="scroll-mt-32 mb-4 border-y border-gray-200 bg-white p-4 md:scroll-mt-24 md:mb-6 md:rounded-3xl md:border md:p-6 md:shadow-sm">
+        <div id="referral-link" className="scroll-mt-32 mb-4 border-y border-brand-300 bg-white p-4 md:mx-auto md:w-[78%] md:scroll-mt-24 md:mb-6 md:rounded-3xl md:border md:p-6 md:shadow-sm lg:w-[72%]">
           <h2 className="mb-2 font-display font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.invite_link_title")}</h2>
           <p className="mb-4 text-sm text-gray-500">{t("tl_dashboard.referral_link_help")}</p>
 
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
-            <div className="w-full flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 font-mono text-sm text-gray-700 md:hidden">
+            <div className="w-full flex-1 truncate rounded-lg border border-accent-500 bg-gray-50 px-4 py-2.5 font-mono text-sm text-gray-700 md:hidden">
               {referralLinkDisplay}
             </div>
-            <div className="hidden w-full flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 font-mono text-sm text-gray-700 md:block">
+            <div className="hidden w-full flex-1 truncate rounded-lg border border-accent-500 bg-gray-50 px-4 py-2.5 font-mono text-sm text-gray-700 md:block">
               {referralLink}
             </div>
             <button
@@ -486,7 +486,7 @@ export default function TLReferralsPage() {
           </div>
         </div>
 
-        <div id="invite-email" className="scroll-mt-32 mb-4 border-y border-gray-200 bg-white p-4 md:scroll-mt-24 md:mb-6 md:rounded-3xl md:border md:p-6 md:shadow-sm">
+        <div id="invite-email" className="scroll-mt-32 mb-4 border-y border-brand-300 bg-white p-4 md:mx-auto md:w-[78%] md:scroll-mt-24 md:mb-6 md:rounded-3xl md:border md:p-6 md:shadow-sm lg:w-[72%]">
           <h2 className="mb-2 font-display font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.invite_by_email")}</h2>
 
           <Form method="post" className="space-y-3">
@@ -528,7 +528,7 @@ export default function TLReferralsPage() {
           </Form>
         </div>
 
-        <div id="welcome-message" className="scroll-mt-32 mb-4 border-y border-gray-200 bg-white p-4 md:scroll-mt-24 md:mb-6 md:rounded-3xl md:border md:p-6 md:shadow-sm">
+        <div id="welcome-message" className="scroll-mt-32 mb-4 border-y border-brand-300 bg-white p-4 md:mx-auto md:w-[78%] md:scroll-mt-24 md:mb-6 md:rounded-3xl md:border md:p-6 md:shadow-sm lg:w-[72%]">
           <h2 className="mb-2 font-display font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.welcome_message")}</h2>
           <p className="mb-4 text-sm text-gray-500">{t("tl_dashboard.welcome_message_help")}</p>
           <Form method="post">
@@ -547,8 +547,8 @@ export default function TLReferralsPage() {
           </Form>
         </div>
 
-        <div id="reserved-emails" className="scroll-mt-32 mb-6 overflow-hidden border-t border-gray-200 bg-white md:scroll-mt-24 md:rounded-3xl md:border md:shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-100">
+        <div id="reserved-emails" className="scroll-mt-32 mb-6 overflow-hidden border-t border-brand-300 bg-white md:mx-auto md:w-[78%] md:scroll-mt-24 md:rounded-3xl md:border md:shadow-sm lg:w-[72%]">
+          <div className="px-6 py-4 border-b border-brand-300">
             <h2 className="font-display font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.reserved_emails")}</h2>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Link
@@ -646,7 +646,7 @@ export default function TLReferralsPage() {
               </div>
             )}
           </div>
-          <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600">
+          <div className="px-6 py-3 border-t border-brand-300 flex items-center justify-between text-xs text-gray-600">
             <span>
               {t("tl_dashboard.page")} {reservedPagination.page} {t("tl_dashboard.of")} {reservedPagination.totalPages} · {reservedPagination.totalCount} {t("tl_dashboard.total")}
             </span>

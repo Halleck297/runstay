@@ -158,7 +158,7 @@ export function MobileNav({ user }: MobileNavProps) {
             </Link>
           )}
 
-          {!tourOperator && !teamLeader && (
+          {user && (
             <Link
               to={myListingPath}
               onClick={() => setIsSidebarOpen(false)}
@@ -180,6 +180,17 @@ export function MobileNav({ user }: MobileNavProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
             {t("nav.saved")}
+          </Link>
+
+          <Link
+            to="/contact"
+            onClick={() => setIsSidebarOpen(false)}
+            className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-2 8a9 9 0 100-18 9 9 0 000 18z" />
+            </svg>
+            {t("nav.contact")}
           </Link>
 
           {/* Admin Dashboard - solo admin/superadmin */}
@@ -225,7 +236,7 @@ export function MobileNav({ user }: MobileNavProps) {
       </div>
 
       {/* Top Navigation (inverted from bottom) */}
-      <nav className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 safe-area-top">
+      <nav id="mobile-main-nav" className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 safe-area-top">
       <div className="relative flex items-center justify-between h-[4.375rem] px-3 max-[390px]:px-1">
         <div className="flex items-center">
           {/* Listings/Search */}

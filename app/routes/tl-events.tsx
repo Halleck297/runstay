@@ -992,19 +992,19 @@ export default function TLEventsPage() {
       )}
       <div className="min-h-full">
       <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-        <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
+        <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mx-auto md:mb-6 md:w-[58%] md:border-2 md:p-6 lg:w-[52%]">
           <h1 className="text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_events.title")}</h1>
-          <p className="mt-1 text-gray-600">{t("tl_events.subtitle")}</p>
+          <p className="mt-1 text-center text-gray-600">{t("tl_events.subtitle")}</p>
         </div>
 
         {actionError && (
-          <div className="mb-4 p-3 rounded-lg bg-alert-50 text-alert-700 text-sm">{actionError}</div>
+          <div className="mb-4 rounded-lg bg-alert-50 p-3 text-sm text-alert-700 md:mx-auto md:w-[74%] lg:w-[68%]">{actionError}</div>
         )}
         {actionData?.success && actionMessage && (
-          <div className="mb-4 p-3 rounded-lg bg-success-50 text-success-700 text-sm">{actionMessage}</div>
+          <div className="mb-4 rounded-lg bg-success-50 p-3 text-sm text-success-700 md:mx-auto md:w-[74%] lg:w-[68%]">{actionMessage}</div>
         )}
 
-        <div className="mb-6 rounded-3xl border border-brand-200/70 bg-white/95 transition-colors hover:border-brand-300">
+        <div className="mb-6 rounded-3xl border border-brand-200/70 bg-white/95 transition-colors hover:border-brand-300 md:mx-auto md:w-[74%] lg:w-[68%]">
           <button
             type="button"
             onClick={() => setIsCreateOpen((prev) => !prev)}
@@ -1239,7 +1239,7 @@ export default function TLEventsPage() {
           )}
         </div>
 
-        <div className="mb-6 flex items-center gap-3 px-1">
+        <div className="mb-6 flex items-center gap-3 px-1 md:mx-auto md:w-[74%] lg:w-[68%]">
           <div className="h-px flex-1 bg-gray-300" />
           <span className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
             {t("tl_events.your_requests")}
@@ -1247,7 +1247,7 @@ export default function TLEventsPage() {
           <div className="h-px flex-1 bg-gray-300" />
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-300 bg-slate-50/70 shadow-sm transition-colors hover:border-slate-400">
+        <div className="overflow-hidden rounded-3xl border border-slate-300 bg-slate-50/70 shadow-sm transition-colors hover:border-slate-400 md:mx-auto md:w-[74%] lg:w-[68%]">
           <div className="border-b border-slate-200 bg-white/90 px-6 py-4">
             <h2 className="font-display font-semibold text-gray-900">{t("tl_events.your_requests")}</h2>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -1266,7 +1266,7 @@ export default function TLEventsPage() {
           <div className="space-y-3 p-3">
             {requests.length > 0 ? (
               requests.map((req: any) => (
-                <div key={req.id} className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-[0_4px_14px_rgba(15,23,42,0.06)]">
+                <div key={req.id} className="rounded-2xl border border-brand-300 bg-white p-4">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">{req.event_name}</p>
@@ -1366,7 +1366,7 @@ export default function TLEventsPage() {
                       </div>
                     </div>
                   )}
-                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="mt-3 rounded-xl border border-brand-300 bg-brand-50/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Conversation</p>
                       {!unreadByRequest?.[req.id] && (
@@ -1399,7 +1399,7 @@ export default function TLEventsPage() {
                           {(updatesByRequest?.[req.id] || []).filter((u: any) => String(u.note || "").trim().length > 0).slice(0, 8).map((u: any) => {
                             const isAdmin = u.actor_role === "superadmin";
                             return (
-                              <div key={u.id} className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+                              <div key={u.id} className="rounded-lg border border-brand-300 bg-white px-3 py-2">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isAdmin ? "bg-brand-100 text-brand-700" : "bg-indigo-100 text-indigo-700"}`}>
                                     {isAdmin ? "Admin" : "TL"}

@@ -68,14 +68,17 @@
   /* Override body padding for messages page */
   @media (max-width: 767px) {
     body:has(.messages-page) {
+      padding-top: 0 !important;
       padding-bottom: 0 !important;
+      overflow: hidden;
+      overscroll-behavior-y: none;
     }
   }
 
-  /* Mobile bottom nav height: 4rem (h-16) + safe area */
+  /* Mobile top nav height: 4.375rem + safe area */
   :root {
     --mobile-nav-height: calc(4rem + env(safe-area-inset-bottom, 0));
-    --mobile-nav-top-offset: calc(4rem + env(safe-area-inset-top, 0));
+    --mobile-nav-top-offset: calc(4.375rem + env(safe-area-inset-top, 0));
   }
 
   /* Add padding to body for mobile nav - ensures content doesn't get hidden behind navbar */

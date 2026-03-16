@@ -152,9 +152,9 @@ export default function RunningExperience() {
     <div className="min-h-screen bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
 
       <div className="px-0 pt-18 pb-8 md:mx-auto md:max-w-7xl md:px-8 md:pt-16 md:pb-8">
-        <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
+        <div className="flex flex-col gap-0 md:gap-8 lg:flex-row">
           <aside className="flex-shrink-0 lg:w-72">
-            <div className="border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:rounded-3xl md:p-6">
+            <div className="border border-gray-200/80 bg-white/95 p-4 backdrop-blur-sm md:rounded-3xl md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
                 <button
                   type="button"
@@ -190,7 +190,7 @@ export default function RunningExperience() {
                       key={item.key}
                       to={item.href}
                       className={`flex items-center gap-3 rounded-full border border-brand-500 px-4 py-3 text-sm font-medium transition-all ${
-                        isActive ? "bg-brand-500 text-white shadow-sm [&>svg]:text-white" : "bg-white text-gray-900 [&>svg]:text-brand-500"
+                        isActive ? "bg-brand-500 text-white [&>svg]:text-white" : "bg-white text-gray-900 [&>svg]:text-brand-500"
                       }`}
                     >
                       {item.icon === "user" && (
@@ -222,9 +222,9 @@ export default function RunningExperience() {
             </div>
           </aside>
 
-          <main id="tl-experience-main" className="min-w-0 flex-1 scroll-mt-36 border-y border-gray-200 bg-white p-4 md:scroll-mt-0 md:rounded-3xl md:border md:p-6 md:shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)]">
-            <div className="mb-6 rounded-3xl border border-brand-500 bg-white p-4 md:p-5">
-              <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.experience.title")}</h1>
+          <main id="tl-experience-main" className="-mt-px min-w-0 flex-1 scroll-mt-40 border-y border-gray-200 bg-white p-4 md:mt-0 md:scroll-mt-0 md:rounded-3xl md:border md:p-6">
+            <div className="mb-6 pt-3 text-center md:pt-4">
+              <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-2xl font-bold text-gray-900">{t("profile.experience.title")}</h1>
               <p className="mt-1 text-gray-900">{t("profile.experience.subtitle")}</p>
             </div>
 
@@ -247,9 +247,9 @@ export default function RunningExperience() {
             )}
 
             <Form method="post">
-              <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.experience.marathons")}</h3>
+              <h3 className="mb-3 ml-1 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.experience.marathons")}</h3>
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 transition-all focus-within:border-brand-400 md:p-5">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.completed")}</label>
                   <input
                     name="marathonsCompleted"
@@ -261,32 +261,31 @@ export default function RunningExperience() {
                   />
                 </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 transition-all focus-within:border-brand-400 md:p-5">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.personal_best")}</label>
                   <input
                     name="marathonPB"
                     type="text"
                     defaultValue={(user as any).marathon_pb || ""}
                     className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder="3:45:00"
+                    placeholder="3:00:00"
                   />
                 </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 transition-all focus-within:border-brand-400 md:p-5">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.pb_location")}</label>
                   <input
                     name="marathonPBLocation"
                     type="text"
                     defaultValue={(user as any).marathon_pb_location || ""}
                     className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder={t("profile.experience.pb_location")}
                   />
                 </div>
               </div>
 
-              <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.experience.half_marathons")}</h3>
+              <h3 className="mb-3 ml-1 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.experience.half_marathons")}</h3>
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 transition-all focus-within:border-brand-400 md:p-5">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.completed")}</label>
                   <input
                     name="halfMarathonsCompleted"
@@ -298,52 +297,57 @@ export default function RunningExperience() {
                   />
                 </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 transition-all focus-within:border-brand-400 md:p-5">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.personal_best")}</label>
                   <input
                     name="halfMarathonPB"
                     type="text"
                     defaultValue={(user as any).half_marathon_pb || ""}
                     className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder="1:45:00"
+                    placeholder="1:30:00"
                   />
                 </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 transition-all focus-within:border-brand-400 md:p-5">
                   <label className="text-sm font-medium text-gray-500">{t("profile.experience.pb_location")}</label>
                   <input
                     name="halfMarathonPBLocation"
                     type="text"
                     defaultValue={(user as any).half_marathon_pb_location || ""}
                     className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder={t("profile.experience.pb_location")}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:col-span-2 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.favorite_races")}</label>
+                <div className="md:col-span-2">
+                  <h3 className="mb-2 ml-2 mt-1 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">
+                    Favourite & worst races
+                  </h3>
+                </div>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 transition-all focus-within:border-brand-400 md:col-span-2 md:p-5">
                   <textarea
                     name="favoriteRaces"
                     rows={3}
                     defaultValue={(user as any).favorite_races || ""}
-                    className="mt-1 block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder={t("profile.experience.favorite_races_placeholder")}
+                    className="block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    placeholder="List the races you've enjoyed and disliked the most, and explain why."
                   />
-                  <p className="mt-2 text-xs text-gray-400">{t("profile.experience.favorite_races_help")}</p>
                 </div>
 
-                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:col-span-2 md:p-5 md:shadow-sm md:hover:-translate-y-0.5 md:hover:border-brand-400 md:hover:shadow-md md:focus-within:shadow-md">
-                  <label className="text-sm font-medium text-gray-500">{t("profile.experience.running_goals")}</label>
+                <div className="md:col-span-2">
+                  <h3 className="mb-2 ml-2 mt-1 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">
+                    {t("profile.experience.running_goals")}
+                  </h3>
+                </div>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 transition-all focus-within:border-brand-400 md:col-span-2 md:p-5">
                   <textarea
                     name="runningGoals"
                     rows={3}
                     defaultValue={(user as any).running_goals || ""}
-                    className="mt-1 block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder={t("profile.experience.running_goals_placeholder")}
                   />
-                  <p className="mt-2 text-xs text-gray-400">{t("profile.experience.running_goals_help")}</p>
                 </div>
               </div>
 
@@ -356,7 +360,7 @@ export default function RunningExperience() {
 
             {isAvatarModalOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="w-full max-w-2xl rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl">
+                <div className="w-full max-w-2xl rounded-3xl border border-gray-200 bg-white p-6">
                   <div className="mb-5">
                     <h3 className="font-display text-xl font-semibold text-gray-900">Choose avatar</h3>
                     <p className="mt-1 text-sm text-gray-500">Select one avatar and save.</p>
@@ -366,7 +370,7 @@ export default function RunningExperience() {
                       type="button"
                       onClick={() => setSelectedAvatar(NO_AVATAR_VALUE)}
                       className={`flex h-24 flex-col items-center justify-center gap-2 rounded-xl border p-2 transition-all ${
-                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200 hover:border-gray-300"
+                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
                       }`}
                     >
                       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
@@ -380,7 +384,7 @@ export default function RunningExperience() {
                         type="button"
                         onClick={() => setSelectedAvatar(avatar)}
                         className={`rounded-xl border p-2 transition-all ${
-                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200 hover:border-gray-300"
+                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
                         }`}
                       >
                         <img src={avatar} alt="Avatar option" className="mx-auto h-20 w-20 rounded-full object-cover" loading="lazy" />
@@ -391,7 +395,7 @@ export default function RunningExperience() {
                     <button
                       type="button"
                       onClick={() => setIsAvatarModalOpen(false)}
-                      className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700"
                     >
                       {t("messages.cancel")}
                     </button>

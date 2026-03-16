@@ -103,9 +103,9 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }> = [
-  { key: "profile.nav.personal_info", href: "/profile", icon: "user" },
+  { key: "profile.nav.personal_info", href: "/profile#info", icon: "user" },
   { key: "profile.nav.running_experience", href: "/profile/experience", icon: "running" },
-  { key: "profile.nav.social_media", href: "/profile/social", icon: "share" },
+  { key: "profile.nav.social_media", href: "/profile/social#social", icon: "share" },
   { key: "profile.nav.settings", href: "/profile/settings", icon: "settings" },
 ];
 
@@ -136,13 +136,14 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
+    <div className="min-h-screen bg-white md:bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
       <Header user={user} />
 
       <div className="mx-auto max-w-7xl px-4 pt-14 pb-28 sm:px-6 md:pt-16 md:pb-8 lg:px-8">
-        <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
-          <aside className="flex-shrink-0 lg:w-72">
-            <div className="rounded-3xl border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:p-6">
+        <div className="md:rounded-3xl md:border md:border-brand-300 md:bg-white md:p-4">
+          <div className="flex flex-col gap-0 md:gap-8 lg:flex-row">
+            <aside className="flex-shrink-0 lg:w-72">
+            <div className="rounded-3xl border border-brand-300 bg-white/95 p-4 backdrop-blur-sm md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
                 <button
                   type="button"
@@ -178,7 +179,7 @@ export default function Settings() {
                       key={item.key}
                       to={item.href}
                       className={`flex items-center gap-3 rounded-full border border-brand-500 px-4 py-3 text-sm font-medium transition-all ${
-                        isActive ? "bg-brand-500 text-white shadow-sm [&>svg]:text-white" : "bg-white text-gray-900 [&>svg]:text-brand-500"
+                        isActive ? "bg-brand-500 text-white [&>svg]:text-white" : "bg-white text-gray-900 [&>svg]:text-brand-500"
                       }`}
                     >
                       {item.icon === "user" && (
@@ -208,11 +209,11 @@ export default function Settings() {
                 })}
               </nav>
             </div>
-          </aside>
+            </aside>
 
-          <main id="settings-main" className="min-w-0 flex-1 scroll-mt-32 md:scroll-mt-0">
+            <main id="settings" className="min-w-0 flex-1 scroll-mt-36 md:scroll-mt-0">
             <div className="mb-6 text-center">
-              <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.settings.title")}</h1>
+              <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-2xl font-bold text-gray-900">{t("profile.settings.title")}</h1>
               <p className="mt-1 text-gray-900">{t("profile.settings.subtitle")}</p>
             </div>
 
@@ -238,9 +239,9 @@ export default function Settings() {
               </div>
             )}
 
-            <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.account")}</h3>
+            <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.account")}</h3>
             <div className="mb-6 grid grid-cols-1 gap-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
+              <div className="rounded-2xl border border-brand-300 bg-white p-4 md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-500">{t("profile.settings.email")}</label>
@@ -252,7 +253,7 @@ export default function Settings() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
+              <div className="rounded-2xl border border-brand-300 bg-white p-4 md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-900">{t("profile.settings.change_password")}</label>
@@ -265,8 +266,8 @@ export default function Settings() {
               </div>
             </div>
 
-            <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.public_profile")}</h3>
-            <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
+            <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.public_profile")}</h3>
+            <div className="mb-6 rounded-2xl border border-brand-300 bg-white p-4 md:p-5">
               <Form method="post" className="space-y-4">
                 <input type="hidden" name="intent" value="update_profile_visibility" />
 
@@ -283,11 +284,11 @@ export default function Settings() {
                       className="peer sr-only"
                     />
                     <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
-                    <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                    <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5" />
                   </label>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 bg-slate-50 p-3">
+                <div className="rounded-xl border border-brand-300 bg-slate-50 p-3">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{t("profile.settings.visibility_sections")}</p>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
@@ -295,7 +296,7 @@ export default function Settings() {
                       <label className="relative inline-flex cursor-pointer items-center">
                         <input type="checkbox" name="public_show_personal_info" defaultChecked={visibility.public_show_personal_info} className="peer sr-only" />
                         <span className="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
-                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4" />
                       </label>
                     </div>
                     <div className="flex items-center justify-between gap-3">
@@ -303,7 +304,7 @@ export default function Settings() {
                       <label className="relative inline-flex cursor-pointer items-center">
                         <input type="checkbox" name="public_show_experience" defaultChecked={visibility.public_show_experience} className="peer sr-only" />
                         <span className="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
-                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4" />
                       </label>
                     </div>
                     <div className="flex items-center justify-between gap-3">
@@ -311,14 +312,14 @@ export default function Settings() {
                       <label className="relative inline-flex cursor-pointer items-center">
                         <input type="checkbox" name="public_show_social" defaultChecked={visibility.public_show_social} className="peer sr-only" />
                         <span className="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
-                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4" />
                       </label>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-1">
-                  <button type="submit" className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white">
+                  <button type="submit" className="rounded-full bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white">
                     {t("profile.actions.save_changes")}
                   </button>
                 </div>
@@ -327,7 +328,7 @@ export default function Settings() {
 
             {isAvatarModalOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="w-full max-w-2xl rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl">
+                <div className="w-full max-w-2xl rounded-3xl border border-brand-300 bg-white p-6">
                   <div className="mb-5">
                     <h3 className="font-display text-xl font-semibold text-gray-900">Choose avatar</h3>
                     <p className="mt-1 text-sm text-gray-500">Select one avatar and save.</p>
@@ -337,7 +338,7 @@ export default function Settings() {
                       type="button"
                       onClick={() => setSelectedAvatar(NO_AVATAR_VALUE)}
                       className={`flex h-24 flex-col items-center justify-center gap-2 rounded-xl border p-2 transition-all ${
-                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
+                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-brand-300"
                       }`}
                     >
                       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
@@ -351,7 +352,7 @@ export default function Settings() {
                         type="button"
                         onClick={() => setSelectedAvatar(avatar)}
                         className={`rounded-xl border p-2 transition-all ${
-                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
+                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-brand-300"
                         }`}
                       >
                         <img src={avatar} alt="Avatar option" className="mx-auto h-20 w-20 rounded-full object-cover" loading="lazy" />
@@ -362,7 +363,7 @@ export default function Settings() {
                     <button
                       type="button"
                       onClick={() => setIsAvatarModalOpen(false)}
-                      className="rounded-full border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700"
+                      className="rounded-full border border-brand-300 px-5 py-2 text-sm font-medium text-gray-700"
                     >
                       {t("messages.cancel")}
                     </button>
@@ -378,8 +379,8 @@ export default function Settings() {
               </div>
             )}
 
-            <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.blocked_users")}</h3>
-            <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
+            <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.blocked_users")}</h3>
+            <div className="mb-6 rounded-2xl border border-brand-300 bg-white p-4 md:p-5">
               {blockedUsers.length > 0 ? (
                 <div className="divide-y divide-gray-100">
                   {blockedUsers.map((block: any) => (
@@ -416,9 +417,9 @@ export default function Settings() {
               )}
             </div>
 
-            <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.notifications")}</h3>
+            <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.notifications")}</h3>
             <div className="mb-6 grid grid-cols-1 gap-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
+              <div className="rounded-2xl border border-brand-300 bg-white p-4 md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-900">{t("profile.settings.email_notifications")}</label>
@@ -429,9 +430,9 @@ export default function Settings() {
               </div>
             </div>
 
-            <h3 className="mb-3 font-display text-lg font-semibold text-gray-900">{t("profile.settings.support")}</h3>
+            <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.support")}</h3>
             <div className="mb-6 grid grid-cols-1 gap-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
+              <div className="rounded-2xl border border-brand-300 bg-white p-4 md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-900">{t("profile.settings.contact_us")}</label>
@@ -443,7 +444,7 @@ export default function Settings() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors md:p-5">
+              <div className="rounded-2xl border border-brand-300 bg-white p-4 md:p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-900">{t("profile.settings.terms_privacy")}</label>
@@ -461,9 +462,9 @@ export default function Settings() {
               </div>
             </div>
 
-            <h3 className="mb-3 font-display text-lg font-semibold text-alert-600">{t("profile.settings.danger_zone")}</h3>
+            <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-alert-600">{t("profile.settings.danger_zone")}</h3>
             <div className="grid grid-cols-1 gap-4">
-              <div className="rounded-2xl border border-alert-200 bg-white p-5">
+              <div className="rounded-2xl border border-brand-300 bg-white p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-900">{t("profile.settings.delete_account")}</label>
@@ -473,7 +474,8 @@ export default function Settings() {
                 </div>
               </div>
             </div>
-          </main>
+            </main>
+          </div>
         </div>
       </div>
     </div>

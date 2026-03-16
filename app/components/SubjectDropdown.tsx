@@ -45,7 +45,9 @@ export function SubjectDropdown({ value, onChange, hasError }: SubjectDropdownPr
 
   return (
     <div ref={dropdownRef} className="relative">
-      <label id={labelId} className="label text-base mb-6">{t("contact.subject")} *</label>
+      <label id={labelId} className="label mb-6 inline-block border-b-2 border-accent-500 pb-0.5 text-base">
+        {t("contact.subject")} *
+      </label>
 
       {/* Hidden input for form submission */}
       <input type="hidden" name="subject" value={value} />
@@ -63,7 +65,7 @@ export function SubjectDropdown({ value, onChange, hasError }: SubjectDropdownPr
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={menuId}
-        className={`input shadow-md backdrop-blur-sm w-full text-left flex items-center justify-between gap-3 ${
+        className={`input w-full rounded-3xl border border-solid border-brand-300 text-left flex items-center justify-between gap-3 shadow-none ${
           hasError ? "ring-1 ring-red-500" : ""
         } ${!value ? "text-gray-400" : "text-gray-900"}`}
       >

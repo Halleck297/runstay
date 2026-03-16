@@ -111,9 +111,10 @@ export default function TLSettingsPage() {
       navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
     >
       <div className="min-h-full">
-        <main id="tl-settings-main" className="scroll-mt-24 px-0 py-6 pb-28 md:mx-auto md:max-w-7xl md:scroll-mt-0 md:px-8 md:py-8 md:pb-8">
-          <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
-            <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.settings.title")}</h1>
+        <main id="tl-settings-main" className="scroll-mt-32 bg-white px-0 py-6 pb-28 md:mx-auto md:max-w-7xl md:scroll-mt-0 md:bg-transparent md:px-8 md:py-8 md:pb-8">
+          <div className="md:rounded-3xl md:border md:border-brand-300 md:bg-white md:p-6">
+          <div className="mb-6 text-center">
+            <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-2xl font-bold text-gray-900">{t("profile.settings.title")}</h1>
             <p className="mt-1 text-gray-600">{t("profile.settings.subtitle")}</p>
           </div>
 
@@ -135,9 +136,9 @@ export default function TLSettingsPage() {
             </div>
           )}
 
-          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.account")}</h3>
-          <div className="mb-6 border-y border-gray-200 bg-white md:rounded-2xl md:border md:shadow-sm">
-            <div className="p-4 transition-colors hover:border-gray-300 md:p-5">
+          <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.account")}</h3>
+          <div className="mb-6 border-y border-brand-300 bg-white md:rounded-2xl md:border">
+            <div className="p-4 md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-500">{t("profile.settings.email")}</label>
@@ -149,21 +150,21 @@ export default function TLSettingsPage() {
               </div>
             </div>
 
-            <div className="border-t border-gray-100 p-4 transition-colors hover:border-gray-300 md:p-5">
+            <div className="border-t border-brand-300 p-4 md:p-5">
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.change_password")}</label>
                   <p className="mt-1 text-sm text-gray-500">{t("profile.settings.update_password")}</p>
                 </div>
-                <Link to="/forgot-password" className="ml-auto shrink-0 text-sm font-medium text-brand-600 hover:text-brand-700">
+                <Link to="/forgot-password" className="ml-auto shrink-0 text-sm font-medium text-brand-600">
                   {t("profile.settings.reset_password")}
                 </Link>
               </div>
             </div>
           </div>
 
-          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.public_profile")}</h3>
-          <div className="mb-6 border-y border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 md:rounded-2xl md:border md:shadow-sm md:p-5">
+          <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.public_profile")}</h3>
+          <div className="mb-6 border-y border-brand-300 bg-white p-4 md:rounded-2xl md:border md:p-5">
             <Form method="post" className="space-y-4">
               <input type="hidden" name="intent" value="update_profile_visibility" />
 
@@ -175,11 +176,11 @@ export default function TLSettingsPage() {
                 <label className="relative inline-flex cursor-pointer items-center">
                   <input type="checkbox" name="public_profile_enabled" defaultChecked={visibility.public_profile_enabled} className="peer sr-only" />
                   <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
-                  <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                  <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5" />
                 </label>
               </div>
 
-              <div className="rounded-xl border border-gray-200 bg-slate-50 p-3">
+              <div className="rounded-xl border border-brand-300 bg-slate-50 p-3">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{t("profile.settings.visibility_sections")}</p>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
@@ -187,7 +188,7 @@ export default function TLSettingsPage() {
                     <label className="relative inline-flex cursor-pointer items-center">
                       <input type="checkbox" name="public_show_personal_info" defaultChecked={visibility.public_show_personal_info} className="peer sr-only" />
                       <span className="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
-                      <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                      <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4" />
                     </label>
                   </div>
                   <div className="flex items-center justify-between gap-3">
@@ -195,7 +196,7 @@ export default function TLSettingsPage() {
                     <label className="relative inline-flex cursor-pointer items-center">
                       <input type="checkbox" name="public_show_experience" defaultChecked={visibility.public_show_experience} className="peer sr-only" />
                       <span className="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
-                      <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                      <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4" />
                     </label>
                   </div>
                   <div className="flex items-center justify-between gap-3">
@@ -203,22 +204,22 @@ export default function TLSettingsPage() {
                     <label className="relative inline-flex cursor-pointer items-center">
                       <input type="checkbox" name="public_show_social" defaultChecked={visibility.public_show_social} className="peer sr-only" />
                       <span className="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-brand-500" />
-                      <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4" />
+                      <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4" />
                     </label>
                   </div>
                 </div>
               </div>
 
               <div className="pt-1">
-                <button type="submit" className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700">
+                <button type="submit" className="rounded-full bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white">
                   {t("profile.actions.save_changes")}
                 </button>
               </div>
             </Form>
           </div>
 
-          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.blocked_users")}</h3>
-          <div className="mb-6 border-y border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 md:rounded-2xl md:border md:shadow-sm md:p-5">
+          <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.blocked_users")}</h3>
+          <div className="mb-6 border-y border-brand-300 bg-white p-4 md:rounded-2xl md:border md:p-5">
             {blockedUsers.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {blockedUsers.map((block: any) => (
@@ -250,7 +251,7 @@ export default function TLSettingsPage() {
                       <input type="hidden" name="blocked_id" value={block.blocked_id} />
                       <button
                         type="submit"
-                        className="text-sm font-medium text-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="text-sm font-medium text-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isUnblocking}
                       >
                         {isUnblocking ? `${t("profile.settings.unblock")}...` : t("profile.settings.unblock")}
@@ -264,9 +265,9 @@ export default function TLSettingsPage() {
             )}
           </div>
 
-          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.notifications")}</h3>
+          <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.notifications")}</h3>
           <div className="mb-6 grid grid-cols-1 gap-4">
-            <div className="border-y border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 md:rounded-2xl md:border md:shadow-sm md:p-5">
+            <div className="border-y border-brand-300 bg-white p-4 md:rounded-2xl md:border md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.email_notifications")}</label>
@@ -277,31 +278,31 @@ export default function TLSettingsPage() {
             </div>
           </div>
 
-          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-gray-900 md:px-0">{t("profile.settings.support")}</h3>
-          <div className="mb-6 border-y border-gray-200 bg-white md:rounded-2xl md:border md:shadow-sm">
-            <div className="p-4 transition-colors hover:border-gray-300 md:p-5">
+          <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">{t("profile.settings.support")}</h3>
+          <div className="mb-6 border-y border-brand-300 bg-white md:rounded-2xl md:border">
+            <div className="p-4 md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.contact_us")}</label>
                   <p className="mt-1 text-sm text-gray-500">{t("profile.settings.report_problem")}</p>
                 </div>
-                <Link to="/contact" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                <Link to="/contact" className="text-sm font-medium text-brand-600">
                   {t("profile.settings.contact")}
                 </Link>
               </div>
             </div>
 
-            <div className="border-t border-gray-100 p-4 transition-colors hover:border-gray-300 md:p-5">
+            <div className="border-t border-brand-300 p-4 md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.terms_privacy")}</label>
                   <p className="mt-1 text-sm text-gray-500">{t("profile.settings.read_terms_privacy")}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Link to="/terms" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                  <Link to="/terms" className="text-sm font-medium text-brand-600">
                     {t("profile.settings.terms")}
                   </Link>
-                  <Link to="/privacy" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                  <Link to="/privacy" className="text-sm font-medium text-brand-600">
                     {t("profile.settings.privacy")}
                   </Link>
                 </div>
@@ -309,9 +310,9 @@ export default function TLSettingsPage() {
             </div>
           </div>
 
-          <h3 className="mb-3 px-4 font-display text-lg font-semibold text-alert-600 md:px-0">{t("profile.settings.danger_zone")}</h3>
+          <h3 className="mb-3 ml-2 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-alert-600">{t("profile.settings.danger_zone")}</h3>
           <div className="mb-6 grid grid-cols-1 gap-4">
-            <div className="border-y border-alert-200 bg-alert-50/40 p-4 transition-colors hover:border-alert-300 md:rounded-2xl md:border md:shadow-sm md:p-5">
+            <div className="border-y border-brand-300 bg-alert-50/40 p-4 md:rounded-2xl md:border md:p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">{t("profile.settings.delete_account")}</label>
@@ -320,6 +321,7 @@ export default function TLSettingsPage() {
                 <span className="text-sm text-gray-400">{t("profile.settings.coming_soon")}</span>
               </div>
             </div>
+          </div>
           </div>
         </main>
       </div>

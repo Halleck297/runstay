@@ -582,18 +582,18 @@ export default function TLDashboard() {
 
       <div id="activity-kpi" className="mb-4 scroll-mt-32 md:scroll-mt-24 grid grid-cols-1 gap-4 md:mb-6 md:gap-5 2xl:grid-cols-2">
         {/* Your activity */}
-        <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+        <section className="rounded-3xl border border-brand-300 bg-white p-4 shadow-sm">
           <h2 className="mb-3 font-display text-lg font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.section.your_activity")}</h2>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-200 bg-brand-50 p-3 md:min-h-[104px] md:flex-col">
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-300 bg-brand-50 p-3 md:min-h-[104px] md:flex-col">
               <p className="text-[11px] uppercase tracking-wide text-brand-700 md:text-center">{t("tl_dashboard.metric.total_runners")}</p>
               <p className="text-2xl font-bold text-brand-700">{stats.totalReferrals}</p>
             </div>
-            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-300 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
               <p className="text-[11px] uppercase tracking-wide text-gray-600 md:text-center">{t("tl_dashboard.new_last_30")}</p>
               <p className="text-2xl font-bold text-gray-900">{stats.newInLast30Days}</p>
             </div>
-            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-300 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
               <p className="text-[11px] uppercase tracking-wide text-gray-600 md:text-center">{t("tl_dashboard.metric.active_runners")}</p>
               <p className="text-2xl font-bold text-brand-600">{stats.activeReferrals}</p>
             </div>
@@ -601,18 +601,18 @@ export default function TLDashboard() {
         </section>
 
         {/* Team activity */}
-        <section className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+        <section className="rounded-3xl border border-brand-300 bg-white p-4 shadow-sm">
           <h2 className="mb-3 font-display text-lg font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.section.team_activity")}</h2>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-200 bg-brand-50 p-3 md:min-h-[104px] md:flex-col">
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-300 bg-brand-50 p-3 md:min-h-[104px] md:flex-col">
               <p className="text-[11px] uppercase tracking-wide text-brand-700 md:text-center">{t("tl_dashboard.metric.team_listings")}</p>
               <p className="text-2xl font-bold text-brand-700">{stats.teamListings}</p>
             </div>
-            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-300 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
               <p className="text-[11px] uppercase tracking-wide text-gray-600 md:text-center">{t("tl_dashboard.metric.conversations_started")}</p>
               <p className="text-2xl font-bold text-gray-900">{stats.teamConversationsStarted}</p>
             </div>
-            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
+            <div className="flex min-h-[72px] items-center justify-between gap-3 rounded-3xl border border-brand-300 bg-gray-50 p-3 md:min-h-[104px] md:flex-col">
               <p className="text-[11px] uppercase tracking-wide text-gray-600 md:text-center">{t("tl_dashboard.metric.saved_listings")}</p>
               <p className="text-2xl font-bold text-brand-600">{stats.teamSaved}</p>
             </div>
@@ -621,7 +621,7 @@ export default function TLDashboard() {
       </div>
 
       {/* Activity timeline */}
-      <div id="activity-timeline" className="scroll-mt-32 md:scroll-mt-24 mb-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm md:mb-6 md:p-6">
+      <div id="activity-timeline" className="scroll-mt-32 md:scroll-mt-24 mb-4 rounded-3xl border border-brand-300 bg-white p-4 shadow-sm md:mb-6 md:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-semibold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.section.activity_timeline")}</h2>
           <span className="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 font-medium">{t("tl_dashboard.timeline.latest_updates")}</span>
@@ -634,7 +634,7 @@ export default function TLDashboard() {
               const activityDetails = detailLines.join("\n").trim();
 
               return (
-                <div key={item.id} className="rounded-3xl border border-gray-100 bg-gray-50/60 px-3 py-3">
+                <div key={item.id} className="rounded-3xl border border-brand-300 bg-gray-50/60 px-3 py-3">
                   <div className="flex min-w-0 items-start gap-2.5">
                     <span
                       className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${

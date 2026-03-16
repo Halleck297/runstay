@@ -138,7 +138,7 @@ export default function SocialMedia() {
     <div className="min-h-screen bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
 
       <div className="px-0 pt-18 pb-8 md:mx-auto md:max-w-7xl md:px-8 md:pt-16 md:pb-8">
-        <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
+        <div className="flex flex-col gap-0 md:gap-8 lg:flex-row">
           <aside className="flex-shrink-0 lg:w-72">
             <div className="border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:rounded-3xl md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
@@ -208,9 +208,9 @@ export default function SocialMedia() {
             </div>
           </aside>
 
-          <main id="tl-social-main" className="min-w-0 flex-1 scroll-mt-36 border-y border-gray-200 bg-white p-4 md:scroll-mt-0 md:rounded-3xl md:border md:p-6 md:shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)]">
-            <div className="mb-6 rounded-3xl border border-brand-500 bg-white p-4 md:p-5">
-              <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.social.title")}</h1>
+          <main id="tl-social-main" className="min-w-0 flex-1 scroll-mt-40 border-y border-gray-200 bg-white p-4 md:scroll-mt-0 md:rounded-3xl md:border md:p-6 md:shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)]">
+            <div className="mb-6 pt-4 text-center md:pt-5">
+              <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-2xl font-bold text-gray-900">{t("profile.social.title")}</h1>
               <p className="mt-1 text-gray-900">{t("profile.social.subtitle")}</p>
             </div>
 

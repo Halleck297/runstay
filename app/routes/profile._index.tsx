@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import { data } from "react-router";
 import { Form, useActionData, useLoaderData, Link, useLocation, useNavigation } from "react-router";
 import { useState } from "react";
+import { FooterLight } from "~/components/FooterLight";
 import { Header } from "~/components/Header";
 import { useI18n } from "~/hooks/useI18n";
 import type { TranslationKey } from "~/lib/i18n";
@@ -39,14 +40,35 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ success: true });
   }
 
+  const fullName = formData.get("fullName");
+  const country = formData.get("country");
+  const city = formData.get("city");
   const bio = formData.get("bio");
+
+  if (typeof fullName !== "string" || !fullName.trim()) {
+    return data({ error: "Full name is required" }, { status: 400 });
+  }
+
+  const normalizedFullName = fullName.trim();
+  const normalizedCity = typeof city === "string" ? city.trim() : "";
   const normalizedBio = typeof bio === "string" ? bio.trim() : "";
+
+  if (normalizedFullName.length < 2 || normalizedFullName.length > 80) {
+    return data({ error: "Full name must be between 2 and 80 characters." }, { status: 400 });
+  }
+
+  if (normalizedCity.length > 80) {
+    return data({ error: "City cannot exceed 80 characters." }, { status: 400 });
+  }
 
   if (normalizedBio.length > 600) {
     return data({ error: "Bio cannot exceed 600 characters." }, { status: 400 });
   }
 
   const updateData: Record<string, unknown> = {
+    full_name: normalizedFullName,
+    country: user.country || null,
+    city: normalizedCity || null,
     bio: normalizedBio || null,
   };
 
@@ -152,9 +174,9 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }> = [
-  { key: "profile.nav.personal_info", href: "/profile", icon: "user" },
+  { key: "profile.nav.personal_info", href: "/profile#info", icon: "user" },
   { key: "profile.nav.running_experience", href: "/profile/experience", icon: "running" },
-  { key: "profile.nav.social_media", href: "/profile/social", icon: "share" },
+  { key: "profile.nav.social_media", href: "/profile/social#social", icon: "share" },
   { key: "profile.nav.settings", href: "/profile/settings", icon: "settings" },
 ];
 
@@ -172,6 +194,7 @@ export default function ProfileIndex() {
   const [selectedAvatar, setSelectedAvatar] = useState<string>(
     user.avatar_url && isValidOpenDoodleAvatar(user.avatar_url) ? user.avatar_url : NO_AVATAR_VALUE,
   );
+  const countryDisplayValue = getCountryDisplayName((user as any).country, locale);
 
   const getInitials = (name: string | null) => {
     if (!name) return "?";
@@ -183,25 +206,21 @@ export default function ProfileIndex() {
       .slice(0, 2);
   };
   const stripUrlProtocol = (value: string | null | undefined) => (value ? value.replace(/^https?:\/\//i, "") : "");
-  const dateOfBirthValue = (user as any).date_of_birth
-    ? new Date(`${(user as any).date_of_birth}T00:00:00Z`).toLocaleDateString()
-    : t("profile.form.not_set");
-  const countryDisplayValue = getCountryDisplayName((user as any).country, locale);
 
   return (
-    <div className="min-h-screen bg-[#ECF4FE] bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] bg-[size:18px_18px]">
+    <div className="min-h-screen bg-white md:bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px] flex flex-col">
       <Header user={user} />
-
-      <div className="mx-auto max-w-7xl px-4 pt-14 pb-28 sm:px-6 md:pt-16 md:pb-8 lg:px-8">
-        <div className="flex flex-col gap-6 md:gap-8 lg:flex-row">
+      <div className="mx-auto w-full max-w-7xl flex-1 px-4 pt-14 pb-28 sm:px-6 md:pt-16 md:pb-8 lg:px-8">
+        <div className="md:rounded-3xl md:border md:border-brand-300 md:bg-white md:p-4">
+          <div className="flex flex-col gap-0 md:gap-8 lg:flex-row">
           <aside className="flex-shrink-0 lg:w-72">
-            <div className="rounded-3xl border border-gray-200/80 bg-white/95 p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] backdrop-blur-sm md:p-6">
+            <div className="rounded-3xl border border-brand-300 bg-white/95 p-4 backdrop-blur-sm md:p-6">
               <div className="mb-6 flex flex-col items-center text-center">
                 <button
                   type="button"
                   onClick={() => setIsAvatarModalOpen(true)}
                   className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-2xl font-bold text-white ring-offset-2 transition-all md:h-24 md:w-24 md:text-3xl"
-                  aria-label="Choose avatar"
+                  aria-label={t("profile.avatar.click_to_change")}
                 >
                   {user.avatar_url ? (
                     <img
@@ -263,14 +282,14 @@ export default function ProfileIndex() {
             </div>
           </aside>
 
-          <main id="profile-main" className="min-w-0 flex-1 scroll-mt-32 rounded-3xl border border-gray-200 bg-white p-4 shadow-[0_10px_35px_-18px_rgba(15,23,42,0.35)] md:scroll-mt-0 md:p-6">
-            <div className="mb-6">
-              <h1 className="font-display text-2xl font-bold text-gray-900">{t("profile.main.personal_info_title")}</h1>
+          <main id="info" className="min-w-0 flex-1 scroll-mt-40 bg-white p-4 md:scroll-mt-0 md:p-6">
+            <div className="mb-6 pt-4 text-center md:pt-5">
+              <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-2xl font-bold text-gray-900">{t("profile.main.personal_info_title")}</h1>
               <p className="mt-1 text-gray-900">{t("profile.main.personal_info_subtitle")}</p>
             </div>
 
             {actionData && "success" in actionData && actionData.success && (
-              <div className="mb-6 flex items-center gap-2 rounded-xl bg-success-50 p-4 text-sm text-success-700">
+              <div className="mb-6 flex items-center gap-2 bg-success-50 p-4 text-sm text-success-700 md:rounded-xl">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -279,7 +298,7 @@ export default function ProfileIndex() {
             )}
 
             {actionData && "error" in actionData && actionData.error && (
-              <div className="mb-6 flex items-center gap-2 rounded-xl bg-alert-50 p-4 text-sm text-alert-700">
+              <div className="mb-6 flex items-center gap-2 bg-alert-50 p-4 text-sm text-alert-700 md:rounded-xl">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -287,24 +306,28 @@ export default function ProfileIndex() {
               </div>
             )}
 
-            <Form method="post" className="pb-8 md:pb-8">
-              <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2 md:gap-y-1">
-                <div className="order-1 space-y-1 md:p-2">
-                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.full_name")}</label>
-                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
-                    <p className="font-medium text-gray-900">{user.full_name || t("profile.form.not_set")}</p>
-                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
+            <Form method="post" className="pb-0 md:pb-8">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                  <label className="text-sm font-medium text-gray-500">{t("profile.form.full_name")}</label>
+                  <input
+                    name="fullName"
+                    type="text"
+                    defaultValue={user.full_name || ""}
+                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    placeholder={t("profile.form.full_name_placeholder")}
+                    required
+                  />
                 </div>
 
-                <div className="order-6 space-y-1 md:p-2">
-                  <label className="text-sm font-semibold text-gray-900">
-                    {t("profile.form.email_address")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
-                  </label>
-                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
-                    <p className="font-medium text-gray-900">{user.email}</p>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-500">
+                        {t("profile.form.email_address")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
+                      </label>
+                      <p className="mt-1 font-medium text-gray-900">{user.email}</p>
+                    </div>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
@@ -312,23 +335,25 @@ export default function ProfileIndex() {
                 </div>
 
                 {isTourOperator ? (
-                  <div className="order-7 space-y-1 md:p-2">
-                    <label className="text-sm font-semibold text-gray-900">{t("profile.form.phone_number")}</label>
+                  <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                    <label className="text-sm font-medium text-gray-500">{t("profile.form.phone_number")}</label>
                     <input
                       name="phone"
                       type="tel"
                       defaultValue={user.phone || ""}
-                      className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                      className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                       placeholder="+39 123 456 7890"
                     />
                   </div>
                 ) : (
-                  <div className="order-7 space-y-1 md:p-2">
-                    <label className="text-sm font-semibold text-gray-900">
-                      {t("profile.form.phone_number")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
-                    </label>
-                    <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
-                      <p className="font-medium text-gray-900">{user.phone || t("profile.form.not_set")}</p>
+                  <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <label className="text-sm font-medium text-gray-500">
+                          {t("profile.form.phone_number")} <span className="text-gray-400">({t("profile.form.not_visible")})</span>
+                        </label>
+                        <p className="mt-1 font-medium text-gray-900">{user.phone || t("profile.form.not_set")}</p>
+                      </div>
                       <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
@@ -336,10 +361,12 @@ export default function ProfileIndex() {
                   </div>
                 )}
 
-                <div className="order-2 space-y-1 md:p-2">
-                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.account_type")}</label>
-                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
-                    <p className="font-medium text-gray-900">{isTourOperator ? t("common.tour_operator") : t("profile.avatar.private_runner")}</p>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.form.account_type")}</label>
+                      <p className="mt-1 font-medium text-gray-900">{isTourOperator ? t("common.tour_operator") : t("profile.avatar.private_runner")}</p>
+                    </div>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
@@ -347,57 +374,59 @@ export default function ProfileIndex() {
                 </div>
 
                 {isTourOperator && (
-                  <div className="order-8 space-y-1 md:p-2">
-                    <label className="text-sm font-semibold text-gray-900">{t("profile.agency.company_name_required")}</label>
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                    <label className="text-sm font-medium text-gray-500">{t("profile.agency.company_name_required")}</label>
                     <input
                       name="companyName"
                       type="text"
                       defaultValue={(user as any).company_name || ""}
-                      className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                      className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                       required
                     />
                   </div>
                 )}
 
-                <div className="order-4 space-y-1 md:p-2">
-                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.country")}</label>
-                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
-                    <p className="font-medium text-gray-900">{countryDisplayValue || t("profile.form.not_set")}</p>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                  <div className="flex items-start justify-between">
+                    <label className="text-sm font-medium text-gray-500">{t("profile.form.country")}</label>
                     <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
+                  <input
+                    name="country"
+                    type="text"
+                    defaultValue={countryDisplayValue}
+                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    placeholder={t("profile.form.country_placeholder")}
+                    readOnly
+                  />
+                  <p className="mt-2 text-xs text-gray-400">To update country, contact admin.</p>
                 </div>
 
-                <div className="order-3 space-y-1 md:p-2">
-                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.city")}</label>
-                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
-                    <p className="font-medium text-gray-900">{(user as any).city || t("profile.form.not_set")}</p>
-                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                  <label className="text-sm font-medium text-gray-500">{t("profile.form.city")}</label>
+                  <input
+                    name="city"
+                    type="text"
+                    defaultValue={(user as any).city || ""}
+                    className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    placeholder={t("profile.form.city_placeholder")}
+                  />
                 </div>
 
-                <div className="order-5 space-y-1 md:p-2">
-                  <label className="text-sm font-semibold text-gray-900">
-                    Date of birth <span className="text-gray-400">({t("profile.form.not_visible")})</span>
-                  </label>
-                  <div className="mt-1 flex items-center justify-between rounded-full bg-[#ECF4FE] px-4 py-3">
-                    <p className="font-medium text-gray-900">{dateOfBirthValue}</p>
-                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
+                <div className="md:col-span-2">
+                  <h3 className="mb-2 ml-2 mt-1 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">
+                    {t("profile.form.about_me")}
+                  </h3>
                 </div>
 
-                <div className="order-9 mb-6 space-y-1 md:col-span-2 md:mb-8 md:p-2">
-                  <label className="text-sm font-semibold text-gray-900">{t("profile.form.about_me")}</label>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:col-span-2 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                   <textarea
                     name="bio"
                     rows={3}
                     defaultValue={(user as any).bio || ""}
-                    className="mt-1 block w-full resize-none rounded-3xl border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                    className="block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                     placeholder={t("profile.form.about_me_placeholder")}
                   />
                 </div>
@@ -410,14 +439,14 @@ export default function ProfileIndex() {
                       </p>
                     </div>
 
-                    <div className="space-y-1 md:p-2">
-                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.company_website")}</label>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.company_website")}</label>
                       <input
                         name="website"
                         type="text"
                         defaultValue={stripUrlProtocol((user as any).website)}
-                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                        placeholder="www.yourcompany.com"
+                        className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        placeholder={t("profile.social.website_placeholder")}
                         inputMode="url"
                         autoCapitalize="none"
                         autoCorrect="off"
@@ -425,36 +454,36 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="space-y-1 md:p-2">
-                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.languages_spoken")}</label>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.languages_spoken")}</label>
                       <input
                         name="languages_spoken"
                         type="text"
                         defaultValue={(user as any).languages_spoken || ""}
-                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                         placeholder={t("profile.agency.languages_placeholder")}
                       />
                     </div>
 
-                    <div className="space-y-1 md:p-2">
-                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.years_business")}</label>
+                <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.years_business")}</label>
                       <input
                         name="yearsExperience"
                         type="number"
                         min="0"
                         defaultValue={(user as any).years_experience || ""}
-                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 font-medium text-gray-900 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="mt-1 block w-full border-0 bg-transparent p-0 font-medium text-gray-900 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="5"
                       />
                     </div>
 
-                    <div className="space-y-1 md:col-span-2 md:p-2">
-                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.specialties")}</label>
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.specialties")}</label>
                       <textarea
                         name="specialties"
                         rows={3}
                         defaultValue={(user as any).specialties || ""}
-                        className="mt-1 block w-full resize-none rounded-3xl border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        className="mt-1 block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                         placeholder={t("profile.agency.specialties_placeholder")}
                       />
                     </div>
@@ -465,9 +494,9 @@ export default function ProfileIndex() {
                       </p>
                     </div>
 
-                    <div className="space-y-1 md:p-2">
-                      <label className="text-sm font-semibold text-gray-900">{t("profile.social.instagram")}</label>
-                      <div className="mt-1 flex items-center rounded-full bg-[#ECF4FE] px-4 py-3">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.social.instagram")}</label>
+                      <div className="mt-1 flex items-center">
                         <span className="mr-1 text-gray-400">@</span>
                         <input
                           name="instagram"
@@ -479,14 +508,14 @@ export default function ProfileIndex() {
                       </div>
                     </div>
 
-                    <div className="space-y-1 md:p-2">
-                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.facebook_page")}</label>
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:p-5">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.facebook_page")}</label>
                       <input
                         name="facebook"
                         type="text"
                         defaultValue={stripUrlProtocol((user as any).facebook)}
-                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                        placeholder="facebook.com/yourcompany"
+                        className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        placeholder={t("profile.social.facebook_placeholder")}
                         inputMode="url"
                         autoCapitalize="none"
                         autoCorrect="off"
@@ -494,14 +523,14 @@ export default function ProfileIndex() {
                       />
                     </div>
 
-                    <div className="space-y-1 md:col-span-2 md:p-2">
-                      <label className="text-sm font-semibold text-gray-900">{t("profile.agency.linkedin_company")}</label>
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all focus-within:border-brand-300 focus-within:shadow-md md:col-span-2 md:p-5">
+                      <label className="text-sm font-medium text-gray-500">{t("profile.agency.linkedin_company")}</label>
                       <input
                         name="linkedin"
                         type="text"
                         defaultValue={stripUrlProtocol((user as any).linkedin)}
-                        className="mt-1 block w-full rounded-full border-0 bg-[#ECF4FE] px-4 py-3 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                        placeholder="linkedin.com/company/yourcompany"
+                        className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
+                        placeholder={t("profile.social.linkedin_placeholder")}
                         inputMode="url"
                         autoCapitalize="none"
                         autoCorrect="off"
@@ -572,7 +601,12 @@ export default function ProfileIndex() {
               </div>
             )}
           </main>
+          </div>
         </div>
+      </div>
+
+      <div className="mt-auto">
+        <FooterLight />
       </div>
     </div>
   );

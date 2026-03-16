@@ -220,11 +220,11 @@ export default function Contact() {
 
         <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-1 w-full">
           {/* Back button */}
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/85 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-white"
-          >
+            <button
+              type="button"
+              onClick={() => window.history.back()}
+              className="mb-4 inline-flex items-center gap-2 rounded-full border-2 border-brand-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-white"
+            >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -232,8 +232,8 @@ export default function Contact() {
           </button>
 
           {actionData && "success" in actionData ? (
-            <div className="card rounded-3xl p-8 text-center shadow-md bg-white/70 backdrop-blur-sm">
-              <h1 className="font-display text-3xl font-bold text-gray-900">
+            <div className="card rounded-3xl border-2 border-brand-300 bg-white p-8 text-center">
+              <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-3xl font-bold text-gray-900">
                 {t("contact.title")}
               </h1>
               <p className="mt-2 text-gray-600">
@@ -263,8 +263,8 @@ export default function Contact() {
               </a>
             </div>
           ) : (
-            <div className="card rounded-3xl p-6 shadow-md bg-white/70 backdrop-blur-sm">
-              <h1 className="font-display text-3xl font-bold text-gray-900">
+            <div className="card rounded-3xl border-2 border-brand-300 bg-white p-6">
+              <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-3xl font-bold text-gray-900">
                 {t("contact.title")}
               </h1>
               <p className="mt-2 text-gray-600">
@@ -333,11 +333,13 @@ export default function Contact() {
 
                 {/* Message - always shown */}
                 <div>
-                  <label className="label text-base mb-6">{t("contact.message")} *</label>
+                  <label className="label mb-6 inline-block border-b-2 border-accent-500 pb-0.5 !pl-0 text-base">
+                    {t("contact.message")} *
+                  </label>
                   <textarea
                     name="message"
                     rows={5}
-                    className="input shadow-md"
+                    className="input resize-none rounded-3xl border border-solid border-brand-300 shadow-none"
                     placeholder={t("contact.message_placeholder")}
                     required
                     minLength={10}
@@ -351,7 +353,7 @@ export default function Contact() {
                 <div>
                   <button
                     type="submit"
-                    className="btn-primary rounded-full px-7 py-2 shadow-lg shadow-accent-500/30"
+                    className="btn-primary rounded-full px-7 py-2"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? t("contact.sending") : t("contact.send_message")}

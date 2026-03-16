@@ -319,7 +319,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function Conversation() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user, conversation, isBlocked, isBlockedByOther, hasOlderMessages: initialHasOlderMessages } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
@@ -337,8 +337,13 @@ export default function Conversation() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [hasOlderMessages, setHasOlderMessages] = useState(initialHasOlderMessages);
   const menuRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const mobileConversationHeaderRef = useRef<HTMLDivElement>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [mobileHeaderSlot, setMobileHeaderSlot] = useState<HTMLElement | null>(null);
+  const [hasPanelMobileHeader, setHasPanelMobileHeader] = useState(false);
+  const [mobileConversationTop, setMobileConversationTop] = useState(0);
+  const [mobileMessagesTop, setMobileMessagesTop] = useState(0);
+  const [mobileMessagesBottom, setMobileMessagesBottom] = useState(0);
 
   const isSubmitting = navigation.state === "submitting";
   const userId = (user as any).id as string;
@@ -450,14 +455,101 @@ export default function Conversation() {
   }, []);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    setMobileHeaderSlot(document.getElementById("panel-mobile-extra-row"));
-  }, []);
+    if (!isMobileViewport || typeof window === "undefined" || typeof document === "undefined") {
+      setMobileMessagesTop(0);
+      setMobileMessagesBottom(0);
+      setMobileConversationTop(0);
+      return;
+    }
+
+    const updateViewportBounds = () => {
+      const MOBILE_CONVERSATION_HEADER_NUDGE = 20;
+      const headerRow = document.getElementById("panel-mobile-extra-row");
+      const mobileHeader = headerRow?.closest("header") as HTMLElement | null;
+      const mainMobileNav = document.getElementById("mobile-main-nav");
+      const rootStyles = window.getComputedStyle(document.documentElement);
+      const mobileNavTopOffset =
+        Number.parseFloat(rootStyles.getPropertyValue("--mobile-nav-top-offset")) || 70;
+      const hasPanel = Boolean(headerRow && mobileHeader);
+      setHasPanelMobileHeader(hasPanel);
+      const mainMobileNavBottom = mainMobileNav?.getBoundingClientRect().bottom ?? mobileNavTopOffset;
+      const panelHeaderBottom =
+        mobileHeader?.getBoundingClientRect().bottom ??
+        headerRow?.getBoundingClientRect().bottom ??
+        0;
+      const conversationTop = hasPanel
+        ? panelHeaderBottom + MOBILE_CONVERSATION_HEADER_NUDGE
+        : Math.max(0, mobileNavTopOffset + 1);
+      const conversationHeaderBottom = mobileConversationHeaderRef.current?.getBoundingClientRect().bottom ?? 0;
+      const conversationHeaderHeight =
+        mobileConversationHeaderRef.current?.getBoundingClientRect().height ?? 0;
+      const headerBottom = hasPanel
+        ? (conversationHeaderBottom || conversationTop + conversationHeaderHeight)
+        : (conversationTop + conversationHeaderHeight);
+      const composerHeight = composerRef.current?.getBoundingClientRect().height ?? 0;
+      setMobileConversationTop(Math.max(0, Math.round(conversationTop)));
+      setMobileMessagesTop(
+        Math.max(0, Math.round(headerBottom + (hasPanel ? 8 : 1)))
+      );
+      setMobileMessagesBottom(Math.max(0, Math.round(composerHeight)));
+    };
+
+    updateViewportBounds();
+    let rafId = 0;
+    let warmupFrames = 0;
+    const warmupRecalc = () => {
+      updateViewportBounds();
+      warmupFrames += 1;
+      if (warmupFrames < 20) {
+        rafId = window.requestAnimationFrame(warmupRecalc);
+      }
+    };
+    rafId = window.requestAnimationFrame(warmupRecalc);
+    window.addEventListener("resize", updateViewportBounds);
+    window.addEventListener("orientationchange", updateViewportBounds);
+
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateViewportBounds) : null;
+    const headerRow = document.getElementById("panel-mobile-extra-row");
+    const mobileHeader = headerRow?.closest("header");
+    const mainMobileNav = document.getElementById("mobile-main-nav");
+    if (resizeObserver && headerRow) resizeObserver.observe(headerRow);
+    if (resizeObserver && mobileHeader) resizeObserver.observe(mobileHeader);
+    if (resizeObserver && mainMobileNav) resizeObserver.observe(mainMobileNav);
+    if (resizeObserver && composerRef.current) resizeObserver.observe(composerRef.current);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", updateViewportBounds);
+      window.removeEventListener("orientationchange", updateViewportBounds);
+      resizeObserver?.disconnect();
+    };
+  }, [isMobileViewport, conversation.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const scrollToBottom = () => {
+      container.scrollTop = container.scrollHeight;
+      shouldStickToBottomRef.current = true;
+    };
+
+    scrollToBottom();
+    const raf1 = window.requestAnimationFrame(scrollToBottom);
+    const raf2 = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(scrollToBottom);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+    };
+  }, [conversation.id, mobileMessagesTop, mobileMessagesBottom]);
 
   const fullWritePlaceholder = t("messages.write_placeholder");
   const mobileWritePlaceholder = fullWritePlaceholder.split("(")[0].trim();
   const writePlaceholder = isMobileViewport ? mobileWritePlaceholder : fullWritePlaceholder;
-
   useEffect(() => {
     if (olderMessagesFetcher.state !== "idle") return;
     if (!olderMessagesFetcher.data?.messages) return;
@@ -545,9 +637,9 @@ export default function Conversation() {
   ) : null;
 
   const mobileConversationHeader = (
-    <div className="px-3 pb-2 pt-0.5">
+    <div className="bg-white px-5 pb-1 pt-0">
       <div className="flex items-center gap-2">
-        <Link to="/messages" className="text-gray-900 hover:text-black flex-shrink-0">
+        <Link to="/messages" className="text-gray-900 hover:text-black flex-shrink-0 p-1">
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -586,14 +678,145 @@ export default function Conversation() {
     </div>
   );
 
+  const conversationComposer = (
+    <div
+      ref={composerRef}
+      className={
+        showGlobalTranslationToggle
+          ? isMobileViewport
+            ? "fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white px-2 pb-[calc(18px+env(safe-area-inset-bottom,0px))] pt-0"
+            : "shrink-0 border-t-0 bg-white/88 px-4 pb-4 pt-0 shadow-[0_-6px_14px_rgba(15,23,42,0.05)] backdrop-blur-[1px]"
+          : isMobileViewport
+            ? "fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white px-2 pb-[calc(18px+env(safe-area-inset-bottom,0px))] pt-4"
+            : "shrink-0 border-t bg-white/88 p-4 shadow-[0_-6px_14px_rgba(15,23,42,0.05)] backdrop-blur-[1px]"
+      }
+    >
+          {showGlobalTranslationToggle && (
+            <div className="-mx-2 md:-mx-4 mb-3">
+              <div
+                role="button"
+                tabIndex={0}
+                aria-disabled={!hasTranslatableMessages}
+                onClick={() => {
+                  if (!hasTranslatableMessages) return;
+                  toggleShowOriginalAll();
+                }}
+                onKeyDown={(event) => {
+                  if (!hasTranslatableMessages) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleShowOriginalAll();
+                  }
+                }}
+                className={`w-full border-y px-4 py-2.5 text-center text-xs font-medium transition-all duration-200 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 ${
+                  !hasTranslatableMessages
+                    ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
+                    : showOriginalAll
+                    ? "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100"
+                    : "cursor-pointer active:scale-[0.995] border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <svg className="h-3.5 w-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                  </svg>
+                  <span>
+                    {hasTranslatableMessages
+                      ? showOriginalAll
+                        ? t("messages.show_translation")
+                        : t("messages.show_original")
+                      : t("messages.show_original")}
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {errorMessage && (
+            <p className="text-sm text-red-600 mb-2">{errorMessage}</p>
+          )}
+          {isBlocked || isBlockedByOther ? (
+            <p className="text-sm text-gray-500 text-center py-2">
+              {isBlockedByOther ? t("messages.blocked_by_other_send") : t("messages.blocked_send")}
+            </p>
+          ) : (
+            <Form
+              ref={formRef}
+              method="post"
+              className="flex gap-2 md:gap-3 items-end"
+              onSubmit={() => {
+                // Add message immediately (optimistic update)
+                const content = textareaRef.current?.value;
+                if (content?.trim()) {
+                  addOptimisticMessage(content.trim());
+                }
+              }}
+            >
+              <textarea
+                ref={textareaRef}
+                name="content"
+                placeholder={writePlaceholder}
+                autoComplete="off"
+                required
+                rows={1}
+                className="flex-1 resize-none rounded-3xl border border-accent-500 bg-white px-3 py-2 text-base leading-5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-500/20 md:min-h-[48px] md:px-4 md:py-3 md:text-base min-h-[40px] max-h-[150px] overflow-hidden shadow-none"
+                disabled={isSubmitting}
+                onChange={handleTextareaChange}
+              />
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-primary px-2 md:px-4 h-10 md:h-12 flex items-center justify-center rounded-full transition-all duration-200 md:hover:-translate-y-[1px] md:hover:shadow-md disabled:transform-none"
+                >
+                {isSubmitting ? (
+                  <svg
+                    className="animate-spin h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14 5l7 7m0 0l-7 7m7-7H3"
+                    />
+                  </svg>
+                )}
+              </button>
+            </Form>
+          )}
+    </div>
+  );
+
   return (
     <div className="flex-1 flex h-full min-h-0 flex-col overflow-hidden bg-white/85 backdrop-blur-[1px] md:rounded-r-3xl">
-      {isMobileViewport && mobileHeaderSlot
-        ? createPortal(mobileConversationHeader, mobileHeaderSlot)
-        : null}
-
-      {isMobileViewport && !mobileHeaderSlot && (
-        <div className="md:hidden border-b border-gray-200 bg-white/95">
+      {isMobileViewport && (
+        <div
+          ref={mobileConversationHeaderRef}
+          className="fixed inset-x-0 z-30 bg-white"
+          style={{ top: mobileConversationTop }}
+        >
           {mobileConversationHeader}
         </div>
       )}
@@ -622,7 +845,7 @@ export default function Conversation() {
         </Link>
 
         <div className="min-w-0 flex-1">
-          <div className="min-w-0 flex flex-col items-center gap-1.5 text-center">
+          <div className="min-w-0 flex items-center justify-center gap-3 text-center">
             <div className="inline-flex min-w-0 max-w-full items-center justify-center gap-1">
               <p className="max-w-full truncate text-[15px] font-semibold text-gray-900 md:text-lg">
                 {getPublicDisplayName(otherUser) || t("messages.user")}
@@ -648,7 +871,7 @@ export default function Conversation() {
             </div>
             <Link
               to={`/listings/${conversation.listing?.id}`}
-              className="inline-flex max-w-full items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium text-brand-700 transition-colors hover:bg-gray-100 md:px-2.5 md:text-xs"
+              className="inline-flex max-w-[45%] items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium text-brand-700 transition-colors hover:bg-gray-100 md:px-2.5 md:text-xs"
               title={conversation.listing?.title || ""}
             >
               <svg className="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -710,7 +933,19 @@ export default function Conversation() {
       {/* Area messaggi scrollabile */}
       <div
         ref={scrollContainerRef}
-        className="min-h-0 overflow-y-auto px-2 pb-2 md:px-8 md:pb-4"
+        className="min-h-0 overflow-y-auto overscroll-y-contain px-2 pb-2 md:px-8 md:pb-4"
+        style={
+          isMobileViewport
+            ? {
+                position: "fixed",
+                left: 0,
+                right: 0,
+                top: mobileMessagesTop,
+                bottom: mobileMessagesBottom,
+                zIndex: 10,
+              }
+            : undefined
+        }
       >
         <div className="space-y-2 md:space-y-4">
           {hasOlderMessages && (
@@ -766,7 +1001,7 @@ export default function Conversation() {
                     <div className="my-2 flex items-center gap-3 md:my-4 md:gap-4">
                       <div className="flex-1 h-px bg-gray-200" />
                       <span className="text-xs text-gray-400 font-medium">
-                        {messageDate.toLocaleDateString([], {
+                        {messageDate.toLocaleDateString(locale, {
                           weekday: 'short',
                           day: 'numeric',
                           month: 'short',
@@ -844,7 +1079,7 @@ export default function Conversation() {
                               {/* Timestamp */}
                               {showTimestamp && (
                                 <span className={isOwnMessage ? "text-accent-600" : "text-gray-500"}>
-                                  {messageDate.toLocaleTimeString([], {
+                                  {messageDate.toLocaleTimeString(locale, {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   })}
@@ -882,129 +1117,9 @@ export default function Conversation() {
         </div>
       </div>
       {/* Campo risposta */}
-      <div
-        className={
-          showGlobalTranslationToggle
-            ? "shrink-0 border-t border-gray-200 bg-white px-2 pb-[calc(18px+env(safe-area-inset-bottom,0px))] pt-0 md:border-t-0 md:bg-white/88 md:px-4 md:pb-4 md:pt-0 md:shadow-[0_-6px_14px_rgba(15,23,42,0.05)] md:backdrop-blur-[1px]"
-            : "shrink-0 border-t border-gray-200 bg-white px-2 pb-[calc(18px+env(safe-area-inset-bottom,0px))] pt-4 md:border-t md:bg-white/88 md:p-4 md:shadow-[0_-6px_14px_rgba(15,23,42,0.05)] md:backdrop-blur-[1px]"
-        }
-      >
-            {showGlobalTranslationToggle && (
-              <div className="-mx-2 md:-mx-4 mb-3">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-disabled={!hasTranslatableMessages}
-                  onClick={() => {
-                    if (!hasTranslatableMessages) return;
-                    toggleShowOriginalAll();
-                  }}
-                  onKeyDown={(event) => {
-                    if (!hasTranslatableMessages) return;
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      toggleShowOriginalAll();
-                    }
-                  }}
-                  className={`w-full border-y px-4 py-2.5 text-center text-xs font-medium transition-all duration-200 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 ${
-                    !hasTranslatableMessages
-                      ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                      : showOriginalAll
-                      ? "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100"
-                      : "cursor-pointer active:scale-[0.995] border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    <svg className="h-3.5 w-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                    </svg>
-                    <span>
-                      {hasTranslatableMessages
-                        ? showOriginalAll
-                          ? t("messages.show_translation")
-                          : t("messages.show_original")
-                        : t("messages.show_original")}
-                    </span>
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {errorMessage && (
-              <p className="text-sm text-red-600 mb-2">{errorMessage}</p>
-            )}
-            {isBlocked || isBlockedByOther ? (
-              <p className="text-sm text-gray-500 text-center py-2">
-                {isBlockedByOther ? t("messages.blocked_by_other_send") : t("messages.blocked_send")}
-              </p>
-            ) : (
-              <Form
-                ref={formRef}
-                method="post"
-                className="flex gap-2 md:gap-3 items-end"
-                onSubmit={() => {
-                  // Add message immediately (optimistic update)
-                  const content = textareaRef.current?.value;
-                  if (content?.trim()) {
-                    addOptimisticMessage(content.trim());
-                  }
-                }}
-              >
-                <textarea
-                  ref={textareaRef}
-                  name="content"
-                  placeholder={writePlaceholder}
-                  autoComplete="off"
-                  required
-                  rows={1}
-                  className="flex-1 resize-none rounded-3xl border border-accent-500 bg-white px-3 py-2 text-base leading-5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-500/20 md:min-h-[48px] md:px-4 md:py-3 md:text-base min-h-[40px] max-h-[150px] overflow-hidden shadow-none"
-                  disabled={isSubmitting}
-                  onChange={handleTextareaChange}
-                />
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="btn-primary px-2 md:px-4 h-10 md:h-12 flex items-center justify-center rounded-full transition-all duration-200 md:hover:-translate-y-[1px] md:hover:shadow-md disabled:transform-none"
-                  >
-                  {isSubmitting ? (
-                    <svg
-                      className="animate-spin h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M14 5l7 7m0 0l-7 7m7-7H3"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </Form>
-            )}
-      </div>
+      {isMobileViewport && typeof document !== "undefined"
+        ? createPortal(conversationComposer, document.body)
+        : conversationComposer}
       </div>
     </div>
   );
