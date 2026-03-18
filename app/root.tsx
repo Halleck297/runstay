@@ -1,4 +1,4 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, redirect, data, useRouteLoaderData, useLocation } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, redirect, data, useRouteLoaderData, useLocation, useNavigate } from "react-router";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { useEffect, useState } from "react";
 import { getUser, getAccessTokenWithRefresh, getImpersonationContext } from "~/lib/session.server";
@@ -146,6 +146,7 @@ export function ErrorBoundary() {
 export default function App() {
   const { user, impersonation, ENV, locale, localeCookieName } = useLoaderData<typeof loader>();
   const location = useLocation();
+  const navigate = useNavigate();
   const [hydrated, setHydrated] = useState(false);
   const hideMobileNav =
     /(^|\/)(login|register)(\/|$)/.test(location.pathname) ||
@@ -166,6 +167,20 @@ export default function App() {
     document.body.classList.toggle("mobile-nav-hidden", hideMobileNav);
     return () => document.body.classList.remove("mobile-nav-hidden");
   }, [hideMobileNav]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (location.pathname.endsWith("/reset-password")) return;
+
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash) return;
+    const hashParams = new URLSearchParams(hash);
+    const type = hashParams.get("type");
+    const hasRecoveryToken = Boolean(hashParams.get("access_token") && hashParams.get("refresh_token"));
+    if (type !== "recovery" || !hasRecoveryToken) return;
+
+    navigate(`/reset-password${window.location.hash}`, { replace: true });
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     trackPage(`${location.pathname}${location.search}`, {
@@ -189,6 +204,11 @@ export default function App() {
 
   return (
     <>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){try{var p=window.location.pathname||"";if(/\\/reset-password$/.test(p))return;var h=(window.location.hash||"").replace(/^#/,"");if(!h)return;var q=new URLSearchParams(h);if(q.get("type")!=="recovery")return;if(!(q.get("access_token")&&q.get("refresh_token")))return;window.location.replace("/reset-password"+window.location.hash);}catch(_){}})();`,
+        }}
+      />
       <script
         dangerouslySetInnerHTML={{
           __html: `window.ENV = ${JSON.stringify(ENV)};window.__LOCALE__=${JSON.stringify(locale)};window.__LOCALE_COOKIE__=${JSON.stringify(localeCookieName)};`,

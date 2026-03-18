@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
 import { Form, Link, useActionData } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
+import { getAppUrl } from "~/lib/app-url.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { isSupportedLocale, resolveLocaleForRequest } from "~/lib/locale";
 import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
@@ -34,7 +35,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return data<ForgotPasswordActionData>({ errorKey: "invalid_email" }, { status: 400 });
   }
 
-  const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const appUrl = getAppUrl(request);
   const redirectTo = `${appUrl}/reset-password`;
 
   const { data: profile } = await (supabaseAdmin as any)
@@ -118,6 +119,9 @@ export default function ForgotPassword() {
   return (
     <div className="flex min-h-full flex-col justify-center bg-white py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <Link to="/" className="mb-5 flex justify-center" aria-label={t("register.go_home_aria")}>
+          <img src="/logo225px.png" alt="Runoot" className="h-[4.5rem] w-auto sm:h-[5.5rem]" />
+        </Link>
         <h1 className="text-center font-display text-3xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("auth.reset_password_title")}</h1>
         <p className="mt-2 text-center text-sm text-gray-600">{t("auth.reset_password_subtitle")}</p>
       </div>

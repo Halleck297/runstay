@@ -4,6 +4,7 @@ import { data } from "react-router";
 import { useActionData, Form, Link, useSearchParams } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
+import { getAppUrl } from "~/lib/app-url.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 
@@ -121,7 +122,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const admin = await requireAdmin(request);
   const formData = await request.formData();
   const actionType = String(formData.get("_action") || "createRealInvite");
-  const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const appUrl = getAppUrl(request);
 
   const mockPayload = buildMockPayload();
   const mockFullName = String(formData.get("mockFullName") || "").trim();

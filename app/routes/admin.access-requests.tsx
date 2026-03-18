@@ -3,6 +3,7 @@ import { data } from "react-router";
 import { Form, Link, useActionData, useLoaderData } from "react-router";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
+import { getAppUrl } from "~/lib/app-url.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
 export const meta: MetaFunction = () => [{ title: "Access Requests - Admin - Runoot" }];
@@ -231,7 +232,7 @@ export async function action({ request }: ActionFunctionArgs) {
       return data({ success: true, message: "Request approved. User already exists, no invite sent." });
     }
 
-    const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+    const appUrl = getAppUrl(request);
     const inviteResult = await createUserWithInviteEmail({
       email: normalizedEmail,
       fullName,

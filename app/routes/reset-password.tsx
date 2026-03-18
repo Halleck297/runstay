@@ -127,12 +127,15 @@ export default function ResetPassword() {
 
   return (
     <div className="flex min-h-full flex-col justify-center bg-[#ECF4FE] py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-center font-display text-3xl font-bold text-gray-900">{t("auth.set_new_password")}</h1>
-      </div>
-
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="rounded-xl border border-gray-200 bg-white px-4 py-8 shadow-sm sm:px-10">
+          <Link to="/" className="mb-5 flex justify-center" aria-label={t("register.go_home_aria")}>
+            <img src="/logo225px.png" alt="Runoot" className="h-[4.5rem] w-auto sm:h-[5.5rem]" />
+          </Link>
+          <h1 className="mb-8 text-center font-display text-3xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">
+            {t("auth.set_new_password")}
+          </h1>
+
           {state === "checking" && <p className="text-sm text-gray-600">{t("auth.validating_reset_link")}</p>}
 
           {state === "invalid" && (

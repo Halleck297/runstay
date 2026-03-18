@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import { data, Form, Link, redirect, useActionData } from "react-router";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
+import { getAppUrl } from "~/lib/app-url.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 
@@ -74,7 +75,7 @@ async function createUserWithInviteEmail(args: {
 export async function action({ request }: ActionFunctionArgs) {
   const admin = await requireAdmin(request);
   const formData = await request.formData();
-  const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const appUrl = getAppUrl(request);
 
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const companyName = String(formData.get("companyName") || "").trim();
