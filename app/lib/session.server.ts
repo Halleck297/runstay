@@ -2,6 +2,7 @@ import { createCookieSessionStorage, redirect } from "react-router";
 import { getSupabaseClient, supabase, supabaseAdmin } from "./supabase.server";
 import { isAdmin, isSuperAdmin } from "./user-access";
 import { resolveLocaleForRequest } from "./locale";
+import type { Profile } from "./database.types";
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -201,7 +202,7 @@ export async function requireUserId(
   return userId;
 }
 
-export async function requireUser(request: Request) {
+export async function requireUser(request: Request): Promise<Profile> {
   const userId = await requireUserId(request);
 
   // During impersonation, getUser returns impersonated profile

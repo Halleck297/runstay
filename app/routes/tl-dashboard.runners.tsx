@@ -2,12 +2,9 @@ import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { redirect } from "react-router";
 import { useLoaderData } from "react-router";
 import { useState } from "react";
-import { ControlPanelLayout } from "~/components/ControlPanelLayout";
-import { buildTeamLeaderNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
 import { isTeamLeader } from "~/lib/user-access";
 
 export const meta: MetaFunction = () => [{ title: "Your Runners - Team Leader - Runoot" }];
@@ -16,7 +13,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   if (!isTeamLeader(user)) return redirect("/to-panel");
 
-  const eventNotificationSummary = await getTlEventNotificationSummary((user as any).id);
   const { data: referrals } = await supabaseAdmin
     .from("referrals")
     .select("id, referral_code_used, status, created_at, referred_user_id")
@@ -41,13 +37,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
     user,
     referrals: referrals || [],
     referredUsers,
-    eventUnreadCount: eventNotificationSummary.totalUnread,
   };
 }
 
 export default function TLRunnersPage() {
   const { t, locale } = useI18n();
-  const { user, referrals, referredUsers, eventUnreadCount } = useLoaderData<typeof loader>();
+  const { user, referrals, referredUsers } = useLoaderData<typeof loader>();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<"date" | "name">("date");
   const statusCycleOrder = ["registered", "active", "unactive"] as const;
@@ -120,20 +115,7 @@ export default function TLRunnersPage() {
   const hasAnyReferrals = referrals.length > 0;
 
   return (
-    <ControlPanelLayout
-      panelLabel={t("tl.panel_label")}
-      mobileTitle={t("tl.mobile_title")}
-      homeTo="/tl-dashboard"
-      compactSidebarUnder391
-      user={{
-        fullName: (user as any).full_name,
-        email: (user as any).email,
-        roleLabel: t("tl.role_label"),
-        avatarUrl: (user as any).avatar_url,
-      }}
-      navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
-    >
-      <div className="min-h-full px-0 pt-0 pb-2 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
+    <div className="min-h-full px-0 pt-0 pb-2 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
         <div className="mt-3 mb-6 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mx-auto md:mt-0 md:mb-8 md:w-[58%] md:border-2 md:p-6 lg:w-[52%]">
           <h1 className="text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.your_team")}</h1>
           <p className="mt-1 text-center text-gray-600">{t("tl_dashboard.runners_subtitle")}</p>
@@ -247,6 +229,5 @@ export default function TLRunnersPage() {
           </div>
         </div>
       </div>
-    </ControlPanelLayout>
   );
 }

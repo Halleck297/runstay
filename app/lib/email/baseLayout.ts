@@ -71,7 +71,7 @@ export function renderBaseEmailLayout(args: BaseLayoutArgs): string {
         <div style="margin:0;padding:0;background:#ECF4FE;width:100%;">
           <div style="max-width:560px;margin:0 auto;padding:24px 12px 20px;">
             ${brandHeader}
-            <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:28px;overflow:hidden;">
+            <div style="background:#ffffff;border:1px solid #57ACF9;border-radius:28px;overflow:hidden;">
             <div style="padding:36px 32px 32px;text-align:center;">
               <h2 style="margin:10px 0 24px;color:#111827;">${title}</h2>
               ${intro}
@@ -79,7 +79,7 @@ export function renderBaseEmailLayout(args: BaseLayoutArgs): string {
               ${cta}
               ${ctaFallback}
             </div>
-            <div style="padding:16px 28px;border-top:1px solid #f3f4f6;background:#fafafa;border-radius:0 0 28px 28px;text-align:center;">
+            <div style="padding:16px 28px;border-top:1px solid #C5E3FD;background:#fafafa;border-radius:0 0 28px 28px;text-align:center;">
               <p style="margin:0;color:#6b7280;font-size:12px;">${footerText}</p>
             </div>
             </div>

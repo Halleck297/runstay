@@ -300,7 +300,7 @@ export function Header({ user, isHome = false }: HeaderProps) {
   </nav>
 ) : (
   <nav className="flex items-center gap-4">
-    <Link to="/login" className="btn-secondary rounded-full">
+    <Link to="/login" className="btn-secondary rounded-full border-brand-500">
       {t("nav.login")}
     </Link>
     <Link to="/register" className="btn-primary rounded-full shadow-lg shadow-accent-500/30">

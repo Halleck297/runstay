@@ -30,6 +30,7 @@ type ControlPanelLayoutProps = {
   navItems: PanelNavItem[];
   topContent?: ReactNode;
   compactSidebarUnder391?: boolean;
+  fixedHeight?: boolean;
   children: ReactNode;
 };
 
@@ -42,6 +43,7 @@ export function ControlPanelLayout({
   navItems,
   topContent,
   compactSidebarUnder391 = false,
+  fixedHeight = false,
   children,
 }: ControlPanelLayoutProps) {
   const { t } = useI18n();
@@ -63,7 +65,7 @@ export function ControlPanelLayout({
   }, []);
 
   return (
-    <div className="min-h-screen md:h-screen flex">
+    <div className="fixed top-[var(--mobile-nav-top-offset)] left-0 right-0 bottom-0 md:relative md:h-screen flex">
       {sidebarOpen && (
         <div
           className="fixed inset-x-0 top-[121px] bottom-0 bg-black/50 z-40 md:hidden"
@@ -199,7 +201,7 @@ export function ControlPanelLayout({
       </aside>
 
       <div className="flex-1 flex min-h-0 flex-col min-w-0 bg-[#ECF4FE] md:h-screen md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
-        <header className="sticky top-[var(--mobile-nav-top-offset)] z-30 md:hidden bg-white border-b border-gray-200">
+        <header className="relative z-30 md:hidden bg-white border-b border-gray-200">
           <div className="px-4 py-3 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen((current) => !current)}
@@ -226,8 +228,8 @@ export function ControlPanelLayout({
         </header>
 
         {mounted && topContent && <div className="px-0 pb-0 pt-0 md:px-8 md:pt-8">{topContent}</div>}
-        <main className="flex-1 min-h-0 overflow-hidden p-0 md:overflow-y-auto md:p-8">
-          {mounted ? children : null}
+        <main className={`flex-1 min-h-0 p-0 md:p-8 ${fixedHeight ? "overflow-hidden" : "overflow-y-auto"}`}>
+          {children}
         </main>
       </div>
     </div>

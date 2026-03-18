@@ -5,10 +5,7 @@ import { useEffect, useState } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
-import { ControlPanelLayout } from "~/components/ControlPanelLayout";
-import { buildTeamLeaderNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
-import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
 import { isTeamLeader } from "~/lib/user-access";
 
 const MAX_BATCH_INVITES = 10;
@@ -43,8 +40,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     : 1;
   const reservedView = url.searchParams.get("reservedView") === "linked" ? "linked" : "not_joined";
   const reservedStatus = reservedView === "linked" ? "accepted" : "pending";
-
-  const eventNotificationSummary = await getTlEventNotificationSummary((user as any).id);
 
   const { count: reservedNotJoinedCount } = await (supabaseAdmin.from("referral_invites") as any)
     .select("id", { count: "exact", head: true })
@@ -93,7 +88,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     inviteResult: {
       sent: inviteSent,
     },
-    eventUnreadCount: eventNotificationSummary.totalUnread,
   };
 }
 
@@ -321,7 +315,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function TLReferralsPage() {
   const { t, locale } = useI18n();
-  const { user, appUrl, reservedEmails, reservedPagination, reservedCounts, inviteResult, eventUnreadCount } =
+  const { user, appUrl, reservedEmails, reservedPagination, reservedCounts, inviteResult } =
     useLoaderData<typeof loader>();
   const navigation = useNavigation();
   const actionData = useActionData<typeof action>() as
@@ -415,20 +409,7 @@ export default function TLReferralsPage() {
   }, [actionData]);
 
   return (
-    <ControlPanelLayout
-      panelLabel={t("tl.panel_label")}
-      mobileTitle={t("tl.mobile_title")}
-      homeTo="/tl-dashboard"
-      compactSidebarUnder391
-      user={{
-        fullName: (user as any).full_name,
-        email: (user as any).email,
-        roleLabel: t("tl.role_label"),
-        avatarUrl: (user as any).avatar_url,
-      }}
-      navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
-    >
-      <div className="min-h-full px-0 pt-0 pb-2 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
+    <div className="min-h-full px-0 pt-0 pb-2 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
         <div className="mt-3 mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mx-auto md:mt-0 md:mb-6 md:w-[58%] md:border-2 md:p-6 lg:w-[52%]">
           <h1 className="text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_dashboard.invite_users_title")}</h1>
           <p className="mt-1 text-center text-gray-600">{t("tl_dashboard.referrals_subtitle")}</p>
@@ -538,7 +519,7 @@ export default function TLReferralsPage() {
               rows={3}
               defaultValue={(user as any).tl_welcome_message || ""}
               placeholder={t("tl_dashboard.welcome_message_placeholder")}
-              className="input mb-3 w-full border border-solid border-accent-500 bg-white shadow-none"
+              className="input mb-3 w-full resize-none border border-solid border-accent-500 bg-white shadow-none"
               maxLength={500}
             />
             <button type="submit" className="btn-secondary rounded-full border-accent-500 text-sm">
@@ -624,7 +605,7 @@ export default function TLReferralsPage() {
                           className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                             sentInviteIds.has(invite.id)
                               ? "border-success-600 bg-success-600 text-white"
-                              : "border-accent-500 bg-white text-gray-700 hover:bg-gray-50"
+                              : "border-accent-500 bg-white text-gray-700 hover:bg-accent-500 hover:text-white"
                           }`}
                         >
                           {sentInviteIds.has(invite.id)
@@ -672,7 +653,6 @@ export default function TLReferralsPage() {
             </div>
           </div>
         </div>
-      </div>
-    </ControlPanelLayout>
+    </div>
   );
 }

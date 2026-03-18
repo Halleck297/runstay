@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { Form, Link, useActionData, useFetcher, useLoaderData, useNavigation, useNavigate } from "react-router";
+import { Form, Link, useActionData, useFetcher, useLoaderData, useNavigation } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "~/hooks/useI18n";
@@ -11,15 +11,46 @@ import { useRealtimeMessages } from "~/hooks/useRealtimeMessages";
 import { useTranslation } from "~/hooks/useTranslation";
 import { applyConversationPublicIdFilter } from "~/lib/conversation.server";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { isTeamLeader, isTourOperator } from "~/lib/user-access";
+import {
+  forceScrollContainerToBottom,
+  scheduleBottomAlignment,
+  useMobileConversationViewport,
+} from "~/lib/messages-mobile-layout";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Conversation - Runoot" }];
 };
 const MESSAGE_PAGE_SIZE = 50;
 
+function isNearBottom(element: HTMLElement, threshold = 80) {
+  const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+  return distanceFromBottom < threshold;
+}
+
+function mergeOlderMessages(current: any[], older: any[]) {
+  const existingIds = new Set(current.map((m: any) => m.id));
+  const merged = [...older.filter((m: any) => !existingIds.has(m.id)), ...current];
+  return merged.sort(
+    (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+}
+
+function formatConversationDateLabel(date: Date, locale: string) {
+  const parts = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).formatToParts(date);
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  return [weekday, day, month].filter(Boolean).join(" ");
+}
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  const userId = (user as any).id as string;
+  const userId = user.id;
   const publicConversationId = params.id;
   const url = new URL(request.url);
 
@@ -159,7 +190,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 export async function action({ request, params }: ActionFunctionArgs) {
   const user = await requireUser(request);
-  const userId = (user as any).id as string;
+  const userId = user.id;
   const publicConversationId = params.id;
 
   if (!publicConversationId) {
@@ -323,7 +354,6 @@ export default function Conversation() {
   const { user, conversation, isBlocked, isBlockedByOther, hasOlderMessages: initialHasOlderMessages } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
-  const navigate = useNavigate();
   const olderMessagesFetcher = useFetcher<{ messages: any[]; hasOlderMessages?: boolean }>();
   const formRef = useRef<HTMLFormElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -339,14 +369,22 @@ export default function Conversation() {
   const menuRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const mobileConversationHeaderRef = useRef<HTMLDivElement>(null);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [hasPanelMobileHeader, setHasPanelMobileHeader] = useState(false);
-  const [mobileConversationTop, setMobileConversationTop] = useState(0);
-  const [mobileMessagesTop, setMobileMessagesTop] = useState(0);
-  const [mobileMessagesBottom, setMobileMessagesBottom] = useState(0);
+  const hasPanelHeader = isTeamLeader(user) || isTourOperator(user);
+  const { isMobileViewport, mobileConversationTop, mobileMessagesTop, mobileMessagesBottom } =
+    useMobileConversationViewport(
+      conversation.id,
+      hasPanelHeader,
+      composerRef,
+      mobileConversationHeaderRef
+    );
+  const isSimpleMobileConversation = isMobileViewport && !hasPanelHeader;
+
+  const scrollMessagesToBottom = (behavior: ScrollBehavior = "auto") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
 
   const isSubmitting = navigation.state === "submitting";
-  const userId = (user as any).id as string;
+  const userId = user.id;
 
   const otherUser =
     conversation.participant_1 === userId
@@ -367,6 +405,7 @@ export default function Conversation() {
     messages: realtimeMessages,
     enabled: true,
   });
+  const latestMessageId = realtimeMessages?.[realtimeMessages.length - 1]?.id ?? null;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -413,8 +452,7 @@ export default function Conversation() {
     if (!container) return;
 
     const updateStickiness = () => {
-      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-      shouldStickToBottomRef.current = distanceFromBottom < 80;
+      shouldStickToBottomRef.current = isNearBottom(container);
     };
 
     updateStickiness();
@@ -423,19 +461,17 @@ export default function Conversation() {
   }, []);
 
   useEffect(() => {
-    const latestMessage = realtimeMessages?.[realtimeMessages.length - 1];
-    const latestMessageId = latestMessage?.id ?? null;
     const lastMessageChanged = latestMessageId !== previousLastMessageIdRef.current;
 
     if (!hasInitializedScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      scrollMessagesToBottom("auto");
       hasInitializedScrollRef.current = true;
     } else if (lastMessageChanged && shouldStickToBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      scrollMessagesToBottom("smooth");
     }
 
     previousLastMessageIdRef.current = latestMessageId;
-  }, [realtimeMessages]);
+  }, [latestMessageId]);
 
   useEffect(() => {
     setHasOlderMessages(initialHasOlderMessages);
@@ -443,109 +479,17 @@ export default function Conversation() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
-    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
-    updateViewport();
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", updateViewport);
-      return () => mediaQuery.removeEventListener("change", updateViewport);
-    }
-    mediaQuery.addListener(updateViewport);
-    return () => mediaQuery.removeListener(updateViewport);
-  }, []);
-
-  useEffect(() => {
-    if (!isMobileViewport || typeof window === "undefined" || typeof document === "undefined") {
-      setMobileMessagesTop(0);
-      setMobileMessagesBottom(0);
-      setMobileConversationTop(0);
-      return;
-    }
-
-    const updateViewportBounds = () => {
-      const MOBILE_CONVERSATION_HEADER_NUDGE = 20;
-      const headerRow = document.getElementById("panel-mobile-extra-row");
-      const mobileHeader = headerRow?.closest("header") as HTMLElement | null;
-      const mainMobileNav = document.getElementById("mobile-main-nav");
-      const rootStyles = window.getComputedStyle(document.documentElement);
-      const mobileNavTopOffset =
-        Number.parseFloat(rootStyles.getPropertyValue("--mobile-nav-top-offset")) || 70;
-      const hasPanel = Boolean(headerRow && mobileHeader);
-      setHasPanelMobileHeader(hasPanel);
-      const mainMobileNavBottom = mainMobileNav?.getBoundingClientRect().bottom ?? mobileNavTopOffset;
-      const panelHeaderBottom =
-        mobileHeader?.getBoundingClientRect().bottom ??
-        headerRow?.getBoundingClientRect().bottom ??
-        0;
-      const conversationTop = hasPanel
-        ? panelHeaderBottom + MOBILE_CONVERSATION_HEADER_NUDGE
-        : Math.max(0, mobileNavTopOffset + 1);
-      const conversationHeaderBottom = mobileConversationHeaderRef.current?.getBoundingClientRect().bottom ?? 0;
-      const conversationHeaderHeight =
-        mobileConversationHeaderRef.current?.getBoundingClientRect().height ?? 0;
-      const headerBottom = hasPanel
-        ? (conversationHeaderBottom || conversationTop + conversationHeaderHeight)
-        : (conversationTop + conversationHeaderHeight);
-      const composerHeight = composerRef.current?.getBoundingClientRect().height ?? 0;
-      setMobileConversationTop(Math.max(0, Math.round(conversationTop)));
-      setMobileMessagesTop(
-        Math.max(0, Math.round(headerBottom + (hasPanel ? 8 : 1)))
-      );
-      setMobileMessagesBottom(Math.max(0, Math.round(composerHeight)));
-    };
-
-    updateViewportBounds();
-    let rafId = 0;
-    let warmupFrames = 0;
-    const warmupRecalc = () => {
-      updateViewportBounds();
-      warmupFrames += 1;
-      if (warmupFrames < 20) {
-        rafId = window.requestAnimationFrame(warmupRecalc);
-      }
-    };
-    rafId = window.requestAnimationFrame(warmupRecalc);
-    window.addEventListener("resize", updateViewportBounds);
-    window.addEventListener("orientationchange", updateViewportBounds);
-
-    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateViewportBounds) : null;
-    const headerRow = document.getElementById("panel-mobile-extra-row");
-    const mobileHeader = headerRow?.closest("header");
-    const mainMobileNav = document.getElementById("mobile-main-nav");
-    if (resizeObserver && headerRow) resizeObserver.observe(headerRow);
-    if (resizeObserver && mobileHeader) resizeObserver.observe(mobileHeader);
-    if (resizeObserver && mainMobileNav) resizeObserver.observe(mainMobileNav);
-    if (resizeObserver && composerRef.current) resizeObserver.observe(composerRef.current);
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", updateViewportBounds);
-      window.removeEventListener("orientationchange", updateViewportBounds);
-      resizeObserver?.disconnect();
-    };
-  }, [isMobileViewport, conversation.id]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const scrollToBottom = () => {
-      container.scrollTop = container.scrollHeight;
+      forceScrollContainerToBottom(container);
       shouldStickToBottomRef.current = true;
     };
 
-    scrollToBottom();
-    const raf1 = window.requestAnimationFrame(scrollToBottom);
-    const raf2 = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(scrollToBottom);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(raf1);
-      window.cancelAnimationFrame(raf2);
-    };
+    return scheduleBottomAlignment(scrollToBottom);
   }, [conversation.id, mobileMessagesTop, mobileMessagesBottom]);
+
 
   const fullWritePlaceholder = t("messages.write_placeholder");
   const mobileWritePlaceholder = fullWritePlaceholder.split("(")[0].trim();
@@ -556,14 +500,7 @@ export default function Conversation() {
 
     const olderMessages = olderMessagesFetcher.data.messages || [];
     if (olderMessages.length > 0) {
-      setMessages((current) => {
-        const existingIds = new Set(current.map((m: any) => m.id));
-        const merged = [...olderMessages.filter((m: any) => !existingIds.has(m.id)), ...current];
-        return merged.sort(
-          (a: any, b: any) =>
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-      });
+      setMessages((current) => mergeOlderMessages(current, olderMessages));
     }
 
     if (typeof olderMessagesFetcher.data.hasOlderMessages === "boolean") {
@@ -585,7 +522,6 @@ export default function Conversation() {
   const hasTranslatableMessages = realtimeMessages.some(
     (message: any) => message.sender_id !== userId && message.message_type !== "heart"
   );
-  const showGlobalTranslationToggle = true;
   const errorMessage =
     actionData && "errorKey" in actionData
       ? actionData.errorKey === "blocked_send"
@@ -682,55 +618,49 @@ export default function Conversation() {
     <div
       ref={composerRef}
       className={
-        showGlobalTranslationToggle
-          ? isMobileViewport
-            ? "fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white px-2 pb-[calc(18px+env(safe-area-inset-bottom,0px))] pt-0"
-            : "shrink-0 border-t-0 bg-white/88 px-4 pb-4 pt-0 shadow-[0_-6px_14px_rgba(15,23,42,0.05)] backdrop-blur-[1px]"
-          : isMobileViewport
-            ? "fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white px-2 pb-[calc(18px+env(safe-area-inset-bottom,0px))] pt-4"
-            : "shrink-0 border-t bg-white/88 p-4 shadow-[0_-6px_14px_rgba(15,23,42,0.05)] backdrop-blur-[1px]"
+        isMobileViewport
+          ? "fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white px-2 pb-[calc(18px+env(safe-area-inset-bottom,0px))] pt-0"
+          : "shrink-0 border-t-0 bg-white/88 px-4 pb-4 pt-0 shadow-[0_-6px_14px_rgba(15,23,42,0.05)] backdrop-blur-[1px]"
       }
     >
-          {showGlobalTranslationToggle && (
-            <div className="-mx-2 md:-mx-4 mb-3">
-              <div
-                role="button"
-                tabIndex={0}
-                aria-disabled={!hasTranslatableMessages}
-                onClick={() => {
-                  if (!hasTranslatableMessages) return;
+          <div className="-mx-2 md:-mx-4 mb-3">
+            <div
+              role="button"
+              tabIndex={0}
+              aria-disabled={!hasTranslatableMessages}
+              onClick={() => {
+                if (!hasTranslatableMessages) return;
+                toggleShowOriginalAll();
+              }}
+              onKeyDown={(event) => {
+                if (!hasTranslatableMessages) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
                   toggleShowOriginalAll();
-                }}
-                onKeyDown={(event) => {
-                  if (!hasTranslatableMessages) return;
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    toggleShowOriginalAll();
-                  }
-                }}
-                className={`w-full border-y px-4 py-2.5 text-center text-xs font-medium transition-all duration-200 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 ${
-                  !hasTranslatableMessages
-                    ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                    : showOriginalAll
-                    ? "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100"
-                    : "cursor-pointer active:scale-[0.995] border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <svg className="h-3.5 w-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                  </svg>
-                  <span>
-                    {hasTranslatableMessages
-                      ? showOriginalAll
-                        ? t("messages.show_translation")
-                        : t("messages.show_original")
-                      : t("messages.show_original")}
-                  </span>
+                }
+              }}
+              className={`w-full border-y px-4 py-2.5 text-center text-xs font-medium transition-all duration-200 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 ${
+                !hasTranslatableMessages
+                  ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
+                  : showOriginalAll
+                  ? "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100"
+                  : "cursor-pointer active:scale-[0.995] border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                </svg>
+                <span>
+                  {hasTranslatableMessages
+                    ? showOriginalAll
+                      ? t("messages.show_translation")
+                      : t("messages.show_original")
+                    : t("messages.show_original")}
                 </span>
-              </div>
+              </span>
             </div>
-          )}
+          </div>
 
           {errorMessage && (
             <p className="text-sm text-red-600 mb-2">{errorMessage}</p>
@@ -810,20 +740,22 @@ export default function Conversation() {
   );
 
   return (
-    <div className="flex-1 flex h-full min-h-0 flex-col overflow-hidden bg-white/85 backdrop-blur-[1px] md:rounded-r-3xl">
+    <div className="flex-1 flex h-full min-h-0 flex-col overflow-hidden bg-white/85 md:backdrop-blur-[1px] md:rounded-r-3xl">
       {isMobileViewport && (
+        <>
         <div
           ref={mobileConversationHeaderRef}
-          className="fixed inset-x-0 z-30 bg-white"
-          style={{ top: mobileConversationTop }}
+          className="fixed inset-x-0 z-[45] bg-white border-b border-gray-200"
+          style={{ top: hasPanelHeader ? mobileConversationTop : "var(--mobile-nav-top-offset)" }}
         >
           {mobileConversationHeader}
         </div>
+        </>
       )}
 
       {/* Header conversazione desktop */}
       {!isMobileViewport && (
-        <div className="hidden md:flex md:sticky md:top-0 md:z-20 md:h-[72px] md:shrink-0 md:items-center md:gap-4 md:border-b md:border-gray-200 md:bg-white/95 md:p-4">
+        <div className="hidden md:flex md:sticky md:top-0 md:z-20 md:h-[84px] md:shrink-0 md:items-center md:gap-4 md:border-b md:border-gray-200 md:bg-white/95 md:p-4">
         {/* Back button (mobile only) */}
         <Link
           to="/messages"
@@ -1001,11 +933,7 @@ export default function Conversation() {
                     <div className="my-2 flex items-center gap-3 md:my-4 md:gap-4">
                       <div className="flex-1 h-px bg-gray-200" />
                       <span className="text-xs text-gray-400 font-medium">
-                        {messageDate.toLocaleDateString(locale, {
-                          weekday: 'short',
-                          day: 'numeric',
-                          month: 'short',
-                        })}
+                        {formatConversationDateLabel(messageDate, locale)}
                       </span>
                       <div className="flex-1 h-px bg-gray-200" />
                     </div>

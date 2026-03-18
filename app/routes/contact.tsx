@@ -214,8 +214,8 @@ export default function Contact() {
   }, [actionData, user, subject]);
 
   return (
-    <div className="min-h-screen bg-[url('/contact.jpg')] bg-cover bg-center bg-fixed">
-      <div className="min-h-screen bg-[#ECF4FE]/40 flex flex-col">
+    <div className="min-h-screen bg-[#ECF4FE] md:bg-[url('/contact.jpg')] md:bg-cover md:bg-center md:bg-fixed">
+      <div className="flex min-h-screen flex-col md:bg-[#ECF4FE]/40">
         <Header user={user} />
 
         <main className="mx-auto max-w-2xl px-4 py-8 pb-24 md:pb-8 sm:px-6 lg:px-8 flex-1 w-full">
@@ -232,7 +232,7 @@ export default function Contact() {
           </button>
 
           {actionData && "success" in actionData ? (
-            <div className="card rounded-3xl border-2 border-brand-300 bg-white p-8 text-center">
+            <div className="p-0 text-center md:rounded-3xl md:border-2 md:border-brand-300 md:bg-white md:p-8">
               <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-3xl font-bold text-gray-900">
                 {t("contact.title")}
               </h1>
@@ -263,7 +263,7 @@ export default function Contact() {
               </a>
             </div>
           ) : (
-            <div className="card rounded-3xl border-2 border-brand-300 bg-white p-6">
+            <div className="p-0 md:rounded-3xl md:border-2 md:border-brand-300 md:bg-white md:p-6">
               <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-3xl font-bold text-gray-900">
                 {t("contact.title")}
               </h1>

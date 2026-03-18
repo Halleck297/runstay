@@ -338,16 +338,16 @@ export default function ListingDetail() {
   const priceAnchor = t("listings.price_details_available_from_seller");
 
   return (
-    <div className="min-h-screen bg-[#ECF4FE]">
-      <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#ECF4FE]">
+      <div className="flex min-h-screen w-full flex-col overflow-x-hidden">
         <Header user={user} />
 
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-12 md:pb-6 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-7xl flex-1 overflow-x-hidden px-4 py-6 pb-12 sm:px-6 md:pb-6 lg:px-8">
           {/* Back link */}
           <div className="mb-4">
             <Link
               to={isEventListing ? "/events" : "/listings"}
-              className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-4 py-2 text-sm font-semibold text-gray-800 shadow-[0_8px_22px_rgba(15,23,42,0.16)] ring-1 ring-slate-200/80 backdrop-blur-sm transition hover:bg-white hover:shadow-[0_10px_26px_rgba(15,23,42,0.20)]"
+              className="inline-flex items-center gap-2 rounded-full border border-accent-500 bg-white px-4 py-2 text-sm font-semibold text-accent-600"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -357,11 +357,11 @@ export default function ListingDetail() {
           </div>
 
           {/* Event Image Banner */}
-          <div className="relative rounded-3xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.15)] mb-6">
+          <div className="relative -mx-4 mb-0 overflow-hidden rounded-none border-x-0 border-t-2 border-brand-300 sm:mx-0 sm:rounded-t-3xl sm:border-2 sm:border-brand-300 sm:border-b-0">
             <img
               src={bannerPrimary}
               alt={listingData.event.name}
-              className="w-full h-[375px] sm:h-[480px] md:h-[570px] object-cover"
+              className="h-[250px] w-full object-cover sm:h-[480px] md:h-[570px]"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 const fallbackAbsolute = new URL(defaultEventImage, window.location.origin).href;
@@ -375,7 +375,7 @@ export default function ListingDetail() {
                 if (fallback) fallback.style.display = 'flex';
               }}
             />
-            <div className="w-full h-[375px] sm:h-[480px] md:h-[570px] bg-gradient-to-br from-brand-100 to-brand-200 items-center justify-center" style={{ display: 'none' }}>
+            <div className="h-[250px] w-full items-center justify-center bg-gradient-to-br from-brand-100 to-brand-200 sm:h-[480px] md:h-[570px]" style={{ display: 'none' }}>
               <svg className="h-16 w-16 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -389,15 +389,18 @@ export default function ListingDetail() {
             )}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-          {/* Main content - 2 colonne */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="-mx-4 rounded-none border-x-0 border-b-2 border-brand-300 bg-white p-4 sm:mx-0 sm:rounded-b-3xl sm:border-2 sm:border-brand-300 sm:border-t-0 sm:p-6">
+            <div className="grid gap-6 lg:grid-cols-3">
+            {/* Main content - 2 colonne */}
+            <div className="order-1 space-y-6 lg:order-none lg:col-span-2">
 
             {/* Details - Hotel & Location */}
             {(listingData.listing_type === "room" || listingData.listing_type === "room_and_bib") && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
-                <h3 className="font-display text-lg font-semibold text-gray-900 pb-3 mb-6 border-b border-gray-200">
-                  {t("listings.hotel_location")}
+              <div className="rounded-3xl bg-white p-4 md:bg-white/90 md:p-6 md:backdrop-blur-sm">
+                <h3 className="mb-6 font-display text-lg font-semibold text-gray-900">
+                  <span className="inline-block border-b-2 border-accent-500 pb-1">
+                    {t("listings.hotel_location")}
+                  </span>
                 </h3>
 
                 <div className="space-y-5">
@@ -537,7 +540,7 @@ export default function ListingDetail() {
             {(listingData.distance_to_finish !== null ||
               listingData.walking_duration !== null ||
               listingData.transit_duration !== null) && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
+              <div className="-mx-5 rounded-none border border-brand-300 bg-white px-5 py-4 sm:mx-0 sm:rounded-3xl sm:px-4 sm:py-4 md:bg-white/90 md:p-6 md:backdrop-blur-sm">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
                   {t("listings.distance_to_finish_line")}
                 </h3>
@@ -601,12 +604,14 @@ export default function ListingDetail() {
 
             {/* Bib details */}
             {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
-                <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                  {t("listings.transfer_details")}
+              <div className="-mx-5 rounded-none bg-white px-5 py-4 sm:mx-0 sm:rounded-3xl sm:px-4 sm:py-4 md:bg-white/90 md:p-6 md:backdrop-blur-sm">
+                <h3 className="mb-6 font-display text-lg font-semibold text-gray-900">
+                  <span className="inline-block border-b-2 border-accent-500 pb-1">
+                    {t("listings.transfer_details")}
+                  </span>
                 </h3>
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-700 flex-shrink-0">
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
@@ -635,9 +640,11 @@ export default function ListingDetail() {
 
             {/* Description */}
             {listingData.description && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] p-6">
-                <h3 className="font-display text-lg font-semibold text-gray-900 mb-3">
-                  {t("listings.additional_information")}
+              <div className="-mx-5 rounded-none bg-white px-5 py-4 sm:mx-0 sm:rounded-3xl sm:px-4 sm:py-4 md:bg-white/90 md:p-6 md:backdrop-blur-sm">
+                <h3 className="mb-6 font-display text-lg font-semibold text-gray-900">
+                  <span className="inline-block border-b-2 border-accent-500 pb-1">
+                    {t("listings.additional_information")}
+                  </span>
                 </h3>
                 <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                   {listingData.description}
@@ -647,7 +654,7 @@ export default function ListingDetail() {
 
             {/* How to Complete Transaction */}
             {isEventListing ? (
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.10)]">
+              <div className="relative z-20 overflow-hidden rounded-3xl border border-slate-200 bg-white sm:border-0">
                 <button
                   onClick={() => setShowHowTo(!showHowTo)}
                   className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50 lg:cursor-default lg:hover:bg-white"
@@ -689,16 +696,13 @@ export default function ListingDetail() {
                 </div>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.10)]">
+              <div className="relative z-20 overflow-hidden rounded-3xl border border-slate-200 bg-white sm:border-0">
                 <button
                   onClick={() => setShowHowTo(!showHowTo)}
                   className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50 lg:cursor-default lg:hover:bg-white"
                 >
-                  <span className="flex items-center gap-2 min-w-0">
-                    <svg className="h-5 w-5 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z" />
-                    </svg>
-                    <span className="font-display text-sm font-semibold text-gray-900 sm:text-base lg:text-lg whitespace-nowrap">{t("listings.how_to_complete_transaction")}</span>
+                  <span className="font-display text-sm font-semibold text-gray-900 sm:text-base lg:text-lg">
+                    {t("listings.how_to_complete_transaction")}
                   </span>
                   <svg
                     className={`h-5 w-5 text-gray-400 transition-transform lg:hidden ${showHowTo ? "rotate-180" : ""}`}
@@ -844,12 +848,63 @@ export default function ListingDetail() {
                 </div>
               </div>
             )}
+
+            {!isEventListing && (
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white lg:hidden">
+                <button
+                  onClick={() => setShowSafety(!showSafety)}
+                  className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="h-5 w-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span className="font-medium text-gray-900">{t("listings.safety_payments")}</span>
+                  </div>
+                  <svg
+                    className={`h-5 w-5 text-gray-400 transition-transform ${showSafety ? "rotate-180" : ""}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                <div className={`${showSafety ? "block" : "hidden"} px-4 pb-4`}>
+                  <ul className="mt-3 space-y-2 text-sm text-gray-700">
+                    <li className="flex items-start gap-2">
+                      <span className="text-brand-500 flex-shrink-0">•</span>
+                      <span>{t("listings.safety_verify_identity")}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-brand-500 flex-shrink-0">•</span>
+                      <span>{t("listings.safety_use_secure_payments")}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-brand-500 flex-shrink-0">•</span>
+                      <span>{t("listings.safety_get_written_confirmation")}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-brand-500 flex-shrink-0">•</span>
+                      <span>{t("listings.safety_report_suspicious")}</span>
+                    </li>
+                  </ul>
+                  <Link
+                    to="/safety"
+                    className="mt-3 inline-block text-sm font-medium text-brand-600 hover:text-brand-700"
+                  >
+                    {t("listings.read_full_safety_guidelines")} →
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Sidebar - sticky */}
-          <div className="space-y-6 lg:sticky lg:top-6">
+            {/* Sidebar - sticky */}
+            <div className="order-2 space-y-6 lg:order-none lg:sticky lg:top-6">
             {/* Main sidebar card: Seller + Price + CTA */}
-            <div className="rounded-3xl border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.12)] overflow-hidden">
+            <div className="overflow-hidden rounded-3xl border border-accent-500 bg-white">
               {/* Listing Info Header */}
               <div className="px-6 py-5 border-b border-slate-200">
                 {/* Badge tipo + Save */}
@@ -992,7 +1047,7 @@ export default function ListingDetail() {
                     <Link
                       to={`/profiles/${sellerPublicId}`}
                       state={profileBackState}
-                      className="mt-6 inline-flex w-fit rounded-full bg-[#ECF4FE] px-3.5 py-1 text-xs font-semibold uppercase tracking-wide text-brand-500 transition-colors hover:bg-brand-100 whitespace-nowrap"
+                      className="mt-6 inline-flex w-fit rounded-full bg-[#ECF4FE] px-3.5 py-1 text-xs font-semibold uppercase tracking-wide text-brand-500 transition-colors hover:bg-brand-100"
                     >
                       {t("listings.view_profile")}
                     </Link>
@@ -1137,7 +1192,7 @@ export default function ListingDetail() {
             </div>
 
             {!isEventListing && (
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.10)]">
+              <div className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white lg:block">
                 <button
                   onClick={() => setShowSafety(!showSafety)}
                   className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50 lg:cursor-default lg:hover:bg-white"
@@ -1186,6 +1241,7 @@ export default function ListingDetail() {
                   </div>
               </div>
             )}
+            </div>
           </div>
         </div>
 

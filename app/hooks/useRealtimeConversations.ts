@@ -11,29 +11,31 @@ interface Conversation {
   updated_at: string;
   listing?: {
     id: string;
-    title: string;
-    listing_type: string;
-    author_id?: string;
-  };
+    title?: string | null;
+    listing_type?: string | null;
+    author_id?: string | null;
+  } | null;
   participant1?: {
     id: string;
-    full_name: string | null;
-    company_name: string | null;
-    user_type: string;
-  };
+    full_name?: string | null;
+    company_name?: string | null;
+    user_type?: string | null;
+    avatar_url?: string | null;
+  } | null;
   participant2?: {
     id: string;
-    full_name: string | null;
-    company_name: string | null;
-    user_type: string;
-  };
+    full_name?: string | null;
+    company_name?: string | null;
+    user_type?: string | null;
+    avatar_url?: string | null;
+  } | null;
   messages?: {
     id: string;
-    content: string;
+    content?: string | null;
     sender_id: string;
     created_at: string;
-    read_at: string | null;
-    message_type?: "user" | "system" | "heart";
+    read_at?: string | null;
+    message_type?: string | null;
     translated_content?: string | null;
   }[];
 }
@@ -135,12 +137,14 @@ export function useRealtimeConversations({
 
       const channel = supabase
         .channel(`conversations:${userId}`)
+        // Messages from others (own messages already shown via optimistic UI)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "messages",
+            filter: `sender_id=neq.${userId}`,
           },
           requestSync
         )
@@ -150,15 +154,18 @@ export function useRealtimeConversations({
             event: "UPDATE",
             schema: "public",
             table: "messages",
+            filter: `sender_id=neq.${userId}`,
           },
           requestSync
         )
+        // Conversations where user is participant_1
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "conversations",
+            filter: `participant_1=eq.${userId}`,
           },
           requestSync
         )
@@ -168,6 +175,28 @@ export function useRealtimeConversations({
             event: "UPDATE",
             schema: "public",
             table: "conversations",
+            filter: `participant_1=eq.${userId}`,
+          },
+          requestSync
+        )
+        // Conversations where user is participant_2
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "conversations",
+            filter: `participant_2=eq.${userId}`,
+          },
+          requestSync
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "conversations",
+            filter: `participant_2=eq.${userId}`,
           },
           requestSync
         )

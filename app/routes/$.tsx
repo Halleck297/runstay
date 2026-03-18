@@ -841,9 +841,9 @@ export default function CatchAllRoute() {
           {tl?.tl_welcome_message && <p className="mt-3 text-sm text-gray-600 italic border-t border-gray-100 pt-3">"{tl.tl_welcome_message}"</p>}
         </div>
 
-        <div className="py-8 px-0 sm:bg-white sm:rounded-3xl sm:border sm:border-gray-200 sm:shadow-sm sm:px-10">
-          <div className="mb-6 rounded-2xl border border-brand-500 bg-white px-4 py-3 text-center">
-            <h2 className="mb-1 text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("join_referral.join_title")}</h2>
+        <div className="py-8 px-0 sm:bg-white sm:rounded-3xl sm:border sm:border-brand-500 sm:shadow-sm sm:px-10">
+          <div className="mb-6 rounded-2xl bg-white px-4 py-3 text-center">
+            <h2 className="mb-1 text-center font-display text-[1.7rem] font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("join_referral.join_title")}</h2>
             <p className="text-center text-sm text-gray-500">{t("join_referral.join_subtitle")}</p>
           </div>
           <div className="mb-6 mx-auto flex w-fit max-w-full flex-col gap-2 text-center">
@@ -885,33 +885,43 @@ export default function CatchAllRoute() {
                 </div>
                 <div>
                   <label htmlFor="country" className="label">{t("profile.form.country")}</label>
-                  <select
-                    id="country"
-                    name="country"
-                    className="input h-11 w-full rounded-full !pl-10"
-                    style={{ textIndent: "0.45rem" }}
-                    required
-                    value={countryValue}
-                    onChange={(event) => {
-                      const nextCountryValue = event.target.value;
-                      setCountryValue(nextCountryValue);
-                      if (!preferredLanguageTouched) {
-                        const resolved = resolveSupportedCountry(nextCountryValue, detectedLocale);
-                        if (resolved) {
-                          setPreferredLanguageValue(getSuggestedLocaleForCountry(resolved.code, detectedLocale));
+                  <div className="relative">
+                    <select
+                      id="country"
+                      name="country"
+                      className="input h-11 w-full appearance-none !rounded-full !pl-10"
+                      style={{ textIndent: "0.45rem" }}
+                      required
+                      value={countryValue}
+                      onChange={(event) => {
+                        const nextCountryValue = event.target.value;
+                        setCountryValue(nextCountryValue);
+                        if (!preferredLanguageTouched) {
+                          const resolved = resolveSupportedCountry(nextCountryValue, detectedLocale);
+                          if (resolved) {
+                            setPreferredLanguageValue(getSuggestedLocaleForCountry(resolved.code, detectedLocale));
+                          }
                         }
-                      }
-                    }}
-                  >
-                    <option value="" disabled>
-                      {" "}
-                    </option>
-                    {countries.map((countryOption) => (
-                      <option key={countryOption.code} value={countryOption.code}>
-                        {countryOption.name}
+                      }}
+                    >
+                      <option value="" disabled>
+                        {" "}
                       </option>
-                    ))}
-                  </select>
+                      {countries.map((countryOption) => (
+                        <option key={countryOption.code} value={countryOption.code}>
+                          {countryOption.name}
+                        </option>
+                      ))}
+                    </select>
+                    <svg
+                      className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="city" className="label">{t("profile.form.city")}</label>
@@ -1020,23 +1030,33 @@ export default function CatchAllRoute() {
                 </div>
                 <div>
                 <label htmlFor="preferredLanguage" className="label">{t("register.form.language")}</label>
-                <select
-                  id="preferredLanguage"
-                  name="preferredLanguage"
-                  className="input h-11 w-full rounded-full bg-white pr-10 !pl-10"
-                  style={{ textIndent: "0.45rem" }}
-                  required
-                  value={preferredLanguageValue}
-                  onChange={(event) => {
-                    setPreferredLanguageTouched(true);
-                    const nextValue = event.target.value as SupportedLocale;
-                    if (isSupportedLocale(nextValue)) setPreferredLanguageValue(nextValue);
-                  }}
-                >
-                  {Object.entries(localeLabels).map(([langCode, label]) => (
-                    <option key={langCode} value={langCode}>{label}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    id="preferredLanguage"
+                    name="preferredLanguage"
+                    className="input h-11 w-full appearance-none !rounded-full bg-white pr-10 !pl-10"
+                    style={{ textIndent: "0.45rem" }}
+                    required
+                    value={preferredLanguageValue}
+                    onChange={(event) => {
+                      setPreferredLanguageTouched(true);
+                      const nextValue = event.target.value as SupportedLocale;
+                      if (isSupportedLocale(nextValue)) setPreferredLanguageValue(nextValue);
+                    }}
+                  >
+                    {Object.entries(localeLabels).map(([langCode, label]) => (
+                      <option key={langCode} value={langCode}>{label}</option>
+                    ))}
+                  </select>
+                  <svg
+                    className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
                 </div>
               </div>
 

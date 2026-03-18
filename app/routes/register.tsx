@@ -46,6 +46,19 @@ function normalizeEmail(value: string): string {
 const LEGAL_TERMS_VERSION = "2026-03-15";
 const LEGAL_PRIVACY_VERSION = "2026-03-15";
 
+function isMissingColumnError(error: unknown, columnName: string): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = String((error as any).code || "");
+  const message = String((error as any).message || "").toLowerCase();
+  const column = columnName.toLowerCase();
+  return (
+    code === "PGRST204" ||
+    code === "42703" ||
+    (message.includes("schema cache") && message.includes(column)) ||
+    (message.includes(column) && (message.includes("does not exist") || message.includes("unknown column")))
+  );
+}
+
 async function logLegalConsent(args: {
   accessRequestId?: string | null;
   email: string;
@@ -172,7 +185,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     const email = normalizeEmail(emailRaw);
 
-    const { data: insertedRequest, error } = await (supabaseAdmin.from("access_requests" as any) as any).insert({
+    const requestPayload = {
       full_name: fullName,
       email,
       country: resolvedCountry.nameEn,
@@ -183,9 +196,29 @@ export async function action({ request }: ActionFunctionArgs) {
       note: note || null,
       source: "public_signup",
       status: "pending",
-    }).select("id").maybeSingle();
+    };
+
+    let { data: insertedRequest, error } = await (supabaseAdmin.from("access_requests" as any) as any)
+      .insert(requestPayload)
+      .select("id")
+      .maybeSingle();
+
+    // Compatibility fallback for environments where date_of_birth migration is not yet applied.
+    if (error && isMissingColumnError(error, "date_of_birth")) {
+      const { date_of_birth: _omitDateOfBirth, ...legacyPayload } = requestPayload;
+      ({ data: insertedRequest, error } = await (supabaseAdmin.from("access_requests" as any) as any)
+        .insert(legacyPayload)
+        .select("id")
+        .maybeSingle());
+    }
 
     if (error) {
+      console.error("register.request_access insert failed", {
+        code: (error as any).code || null,
+        message: (error as any).message || null,
+        details: (error as any).details || null,
+        hint: (error as any).hint || null,
+      });
       const message = String((error as any).message || "").toLowerCase();
       const duplicate =
         (error as any).code === "23505" ||
@@ -240,6 +273,28 @@ export default function Register() {
   const dobHint = isUsDobFormat ? t("join_referral.dob_hint_us") : t("join_referral.dob_hint_default");
   const dobMask = "__/__/____";
   const dobDigitSlots = [0, 1, 3, 4, 6, 7, 8, 9];
+  const submitFailedErrorKey = "register.error.submit_failed" as const;
+  const isLeadCreated = Boolean(
+    actionData && "success" in actionData && actionData.success && actionData.type === "lead_created"
+  );
+  const isSubmitFailed = Boolean(
+    actionData && "errorKey" in actionData && actionData.errorKey === submitFailedErrorKey
+  );
+  const showResultOverlay = isLeadCreated || isSubmitFailed;
+  const inlineErrorKey =
+    actionData &&
+    "errorKey" in actionData &&
+    actionData.errorKey &&
+    actionData.errorKey !== submitFailedErrorKey
+      ? actionData.errorKey
+      : null;
+  const overlayMessage = isLeadCreated
+    ? actionData && "success" in actionData && actionData.alreadyPending
+      ? t("register.success.pending")
+      : t("register.success.received")
+    : isSubmitFailed
+      ? t(submitFailedErrorKey)
+      : "";
 
   const formatDobForDisplay = (isoDate: string) => {
     const match = String(isoDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -301,28 +356,20 @@ export default function Register() {
 
       <div className="mt-4 sm:mx-auto sm:w-full sm:max-w-3xl">
         <div className="px-4 py-6 sm:px-2">
-          <h1 className="text-center font-display text-3xl font-bold tracking-tight text-gray-900">{t("register.title")}</h1>
+          <h1 className="text-center font-display text-3xl font-bold tracking-tight text-gray-900 underline decoration-accent-500 underline-offset-4">{t("register.title")}</h1>
           <p className="mt-2 text-center text-sm text-gray-600">
             {t("register.subtitle")}
           </p>
 
-          {actionData && "errorKey" in actionData && actionData.errorKey && (
-            <div className="mt-6 mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">{t(actionData.errorKey)}</div>
-          )}
-
-          {actionData && "success" in actionData && actionData.success && actionData.type === "lead_created" && (
-            <div className="mt-6 mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-700">
-              {actionData.alreadyPending
-                ? t("register.success.pending")
-                : t("register.success.received")}
-            </div>
+          {inlineErrorKey && (
+            <div className="mt-6 mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">{t(inlineErrorKey)}</div>
           )}
 
           <div className="mt-6 rounded-3xl border border-brand-100 bg-[#ECF4FE] p-4">
             <h2 className="font-display text-lg font-semibold text-gray-900">{t("register.invite.title")}</h2>
             <p className="mt-1 text-sm text-gray-600">{t("register.invite.subtitle")}</p>
             <Form method="post" className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-              <input type="hidden" name="intent" value="use_invite" />
+              <input type="hidden" name="intent" defaultValue="use_invite" />
               <div className="w-full sm:max-w-[240px]">
                 <label htmlFor="inviteCode" className="label">{t("register.invite.code_label")}</label>
                 <input id="inviteCode" name="inviteCode" type="text" className="input w-full rounded-full bg-white" required />
@@ -339,14 +386,14 @@ export default function Register() {
             <div className="h-px flex-1 bg-gray-200" />
           </div>
 
-          <div>
+          <div className="rounded-3xl border border-brand-500 bg-white p-4 sm:p-5">
             <h2 className="font-display text-lg font-semibold text-gray-900">{t("register.request.title")}</h2>
             <p className="mt-1 text-sm text-gray-600">
               {t("register.request.subtitle")}
             </p>
 
             <Form method="post" className="mt-5 space-y-4 [&_.input]:border [&_.input]:border-solid [&_.input]:border-accent-500 [&_.input]:shadow-none [&_.input:focus]:border-brand-500 [&_.input:focus]:ring-brand-500/20">
-              <input type="hidden" name="intent" value="request_access" />
+              <input type="hidden" name="intent" defaultValue="request_access" />
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
@@ -406,6 +453,11 @@ export default function Register() {
                       autoComplete="bday"
                       required
                       value={formatDobMaskedValue(dateOfBirthDigits)}
+                      onChange={(event) => {
+                        const nextDigits = event.currentTarget.value.replace(/[^\d]/g, "").slice(0, 8);
+                        dobCaretModeRef.current = nextDigits.length < dateOfBirthDigits.length ? "backward" : "forward";
+                        setDateOfBirthDigits(nextDigits);
+                      }}
                       onKeyDown={(event) => {
                         if (event.metaKey || event.ctrlKey || event.altKey) return;
                         if (/^\d$/.test(event.key)) {
@@ -443,7 +495,7 @@ export default function Register() {
                       placeholder={dobHint}
                       className="input h-11 w-[10rem] rounded-full bg-white !pl-5 !text-[16px] !leading-[1.2]"
                     />
-                    <input type="hidden" name="dateOfBirth" value={dateOfBirthIsoValue} />
+                    <input type="hidden" name="dateOfBirth" value={dateOfBirthIsoValue} readOnly />
                     <div className="relative h-11 w-11">
                       <input
                         ref={datePickerRef}
@@ -559,6 +611,19 @@ export default function Register() {
           </div>
         </div>
       </div>
+
+      {showResultOverlay && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 px-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl border border-brand-500 bg-white p-6 text-center">
+            <p className={`text-base ${isLeadCreated ? "text-green-700" : "text-red-700"}`}>{overlayMessage}</p>
+            <div className="mt-6">
+              <Link to="/" className="btn-primary inline-flex items-center justify-center rounded-full px-6">
+                {t("register.back_home")}
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -32,16 +32,32 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: "Email and password are required" }, { status: 400 });
   }
 
-  const { data: authData, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  let authData: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>["data"] | null = null;
+  let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>["error"] | null = null;
+  try {
+    const result = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    authData = result.data;
+    error = result.error;
+  } catch (err) {
+    const cause = (err as any)?.cause as { code?: string } | undefined;
+    console.error("login.signInWithPassword failed", {
+      message: (err as any)?.message || null,
+      causeCode: cause?.code || null,
+    });
+    return data(
+      { error: "Unable to reach authentication service. Please try again in a moment." },
+      { status: 503 }
+    );
+  }
 
   if (error) {
     return data({ error: error.message }, { status: 400 });
   }
 
-  if (!authData.session) {
+  if (!authData?.session) {
     return data({ error: "Login failed" }, { status: 400 });
   }
 
@@ -111,7 +127,7 @@ export default function Login() {
           <div className="h-8" />
 
           <Form method="post" className="space-y-6 [&_.input]:border [&_.input]:border-solid [&_.input]:border-accent-500 [&_.input]:shadow-none">
-            <input type="hidden" name="redirectTo" value={redirectTo} />
+            <input type="hidden" name="redirectTo" defaultValue={redirectTo} />
 
             {actionData?.error && (
               <div className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">

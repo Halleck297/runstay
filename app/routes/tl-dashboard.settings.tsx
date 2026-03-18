@@ -3,10 +3,7 @@ import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { ControlPanelLayout } from "~/components/ControlPanelLayout";
-import { buildTeamLeaderNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
-import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
 import { isTeamLeader } from "~/lib/user-access";
 
 export const meta: MetaFunction = () => [{ title: "Team Leader Settings - Runoot" }];
@@ -16,7 +13,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (!isTeamLeader(user)) return redirect("/listings");
 
   const userId = (user as any).id as string;
-  const eventNotificationSummary = await getTlEventNotificationSummary(userId);
 
   const { data: visibility } = await (supabaseAdmin as any)
     .from("profiles")
@@ -38,7 +34,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return {
     user,
     blockedUsers: blockedUsers || [],
-    eventUnreadCount: eventNotificationSummary.totalUnread,
     visibility: {
       public_profile_enabled: visibility?.public_profile_enabled ?? true,
       public_show_personal_info: visibility?.public_show_personal_info ?? true,
@@ -88,7 +83,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function TLSettingsPage() {
   const { t } = useI18n();
-  const { user, blockedUsers, eventUnreadCount, visibility } = useLoaderData<typeof loader>();
+  const { user, blockedUsers, visibility } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
     | { error?: string }
     | { success?: boolean; action?: "unblocked" | "visibility_updated" }
@@ -97,20 +92,7 @@ export default function TLSettingsPage() {
   const isUnblocking = navigation.state === "submitting" && navigation.formData?.get("intent") === "unblock";
 
   return (
-    <ControlPanelLayout
-      panelLabel={t("tl.panel_label")}
-      mobileTitle={t("tl.mobile_title")}
-      homeTo="/tl-dashboard"
-      compactSidebarUnder391
-      user={{
-        fullName: (user as any).full_name,
-        email: (user as any).email,
-        roleLabel: t("tl.role_label"),
-        avatarUrl: (user as any).avatar_url,
-      }}
-      navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
-    >
-      <div className="min-h-full">
+    <div className="min-h-full">
         <main id="tl-settings-main" className="scroll-mt-32 bg-white px-0 py-6 pb-28 md:mx-auto md:max-w-7xl md:scroll-mt-0 md:bg-transparent md:px-8 md:py-8 md:pb-8">
           <div className="md:rounded-3xl md:border md:border-brand-300 md:bg-white md:p-6">
           <div className="mb-6 text-center">
@@ -325,6 +307,5 @@ export default function TLSettingsPage() {
           </div>
         </main>
       </div>
-    </ControlPanelLayout>
   );
 }

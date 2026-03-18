@@ -14,8 +14,10 @@ export type TransferType = "official_process" | "package" | "contact";
 export type Currency = "EUR" | "USD" | "GBP" | "JPY" | "CAD" | "CHF" | "AUD";
 export type ReferralStatus = "registered" | "active" | "inactive";
 export type NotificationType = "referral_signup" | "referral_active" | "tl_promoted" | "system" | "listing_approved" | "listing_rejected";
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+
 // Estendi il tipo Profile con unreadCount (usato nel root loader)
-export type ProfileWithUnread = Database["public"]["Tables"]["profiles"]["Row"] & {
+export type ProfileWithUnread = Profile & {
   unreadCount?: number;
 };
 

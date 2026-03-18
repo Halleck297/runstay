@@ -6,10 +6,7 @@ import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useEffect, useState, type MouseEvent } from "react";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
-import { ControlPanelLayout } from "~/components/ControlPanelLayout";
-import { buildTeamLeaderNavItems } from "~/components/panelNav";
 import { useI18n } from "~/hooks/useI18n";
-import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
 import { isTeamLeader } from "~/lib/user-access";
 
 const MAX_BATCH_INVITES = 10;
@@ -48,8 +45,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (!isTeamLeader(user)) {
     throw redirect("/to-panel");
   }
-  const eventNotificationSummary = await getTlEventNotificationSummary((user as any).id);
-
   // Fetch referrals with user details
   const { data: referrals } = await supabaseAdmin
     .from("referrals")
@@ -191,7 +186,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
       teamConversationsStarted,
     },
     recentInvites: recentInvites || [],
-    eventUnreadCount: eventNotificationSummary.totalUnread,
   };
 }
 
@@ -454,7 +448,6 @@ export default function TLDashboard() {
     referredUsers,
     stats,
     recentInvites,
-    eventUnreadCount,
   } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
     | { error?: string; success?: boolean; message?: string; errorKey?: never; messageKey?: never }
@@ -555,21 +548,8 @@ export default function TLDashboard() {
   const renderedTimelineItems = timelineHydrated ? timelineItems : [];
 
   return (
-    <ControlPanelLayout
-      panelLabel={t("tl.panel_label")}
-      mobileTitle={t("tl.mobile_title")}
-      homeTo="/tl-dashboard"
-      compactSidebarUnder391
-      user={{
-        fullName: (user as any).full_name,
-        email: (user as any).email,
-        roleLabel: t("tl.role_label"),
-        avatarUrl: (user as any).avatar_url,
-      }}
-      navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
-      topContent={topContent}
-    >
-      <div className="min-h-full px-0 pt-0 pb-8 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
+    <div className="min-h-full px-0 pt-0 pb-8 md:mx-auto md:max-w-7xl md:px-8 md:py-8 md:pb-8">
+      {topContent}
       {/* Action feedback */}
       {actionError && (
         <div className="mb-4 p-3 bg-alert-50 text-alert-700 text-sm md:rounded-lg">
@@ -662,7 +642,6 @@ export default function TLDashboard() {
         )}
       </div>
 
-      </div>
-    </ControlPanelLayout>
+    </div>
   );
 }

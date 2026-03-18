@@ -1,11 +1,11 @@
 // app/routes/messages.tsx
 import type { LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
-import { Outlet, Link, useLoaderData, useParams, useSearchParams } from "react-router";
+import { Outlet, Link, useLoaderData, useParams, useSearchParams, useNavigate } from "react-router";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { Header } from "~/components/Header";
-import { FooterLight } from "~/components/FooterLight";
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
 import { buildTeamLeaderNavItems, tourOperatorNavItems } from "~/components/panelNav";
 import { useRealtimeConversations } from "~/hooks/useRealtimeConversations";
@@ -14,15 +14,65 @@ import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.serv
 import { isTeamLeader, isTourOperator } from "~/lib/user-access";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
+type MessagesUser = {
+  id: string;
+  full_name?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+};
+
+type MessagesListing = {
+  id: string;
+  title?: string | null;
+  listing_type?: string | null;
+  author_id?: string | null;
+};
+
+type MessagesParticipant = {
+  id: string;
+  full_name?: string | null;
+  company_name?: string | null;
+  user_type?: string | null;
+  avatar_url?: string | null;
+};
+
+type MessagesPreview = {
+  id: string;
+  content?: string | null;
+  sender_id: string;
+  created_at: string;
+  read_at?: string | null;
+  message_type?: string | null;
+  translated_content?: string | null;
+};
+
+type ConversationListItem = {
+  id: string;
+  short_id?: string;
+  listing_id: string;
+  participant_1: string;
+  participant_2: string;
+  updated_at: string;
+  deleted_by_1?: boolean;
+  deleted_by_2?: boolean;
+  activated?: boolean;
+  listing?: MessagesListing | null;
+  participant1?: MessagesParticipant | null;
+  participant2?: MessagesParticipant | null;
+  messages?: MessagesPreview[];
+  unread_count?: number;
+};
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  const userId = (user as any).id as string;
+  const typedUser = user as MessagesUser;
+  const userId = typedUser.id;
   const url = new URL(request.url);
   const eventNotificationSummary = isTeamLeader(user)
     ? await getTlEventNotificationSummary(userId)
     : { totalUnread: 0 };
 
-  const { data: allConversations } = await supabaseAdmin
+  const { data: allConversationsRaw } = await supabaseAdmin
     .from("conversations")
     .select(
       `
@@ -38,7 +88,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .order("created_at", { ascending: false, foreignTable: "messages" })
     .limit(1, { foreignTable: "messages" });
 
-  const conversationIds = (allConversations || []).map((conv: any) => conv.id);
+  const allConversations = (allConversationsRaw || []) as unknown as ConversationListItem[];
+  const conversationIds = allConversations.map((conv) => conv.id);
   const unreadCountByConversation: Record<string, number> = {};
   if (conversationIds.length > 0) {
     const { data: unreadRows } = await supabaseAdmin
@@ -48,16 +99,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
       .neq("sender_id", userId)
       .is("read_at", null);
 
-    for (const row of unreadRows || []) {
-      const conversationId = (row as any).conversation_id as string;
+    for (const row of (unreadRows || []) as { conversation_id: string }[]) {
+      const conversationId = row.conversation_id;
       unreadCountByConversation[conversationId] = (unreadCountByConversation[conversationId] || 0) + 1;
     }
   }
 
   // Filter out non-activated conversations for non-owners
   // Non-activated convos are only visible to the listing owner
-  const conversations = (allConversations || [])
-    .filter((conv: any) => {
+  const conversations = allConversations
+    .filter((conv) => {
       const isDeletedForCurrentUser =
         (conv.participant_1 === userId && conv.deleted_by_1) ||
         (conv.participant_2 === userId && conv.deleted_by_2);
@@ -68,20 +119,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
       // If not activated, only show to listing owner
       return conv.listing?.author_id === userId;
     })
-    .map((conv: any) => ({
+    .map((conv) => ({
       ...conv,
       unread_count: unreadCountByConversation[conv.id] || 0,
     }));
-
-  // Auto-redirect to most recent conversation ONLY on desktop
-  // On mobile, we want to show the conversation list first
-  // We detect mobile via user-agent (not perfect but good enough for initial load)
-  const userAgent = request.headers.get("user-agent") || "";
-  const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-
-  if (url.pathname === "/messages" && !url.searchParams.get("c") && conversations && conversations.length > 0 && !isMobile) {
-    return redirect(`/messages?c=${(conversations[0] as any).short_id || (conversations[0] as any).id}`);
-  }
 
   return { user, conversations: conversations || [], eventUnreadCount: eventNotificationSummary.totalUnread };
 }
@@ -89,8 +130,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function MessagesLayout() {
   const { t, locale } = useI18n();
   const { user, conversations: initialConversations, eventUnreadCount } = useLoaderData<typeof loader>();
+  const typedUser = user as MessagesUser;
+  const userId = typedUser.id;
   const [searchParams] = useSearchParams();
   const params = useParams();
+  const navigate = useNavigate();
   const activeConversationId = searchParams.get("c") || params.id;
   const mobileSubtitle = activeConversationId ? undefined : t("messages.title");
 
@@ -120,9 +164,43 @@ export default function MessagesLayout() {
 
   // Use realtime conversations hook
   const { conversations } = useRealtimeConversations({
-    userId: (user as any).id,
-    initialConversations: initialConversations as any[],
+    userId,
+    initialConversations: initialConversations as ConversationListItem[],
   });
+
+  // Scroll conversation list to top when showing the list (no active conversation)
+  const conversationListRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (!activeConversationId && conversationListRef.current) {
+      conversationListRef.current.scrollTop = 0;
+    }
+  }, [activeConversationId]);
+
+  // Auto-redirect to last conversation on desktop
+  useEffect(() => {
+    if (!activeConversationId && conversations.length > 0 && window.innerWidth >= 768) {
+      const first = conversations[0];
+      navigate(`/messages?c=${first.short_id || first.id}`, { replace: true });
+    }
+  }, []);
+
+  const panelConfig = isTeamLeader(user)
+    ? {
+        panelLabel: "Team Leader Panel",
+        mobileTitle: "Team Leader",
+        homeTo: "/tl-dashboard",
+        roleLabel: "team leader",
+        navItems: buildTeamLeaderNavItems(eventUnreadCount || 0),
+      }
+    : isTourOperator(user)
+      ? {
+          panelLabel: "Tour Operator Panel",
+          mobileTitle: "Tour Operator",
+          homeTo: "/to-panel",
+          roleLabel: "tour operator",
+          navItems: tourOperatorNavItems,
+        }
+      : null;
 
   const messagesContent = (
     <div className="flex-1 overflow-hidden md:overflow-x-auto md:overflow-y-hidden md:bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px]">
@@ -133,12 +211,13 @@ export default function MessagesLayout() {
       {/* Mobile: mostra solo quando NON c'è conversazione attiva */}
       {/* Desktop: mostra sempre */}
       <aside
+        ref={conversationListRef}
         className={`w-full md:w-80 lg:w-96 md:shrink-0 bg-white/95 backdrop-blur-[2px] md:rounded-l-3xl flex flex-col overflow-y-auto border-r border-gray-200 ${
           activeConversationId ? "hidden md:flex" : "flex"
         }`}
       >
         {/* Header lista */}
-        <div className="hidden sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-4 py-2.5 items-center justify-center h-[58px] md:flex md:h-[84px] md:p-4 md:pt-6">
+        <div className={`sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-4 py-2.5 items-center justify-center h-[58px] md:flex md:h-[84px] md:p-4 md:pt-6 ${panelConfig ? "hidden md:flex" : "flex"}`}>
           <h1 className="text-center font-display text-xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">
             {t("messages.title")}
           </h1>
@@ -148,28 +227,28 @@ export default function MessagesLayout() {
         <div className="flex-1">
           {conversations.length > 0 ? (
             <div>
-              {conversations.map((conv: any) => {
+              {conversations.map((conv: ConversationListItem) => {
                 const otherUser =
-                  conv.participant_1 === (user as any).id
+                  conv.participant_1 === userId
                     ? conv.participant2
                     : conv.participant1;
 
                 const sortedMessages = [...(conv.messages || [])].sort(
-                  (a: any, b: any) =>
+                  (a, b) =>
                     new Date(b.created_at).getTime() -
                     new Date(a.created_at).getTime()
                 );
                 const lastMessage = sortedMessages[0];
                 const previewMessage =
-                  sortedMessages.find((m: any) => m.message_type !== "heart") || lastMessage;
-                const hasListingSavedMarker = sortedMessages.some((m: any) => m.message_type === "heart");
+                  sortedMessages.find((m) => m.message_type !== "heart") || lastMessage;
+                const hasListingSavedMarker = sortedMessages.some((m) => m.message_type === "heart");
 
                 const unreadCount =
                   typeof conv.unread_count === "number"
                     ? conv.unread_count
                     : conv.messages?.filter(
-                        (m: any) => m.sender_id !== (user as any).id && !m.read_at
-                      ).length;
+                        (m) => m.sender_id !== userId && !m.read_at
+                      ).length ?? 0;
 
                 const convPublicId = conv.short_id || conv.id;
                 const isActive = convPublicId === activeConversationId;
@@ -179,7 +258,7 @@ export default function MessagesLayout() {
                   <Link
                     key={conv.id}
                     to={`/messages?c=${convPublicId}`}
-                    className={`relative flex items-center gap-3 border-y border-gray-200 p-4 hover:bg-[#ECF4FE] transition-all duration-200 ease-out ${
+                    className={`relative flex items-center gap-3 border-y border-gray-200 p-4 hover:bg-[#ECF4FE] transition-all duration-200 ease-out [-webkit-tap-highlight-color:transparent] ${
                       isActive ? "md:bg-[#ECF4FE] md:shadow-sm" : "md:hover:-translate-y-[1px] md:hover:shadow-sm"
                     }`}
                   >
@@ -228,7 +307,7 @@ export default function MessagesLayout() {
                             const previewText =
                               previewMessage.message_type === "heart"
                                 ? ""
-                                : previewMessage.sender_id === (user as any).id
+                                : previewMessage.sender_id === userId
                                   ? (previewMessage.content || "").trim()
                                   : (previewMessage.translated_content || previewMessage.content || "").trim();
                             const ownPrefix = t("messages.you_prefix");
@@ -239,7 +318,7 @@ export default function MessagesLayout() {
                             }`}
                           >
                             {previewText
-                              ? previewMessage.sender_id === (user as any).id
+                              ? previewMessage.sender_id === userId
                                 ? (
                                   <>
                                     <span className="text-gray-400">{ownPrefix} </span>
@@ -302,10 +381,6 @@ export default function MessagesLayout() {
           )}
         </div>
 
-        {/* Footer mobile - solo quando lista conversazioni è visibile */}
-        <div className="md:hidden">
-          <FooterLight />
-        </div>
       </aside>
 
       {/* Area centrale: Conversazione attiva */}
@@ -321,44 +396,23 @@ export default function MessagesLayout() {
       </div>
   );
 
-  if (isTeamLeader(user)) {
+  if (panelConfig) {
     return (
       <ControlPanelLayout
-        panelLabel="Team Leader Panel"
-        mobileTitle="Team Leader"
+        panelLabel={panelConfig.panelLabel}
+        mobileTitle={panelConfig.mobileTitle}
         mobileSubtitle={mobileSubtitle}
-        homeTo="/tl-dashboard"
+        homeTo={panelConfig.homeTo}
         user={{
-          fullName: (user as any).full_name as string | null | undefined,
-          email: (user as any).email as string | null | undefined,
-          roleLabel: "team leader",
-          avatarUrl: (user as any).avatar_url as string | null | undefined,
+          fullName: typedUser.full_name,
+          email: typedUser.email,
+          roleLabel: panelConfig.roleLabel,
+          avatarUrl: typedUser.avatar_url,
         }}
-        navItems={buildTeamLeaderNavItems(eventUnreadCount || 0)}
+        navItems={panelConfig.navItems}
+        fixedHeight
       >
-        <div className="messages-page m-0 flex h-full min-h-0 flex-col">
-          {messagesContent}
-        </div>
-      </ControlPanelLayout>
-    );
-  }
-
-  if (isTourOperator(user)) {
-    return (
-      <ControlPanelLayout
-        panelLabel="Tour Operator Panel"
-        mobileTitle="Tour Operator"
-        mobileSubtitle={mobileSubtitle}
-        homeTo="/to-panel"
-        user={{
-          fullName: (user as any).full_name as string | null | undefined,
-          email: (user as any).email as string | null | undefined,
-          roleLabel: "tour operator",
-          avatarUrl: (user as any).avatar_url as string | null | undefined,
-        }}
-        navItems={tourOperatorNavItems}
-      >
-        <div className="messages-page m-0 flex h-full min-h-0 flex-col">
+        <div className="messages-page messages-page-with-panel m-0 flex h-full min-h-0 flex-col">
           {messagesContent}
         </div>
       </ControlPanelLayout>

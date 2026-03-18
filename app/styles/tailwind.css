@@ -45,6 +45,7 @@
 @layer base {
   html {
     @apply scroll-smooth;
+    overflow-x: hidden;
   }
 
   body {
@@ -68,10 +69,13 @@
   /* Override body padding for messages page */
   @media (max-width: 767px) {
     body:has(.messages-page) {
-      padding-top: 0 !important;
       padding-bottom: 0 !important;
       overflow: hidden;
       overscroll-behavior-y: none;
+    }
+
+    body:has(.messages-page.messages-page-with-panel) {
+      padding-top: 0 !important;
     }
   }
 

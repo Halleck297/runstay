@@ -535,12 +535,12 @@ useEffect(() => {
     <>
       {/* Container con immagine di sfondo ai lati */}
       <div
-        className="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed"
+        className="min-h-[100dvh] bg-cover bg-center bg-no-repeat bg-scroll md:min-h-screen md:bg-fixed"
         style={{ backgroundImage: "url('/new-listing.jpg')" }}
       >
         <main className="mx-auto max-w-2xl px-4 py-6 pb-8 md:pb-8 sm:px-6 lg:px-8 max-[390px]:px-3 max-[390px]:py-5">
           <div className="rounded-3xl bg-white/90 backdrop-blur-sm p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)] max-[390px]:p-4">
-            <h1 className="font-display text-xl md:text-3xl font-bold text-gray-900">
+            <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-xl font-bold text-gray-900 md:text-3xl">
               {t("create_listing.title")}
             </h1>
             <p className="mt-1 md:mt-2 text-sm md:text-base text-gray-600">
@@ -643,8 +643,10 @@ useEffect(() => {
 
             {/* Event Selection with Modal */}
             <div className="space-y-4">
-              <h3 className="font-medium text-gray-900 border-b pb-2">
-                {t("edit_listing.running_event")}
+              <h3 className="font-medium text-gray-900">
+                <span className="inline-block border-b-2 border-accent-500 pb-0.5">
+                  {t("edit_listing.running_event")}
+                </span>
               </h3>
               <EventPicker
                 events={events as any}
@@ -659,8 +661,10 @@ useEffect(() => {
             {/* Room Details */}
             {(listingType === "room" || listingType === "room_and_bib") && (
             <div className="space-y-4" id="roomFields">
-              <h3 className="font-medium text-gray-900 border-b pb-2">
-                {t("edit_listing.room_details")}
+              <h3 className="font-medium text-gray-900">
+                <span className="inline-block border-b-2 border-accent-500 pb-0.5">
+                  {t("edit_listing.room_details")}
+                </span>
               </h3>
               <div className="grid gap-4 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
@@ -1004,8 +1008,10 @@ useEffect(() => {
             {!(user.user_type === "private" && listingType === "bib") && (
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="price" className="label mb-3 text-sm md:text-base font-semibold">
-                    {t("edit_listing.amount")}
+                  <label htmlFor="price" className="label mb-3 text-base font-semibold md:text-lg">
+                    <span className="inline-block border-b-2 border-accent-500 pb-0.5">
+                      {t("edit_listing.amount")}
+                    </span>
                   </label>
                   {user.user_type === "tour_operator" && (
                     <p className="mb-2 text-xs text-gray-500">*Required</p>
@@ -1086,7 +1092,7 @@ useEffect(() => {
   name="description"
   rows={4}
   placeholder={t("edit_listing.additional_placeholder")}
-  className={`input rounded-3xl ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`}
+  className={`input ${roomType === "other" ? "required:border-red-500 invalid:border-red-500 focus:invalid:ring-red-500" : ""}`}
   required={roomType === "other"}
 />
             </div>

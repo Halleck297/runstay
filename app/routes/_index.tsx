@@ -1,5 +1,4 @@
 import type { MetaFunction, LoaderFunctionArgs } from "react-router";
-import { data } from "react-router";
 import { Link, useLoaderData, useNavigate, Form } from "react-router";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
@@ -90,20 +89,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const savedListingIds = (savedListingsResult.data || []).map((s: any) => s.listing_id);
 
-  return data(
-    {
-      user,
-      listings: prioritizedListings.slice(0, 3),
-      eventListings: prioritizedEventListings.slice(0, 4),
-      savedListingIds,
-      preferCompactCards,
+  const responseData = {
+    user,
+    listings: prioritizedListings.slice(0, 3),
+    eventListings: prioritizedEventListings.slice(0, 4),
+    savedListingIds,
+    preferCompactCards,
+  };
+
+  return new Response(JSON.stringify(responseData), {
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "private, no-store",
     },
-    {
-      headers: {
-        "Cache-Control": "private, no-store",
-      },
-    }
-  );
+  });
 
 }
 
@@ -310,7 +309,7 @@ export default function Index() {
               className="mx-auto w-full max-w-3xl rounded-3xl md:rounded-full bg-white px-4 py-3 shadow-[0_14px_36px_rgba(0,0,0,0.18)]"
             >
               <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-4">
-                <div className="relative min-w-0 flex-1 rounded-full bg-[#ECF4FE] px-4 py-1" ref={searchRef}>
+                <div className="relative min-w-0 flex-1 rounded-full border border-brand-500 bg-transparent px-4 py-1" ref={searchRef}>
                   <input
                     type="search"
                     name="search"

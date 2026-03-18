@@ -50,7 +50,9 @@ async function proxyRequest(request: Request, splat?: string): Promise<Response>
   }
 
   const upstream = await fetch(targetUrl, init);
-  return new Response(upstream.body, {
+  const noBodyStatuses = new Set([101, 204, 205, 304]);
+  const upstreamBody = noBodyStatuses.has(upstream.status) ? null : await upstream.arrayBuffer();
+  return new Response(upstreamBody, {
     status: upstream.status,
     statusText: upstream.statusText,
     headers: sanitizeResponseHeaders(upstream.headers),

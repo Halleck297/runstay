@@ -26,7 +26,13 @@ export async function loader(args: LoaderFunctionArgs) {
   if (payload instanceof Response) {
     const headers = new Headers(payload.headers);
     headers.append("Set-Cookie", localeCookie);
-    return new Response(payload.body, {
+    let body: BodyInit | null = null;
+    try {
+      body = await payload.clone().arrayBuffer();
+    } catch {
+      body = null;
+    }
+    return new Response(body, {
       status: payload.status,
       statusText: payload.statusText,
       headers,

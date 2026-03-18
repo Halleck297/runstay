@@ -296,7 +296,7 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
                     ? t("edit_listing.search_hotels_in_city").replace("{city}", eventCity)
                     : t("edit_listing.search_hotel_name")
                 }
-                className={`w-full pl-10 pr-4 py-3 border rounded-3xl text-base bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors ${
+                className={`w-full rounded-lg border bg-white py-3 pl-10 pr-4 text-base transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 ${
                   hasError ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
                 }`}
                 autoComplete="off"
@@ -480,7 +480,7 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
           */}
         </div>
       ) : (
-        <div className="flex items-start sm:items-center justify-between gap-3 rounded-3xl border border-green-500 bg-green-50 p-4">
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-green-500 bg-green-50 p-4 sm:items-center">
           {/* Hidden inputs quando hotel è selezionato */}
           <input type="hidden" name="hotelPlaceId" value={selectedHotel?.placeId || ""} />
           <input type="hidden" name="hotelName" value={selectedHotel?.name || ""} />

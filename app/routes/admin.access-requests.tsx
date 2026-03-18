@@ -8,6 +8,23 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 export const meta: MetaFunction = () => [{ title: "Access Requests - Admin - Runoot" }];
 
 const PAGE_SIZE = 30;
+const ACCESS_REQUESTS_SELECT_WITH_DOB =
+  "id, full_name, email, country, city, phone, date_of_birth, preferred_language, note, source, status, reviewed_by, reviewed_at, created_at";
+const ACCESS_REQUESTS_SELECT_LEGACY =
+  "id, full_name, email, country, city, phone, preferred_language, note, source, status, reviewed_by, reviewed_at, created_at";
+
+function isMissingColumnError(error: unknown, columnName: string): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = String((error as any).code || "");
+  const message = String((error as any).message || "").toLowerCase();
+  const column = columnName.toLowerCase();
+  return (
+    code === "PGRST204" ||
+    code === "42703" ||
+    (message.includes("schema cache") && message.includes(column)) ||
+    (message.includes(column) && (message.includes("does not exist") || message.includes("unknown column")))
+  );
+}
 
 function randomTempPassword() {
   return `Runoot!${Math.random().toString(36).slice(2, 10)}A1`;
@@ -85,22 +102,35 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const search = (url.searchParams.get("search") || "").trim();
   const page = Number.parseInt(url.searchParams.get("page") || "1", 10) || 1;
 
-  let query = (supabaseAdmin.from("access_requests" as any) as any)
-    .select("id, full_name, email, country, city, phone, date_of_birth, preferred_language, note, source, status, reviewed_by, reviewed_at, created_at", {
-      count: "exact",
-    })
-    .order("created_at", { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+  const loadRequestsPage = async (selectColumns: string) => {
+    let query = (supabaseAdmin.from("access_requests" as any) as any)
+      .select(selectColumns, { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
-  if (["pending", "approved", "rejected"].includes(status)) {
-    query = query.eq("status", status);
+    if (["pending", "approved", "rejected"].includes(status)) {
+      query = query.eq("status", status);
+    }
+
+    if (search) {
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+    }
+
+    return query;
+  };
+
+  let { data: requests, count, error: requestsError } = await loadRequestsPage(ACCESS_REQUESTS_SELECT_WITH_DOB);
+  if (requestsError && isMissingColumnError(requestsError, "date_of_birth")) {
+    ({ data: requests, count, error: requestsError } = await loadRequestsPage(ACCESS_REQUESTS_SELECT_LEGACY));
   }
-
-  if (search) {
-    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+  if (requestsError) {
+    console.error("admin.access_requests.loader query failed", {
+      code: (requestsError as any).code || null,
+      message: (requestsError as any).message || null,
+      details: (requestsError as any).details || null,
+      hint: (requestsError as any).hint || null,
+    });
   }
-
-  const { data: requests, count } = await query;
 
   const [pendingAgg, approvedAgg, rejectedAgg] = await Promise.all([
     (supabaseAdmin.from("access_requests" as any) as any).select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -110,6 +140,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   return {
     requests: requests || [],
+    loadError: requestsError ? "Could not load access requests." : null,
     status,
     search,
     page,
@@ -134,10 +165,32 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: "Missing request id" }, { status: 400 });
   }
 
-  const { data: accessRequest } = await (supabaseAdmin.from("access_requests" as any) as any)
-    .select("id, full_name, email, country, city, phone, date_of_birth, preferred_language, status")
+  const accessRequestSelectWithDob =
+    "id, full_name, email, country, city, phone, date_of_birth, preferred_language, status";
+  const accessRequestSelectLegacy =
+    "id, full_name, email, country, city, phone, preferred_language, status";
+
+  let { data: accessRequest, error: accessRequestError } = await (supabaseAdmin.from("access_requests" as any) as any)
+    .select(accessRequestSelectWithDob)
     .eq("id", requestId)
     .maybeSingle();
+
+  if (accessRequestError && isMissingColumnError(accessRequestError, "date_of_birth")) {
+    ({ data: accessRequest, error: accessRequestError } = await (supabaseAdmin.from("access_requests" as any) as any)
+      .select(accessRequestSelectLegacy)
+      .eq("id", requestId)
+      .maybeSingle());
+  }
+
+  if (accessRequestError) {
+    console.error("admin.access_requests.action load request failed", {
+      code: (accessRequestError as any).code || null,
+      message: (accessRequestError as any).message || null,
+      details: (accessRequestError as any).details || null,
+      hint: (accessRequestError as any).hint || null,
+    });
+    return data({ error: "Could not load request details." }, { status: 500 });
+  }
 
   if (!accessRequest) {
     return data({ error: "Request not found" }, { status: 404 });
@@ -249,7 +302,7 @@ function formatDateStable(value: string) {
 }
 
 export default function AdminAccessRequests() {
-  const { requests, status, search, page, totalPages, counts } = useLoaderData<typeof loader>();
+  const { requests, loadError, status, search, page, totalPages, counts } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as { error?: string; success?: boolean; message?: string } | undefined;
 
   const tabHref = (tab: "pending" | "approved" | "rejected") => {
@@ -278,6 +331,9 @@ export default function AdminAccessRequests() {
 
       {actionData?.error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionData.error}</div>
+      )}
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>
       )}
       {actionData?.success && actionData.message && (
         <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{actionData.message}</div>

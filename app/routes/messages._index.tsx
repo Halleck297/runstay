@@ -1,6 +1,10 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
 import { Link, useSearchParams } from "react-router";
+// NOTE: This route implements the canonical ?c=<id> URL pattern for conversations.
+// React Router v7 does not support query-param-based routing natively, so this
+// route intentionally delegates its loader/action/component to messages.$id.
+// If messages.$id exports change, update this file accordingly.
 import Conversation, { action as conversationAction, loader as conversationLoader } from "./messages.$id";
 import { useI18n } from "~/hooks/useI18n";
 
