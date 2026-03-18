@@ -13,6 +13,7 @@ import {
 import CookieBanner from "~/components/CookieBanner";
 import { MobileNav } from "~/components/MobileNav";
 import { identifyUser, resetAnalytics, trackPage } from "~/lib/analytics/client";
+import { needsAdminPhoneVerification } from "~/lib/user-access";
 import "./styles/tailwind.css";
 
 export const links: LinksFunction = () => [
@@ -34,6 +35,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
   const currentCookieLocale = getLocaleFromCookie(request.headers.get("Cookie"));
   const shouldSetLocaleCookie = currentCookieLocale !== locale;
+
+  if (needsAdminPhoneVerification(user)) {
+    const pathname = url.pathname;
+    const isAllowedPath =
+      pathname === "/verify-phone" ||
+      pathname === "/logout" ||
+      pathname.startsWith("/api/") ||
+      pathname === "/auth/session/bootstrap";
+    if (!isAllowedPath) {
+      const headers = new Headers();
+      if (shouldSetLocaleCookie) {
+        headers.append("Set-Cookie", buildLocaleCookie(locale));
+      }
+      return redirect("/verify-phone", {
+        status: 307,
+        headers,
+      });
+    }
+  }
 
   if (url.pathname === "/") {
     return redirect(`/${locale}${url.search}`, {

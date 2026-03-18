@@ -35,12 +35,8 @@ export async function createUserSession(
   redirectTo: string,
   options?: { additionalSetCookies?: string[] }
 ) {
-  const session = await storage.getSession();
-  session.set("userId", userId);
-  session.set("accessToken", accessToken);
-  session.set("refreshToken", refreshToken);
-
-  const setCookies = [await storage.commitSession(session), ...(options?.additionalSetCookies || [])];
+  const sessionCookie = await commitUserSessionCookie(userId, accessToken, refreshToken);
+  const setCookies = [sessionCookie, ...(options?.additionalSetCookies || [])];
   const headers = new Headers();
   for (const cookie of setCookies) {
     headers.append("Set-Cookie", cookie);
@@ -49,6 +45,23 @@ export async function createUserSession(
   return redirect(redirectTo, {
     headers,
   });
+}
+
+export async function commitUserSessionCookie(
+  userId: string,
+  accessToken: string,
+  refreshToken: string
+) {
+  const session = await storage.getSession();
+  session.set("userId", userId);
+  session.set("accessToken", accessToken);
+  session.set("refreshToken", refreshToken);
+  return storage.commitSession(session);
+}
+
+export async function destroyUserSessionCookie(request: Request) {
+  const session = await getUserSession(request);
+  return storage.destroySession(session);
 }
 
 export async function getUserSession(request: Request) {

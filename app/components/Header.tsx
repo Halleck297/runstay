@@ -24,6 +24,13 @@ export function Header({ user, isHome = false }: HeaderProps) {
   const tourOperator = isTourOperator(user);
   const adminUser = isAdmin(user);
   const displayName = getPublicDisplayName(user);
+  const dropdownDisplayName = (() => {
+    if (!displayName) return t("common.user");
+    if (!user || tourOperator) return displayName;
+    const trimmed = String(displayName).trim();
+    const firstName = trimmed.split(/\s+/)[0];
+    return firstName || trimmed;
+  })();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -129,7 +136,7 @@ export function Header({ user, isHome = false }: HeaderProps) {
   {hasAnyUnread && (
     <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
   )}
-  <span className="text-sm font-bold max-w-[150px] truncate">{displayName}</span>
+  <span className="text-sm font-bold max-w-[150px] truncate">{dropdownDisplayName}</span>
   <svg
     className={`h-4 w-4 ${isHome ? "text-white" : "text-accent-500"} transition-transform flex-shrink-0 ${isMenuOpen ? 'rotate-180' : ''}`}
     fill="none"

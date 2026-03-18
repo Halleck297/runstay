@@ -4,15 +4,31 @@ import { Form, Link, useActionData, useSearchParams } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
 import { createUserSession, getUserId, getUser } from "~/lib/session.server";
-import { getDefaultAppPath } from "~/lib/user-access";
+import { getDefaultAppPath, needsAdminPhoneVerification } from "~/lib/user-access";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Login - Runoot" }];
 };
 
+function isMissingColumnError(error: unknown, columnName: string): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = String((error as any).code || "");
+  const message = String((error as any).message || "").toLowerCase();
+  const column = columnName.toLowerCase();
+  return (
+    code === "PGRST204" ||
+    code === "42703" ||
+    (message.includes("schema cache") && message.includes(column)) ||
+    (message.includes(column) && (message.includes("does not exist") || message.includes("unknown column")))
+  );
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   if (user) {
+    if (needsAdminPhoneVerification(user)) {
+      return redirect("/verify-phone");
+    }
     return redirect(getDefaultAppPath(user));
   }
   return {};
@@ -75,15 +91,21 @@ export async function action({ request }: ActionFunctionArgs) {
     .in("status", ["registered", "inactive"]);
 
   // Get user profile to determine redirect
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("user_type")
+  let { data: profile, error: profileError } = await (supabaseAdmin.from("profiles") as any)
+    .select("user_type, created_by_admin, phone_verified_at")
     .eq("id", authData.user.id)
     .single();
+  if (profileError && isMissingColumnError(profileError, "phone_verified_at")) {
+    ({ data: profile, error: profileError } = await (supabaseAdmin.from("profiles") as any)
+      .select("user_type, created_by_admin")
+      .eq("id", authData.user.id)
+      .single());
+  }
 
-  const defaultPath = getDefaultAppPath(profile);
+  const requiresPhoneVerification = needsAdminPhoneVerification(profile);
+  const defaultPath = requiresPhoneVerification ? "/verify-phone" : getDefaultAppPath(profile);
   let redirectTo = defaultPath;
-  if (redirectToParam && redirectToParam !== defaultPath) {
+  if (!requiresPhoneVerification && redirectToParam && redirectToParam !== defaultPath) {
     redirectTo = redirectToParam;
   }
 

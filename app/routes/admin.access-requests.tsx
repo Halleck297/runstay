@@ -197,6 +197,32 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: "Request not found" }, { status: 404 });
   }
 
+  if (actionType === "delete_request") {
+    const { error: deleteError } = await (supabaseAdmin.from("access_requests" as any) as any)
+      .delete()
+      .eq("id", requestId);
+
+    if (deleteError) {
+      console.error("admin.access_requests.action delete failed", {
+        code: (deleteError as any).code || null,
+        message: (deleteError as any).message || null,
+        details: (deleteError as any).details || null,
+        hint: (deleteError as any).hint || null,
+      });
+      return data({ error: "Could not delete request." }, { status: 500 });
+    }
+
+    await logAdminAction(adminId, "access_request_deleted", {
+      details: {
+        access_request_id: requestId,
+        email: (accessRequest as any).email,
+        previous_status: (accessRequest as any).status,
+      },
+    });
+
+    return data({ success: true, message: "Request deleted." });
+  }
+
   if (actionType === "reject") {
     await (supabaseAdmin.from("access_requests" as any) as any)
       .update({ status: "rejected", reviewed_by: adminId, reviewed_at: new Date().toISOString() })
@@ -407,11 +433,41 @@ export default function AdminAccessRequests() {
                       <input type="hidden" name="requestId" value={req.id} />
                       <button type="submit" className="btn-secondary w-full md:w-auto">Reject</button>
                     </Form>
+                    <Form
+                      method="post"
+                      onSubmit={(event) => {
+                        if (!window.confirm("Delete this access request? This action cannot be undone.")) {
+                          event.preventDefault();
+                        }
+                      }}
+                    >
+                      <input type="hidden" name="_action" value="delete_request" />
+                      <input type="hidden" name="requestId" value={req.id} />
+                      <button type="submit" className="w-full rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 md:w-auto">
+                        Delete
+                      </button>
+                    </Form>
                   </div>
                 ) : (
-                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${req.status === "approved" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                    {req.status}
-                  </span>
+                  <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${req.status === "approved" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                      {req.status}
+                    </span>
+                    <Form
+                      method="post"
+                      onSubmit={(event) => {
+                        if (!window.confirm("Delete this access request? This action cannot be undone.")) {
+                          event.preventDefault();
+                        }
+                      }}
+                    >
+                      <input type="hidden" name="_action" value="delete_request" />
+                      <input type="hidden" name="requestId" value={req.id} />
+                      <button type="submit" className="w-full rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 md:w-auto">
+                        Delete
+                      </button>
+                    </Form>
+                  </div>
                 )}
               </div>
             </div>

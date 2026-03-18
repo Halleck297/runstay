@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MetaFunction } from "react-router";
 import { Link, useNavigate } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
@@ -19,6 +19,7 @@ export default function ResetPassword() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const supabase = useMemo(() => (typeof window !== "undefined" ? getSupabaseBrowserClient() : null), []);
+  const initDoneRef = useRef(false);
 
   const [state, setState] = useState<ResetState>("checking");
   const [password, setPassword] = useState("");
@@ -27,6 +28,8 @@ export default function ResetPassword() {
 
   useEffect(() => {
     if (!supabase || typeof window === "undefined") return;
+    if (initDoneRef.current) return;
+    initDoneRef.current = true;
     const client = supabase;
 
     let mounted = true;
@@ -35,6 +38,7 @@ export default function ResetPassword() {
       try {
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
+        let shouldCleanUrl = false;
 
         if (code) {
           const { error } = await client.auth.exchangeCodeForSession(window.location.href);
@@ -43,6 +47,9 @@ export default function ResetPassword() {
             setMessage(t("auth.reset_link_invalid"));
             return;
           }
+          url.searchParams.delete("code");
+          url.searchParams.delete("type");
+          shouldCleanUrl = true;
         }
 
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -59,6 +66,12 @@ export default function ResetPassword() {
             setMessage(t("auth.reset_link_invalid"));
             return;
           }
+          shouldCleanUrl = true;
+        }
+
+        if (shouldCleanUrl) {
+          // Tokens are one-time sensitive values; remove them from URL after bootstrap.
+          window.history.replaceState({}, document.title, `${url.pathname}${url.search}`);
         }
 
         const { data } = await client.auth.getSession();
@@ -96,7 +109,7 @@ export default function ResetPassword() {
     }
     if (!isStrongEnoughPassword(password)) {
       setState("error");
-      setMessage("Password must include at least one number and one symbol.");
+      setMessage(t("join_referral.error.password_requirements"));
       return;
     }
 
@@ -116,23 +129,54 @@ export default function ResetPassword() {
       return;
     }
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token || !session?.refresh_token) {
+      setState("error");
+      setMessage(t("auth.failed_update_password"));
+      return;
+    }
+
+    const bootstrapResponse = await fetch("/auth/session/bootstrap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        createSessionIfRequired: true,
+      }),
+    });
+
+    if (!bootstrapResponse.ok) {
+      setState("error");
+      setMessage(t("auth.failed_update_password"));
+      return;
+    }
+    const bootstrapPayload = (await bootstrapResponse.json().catch(() => ({}))) as {
+      requiresPhoneVerification?: boolean;
+    };
+    if (bootstrapPayload.requiresPhoneVerification) {
+      navigate("/verify-phone");
+      return;
+    }
+
     await supabase.auth.signOut();
     setState("success");
     setMessage(t("auth.password_updated_success"));
-
-    setTimeout(() => {
-      navigate("/login");
-    }, 1000);
   }
 
   return (
     <div className="flex min-h-full flex-col justify-center bg-[#ECF4FE] py-12 sm:px-6 lg:px-8">
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-8 shadow-sm sm:px-10">
+        <div className="rounded-2xl border border-brand-500 bg-white px-4 py-8 shadow-sm sm:px-10">
           <Link to="/" className="mb-5 flex justify-center" aria-label={t("register.go_home_aria")}>
             <img src="/logo225px.png" alt="Runoot" className="h-[4.5rem] w-auto sm:h-[5.5rem]" />
           </Link>
-          <h1 className="mb-8 text-center font-display text-3xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">
+          <h1 className="mb-8 text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">
             {t("auth.set_new_password")}
           </h1>
 
@@ -150,9 +194,14 @@ export default function ResetPassword() {
 
               <div>
                 <label htmlFor="password" className="label">{t("auth.new_password")}</label>
+                <p className="mb-2 text-xs text-gray-600">{t("join_referral.password_requirements_title")}</p>
+                <ul className="mb-3 list-disc space-y-1 pl-5 text-xs text-gray-600">
+                  <li>{t("join_referral.password_rule_number")}</li>
+                  <li>{t("join_referral.password_rule_symbol")}</li>
+                </ul>
                 <input
                   id="password"
-                  type="password"
+                  type="text"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
@@ -171,7 +220,7 @@ export default function ResetPassword() {
                 <label htmlFor="confirmPassword" className="label">{t("auth.confirm_password")}</label>
                 <input
                   id="confirmPassword"
-                  type="password"
+                  type="text"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   autoComplete="new-password"
@@ -193,14 +242,23 @@ export default function ResetPassword() {
           )}
 
           {state === "success" && (
-            <div className="rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-700">{message}</div>
+            <div className="space-y-4">
+              <div className="rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-700">{message}</div>
+              <div className="flex justify-center">
+                <Link to="/login" className="btn-primary inline-flex rounded-full px-8 py-2.5">
+                  {t("auth.back_to_login")}
+                </Link>
+              </div>
+            </div>
           )}
 
-          <div className="mt-6 text-center">
-            <Link to="/login" className="text-sm font-medium text-brand-600 hover:text-brand-700">
-              {t("auth.back_to_login")}
-            </Link>
-          </div>
+          {state !== "success" && (
+            <div className="mt-6 text-center">
+              <Link to="/login" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                {t("auth.back_to_login")}
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

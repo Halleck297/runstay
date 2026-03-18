@@ -470,6 +470,7 @@ export async function action({ request }: ActionFunctionArgs) {
     country: resolvedCountry.nameEn,
     city: city.trim(),
     phone: normalizedPhone,
+    phone_verified_at: now,
     preferred_language: preferredLanguage,
     date_of_birth: parsedDateOfBirth,
     is_verified: false,

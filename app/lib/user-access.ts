@@ -32,3 +32,10 @@ export function getDefaultAppPath(profile: any): string {
   if (isTourOperator(profile)) return "/to-panel";
   return "/listings";
 }
+
+export function needsAdminPhoneVerification(profile: any): boolean {
+  if (!profile) return false;
+  if (profile.user_type !== "private") return false;
+  if (!Object.prototype.hasOwnProperty.call(profile, "phone_verified_at")) return false;
+  return Boolean(profile.created_by_admin) && !profile.phone_verified_at;
+}
