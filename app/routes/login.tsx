@@ -2,26 +2,14 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useSearchParams } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
-import { supabase, supabaseAdmin } from "~/lib/supabase.server";
-import { createUserSession, getUserId, getUser } from "~/lib/session.server";
+import { supabase, supabaseAdmin, isMissingColumnError } from "~/lib/supabase.server";
+import { createUserSession, getUser } from "~/lib/session.server";
 import { getDefaultAppPath, needsAdminPhoneVerification } from "~/lib/user-access";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Login - Runoot" }];
 };
 
-function isMissingColumnError(error: unknown, columnName: string): boolean {
-  if (!error || typeof error !== "object") return false;
-  const code = String((error as any).code || "");
-  const message = String((error as any).message || "").toLowerCase();
-  const column = columnName.toLowerCase();
-  return (
-    code === "PGRST204" ||
-    code === "42703" ||
-    (message.includes("schema cache") && message.includes(column)) ||
-    (message.includes(column) && (message.includes("does not exist") || message.includes("unknown column")))
-  );
-}
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);

@@ -55,10 +55,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select("*")
     .order("event_date", { ascending: true });
 
-  return { 
-    user, 
+  return {
+    user,
     events: events || [],
-    googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || ""
   };
 }
 
@@ -76,9 +75,6 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Event fields
   const eventId = formData.get("eventId") as string;
-  const newEventName = formData.get("newEventName") as string;
-  const newEventCountry = formData.get("newEventCountry") as string;
-  const newEventDate = formData.get("newEventDate") as string;
   
     // Hotel fields from HotelAutocomplete component
   const hotelPlaceId = formData.get("hotelPlaceId") as string;
@@ -422,7 +418,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function NewListing() {
   const { t } = useI18n();
-  const { user, events, googlePlacesApiKey } = useLoaderData<typeof loader>();
+  const { user, events } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const actionErrorField =
     actionData && "field" in actionData ? actionData.field : undefined;
@@ -670,10 +666,9 @@ useEffect(() => {
                                 <div className="sm:col-span-2">
                   <label className="label">{t("edit_listing.hotel")}</label>
                                    <HotelAutocomplete
-                    apiKey={googlePlacesApiKey}
                     eventCity={selectedEvent?.country}
                     eventCountry={selectedEvent?.country}
-                    onSelectHotel={(hotel) => {
+                    onSelectHotel={() => {
                       // Hotel data is handled via hidden inputs in component
                     }}
                     hasError={actionErrorField === "hotel"}

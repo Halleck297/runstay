@@ -30,6 +30,19 @@ export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseService
   }
 });
 
+export function isMissingColumnError(error: unknown, columnName: string): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = String((error as any).code || "");
+  const message = String((error as any).message || "").toLowerCase();
+  const column = columnName.toLowerCase();
+  return (
+    code === "PGRST204" ||
+    code === "42703" ||
+    (message.includes("schema cache") && message.includes(column)) ||
+    (message.includes(column) && (message.includes("does not exist") || message.includes("unknown column")))
+  );
+}
+
 // Client per operazioni con token utente specifico
 export function getSupabaseClient(accessToken?: string) {
   if (!accessToken) return supabase;

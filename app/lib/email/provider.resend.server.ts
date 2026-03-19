@@ -47,6 +47,7 @@ export async function sendWithResend(input: SendEmailInput): Promise<SendEmailRe
     const responseJson = await response.json().catch(() => ({}));
     return { ok: true, providerId: responseJson?.id };
   } catch (error: any) {
+    console.error("[email:resend] Network error:", error);
     return { ok: false, error: error?.message || "Unexpected error while sending email" };
   }
 }

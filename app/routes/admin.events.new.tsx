@@ -109,7 +109,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     events: events || [],
     sourceRequest,
     sourceListing,
-    googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || "",
   };
 }
 
@@ -380,7 +379,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function AdminCreateEventListingPage() {
-  const { events, sourceRequest, sourceListing, googlePlacesApiKey } = useLoaderData<typeof loader>();
+  const { events, sourceRequest, sourceListing } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
 
@@ -578,7 +577,6 @@ export default function AdminCreateEventListingPage() {
                 <div>
                   <label className="label">Hotel</label>
                   <HotelAutocomplete
-                    apiKey={googlePlacesApiKey}
                     eventCity={selectedEvent?.location || sourceListing?.event?.location || sourceRequest?.event_location || ""}
                     eventCountry={selectedEvent?.country || sourceListing?.event?.country || sourceRequest?.event_location || ""}
                     defaultHotelName={sourceListing?.hotel_name || undefined}

@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { data } from "react-router";
 import { commitUserSessionCookie } from "~/lib/session.server";
-import { getSupabaseClient, supabaseAdmin } from "~/lib/supabase.server";
+import { getSupabaseClient, supabaseAdmin, isMissingColumnError } from "~/lib/supabase.server";
 import { needsAdminPhoneVerification } from "~/lib/user-access";
 
 type BootstrapPayload = {
@@ -10,18 +10,6 @@ type BootstrapPayload = {
   createSessionIfRequired?: boolean;
 };
 
-function isMissingColumnError(error: unknown, columnName: string): boolean {
-  if (!error || typeof error !== "object") return false;
-  const code = String((error as any).code || "");
-  const message = String((error as any).message || "").toLowerCase();
-  const column = columnName.toLowerCase();
-  return (
-    code === "PGRST204" ||
-    code === "42703" ||
-    (message.includes("schema cache") && message.includes(column)) ||
-    (message.includes(column) && (message.includes("does not exist") || message.includes("unknown column")))
-  );
-}
 
 export async function action({ request }: ActionFunctionArgs) {
   if (request.method.toUpperCase() !== "POST") {
