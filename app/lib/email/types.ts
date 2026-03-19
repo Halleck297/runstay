@@ -2,7 +2,6 @@ export type EmailLocale = "en" | "it" | "de" | "fr" | "es" | "nl" | "pt";
 
 export type EmailTemplateId =
   | "referral_invite"
-  | "team_referral_invite"
   | "password_reset"
   | "account_setup"
   | "platform_notification";

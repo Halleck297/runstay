@@ -3,8 +3,8 @@ import type { EmailLocale, RenderedEmailTemplate } from "../types";
 
 const copy = {
   en: {
-    subject: "Runoot invitation",
-    defaultInviter: "A Team Leader",
+    subjectSuffix: "invited you to join runoot",
+    defaultInviter: "Someone",
     title: "You have been invited to join Runoot.",
     intro: "invited you to become part of their team.",
     cta: "Accept invitation",
@@ -18,8 +18,8 @@ const copy = {
       "You are receiving this email because someone invited you to join Runoot.",
   },
   it: {
-    subject: "Invito Runoot",
-    defaultInviter: "Un Team Leader",
+    subjectSuffix: "ti ha invitato a entrare su runoot",
+    defaultInviter: "Qualcuno",
     title: "Sei invitato su Runoot",
     intro: "ti ha invitato nella sua community di corsa.",
     cta: "Accetta invito",
@@ -33,8 +33,8 @@ const copy = {
       "Ricevi questa email perche qualcuno ti ha invitato a entrare in Runoot.",
   },
   de: {
-    subject: "Runoot-Einladung",
-    defaultInviter: "Ein Team Leader",
+    subjectSuffix: "hat dich eingeladen, runoot beizutreten",
+    defaultInviter: "Jemand",
     title: "Du bist zu Runoot eingeladen",
     intro: "hat dich in die Lauf-Community eingeladen.",
     cta: "Einladung annehmen",
@@ -48,8 +48,8 @@ const copy = {
       "Sie erhalten diese E-Mail, weil Sie zu Runoot eingeladen wurden.",
   },
   fr: {
-    subject: "Invitation Runoot",
-    defaultInviter: "Un Team Leader",
+    subjectSuffix: "vous a invite a rejoindre runoot",
+    defaultInviter: "Quelqu'un",
     title: "Vous etes invite sur Runoot",
     intro: "vous a invite dans la communaute running.",
     cta: "Accepter l'invitation",
@@ -63,8 +63,8 @@ const copy = {
       "Vous recevez cet e-mail car quelqu'un vous a invite a rejoindre Runoot.",
   },
   es: {
-    subject: "Invitacion a Runoot",
-    defaultInviter: "Un Team Leader",
+    subjectSuffix: "te ha invitado a unirte a runoot",
+    defaultInviter: "Alguien",
     title: "Estas invitado a Runoot",
     intro: "te ha invitado a su comunidad de running.",
     cta: "Aceptar invitacion",
@@ -78,8 +78,8 @@ const copy = {
       "Recibes este correo porque alguien te ha invitado a unirte a Runoot.",
   },
   nl: {
-    subject: "Runoot-uitnodiging",
-    defaultInviter: "Een Team Leader",
+    subjectSuffix: "heeft je uitgenodigd om je bij runoot aan te sluiten",
+    defaultInviter: "Iemand",
     title: "Je bent uitgenodigd voor Runoot",
     intro: "heeft je uitgenodigd om deel uit te maken van het team.",
     cta: "Uitnodiging accepteren",
@@ -93,8 +93,8 @@ const copy = {
       "Je ontvangt deze e-mail omdat iemand je heeft uitgenodigd voor Runoot.",
   },
   pt: {
-    subject: "Convite Runoot",
-    defaultInviter: "Um Team Leader",
+    subjectSuffix: "convidou voce para entrar na runoot",
+    defaultInviter: "Alguem",
     title: "Voce foi convidado para a Runoot",
     intro: "convidou voce para fazer parte do time.",
     cta: "Aceitar convite",
@@ -109,6 +109,13 @@ const copy = {
   },
 } as const;
 
+function sanitizeInviterName(value: string): string {
+  return value
+    .replace(/\bteam\s*leader\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export interface ReferralInvitePayload {
   inviterName: string;
   referralLink: string;
@@ -122,13 +129,10 @@ export function renderReferralInviteTemplate(
   const t = copy[locale] || copy.en;
   const description = t.description;
   const joinLine = t.joinLine;
-  const inviterNameRaw = payload.inviterName || t.defaultInviter;
+  const inviterNameRaw = sanitizeInviterName(payload.inviterName || "") || t.defaultInviter;
   const inviterName = escapeHtml(inviterNameRaw);
   const welcomeMessage = (payload.welcomeMessage || "").trim();
-  const welcomeNameRaw = (payload.inviterName || "")
-    .replace(/\bteam leader\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim() || "Someone";
+  const welcomeNameRaw = sanitizeInviterName(payload.inviterName || "") || t.defaultInviter;
   const welcomeMessageLabel = t.welcomeMessageLabel.includes("{name}")
     ? t.welcomeMessageLabel.replace("{name}", welcomeNameRaw)
     : `${t.welcomeMessageLabel} ${welcomeNameRaw}`;
@@ -145,7 +149,7 @@ export function renderReferralInviteTemplate(
   `.trim();
 
   return {
-    subject: t.subject,
+    subject: `${inviterNameRaw} ${t.subjectSuffix}`,
     html: renderBaseEmailLayout({
       locale,
       title: t.title,

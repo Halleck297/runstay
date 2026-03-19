@@ -18,7 +18,16 @@ import { isEventExpired } from "~/lib/listing-status";
 
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Browse Listings - Runoot" }];
+  return [
+    { title: "Browse Listings - Runoot" },
+    {
+      name: "description",
+      content:
+        "Browse active running listings on Runoot to exchange hotel rooms, race bibs, and race packages.",
+    },
+    { name: "robots", content: "index,follow" },
+    { tagName: "link", rel: "canonical", href: "https://www.runoot.com/listings" },
+  ];
 };
 
 const PAGE_SIZE = 12;

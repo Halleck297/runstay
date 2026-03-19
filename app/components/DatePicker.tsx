@@ -1,6 +1,7 @@
 import { useState, forwardRef, useEffect } from "react";
 import { enUS, it, es, fr, de, nl, pt } from "date-fns/locale";
 import { useI18n } from "~/hooks/useI18n";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface DatePickerProps {
   name: string;
@@ -58,8 +59,6 @@ export function DatePicker({
       mod.registerLocale("pt", pt);
       setReactDatePicker(() => mod.default);
     });
-    // Import CSS
-    import("react-datepicker/dist/react-datepicker.css");
   }, []);
 
   const handleChange = (date: Date | null) => {

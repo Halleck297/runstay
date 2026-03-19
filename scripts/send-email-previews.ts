@@ -76,20 +76,6 @@ async function main() {
           },
         }),
     },
-    {
-      name: "team_referral_invite",
-      run: () =>
-        sendTemplatedEmail({
-          to,
-          locale,
-          templateId: "team_referral_invite",
-          payload: {
-            inviterName: "Giulia Team Leader",
-            acceptLink: `${baseUrl}/join-team/test-invite-id`,
-            personalMessage: "Join my Runoot team and let's coordinate upcoming races.",
-          },
-        }),
-    },
   ];
 
   console.log(`Sending ${tests.length} email previews to ${to} (locale: ${locale})...`);
