@@ -6,7 +6,7 @@ import { useI18n } from "~/hooks/useI18n";
 import { getLocaleLabelsForUi, isSupportedLocale, resolveLocaleForRequest, type SupportedLocale } from "~/lib/locale";
 import { getDialingPrefix, getSuggestedLocaleForCountry, getSupportedCountries, resolveSupportedCountry } from "~/lib/supportedCountries";
 import { getUser } from "~/lib/session.server";
-import { supabaseAdmin } from "~/lib/supabase.server";
+import { supabaseAdmin, isMissingColumnError } from "~/lib/supabase.server";
 import { getDefaultAppPath } from "~/lib/user-access";
 import { translate } from "~/lib/i18n";
 
@@ -46,18 +46,6 @@ function normalizeEmail(value: string): string {
 const LEGAL_TERMS_VERSION = "2026-03-15";
 const LEGAL_PRIVACY_VERSION = "2026-03-15";
 
-function isMissingColumnError(error: unknown, columnName: string): boolean {
-  if (!error || typeof error !== "object") return false;
-  const code = String((error as any).code || "");
-  const message = String((error as any).message || "").toLowerCase();
-  const column = columnName.toLowerCase();
-  return (
-    code === "PGRST204" ||
-    code === "42703" ||
-    (message.includes("schema cache") && message.includes(column)) ||
-    (message.includes(column) && (message.includes("does not exist") || message.includes("unknown column")))
-  );
-}
 
 async function logLegalConsent(args: {
   accessRequestId?: string | null;

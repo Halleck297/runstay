@@ -127,10 +127,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   const listingQuery = supabaseAdmin
     .from("listings")
-    .select("id, author_id, author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url)");
+    .select("id, status, author_id, author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url)");
   const { data: listing } = await applyListingPublicIdFilter(listingQuery as any, id!).single();
 
   if (!listing) {
+    return data<ContactActionData>({ errorKey: "listing_not_found" }, { status: 404 });
+  }
+
+  if ((listing as any).status !== "active") {
     return data<ContactActionData>({ errorKey: "listing_not_found" }, { status: 404 });
   }
 

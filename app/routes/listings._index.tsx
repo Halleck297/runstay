@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { useLoaderData, useSearchParams, Form, useNavigate, Link } from "react-router";
+import { useLoaderData, useSearchParams, Form, useNavigate, Link, useFetcher } from "react-router";
 import { useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
@@ -21,6 +21,8 @@ export const meta: MetaFunction = () => {
   return [{ title: "Browse Listings - Runoot" }];
 };
 
+const PAGE_SIZE = 12;
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getUser(request);
   const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
@@ -29,7 +31,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const type = url.searchParams.get("type");
   const search = url.searchParams.get("search");
-
+  const sort = url.searchParams.get("sort") || "newest";
+  const page = Math.max(0, parseInt(url.searchParams.get("page") || "0", 10));
 
   let query = (supabaseAdmin as any)
     .from("listings")
@@ -38,12 +41,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       *,
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
       event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
-    `
+    `,
+      { count: "exact" }
     )
     .eq("status", "active")
-    .eq("listing_mode", "exchange")
-    .order("created_at", { ascending: false });
+    .eq("listing_mode", "exchange");
 
+  // Type filter
   if (type && type !== "all") {
     const allowedTypes: ListingType[] = ["room", "bib", "room_and_bib"];
     if (allowedTypes.includes(type as ListingType)) {
@@ -51,38 +55,61 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
 
-  const { data: listings, error } = await query;
+  // Search filter server-side
+  if (search) {
+    const { data: matchingEvents } = await supabase
+      .from("events")
+      .select("id")
+      .or(`name.ilike.%${search}%,country.ilike.%${search}%`);
+    const eventIds = (matchingEvents || []).map((e: any) => e.id);
+    if (eventIds.length > 0) {
+      query = query.or(`title.ilike.%${search}%,event_id.in.(${eventIds.join(",")})`);
+    } else {
+      query = query.ilike("title", `%${search}%`);
+    }
+  }
+
+  // Sort server-side
+  switch (sort) {
+    case "first_posted":
+      query = query.order("created_at", { ascending: true });
+      break;
+    case "price_low":
+      query = query.order("price", { ascending: true, nullsFirst: false });
+      break;
+    case "price_high":
+      query = query.order("price", { ascending: false, nullsFirst: false });
+      break;
+    case "contact_price":
+      query = query.is("price", null).order("created_at", { ascending: false });
+      break;
+    default: // "newest" and event_soonest fallback
+      query = query.order("created_at", { ascending: false });
+  }
+
+  // Pagination
+  query = query.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+  const { data: listings, error, count } = await query;
 
   if (error) {
     console.error("Error loading listings:", error);
-    return { user, listings: [] };
+    return { user, listings: [], totalCount: 0, page, sort, search: search || "" };
   }
 
-  // Filter by search (event name or location) - client side for simplicity
-  let filteredListings = (listings || []).map((listing: any) =>
+  const processedListings = (listings || []).map((listing: any) =>
     applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
   );
-  if (search) {
-    const searchLower = search.toLowerCase();
-    filteredListings = filteredListings.filter(
-      (l: any) =>
-        l.event?.name?.toLowerCase().includes(searchLower) ||
-        l.event?.country?.toLowerCase().includes(searchLower) ||
-        l.title?.toLowerCase().includes(searchLower)
-    );
-  }
 
-     // Get saved listing IDs for this user
+  // Get saved listing IDs for this user
   let savedListingIds: string[] = [];
   if (user) {
     const { data: savedListings } = await (supabaseAdmin as any)
       .from("saved_listings")
       .select("listing_id")
       .eq("user_id", (user as any).id);
-    
     savedListingIds = savedListings?.map((s: any) => s.listing_id) || [];
   }
-
 
   // Get all events for autocomplete suggestions
   const { data: events } = await supabase
@@ -91,15 +118,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .order("event_date", { ascending: true });
 
   const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
-  return { user, listings: filteredListings, savedListingIds, events: localizedEvents };
 
+  return {
+    user,
+    listings: processedListings,
+    savedListingIds,
+    events: localizedEvents,
+    totalCount: count || 0,
+    page,
+    sort,
+    search: search || "",
+  };
 }
 
 export default function Listings() {
   const { t, locale } = useI18n();
-  const { user, listings, savedListingIds, events } = useLoaderData<typeof loader>();
+  const { user, listings, savedListingIds, events, totalCount, page } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const fetcher = useFetcher<typeof loader>();
   const searchRef = useRef<HTMLDivElement>(null);
 
   const currentType = searchParams.get("type") || "all";
@@ -112,6 +149,21 @@ export default function Listings() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [sortBy, setSortBy] = useState(currentSort);
 
+  // Accumulated listings across "Load More" pages
+  const [extraListings, setExtraListings] = useState<any[]>([]);
+
+  // Reset accumulated pages when filters/sort change
+  useEffect(() => {
+    setExtraListings([]);
+  }, [currentType, currentSearch, currentSort]);
+
+  // Append fetched page to accumulated list
+  useEffect(() => {
+    if (fetcher.data?.listings) {
+      setExtraListings((prev) => [...prev, ...(fetcher.data!.listings as any[])]);
+    }
+  }, [fetcher.data]);
+
   const formatEventDate = (rawDate: string) => {
     const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate || "");
     if (dateOnlyMatch) {
@@ -120,63 +172,26 @@ export default function Listings() {
       const dd = Number(dateOnlyMatch[3]);
       return new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).format(new Date(Date.UTC(yyyy, mm, dd)));
     }
-
     const parsed = new Date(rawDate);
     if (Number.isNaN(parsed.getTime())) return rawDate;
     return new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).format(parsed);
   };
 
-  // Load More pagination
-  const ITEMS_PER_PAGE = 12;
+  // Expired split (client-side on the already-loaded subset)
+  const allLoaded = [...(listings as any[]), ...extraListings];
+  const nonExpiredListings = allLoaded.filter((l: any) => !isEventExpired(l.event?.event_date || ""));
+  const expiredListings = allLoaded.filter((l: any) => isEventExpired(l.event?.event_date || ""));
+  const visibleListings = [...nonExpiredListings, ...expiredListings];
 
-  // Reset visible count when filters change
-  useEffect(() => {
-    setVisibleCount(ITEMS_PER_PAGE);
-  }, [currentType, currentSearch, sortBy]);
+  const loadedCount = allLoaded.length;
+  const nextPage = page + 1 + Math.floor(extraListings.length / PAGE_SIZE);
+  const hasMore = loadedCount < totalCount;
 
-  // Sort listings based on selected option
-  const sortedListings = [...(listings as any[])].sort((a, b) => {
-    switch (sortBy) {
-      case "newest":
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      case "first_posted":
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      case "event_soonest":
-        const dateA = a.event?.event_date ? new Date(a.event.event_date).getTime() : Infinity;
-        const dateB = b.event?.event_date ? new Date(b.event.event_date).getTime() : Infinity;
-        return dateA - dateB;
-      case "price_low":
-        // Exclude "contact for price" (null/undefined price), put them at the end
-        const priceA = a.price != null ? a.price : Infinity;
-        const priceB = b.price != null ? b.price : Infinity;
-        return priceA - priceB;
-      case "price_high":
-        // Exclude "contact for price" (null/undefined price), put them at the end
-        const priceHighA = a.price != null ? a.price : -Infinity;
-        const priceHighB = b.price != null ? b.price : -Infinity;
-        return priceHighB - priceHighA;
-      case "contact_price":
-        // Show only "contact for price" listings, sorted by newest
-        // This is handled by filtering, but we still sort by newest
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      default:
-        return 0;
-    }
-  });
-
-  // Filter for "contact_price" option - show only listings without a price
-  const filteredBySort = sortBy === "contact_price"
-    ? sortedListings.filter((l) => l.price == null)
-    : sortedListings;
-
-  const nonExpiredListings = filteredBySort.filter((listing: any) => !isEventExpired(listing.event?.event_date || ""));
-  const expiredListings = filteredBySort.filter((listing: any) => isEventExpired(listing.event?.event_date || ""));
-  const prioritizedListings = [...nonExpiredListings, ...expiredListings];
-
-  // Pagination
-  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
-  const visibleListings = prioritizedListings.slice(0, visibleCount);
-  const hasMore = visibleCount < prioritizedListings.length;
+  const handleLoadMore = () => {
+    const params = new URLSearchParams(searchParams);
+    params.set("page", String(nextPage));
+    fetcher.load(`/listings?${params.toString()}`);
+  };
 
   // Filter events based on search query (min 2 chars)
   const filteredEvents = searchQuery.length >= 2
@@ -231,6 +246,11 @@ export default function Listings() {
       type_filter: currentType,
       has_search: hasActiveSearch,
     });
+    // Navigate to apply sort server-side
+    const params = new URLSearchParams(searchParams);
+    params.set("sort", nextSort);
+    params.delete("page");
+    navigate(`/listings?${params.toString()}`);
   };
 
   return (
@@ -390,7 +410,7 @@ export default function Listings() {
           </div>
 
           {/* Results */}
-{filteredBySort.length > 0 ? (
+{visibleListings.length > 0 ? (
   <>
     {/* Desktop: Grid di card */}
     <div className="hidden md:grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 auto-rows-fr relative z-0">
@@ -422,10 +442,13 @@ export default function Listings() {
     {hasMore && (
       <div className="mt-8 text-center">
         <button
-          onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
-          className="px-8 py-3 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors shadow-md"
+          onClick={handleLoadMore}
+          disabled={fetcher.state === "loading"}
+          className="px-8 py-3 bg-white text-gray-700 font-medium rounded-full border border-gray-300 hover:bg-gray-50 transition-colors shadow-md disabled:opacity-50"
         >
-          Load More ({prioritizedListings.length - visibleCount} remaining)
+          {fetcher.state === "loading"
+            ? "Loading..."
+            : `Load More (${totalCount - loadedCount} remaining)`}
         </button>
       </div>
     )}

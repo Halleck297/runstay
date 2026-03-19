@@ -377,8 +377,6 @@ export default function Conversation() {
       composerRef,
       mobileConversationHeaderRef
     );
-  const isSimpleMobileConversation = isMobileViewport && !hasPanelHeader;
-
   const scrollMessagesToBottom = (behavior: ScrollBehavior = "auto") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };

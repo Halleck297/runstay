@@ -4,7 +4,7 @@ import { data, redirect } from "react-router";
 import { useLoaderData, useActionData } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { useI18n } from "~/hooks/useI18n";
 import { isTeamLeader } from "~/lib/user-access";
@@ -45,28 +45,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (!isTeamLeader(user)) {
     throw redirect("/to-panel");
   }
-  // Fetch referrals with user details
-  const { data: referrals } = await supabaseAdmin
+  // Fetch referrals with referred user profile in a single query
+  const { data: referrals } = await (supabaseAdmin as any)
     .from("referrals")
-    .select("id, referral_code_used, status, created_at, referred_user_id")
+    .select("id, referral_code_used, status, created_at, referred_user_id, referred_user:profiles!referrals_referred_user_id_fkey(id, full_name, email, user_type, is_verified, created_at, avatar_url)")
     .eq("team_leader_id", (user as any).id)
     .neq("referred_user_id", (user as any).id)
     .order("created_at", { ascending: false });
 
-  // Fetch referred users' profiles
-  const referralIds = (referrals || []).map((r: any) => r.referred_user_id);
-  let referredUsers: Record<string, any> = {};
-  if (referralIds.length > 0) {
-    const { data: profiles } = await supabaseAdmin
-      .from("profiles")
-      .select("id, full_name, email, user_type, is_verified, created_at, avatar_url")
-      .in("id", referralIds);
-
-    if (profiles) {
-      for (const p of profiles as any[]) {
-        referredUsers[p.id] = p;
-      }
-    }
+  // Build lookup map from joined data
+  const referredUsers: Record<string, any> = {};
+  const referralIds: string[] = [];
+  for (const r of (referrals || []) as any[]) {
+    if (r.referred_user_id) referralIds.push(r.referred_user_id);
+    if (r.referred_user) referredUsers[r.referred_user_id] = r.referred_user;
   }
 
   const { count: reservedNotJoinedCount } = await (supabaseAdmin.from("referral_invites") as any)

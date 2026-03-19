@@ -59,7 +59,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     user,
     listing,
     events: events || [],
-    googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || ""
   };
 }
 
@@ -314,7 +313,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function EditListing() {
-  const { user, listing, events, googlePlacesApiKey } = useLoaderData<typeof loader>();
+  const { user, listing, events } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const actionErrorField =
     actionData && "field" in actionData ? actionData.field : undefined;
@@ -500,11 +499,10 @@ export default function EditListing() {
                   <div className="sm:col-span-2">
                     <label className="label">{t("edit_listing.hotel")}</label>
                     <HotelAutocomplete
-                      apiKey={googlePlacesApiKey}
                       eventCity={selectedEvent?.country}
                       eventCountry={selectedEvent?.country}
                       defaultHotelName={listingData.hotel_name}
-                      onSelectHotel={(hotel) => {}}
+                      onSelectHotel={() => {}}
                     />
                   </div>
                   <div></div>

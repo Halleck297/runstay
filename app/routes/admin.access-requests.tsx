@@ -4,7 +4,7 @@ import { Form, Link, useActionData, useLoaderData } from "react-router";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { getAppUrl } from "~/lib/app-url.server";
-import { supabaseAdmin } from "~/lib/supabase.server";
+import { supabaseAdmin, isMissingColumnError } from "~/lib/supabase.server";
 
 export const meta: MetaFunction = () => [{ title: "Access Requests - Admin - Runoot" }];
 
@@ -14,18 +14,6 @@ const ACCESS_REQUESTS_SELECT_WITH_DOB =
 const ACCESS_REQUESTS_SELECT_LEGACY =
   "id, full_name, email, country, city, phone, preferred_language, note, source, status, reviewed_by, reviewed_at, created_at";
 
-function isMissingColumnError(error: unknown, columnName: string): boolean {
-  if (!error || typeof error !== "object") return false;
-  const code = String((error as any).code || "");
-  const message = String((error as any).message || "").toLowerCase();
-  const column = columnName.toLowerCase();
-  return (
-    code === "PGRST204" ||
-    code === "42703" ||
-    (message.includes("schema cache") && message.includes(column)) ||
-    (message.includes(column) && (message.includes("does not exist") || message.includes("unknown column")))
-  );
-}
 
 function randomTempPassword() {
   return `Runoot!${Math.random().toString(36).slice(2, 10)}A1`;

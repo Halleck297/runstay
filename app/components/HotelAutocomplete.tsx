@@ -22,14 +22,13 @@ interface Suggestion {
 
 interface HotelAutocompleteProps {
   onSelectHotel: (hotel: Hotel | null) => void;
-  apiKey: string;
   eventCity?: string;
   eventCountry?: string;
   defaultHotelName?: string;
   hasError?: boolean;
 }
 
-export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCountry, defaultHotelName, hasError }: HotelAutocompleteProps) {
+export function HotelAutocomplete({ onSelectHotel, eventCity, eventCountry, defaultHotelName, hasError }: HotelAutocompleteProps) {
   const { t } = useI18n();
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(() => {
     if (defaultHotelName) {
@@ -66,9 +65,9 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch suggestions using Places API (New) - Autocomplete endpoint
+  // Fetch suggestions using server-side proxy (keeps API key secret)
   const fetchSuggestions = useCallback(async (query: string) => {
-    if (!apiKey || !query.trim()) {
+    if (!query.trim()) {
       setSuggestions([]);
       return;
     }
@@ -76,32 +75,21 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
     setIsLoading(true);
 
     try {
-      // Build the request for Places API (New) Autocomplete
       const requestBody: any = {
         input: query,
         includedPrimaryTypes: ["lodging"],
         sessionToken: sessionTokenRef.current,
       };
 
-      // Add location bias if we have event city/country
-      if (eventCity && eventCountry) {
-        // Use text-based location restriction
-        requestBody.includedRegionCodes = [getCountryCode(eventCountry)].filter(Boolean);
-      } else if (eventCountry) {
+      if (eventCountry) {
         requestBody.includedRegionCodes = [getCountryCode(eventCountry)].filter(Boolean);
       }
 
-      const response = await fetch(
-        `https://places.googleapis.com/v1/places:autocomplete`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": apiKey,
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
+      const response = await fetch("/api/places", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to fetch suggestions");
@@ -141,7 +129,7 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, eventCity, eventCountry]);
+  }, [eventCity, eventCountry]);
 
   // Handle input change with debounce
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,19 +146,16 @@ export function HotelAutocomplete({ onSelectHotel, apiKey, eventCity, eventCount
     }, 300);
   };
 
-  // Handle suggestion selection - fetch place details
+  // Handle suggestion selection - fetch place details via server proxy
   const handleSelectSuggestion = async (suggestion: Suggestion) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(
-        `https://places.googleapis.com/v1/places/${suggestion.placeId}?fields=id,displayName,formattedAddress,addressComponents,location,rating,websiteUri&sessionToken=${sessionTokenRef.current}`,
-        {
-          headers: {
-            "X-Goog-Api-Key": apiKey,
-          },
-        }
-      );
+      const params = new URLSearchParams({
+        placeId: suggestion.placeId,
+        sessionToken: sessionTokenRef.current,
+      });
+      const response = await fetch(`/api/places?${params}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch place details");
