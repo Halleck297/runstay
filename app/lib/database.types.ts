@@ -930,7 +930,29 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      search_events_i18n: {
+        Args: {
+          query: string;
+        };
+        Returns: {
+          id: string;
+          name: string;
+          name_i18n: Json | null;
+          slug: string | null;
+          location: string | null;
+          location_i18n: Json | null;
+          country: string;
+          country_i18n: Json | null;
+          event_date: string;
+          card_image_url: string | null;
+          start_lat: number | null;
+          start_lng: number | null;
+          finish_lat: number | null;
+          finish_lng: number | null;
+          created_by: string | null;
+          created_at: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

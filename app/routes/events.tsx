@@ -28,7 +28,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       `
       *,
       author:profiles!listings_author_id_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
-      event:events(id, name, name_i18n, slug, country, country_i18n, event_date, card_image_url)
+      event:events(id, name, name_i18n, slug, location, location_i18n, country, country_i18n, event_date, card_image_url)
     `
     )
     .eq("status", "active")
@@ -45,12 +45,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
   );
   if (search) {
     const searchLower = search.toLowerCase();
-    filteredListings = filteredListings.filter(
-      (l: any) =>
-        l.event?.name?.toLowerCase().includes(searchLower) ||
-        l.event?.country?.toLowerCase().includes(searchLower) ||
-        l.title?.toLowerCase().includes(searchLower)
-    );
+    filteredListings = filteredListings.filter((l: any) => {
+      if (l.event?.name?.toLowerCase().includes(searchLower)) return true;
+      if (l.event?.country?.toLowerCase().includes(searchLower)) return true;
+      if (l.title?.toLowerCase().includes(searchLower)) return true;
+      // Cross-language: also search all i18n translations
+      const ev = l.event;
+      if (!ev) return false;
+      for (const field of [ev.name_i18n, ev.location_i18n, ev.country_i18n]) {
+        if (field && typeof field === "object") {
+          if (Object.values(field).some((v: any) => typeof v === "string" && v.toLowerCase().includes(searchLower))) return true;
+        }
+      }
+      return false;
+    });
   }
 
   let savedListingIds: string[] = [];

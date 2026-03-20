@@ -12,14 +12,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return data({ events: [] });
   }
 
-  const { data: events } = await supabaseAdmin
-    .from("events")
-    .select("id, name, name_i18n, country, country_i18n, event_date")
-    .or(`name.ilike.%${query}%,country.ilike.%${query}%`)
-    .order("event_date", { ascending: true })
-    .limit(5);
+  const { data: events } = await supabaseAdmin.rpc("search_events_i18n", {
+    query,
+  });
 
-  const localized = (events || []).map((event: any) => {
+  const localized = (events || []).slice(0, 5).map((event: any) => {
     const e = localizeEvent(event, locale);
     return {
       id: e.id,

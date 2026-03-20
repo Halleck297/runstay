@@ -3,7 +3,7 @@ import { useLoaderData, useSearchParams, Form, useNavigate, Link, useFetcher } f
 import { useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
-import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { supabaseAdmin } from "~/lib/supabase.server";
 import { localizeEvent, localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import type { ListingType } from "~/lib/database.types";
@@ -64,12 +64,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
 
-  // Search filter server-side
+  // Search filter server-side (cross-language: searches base fields + all i18n translations)
   if (search) {
-    const { data: matchingEvents } = await supabase
-      .from("events")
-      .select("id")
-      .or(`name.ilike.%${search}%,country.ilike.%${search}%`);
+    const { data: matchingEvents } = await supabaseAdmin.rpc("search_events_i18n", {
+      query: search,
+    });
     const eventIds = (matchingEvents || []).map((e: any) => e.id);
     if (eventIds.length > 0) {
       query = query.or(`title.ilike.%${search}%,event_id.in.(${eventIds.join(",")})`);
@@ -120,10 +119,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     savedListingIds = savedListings?.map((s: any) => s.listing_id) || [];
   }
 
-  // Get all events for autocomplete suggestions
-  const { data: events } = await supabase
+  // Get all events for autocomplete suggestions (include i18n for cross-language search)
+  const { data: events } = await supabaseAdmin
     .from("events")
-    .select("id, name, name_i18n, country, country_i18n, event_date")
+    .select("id, name, name_i18n, location_i18n, country, country_i18n, event_date")
     .order("event_date", { ascending: true });
 
   const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
@@ -202,12 +201,19 @@ export default function Listings() {
     fetcher.load(`/listings?${params.toString()}`);
   };
 
-  // Filter events based on search query (min 2 chars)
+  // Filter events based on search query (min 2 chars) — cross-language
   const filteredEvents = searchQuery.length >= 2
-    ? (events as any[]).filter((event) =>
-        event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.country.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 5)
+    ? (events as any[]).filter((event) => {
+        const q = searchQuery.toLowerCase();
+        if (event.name.toLowerCase().includes(q)) return true;
+        if (event.country.toLowerCase().includes(q)) return true;
+        for (const field of [event.name_i18n, event.location_i18n, event.country_i18n]) {
+          if (field && typeof field === "object") {
+            if (Object.values(field).some((v: any) => typeof v === "string" && v.toLowerCase().includes(q))) return true;
+          }
+        }
+        return false;
+      }).slice(0, 5)
     : [];
 
   // Close dropdown when clicking outside

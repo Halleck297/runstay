@@ -28,10 +28,23 @@ export function EventPicker({ events, onSelectEvent, defaultEventId, hasError }:
     return null;
   });
 
-  const filteredEvents = events.filter(event =>
-    event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.country.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredEvents = events.filter(event => {
+    const q = searchQuery.toLowerCase();
+    if (event.name.toLowerCase().includes(q)) return true;
+    if (event.country.toLowerCase().includes(q)) return true;
+    // Also search i18n translations if available
+    const ev = event as any;
+    if (ev.name_i18n && typeof ev.name_i18n === "object") {
+      if (Object.values(ev.name_i18n).some((v: any) => typeof v === "string" && v.toLowerCase().includes(q))) return true;
+    }
+    if (ev.location_i18n && typeof ev.location_i18n === "object") {
+      if (Object.values(ev.location_i18n).some((v: any) => typeof v === "string" && v.toLowerCase().includes(q))) return true;
+    }
+    if (ev.country_i18n && typeof ev.country_i18n === "object") {
+      if (Object.values(ev.country_i18n).some((v: any) => typeof v === "string" && v.toLowerCase().includes(q))) return true;
+    }
+    return false;
+  });
 
   const handleSelectEvent = (event: Event) => {
     setSelectedEvent(event);
