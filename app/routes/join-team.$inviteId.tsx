@@ -228,7 +228,7 @@ export default function JoinTeamInvite() {
 
   if (actionData?.success) {
     return (
-      <div className="min-h-screen bg-[#ECF4FE] flex items-start justify-center px-3 pt-6 pb-24 sm:items-center sm:px-4 sm:pt-0 sm:pb-0">
+      <div className="min-h-dvh bg-white flex items-start justify-center px-3 pt-6 pb-24 sm:items-center sm:px-4 sm:pt-0 sm:pb-0">
         <div className="max-w-md w-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-8 text-center">
           <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t("team_invite.joined_title")}</h1>
           <p className="text-sm sm:text-base text-gray-600 mb-6 break-words">{t("team_invite.joined_body")} {teamLeaderName}.</p>
@@ -252,7 +252,7 @@ export default function JoinTeamInvite() {
 
   if (status !== "ready") {
     return (
-      <div className="min-h-screen bg-[#ECF4FE] flex items-start justify-center px-3 pt-6 pb-24 sm:items-center sm:px-4 sm:pt-0 sm:pb-0">
+      <div className="min-h-dvh bg-white flex items-start justify-center px-3 pt-6 pb-24 sm:items-center sm:px-4 sm:pt-0 sm:pb-0">
         <div className="max-w-md w-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-8 text-center">
           <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t("team_invite.title")}</h1>
           <p className="text-sm sm:text-base text-gray-600 mb-6 break-words">{messageByStatus[status]}</p>
@@ -271,7 +271,7 @@ export default function JoinTeamInvite() {
   }
 
   return (
-    <div className="min-h-screen bg-[#ECF4FE] flex items-start justify-center px-3 pt-6 pb-24 sm:items-center sm:px-4 sm:pt-0 sm:pb-0">
+    <div className="min-h-dvh bg-white flex items-start justify-center px-3 pt-6 pb-24 sm:items-center sm:px-4 sm:pt-0 sm:pb-0">
       <div className="max-w-md w-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-8 text-center">
         <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">{t("team_invite.join_prefix")} {teamLeaderName}</h1>
         <p className="text-sm sm:text-base text-gray-600 mb-6 break-words">
