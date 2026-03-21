@@ -66,7 +66,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 const sidebarNavItems: ToProfileSidebarItem[] = [
   { label: "Company info", href: "/to-panel/profile", icon: "user" },
-  { label: "Business details", href: "/to-panel/profile/experience", icon: "running" },
+  { label: "Business details", href: "/to-panel/profile/experience#to-experience", icon: "running" },
 ];
 
 export default function ProfileIndex() {

@@ -70,6 +70,7 @@ export async function action({ request }: ActionFunctionArgs) {
     .insert({
       name,
       slug,
+      event_type: "marathon",
       location: finalLocation || null,
       location_i18n: Object.keys(locationI18n).length > 0 ? locationI18n : null,
       country: finalCountry || "TBD",
@@ -314,23 +315,38 @@ export default function AdminMarathonsNew() {
           <div>
             <label className="label">Finish line coordinates (optional)</label>
             <div className="grid grid-cols-2 gap-3">
-              <input
-                name="finishLat"
-                type="number"
-                step="any"
-                className="input"
-                placeholder="Latitude"
-              />
-              <input
-                name="finishLng"
-                type="number"
-                step="any"
-                className="input"
-                placeholder="Longitude"
-              />
+              <div>
+                <input
+                  name="finishLat"
+                  type="number"
+                  step="any"
+                  className="input"
+                  placeholder="e.g. 41.3907"
+                />
+                <p className="mt-1 text-xs text-gray-400">Latitude (N = positive)</p>
+              </div>
+              <div>
+                <input
+                  name="finishLng"
+                  type="number"
+                  step="any"
+                  className="input"
+                  placeholder="e.g. 2.1812"
+                />
+                <p className="mt-1 text-xs text-gray-400">Longitude (E = positive)</p>
+              </div>
             </div>
-            <p className="mt-1 text-xs text-gray-400">
-              Used for hotel distance calculations. Can be added later.
+            <p className="mt-2 text-xs text-gray-400">
+              Decimal format only. To convert from degrees (41°23'26.4"N) use{" "}
+              <a
+                href="https://www.latlong.net/degrees-minutes-seconds-to-decimal-degrees"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-gray-600"
+              >
+                this converter
+              </a>
+              . Used for hotel distance calculations — can be added later.
             </p>
           </div>
 

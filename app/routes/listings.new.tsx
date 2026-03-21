@@ -666,8 +666,10 @@ useEffect(() => {
                                 <div className="sm:col-span-2">
                   <label className="label">{t("edit_listing.hotel")}</label>
                                    <HotelAutocomplete
-                    eventCity={selectedEvent?.country}
+                    eventCity={selectedEvent?.location}
                     eventCountry={selectedEvent?.country}
+                    eventLat={selectedEvent?.finish_lat}
+                    eventLng={selectedEvent?.finish_lng}
                     onSelectHotel={() => {
                       // Hotel data is handled via hidden inputs in component
                     }}

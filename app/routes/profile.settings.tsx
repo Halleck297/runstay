@@ -9,6 +9,7 @@ import { NO_AVATAR_VALUE, OPEN_DOODLE_AVATARS, isValidOpenDoodleAvatar } from "~
 import type { TranslationKey } from "~/lib/i18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { buildLocaleCookie, getSupportedLocales, getLocaleLabelsForUi, isSupportedLocale } from "~/lib/locale";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Settings - runoot" }];
@@ -80,6 +81,18 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ success: true, action: "avatar_updated" });
   }
 
+  if (intent === "update_language") {
+    const language = String(formData.get("language") || "");
+    if (!isSupportedLocale(language)) {
+      return data({ error: "Invalid action" }, { status: 400 });
+    }
+    await supabaseAdmin.from("profiles").update({ preferred_language: language } as any).eq("id", userId);
+    return data(
+      { success: true, action: "language_updated" },
+      { headers: { "Set-Cookie": buildLocaleCookie(language) } },
+    );
+  }
+
   if (intent === "update_profile_visibility") {
     const publicProfileEnabled = formData.get("public_profile_enabled") === "on";
     const publicShowPersonalInfo = formData.get("public_show_personal_info") === "on";
@@ -117,7 +130,9 @@ export default function Settings() {
     | undefined;
   const location = useLocation();
   const navigation = useNavigation();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const localeLabels = getLocaleLabelsForUi(locale);
+  const supportedLocales = getSupportedLocales();
   const isUnblocking = navigation.state === "submitting" && navigation.formData?.get("intent") === "unblock";
   const isUpdatingAvatar = navigation.state === "submitting" && navigation.formData?.get("intent") === "update_avatar";
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -211,7 +226,7 @@ export default function Settings() {
             </div>
             </aside>
 
-            <main id="settings" className="min-w-0 flex-1 scroll-mt-36 md:scroll-mt-0">
+            <main id="settings" className="min-w-0 flex-1 scroll-mt-36 bg-white p-4 pt-6 md:scroll-mt-0 md:p-6">
             <div className="mb-6 text-center">
               <h1 className="inline-block border-b-2 border-accent-500 pb-0.5 font-display text-2xl font-bold text-gray-900">{t("profile.settings.title")}</h1>
               <p className="mt-1 text-gray-900">{t("profile.settings.subtitle")}</p>
@@ -224,9 +239,11 @@ export default function Settings() {
                 </svg>
                 {actionData.action === "avatar_updated"
                   ? t("profile.success.profile_updated")
-                  : actionData.action === "visibility_updated"
-                    ? t("profile.settings.visibility_updated")
-                    : t("profile.settings.unblocked_success")}
+                  : actionData.action === "language_updated"
+                    ? t("profile.settings.language_saved")
+                    : actionData.action === "visibility_updated"
+                      ? t("profile.settings.visibility_updated")
+                      : t("profile.settings.unblocked_success")}
               </div>
             )}
 
@@ -251,6 +268,26 @@ export default function Settings() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-brand-300 bg-white p-4 md:p-5">
+                <label className="text-sm font-medium text-gray-900">{t("profile.settings.language")}</label>
+                <p className="mb-3 mt-0.5 text-sm text-gray-500">{t("profile.settings.language_help")}</p>
+                <Form method="post" className="flex items-center gap-3">
+                  <input type="hidden" name="intent" value="update_language" />
+                  <select
+                    name="language"
+                    defaultValue={(user as any).preferred_language || locale}
+                    className="h-9 w-auto rounded-xl border border-brand-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  >
+                    {supportedLocales.map((l) => (
+                      <option key={l} value={l}>{localeLabels[l]}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className="btn-primary h-9 shrink-0 rounded-full px-4 text-sm">
+                    {t("common.save")}
+                  </button>
+                </Form>
               </div>
 
               <div className="rounded-2xl border border-brand-300 bg-white p-4 md:p-5">

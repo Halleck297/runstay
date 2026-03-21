@@ -24,11 +24,13 @@ interface HotelAutocompleteProps {
   onSelectHotel: (hotel: Hotel | null) => void;
   eventCity?: string;
   eventCountry?: string;
+  eventLat?: number | null;
+  eventLng?: number | null;
   defaultHotelName?: string;
   hasError?: boolean;
 }
 
-export function HotelAutocomplete({ onSelectHotel, eventCity, eventCountry, defaultHotelName, hasError }: HotelAutocompleteProps) {
+export function HotelAutocomplete({ onSelectHotel, eventCity, eventCountry, eventLat, eventLng, defaultHotelName, hasError }: HotelAutocompleteProps) {
   const { t } = useI18n();
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(() => {
     if (defaultHotelName) {
@@ -81,7 +83,14 @@ export function HotelAutocomplete({ onSelectHotel, eventCity, eventCountry, defa
         sessionToken: sessionTokenRef.current,
       };
 
-      if (eventCountry) {
+      if (eventLat && eventLng) {
+        requestBody.locationBias = {
+          circle: {
+            center: { latitude: eventLat, longitude: eventLng },
+            radius: 25000, // 25km dal traguardo
+          },
+        };
+      } else if (eventCountry) {
         requestBody.includedRegionCodes = [getCountryCode(eventCountry)].filter(Boolean);
       }
 
@@ -129,7 +138,7 @@ export function HotelAutocomplete({ onSelectHotel, eventCity, eventCountry, defa
     } finally {
       setIsLoading(false);
     }
-  }, [eventCity, eventCountry]);
+  }, [eventCity, eventCountry, eventLat, eventLng]);
 
   // Handle input change with debounce
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -31,6 +31,8 @@ type ControlPanelLayoutProps = {
   topContent?: ReactNode;
   compactSidebarUnder391?: boolean;
   fixedHeight?: boolean;
+  /** Set to true when the global MobileNav is hidden (e.g. admin pages) so the panel starts at top-0 */
+  noGlobalNav?: boolean;
   children: ReactNode;
 };
 
@@ -44,6 +46,7 @@ export function ControlPanelLayout({
   topContent,
   compactSidebarUnder391 = false,
   fixedHeight = false,
+  noGlobalNav = false,
   children,
 }: ControlPanelLayoutProps) {
   const { t } = useI18n();
@@ -65,7 +68,7 @@ export function ControlPanelLayout({
   }, []);
 
   return (
-    <div className="fixed top-[var(--mobile-nav-top-offset)] left-0 right-0 bottom-0 md:relative md:h-screen flex">
+    <div className={`fixed left-0 right-0 bottom-0 md:relative md:top-0 md:h-screen flex ${noGlobalNav ? "top-0" : "top-[var(--mobile-nav-top-offset)]"}`}>
       {sidebarOpen && (
         <div
           className="fixed inset-x-0 top-[121px] bottom-0 bg-black/50 z-40 md:hidden"

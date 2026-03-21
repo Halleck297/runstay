@@ -322,7 +322,7 @@ export default function RunningExperience() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <h3 className="mb-2 ml-2 mt-1 inline-block border-b-2 border-accent-500 pb-0.5 font-display text-lg font-semibold text-gray-900">
-                    Favourite & worst races
+                    {t("profile.experience.favorite_races")}
                   </h3>
                 </div>
                 <div className="rounded-2xl border border-brand-300 bg-white p-4 transition-all focus-within:border-brand-400 md:col-span-2 md:p-5">
@@ -331,7 +331,7 @@ export default function RunningExperience() {
                     rows={3}
                     defaultValue={(user as any).favorite_races || ""}
                     className="block w-full resize-none border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder="List the races you've enjoyed and disliked the most, and explain why."
+                    placeholder={t("profile.experience.favorite_races_placeholder")}
                   />
                 </div>
 

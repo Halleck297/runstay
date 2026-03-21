@@ -1,5 +1,6 @@
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { useLoaderData, Link } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data } from "react-router";
+import { useLoaderData, Link, Form } from "react-router";
 import { requireAdmin } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -17,9 +18,10 @@ function formatDate(value: string) {
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireAdmin(request);
 
-  const { data: events, error } = await supabaseAdmin
+  const { data: events } = await supabaseAdmin
     .from("events")
     .select("id, name, location, location_i18n, country, country_i18n, event_date, slug, card_image_url")
+    .eq("event_type", "marathon")
     .order("event_date", { ascending: true });
 
   // Count active listings per event
@@ -42,6 +44,39 @@ export async function loader({ request }: LoaderFunctionArgs) {
       hasI18n: !!(e.location_i18n || e.country_i18n),
     })),
   };
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  await requireAdmin(request);
+  const formData = await request.formData();
+  const intent = String(formData.get("intent") || "");
+  const eventId = String(formData.get("eventId") || "");
+
+  if (intent !== "delete" || !eventId) {
+    return data({ error: "Invalid request." }, { status: 400 });
+  }
+
+  // Block deletion if event has any listings (not just active)
+  const { count } = await supabaseAdmin
+    .from("listings")
+    .select("*", { count: "exact", head: true })
+    .eq("event_id", eventId);
+
+  if (count && count > 0) {
+    return data(
+      { error: `Cannot delete: this event has ${count} listing${count > 1 ? "s" : ""} linked to it.` },
+      { status: 400 }
+    );
+  }
+
+  const { error } = await supabaseAdmin
+    .from("events")
+    .delete()
+    .eq("id", eventId);
+
+  if (error) return data({ error: `Failed to delete: ${error.message}` }, { status: 400 });
+
+  return data({ success: true });
 }
 
 export default function AdminMarathonsIndex() {
@@ -73,6 +108,7 @@ export default function AdminMarathonsIndex() {
               <th className="hidden px-4 py-3 font-semibold text-gray-600 sm:table-cell">Date</th>
               <th className="px-4 py-3 font-semibold text-gray-600 text-center">Listings</th>
               <th className="px-4 py-3 font-semibold text-gray-600 text-center">i18n</th>
+              <th className="px-4 py-3 font-semibold text-gray-600 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -110,11 +146,42 @@ export default function AdminMarathonsIndex() {
                     </span>
                   )}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      to={`/admin/marathons/${event.id}/edit`}
+                      className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      Edit
+                    </Link>
+                    <Form
+                      method="post"
+                      onSubmit={(e) => {
+                        if (!confirm(
+                          event.activeListings > 0
+                            ? `Warning: "${event.name}" has ${event.activeListings} active listing${event.activeListings > 1 ? "s" : ""}.\n\nAre you sure you want to delete this event? This action cannot be undone.`
+                            : `Are you sure you want to delete "${event.name}"? This action cannot be undone.`
+                        )) {
+                          e.preventDefault();
+                        }
+                      }}
+                    >
+                      <input type="hidden" name="intent" value="delete" />
+                      <input type="hidden" name="eventId" value={event.id} />
+                      <button
+                        type="submit"
+                        className="rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </Form>
+                  </div>
+                </td>
               </tr>
             ))}
             {events.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                   No marathons yet. Click "Add Marathon" to get started.
                 </td>
               </tr>

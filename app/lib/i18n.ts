@@ -171,6 +171,7 @@ export type TranslationKey =
   | "common.bibs"
   | "common.member"
   | "common.back_to_site"
+  | "common.save"
   | "auth.sign_in"
   | "auth.welcome_back"
   | "auth.no_account"
@@ -598,6 +599,9 @@ export type TranslationKey =
   | "profile.settings.invalid_action"
   | "profile.settings.unblocked_success"
   | "profile.settings.account"
+  | "profile.settings.language"
+  | "profile.settings.language_help"
+  | "profile.settings.language_saved"
   | "profile.settings.email"
   | "profile.settings.change_password"
   | "profile.settings.update_password"
@@ -1147,6 +1151,7 @@ const en: Record<TranslationKey, string> = {
   "common.bibs": "Bibs",
   "common.member": "member",
   "common.back_to_site": "Back to site",
+  "common.save": "Save",
   "auth.sign_in": "Sign in",
   "auth.welcome_back": "Welcome back",
   "auth.no_account": "Don't have an account?",
@@ -1574,6 +1579,9 @@ const en: Record<TranslationKey, string> = {
   "profile.settings.invalid_action": "Invalid action",
   "profile.settings.unblocked_success": "User has been unblocked successfully.",
   "profile.settings.account": "Account",
+  "profile.settings.language": "Language",
+  "profile.settings.language_help": "Preferred language for the interface",
+  "profile.settings.language_saved": "Language updated",
   "profile.settings.email": "Email",
   "profile.settings.change_password": "Change password",
   "profile.settings.update_password": "Update your account password",
@@ -2124,6 +2132,7 @@ const it: Partial<Record<TranslationKey, string>> = {
   "common.bibs": "Pettorali",
   "common.member": "membro",
   "common.back_to_site": "Torna al sito",
+  "common.save": "Salva",
   "auth.sign_in": "Accedi",
   "auth.welcome_back": "Bentornato",
   "auth.no_account": "Non hai un account?",
@@ -2551,6 +2560,9 @@ const it: Partial<Record<TranslationKey, string>> = {
   "profile.settings.invalid_action": "Azione non valida",
   "profile.settings.unblocked_success": "Utente sbloccato con successo.",
   "profile.settings.account": "Account",
+  "profile.settings.language": "Lingua",
+  "profile.settings.language_help": "Lingua preferita per l'interfaccia",
+  "profile.settings.language_saved": "Lingua aggiornata",
   "profile.settings.email": "E-mail",
   "profile.settings.change_password": "Cambia password",
   "profile.settings.update_password": "Aggiorna la password del tuo account",
@@ -3101,6 +3113,7 @@ const es: Partial<Record<TranslationKey, string>> = {
   "common.bibs": "Dorsales",
   "common.member": "miembro",
   "common.back_to_site": "Volver al sitio",
+  "common.save": "Guardar",
   "auth.sign_in": "Iniciar sesión",
   "auth.welcome_back": "Bienvenido de nuevo",
   "auth.no_account": "¿No tienes una cuenta?",
@@ -3528,6 +3541,9 @@ const es: Partial<Record<TranslationKey, string>> = {
   "profile.settings.invalid_action": "Accion no valida",
   "profile.settings.unblocked_success": "Usuario desbloqueado correctamente",
   "profile.settings.account": "Cuenta",
+  "profile.settings.language": "Idioma",
+  "profile.settings.language_help": "Idioma preferido para la interfaz",
+  "profile.settings.language_saved": "Idioma actualizado",
   "profile.settings.email": "Correo electronico",
   "profile.settings.change_password": "Cambiar contrasena",
   "profile.settings.update_password": "Actualiza la contrasena de tu cuenta",
@@ -4078,6 +4094,7 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "common.bibs": "Dossards",
   "common.member": "membre",
   "common.back_to_site": "Retour au site",
+  "common.save": "Enregistrer",
   "auth.sign_in": "Se connecter",
   "auth.welcome_back": "Content de te revoir",
   "auth.no_account": "Vous n'avez pas de compte ?",
@@ -4505,6 +4522,9 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "profile.settings.invalid_action": "Action invalide",
   "profile.settings.unblocked_success": "Utilisateur debloque avec succes",
   "profile.settings.account": "Compte",
+  "profile.settings.language": "Langue",
+  "profile.settings.language_help": "Langue préférée pour l'interface",
+  "profile.settings.language_saved": "Langue mise à jour",
   "profile.settings.email": "E-mail",
   "profile.settings.change_password": "Changer le mot de passe",
   "profile.settings.update_password": "Mettre a jour le mot de passe du compte",
@@ -5055,6 +5075,7 @@ const de: Partial<Record<TranslationKey, string>> = {
   "common.bibs": "Startnummern",
   "common.member": "Mitglied",
   "common.back_to_site": "Zurück zur Website",
+  "common.save": "Speichern",
   "auth.sign_in": "anmelden",
   "auth.welcome_back": "Willkommen zurück",
   "auth.no_account": "Sie haben noch kein Konto?",
@@ -5482,6 +5503,9 @@ const de: Partial<Record<TranslationKey, string>> = {
   "profile.settings.invalid_action": "Ungueltige Aktion",
   "profile.settings.unblocked_success": "Nutzer erfolgreich entsperrt",
   "profile.settings.account": "Konto",
+  "profile.settings.language": "Sprache",
+  "profile.settings.language_help": "Bevorzugte Sprache für die Oberfläche",
+  "profile.settings.language_saved": "Sprache aktualisiert",
   "profile.settings.email": "E-Mail",
   "profile.settings.change_password": "Passwort andern",
   "profile.settings.update_password": "Konto-Passwort aktualisieren",
@@ -6032,6 +6056,7 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "common.bibs": "Startnummers",
   "common.member": "lid",
   "common.back_to_site": "Terug naar de site",
+  "common.save": "Opslaan",
   "auth.sign_in": "Inloggen",
   "auth.welcome_back": "Welkom terug",
   "auth.no_account": "Nog geen account?",
@@ -6459,6 +6484,9 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "profile.settings.invalid_action": "Ongeldige actie",
   "profile.settings.unblocked_success": "Gebruiker succesvol gedeblokkeerd",
   "profile.settings.account": "Rekening",
+  "profile.settings.language": "Taal",
+  "profile.settings.language_help": "Voorkeurstaal voor de interface",
+  "profile.settings.language_saved": "Taal bijgewerkt",
   "profile.settings.email": "E-mail",
   "profile.settings.change_password": "Wachtwoord wijzigen",
   "profile.settings.update_password": "Werk je accountwachtwoord bij",
@@ -7009,6 +7037,7 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "common.bibs": "Dorsais",
   "common.member": "membro",
   "common.back_to_site": "Voltar ao site",
+  "common.save": "Salvar",
   "auth.sign_in": "Entrar",
   "auth.welcome_back": "bem vindo de volta",
   "auth.no_account": "Não tem uma conta?",
@@ -7436,6 +7465,9 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "profile.settings.invalid_action": "Acao invalida",
   "profile.settings.unblocked_success": "Usuario desbloqueado com sucesso",
   "profile.settings.account": "Conta",
+  "profile.settings.language": "Idioma",
+  "profile.settings.language_help": "Idioma preferido para a interface",
+  "profile.settings.language_saved": "Idioma atualizado",
   "profile.settings.email": "E-mail",
   "profile.settings.change_password": "Alterar senha",
   "profile.settings.update_password": "Atualize a senha da sua conta",

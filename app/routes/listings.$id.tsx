@@ -540,9 +540,11 @@ export default function ListingDetail() {
             {(listingData.distance_to_finish !== null ||
               listingData.walking_duration !== null ||
               listingData.transit_duration !== null) && (
-              <div className="-mx-5 rounded-none border border-brand-300 bg-white px-5 py-4 sm:mx-0 sm:rounded-3xl sm:px-4 sm:py-4 md:bg-white/90 md:p-6 md:backdrop-blur-sm">
+              <div className="rounded-3xl border border-brand-300 bg-white p-4 md:bg-white/90 md:p-6 md:backdrop-blur-sm">
                 <h3 className="font-display text-lg font-semibold text-gray-900 mb-4">
-                  {t("listings.distance_to_finish_line")}
+                  <span className="inline-block border-b-2 border-accent-500 pb-1">
+                    {t("listings.distance_to_finish_line")}
+                  </span>
                 </h3>
                 <div className="space-y-3">
                   {/* Distance */}
@@ -581,9 +583,9 @@ export default function ListingDetail() {
                     </div>
                   )}
 
-                  {/* Transit duration - only show if > 1km */}
+                  {/* Transit duration - only show if > 1.5km */}
                   {listingData.transit_duration !== null &&
-                    (listingData.distance_to_finish == null || listingData.distance_to_finish > 1000) && (
+                    (listingData.distance_to_finish == null || listingData.distance_to_finish > 1500) && (
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 flex-shrink-0">
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -640,7 +642,7 @@ export default function ListingDetail() {
 
             {/* Description */}
             {listingData.description && (
-              <div className="-mx-5 rounded-none bg-white px-5 py-4 sm:mx-0 sm:rounded-3xl sm:px-4 sm:py-4 md:bg-white/90 md:p-6 md:backdrop-blur-sm">
+              <div className="rounded-3xl bg-white p-4 md:bg-white/90 md:p-6 md:backdrop-blur-sm">
                 <h3 className="mb-6 font-display text-lg font-semibold text-gray-900">
                   <span className="inline-block border-b-2 border-accent-500 pb-1">
                     {t("listings.additional_information")}

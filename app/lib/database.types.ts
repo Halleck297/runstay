@@ -173,6 +173,7 @@ export interface Database {
           country: string;
           country_i18n: Json | null;
           event_date: string;
+          event_type: string;
           card_image_url: string | null;
           start_lat: number | null;
           start_lng: number | null;
@@ -191,6 +192,7 @@ export interface Database {
           country: string;
           country_i18n?: Json | null;
           event_date: string;
+          event_type?: string;
           card_image_url?: string | null;
           start_lat?: number | null;
           start_lng?: number | null;
@@ -208,6 +210,7 @@ export interface Database {
           country?: string;
           country_i18n?: Json | null;
           event_date?: string;
+          event_type?: string;
           card_image_url?: string | null;
           start_lat?: number | null;
           start_lng?: number | null;

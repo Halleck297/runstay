@@ -175,9 +175,9 @@ export async function action({ request }: ActionFunctionArgs) {
 
 const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }> = [
   { key: "profile.nav.personal_info", href: "/profile#info", icon: "user" },
-  { key: "profile.nav.running_experience", href: "/profile/experience", icon: "running" },
+  { key: "profile.nav.running_experience", href: "/profile/experience#exp", icon: "running" },
   { key: "profile.nav.social_media", href: "/profile/social#social", icon: "share" },
-  { key: "profile.nav.settings", href: "/profile/settings", icon: "settings" },
+  { key: "profile.nav.settings", href: "/profile/settings#settings", icon: "settings" },
 ];
 
 export default function ProfileIndex() {
@@ -549,39 +549,46 @@ export default function ProfileIndex() {
             </Form>
 
             {isAvatarModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="w-full max-w-2xl rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl">
-                  <div className="mb-5">
-                    <h3 className="font-display text-xl font-semibold text-gray-900">Choose avatar</h3>
+              <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+                <div className="flex w-full max-w-2xl max-h-[90dvh] flex-col rounded-t-3xl rounded-b-none border border-gray-200 bg-white shadow-2xl sm:rounded-3xl">
+                  {/* Header fisso */}
+                  <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-gray-100">
+                    <h3 className="font-display text-xl font-semibold text-gray-900">
+                      <span className="inline-block border-b-2 border-accent-500 pb-1">Choose avatar</span>
+                    </h3>
                     <p className="mt-1 text-sm text-gray-500">Select one avatar and save.</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedAvatar(NO_AVATAR_VALUE)}
-                      className={`flex h-24 flex-col items-center justify-center gap-2 rounded-xl border p-2 transition-all ${
-                        selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
-                      }`}
-                    >
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
-                        {getInitials(user.full_name)}
-                      </div>
-                      <span className="text-xs font-semibold text-gray-700">{t("profile.avatar.initials")}</span>
-                    </button>
-                    {OPEN_DOODLE_AVATARS.map((avatar) => (
+                  {/* Avatar grid scorrevole */}
+                  <div className="flex-1 overflow-y-auto px-6 py-4">
+                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
                       <button
-                        key={avatar}
                         type="button"
-                        onClick={() => setSelectedAvatar(avatar)}
-                        className={`rounded-xl border p-2 transition-all ${
-                          selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
+                        onClick={() => setSelectedAvatar(NO_AVATAR_VALUE)}
+                        className={`flex h-24 flex-col items-center justify-center gap-2 rounded-xl border p-2 transition-all ${
+                          selectedAvatar === NO_AVATAR_VALUE ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
                         }`}
                       >
-                        <img src={avatar} alt="Avatar option" className="mx-auto h-20 w-20 rounded-full object-cover" loading="lazy" />
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
+                          {getInitials(user.full_name)}
+                        </div>
+                        <span className="text-xs font-semibold text-gray-700">{t("profile.avatar.initials")}</span>
                       </button>
-                    ))}
+                      {OPEN_DOODLE_AVATARS.map((avatar) => (
+                        <button
+                          key={avatar}
+                          type="button"
+                          onClick={() => setSelectedAvatar(avatar)}
+                          className={`rounded-xl border p-2 transition-all ${
+                            selectedAvatar === avatar ? "border-brand-400 ring-2 ring-brand-200" : "border-gray-200"
+                          }`}
+                        >
+                          <img src={avatar} alt="Avatar option" className="mx-auto h-20 w-20 rounded-full object-cover" loading="lazy" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="mt-6 flex items-center justify-end gap-3">
+                  {/* Footer fisso */}
+                  <div className="flex-shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
                     <button
                       type="button"
                       onClick={() => setIsAvatarModalOpen(false)}

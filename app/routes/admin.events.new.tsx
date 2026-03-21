@@ -200,6 +200,7 @@ export async function action({ request }: ActionFunctionArgs) {
         country: eventCountry,
         location: eventLocation,
         event_date: eventDate,
+        event_type: "private",
         card_image_url: sourceRequest?.event_image_url || null,
         created_by: (admin as any).id,
       } as any)

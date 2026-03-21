@@ -114,7 +114,7 @@ export default function ToProfileBusiness() {
             locationPathname={location.pathname}
           />
 
-          <main className="min-w-0 flex-1">
+          <main id="to-experience" className="min-w-0 flex-1 scroll-mt-36 md:scroll-mt-0">
             <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mb-6 md:p-6">
               <h1 className="font-display text-2xl font-bold text-gray-900">Business details</h1>
               <p className="mt-1 text-gray-600">Update your business information.</p>

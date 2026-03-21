@@ -5,6 +5,7 @@ import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useI18n } from "~/hooks/useI18n";
 import { isTeamLeader } from "~/lib/user-access";
+import { buildLocaleCookie, getSupportedLocales, getLocaleLabelsForUi, isSupportedLocale } from "~/lib/locale";
 
 export const meta: MetaFunction = () => [{ title: "Team Leader Settings - Runoot" }];
 
@@ -54,6 +55,18 @@ export async function action({ request }: ActionFunctionArgs) {
   const intent = formData.get("intent");
   const blockedId = formData.get("blocked_id");
 
+  if (intent === "update_language") {
+    const language = String(formData.get("language") || "");
+    if (!isSupportedLocale(language)) {
+      return data({ error: "Invalid action" }, { status: 400 });
+    }
+    await supabaseAdmin.from("profiles").update({ preferred_language: language } as any).eq("id", userId);
+    return data(
+      { success: true, action: "language_updated" as const },
+      { headers: { "Set-Cookie": buildLocaleCookie(language) } },
+    );
+  }
+
   if (intent === "unblock" && typeof blockedId === "string") {
     await supabaseAdmin.from("blocked_users").delete().eq("blocker_id", userId).eq("blocked_id", blockedId);
     return data({ success: true, action: "unblocked" as const });
@@ -82,11 +95,13 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function TLSettingsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const localeLabels = getLocaleLabelsForUi(locale);
+  const supportedLocales = getSupportedLocales();
   const { user, blockedUsers, visibility } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
     | { error?: string }
-    | { success?: boolean; action?: "unblocked" | "visibility_updated" }
+    | { success?: boolean; action?: "unblocked" | "visibility_updated" | "language_updated" }
     | undefined;
   const navigation = useNavigation();
   const isUnblocking = navigation.state === "submitting" && navigation.formData?.get("intent") === "unblock";
@@ -105,7 +120,11 @@ export default function TLSettingsPage() {
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              {actionData.action === "visibility_updated" ? t("profile.settings.visibility_updated") : t("profile.settings.unblocked_success")}
+              {actionData.action === "language_updated"
+                ? t("profile.settings.language_saved")
+                : actionData.action === "visibility_updated"
+                  ? t("profile.settings.visibility_updated")
+                  : t("profile.settings.unblocked_success")}
             </div>
           )}
 
@@ -130,6 +149,26 @@ export default function TLSettingsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
+            </div>
+
+            <div className="border-t border-brand-300 p-4 md:p-5">
+              <label className="text-sm font-medium text-gray-900">{t("profile.settings.language")}</label>
+              <p className="mb-3 mt-0.5 text-sm text-gray-500">{t("profile.settings.language_help")}</p>
+              <Form method="post" className="flex items-center gap-3">
+                <input type="hidden" name="intent" value="update_language" />
+                <select
+                  name="language"
+                  defaultValue={(user as any).preferred_language || locale}
+                  className="h-9 w-auto rounded-xl border border-brand-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                >
+                  {supportedLocales.map((l) => (
+                    <option key={l} value={l}>{localeLabels[l]}</option>
+                  ))}
+                </select>
+                <button type="submit" className="btn-primary h-9 shrink-0 rounded-full px-4 text-sm">
+                  {t("common.save")}
+                </button>
+              </Form>
             </div>
 
             <div className="border-t border-brand-300 p-4 md:p-5">

@@ -212,19 +212,20 @@ export async function calculateDistanceData(
   // Calculate straight-line distance (always, no API needed)
   const distance = calculateHaversineDistance(hotelLat, hotelLng, finishLat, finishLng);
 
-  // Get walking duration (always)
-  const walkingResult = await getWalkingDuration(hotelLat, hotelLng, finishLat, finishLng);
+  // Calculate walking duration ourselves: 6 km/h (100 m/min) with 1.15 route factor
+  // More realistic for active people than Google's default speed
+  const walkingDuration = Math.round((distance * 1.15) / 100);
 
-  // Get transit duration only if distance > 1km
+  // Get transit duration only if distance > 1.5km
   let transitDuration: number | null = null;
-  if (distance > 1000) {
+  if (distance > 1500) {
     const transitResult = await getTransitDuration(hotelLat, hotelLng, finishLat, finishLng);
     transitDuration = transitResult?.duration ?? null;
   }
 
   return {
     distance_to_finish: distance,
-    walking_duration: walkingResult?.duration ?? null,
+    walking_duration: walkingDuration,
     transit_duration: transitDuration,
   };
 }

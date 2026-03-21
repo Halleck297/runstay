@@ -104,11 +104,13 @@ export async function buildCityI18nFromPlaceId(
       const place = await response.json();
 
       // Extract city name from addressComponents (type "locality")
+      // Google Places API (New) uses "longText", not "text"
       const locality = place.addressComponents?.find(
         (c: any) => c.types?.includes("locality")
       );
-      if (locality?.text) {
-        results[locale] = locality.text;
+      const cityName = locality?.longText || locality?.text || place.displayName?.text;
+      if (cityName) {
+        results[locale] = cityName;
       }
     } catch {
       // silently skip failed locale

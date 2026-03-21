@@ -299,12 +299,13 @@ export default function Listings() {
               <Form
                 method="get"
                 name="listing-search"
-                onSubmit={() =>
+                onSubmit={() => {
+                  setShowSuggestions(false);
                   trackEvent(analyticsEvents.LISTINGS_SEARCH_SUBMITTED, {
                     query: searchQuery.trim(),
                     type_filter: currentType,
-                  })
-                }
+                  });
+                }}
                 className="w-full lg:w-[44%] xl:w-[48%]"
               >
                 <input type="hidden" name="type" value={currentType} />
@@ -323,7 +324,7 @@ export default function Listings() {
                     />
                   </svg>
                   <input
-                    type="search"
+                    type="text"
                     id="listing-search"
                     name="search"
                     autoComplete="off"
