@@ -927,6 +927,33 @@ export interface Database {
         };
         Relationships: [];
       };
+      team_join_requests: {
+        Row: {
+          id: string;
+          tl_id: string;
+          name: string;
+          email: string;
+          notes: string | null;
+          status: "pending" | "accepted" | "rejected";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tl_id: string;
+          name: string;
+          email: string;
+          notes?: string | null;
+          status?: "pending" | "accepted" | "rejected";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: "pending" | "accepted" | "rejected";
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
 
     };
     Views: {

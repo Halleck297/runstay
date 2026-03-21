@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
+import { generateInviteToken } from "~/lib/referral-code.server";
 import { useI18n } from "~/hooks/useI18n";
 import { isTeamLeader } from "~/lib/user-access";
 
@@ -134,7 +135,6 @@ export async function action({ request }: ActionFunctionArgs) {
 
       const now = new Date().toISOString();
       const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
-      const referralLink = `${appUrl}/${String((user as any).referral_code || "").toLowerCase()}`;
       const currentUserEmail = normalizeEmail(String((user as any).email || ""));
 
       const { data: existingInvites } = await (supabaseAdmin.from("referral_invites") as any)
@@ -189,11 +189,15 @@ export async function action({ request }: ActionFunctionArgs) {
           continue;
         }
 
+        // Generate a token for the invite link
+        const inviteToken = generateInviteToken();
+
         if (!invite) {
           const { error: insertInviteError } = await (supabaseAdmin.from("referral_invites") as any).insert({
             team_leader_id: (user as any).id,
             email,
             status: "pending",
+            token: inviteToken,
             created_at: now,
             updated_at: now,
           });
@@ -202,7 +206,9 @@ export async function action({ request }: ActionFunctionArgs) {
             continue;
           }
         } else {
-          await (supabaseAdmin.from("referral_invites") as any).update({ updated_at: now }).eq("id", invite.id);
+          await (supabaseAdmin.from("referral_invites") as any)
+            .update({ updated_at: now, token: inviteToken })
+            .eq("id", invite.id);
         }
 
         if (existingProfile && !existingReferral) {
@@ -238,13 +244,14 @@ export async function action({ request }: ActionFunctionArgs) {
           continue;
         }
 
+        const tokenReferralLink = `${appUrl}/join/${inviteToken}`;
         const sendResult = await sendTemplatedEmail({
           to: email,
           templateId: "referral_invite",
           locale: (user as any).preferred_language || null,
           payload: {
             inviterName: (user as any).full_name || "Your Team Leader",
-            referralLink,
+            referralLink: tokenReferralLink,
             welcomeMessage: (user as any).tl_welcome_message,
           },
         });
@@ -284,7 +291,10 @@ export async function action({ request }: ActionFunctionArgs) {
       }
 
       const appUrl = (process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
-      const referralLink = `${appUrl}/${String((user as any).referral_code || "").toLowerCase()}`;
+
+      // Generate a new token for the resend
+      const resendToken = generateInviteToken();
+      const tokenReferralLink = `${appUrl}/join/${resendToken}`;
 
       const sendResult = await sendTemplatedEmail({
         to: invite.email,
@@ -292,7 +302,7 @@ export async function action({ request }: ActionFunctionArgs) {
         locale: (user as any).preferred_language || null,
         payload: {
           inviterName: (user as any).full_name || "Your Team Leader",
-          referralLink,
+          referralLink: tokenReferralLink,
           welcomeMessage: (user as any).tl_welcome_message,
         },
       });
@@ -302,7 +312,7 @@ export async function action({ request }: ActionFunctionArgs) {
       }
 
       await (supabaseAdmin.from("referral_invites") as any)
-        .update({ updated_at: new Date().toISOString() })
+        .update({ updated_at: new Date().toISOString(), token: resendToken })
         .eq("id", invite.id);
 
       return data({ success: true, messageKey: "tl_dashboard.success.invitation_resent" as const, resentInviteId: invite.id });
@@ -329,7 +339,8 @@ export default function TLReferralsPage() {
   const [copied, setCopied] = useState(false);
   const [sentInviteIds, setSentInviteIds] = useState<Set<string>>(new Set());
 
-  const referralLink = `${appUrl}/${String((user as any).referral_code || "").toLowerCase()}`;
+  const referralSlug = (user as any).referral_slug || String((user as any).referral_code || "").toLowerCase();
+  const referralLink = `${appUrl}/${referralSlug}`;
   const referralLinkDisplay = referralLink.replace(/^https?:\/\//i, "");
 
   const formatDate = (value: string) => {

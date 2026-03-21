@@ -119,3 +119,65 @@ export async function generateUniqueReferralCode(args: {
   const fallback = `${base.slice(0, Math.max(1, MAX_REFERRAL_CODE_LENGTH - 5))}${Date.now().toString().slice(-5)}`;
   return RESERVED_REFERRAL_SLUGS.has(fallback) ? `r${fallback}`.slice(0, MAX_REFERRAL_CODE_LENGTH) : fallback;
 }
+
+/**
+ * Generate a random invite token (12 chars, alphanumeric, no ambiguous chars).
+ */
+export function generateInviteToken(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let token = "";
+  for (let i = 0; i < 12; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
+/**
+ * Generate a unique referral slug from a full name, ensuring no collisions.
+ * Used for lazy one-time migration of TLs who have referral_code but no referral_slug.
+ */
+async function isSlugTaken(slug: string, excludeUserId?: string): Promise<boolean> {
+  const { data: existing } = await (supabaseAdmin.from("profiles") as any)
+    .select("id")
+    .ilike("referral_slug", slug)
+    .maybeSingle();
+
+  if (!existing) return false;
+  if (excludeUserId && String(existing.id || "") === excludeUserId) return false;
+  return true;
+}
+
+function buildSlugBase(fullName: string): string {
+  const slugified = fullName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, MAX_REFERRAL_CODE_LENGTH);
+
+  return slugified || "team";
+}
+
+export async function generateUniqueReferralSlug(
+  _supabaseAdmin: typeof supabaseAdmin,
+  fullName: string,
+  excludeUserId?: string
+): Promise<string> {
+  const base = buildSlugBase(fullName);
+  let suffix = 0;
+
+  while (suffix < 10000) {
+    const suffixText = suffix === 0 ? "" : `-${suffix}`;
+    const head = base.slice(0, Math.max(1, MAX_REFERRAL_CODE_LENGTH - suffixText.length));
+    const candidate = `${head}${suffixText}`;
+
+    if (!RESERVED_REFERRAL_SLUGS.has(candidate) && !(await isSlugTaken(candidate, excludeUserId))) {
+      return candidate;
+    }
+    suffix += 1;
+  }
+
+  const fallback = `${base.slice(0, Math.max(1, MAX_REFERRAL_CODE_LENGTH - 5))}-${Date.now().toString().slice(-5)}`;
+  return RESERVED_REFERRAL_SLUGS.has(fallback) ? `r${fallback}`.slice(0, MAX_REFERRAL_CODE_LENGTH) : fallback;
+}

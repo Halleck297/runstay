@@ -979,7 +979,38 @@ export type TranslationKey =
   | "tl_dashboard.error.invite_not_found"
   | "tl_dashboard.error.invite_already_linked"
   | "tl_dashboard.error.resend_failed"
-  | "tl_dashboard.error.unknown_action";
+  | "tl_dashboard.error.unknown_action"
+  | "nav.requests"
+  | "join_request.title"
+  | "join_request.subtitle"
+  | "join_request.first_name"
+  | "join_request.last_name"
+  | "join_request.email"
+  | "join_request.notes"
+  | "join_request.notes_placeholder"
+  | "join_request.submit"
+  | "join_request.success_title"
+  | "join_request.success_body"
+  | "join_request.duplicate"
+  | "join_request.error_email"
+  | "join_request.error_required"
+  | "join_token.title"
+  | "join_token.subtitle"
+  | "join_token.email_locked"
+  | "join_token.invalid"
+  | "join_token.already_used"
+  | "join_token.register"
+  | "tl_requests.title"
+  | "tl_requests.empty"
+  | "tl_requests.accept"
+  | "tl_requests.reject"
+  | "tl_requests.accepted"
+  | "tl_requests.rejected"
+  | "tl_requests.accepted_success"
+  | "tl_requests.rejected_success"
+  | "tl_requests.notes_label"
+  | "tl_requests.pending"
+  | "tl_requests.date";
 
 const en: Record<TranslationKey, string> = {
   "nav.home": "Home",
@@ -1960,6 +1991,37 @@ const en: Record<TranslationKey, string> = {
   "tl_dashboard.error.invite_already_linked": "This invite is already linked to a registered user.",
   "tl_dashboard.error.resend_failed": "Could not resend invitation.",
   "tl_dashboard.error.unknown_action": "Unknown action",
+  "nav.requests": "Requests",
+  "join_request.title": "Join {name}'s team",
+  "join_request.subtitle": "Fill out the form below to request to join this team",
+  "join_request.first_name": "First name",
+  "join_request.last_name": "Last name",
+  "join_request.email": "Email",
+  "join_request.notes": "Notes (optional)",
+  "join_request.notes_placeholder": "Tell the team leader why you'd like to join...",
+  "join_request.submit": "Request to join",
+  "join_request.success_title": "Request sent!",
+  "join_request.success_body": "The team leader will review your request and get back to you.",
+  "join_request.duplicate": "You've already submitted a request to this team",
+  "join_request.error_email": "Please enter a valid email",
+  "join_request.error_required": "This field is required",
+  "join_token.title": "Join {name}'s team",
+  "join_token.subtitle": "Complete your registration to join the team",
+  "join_token.email_locked": "Email from invitation",
+  "join_token.invalid": "This invite link is invalid or expired",
+  "join_token.already_used": "This invite has already been used",
+  "join_token.register": "Create account & join",
+  "tl_requests.title": "Join requests",
+  "tl_requests.empty": "No pending requests",
+  "tl_requests.accept": "Accept",
+  "tl_requests.reject": "Reject",
+  "tl_requests.accepted": "Accepted",
+  "tl_requests.rejected": "Rejected",
+  "tl_requests.accepted_success": "Request accepted and invitation sent",
+  "tl_requests.rejected_success": "Request rejected",
+  "tl_requests.notes_label": "Notes",
+  "tl_requests.pending": "Pending",
+  "tl_requests.date": "Date",
 };
 
 const it: Partial<Record<TranslationKey, string>> = {
@@ -2941,6 +3003,37 @@ const it: Partial<Record<TranslationKey, string>> = {
   "tl_dashboard.error.invite_already_linked": "Questo invito e gia collegato a un utente registrato.",
   "tl_dashboard.error.resend_failed": "Impossibile reinviare l'invito.",
   "tl_dashboard.error.unknown_action": "Azione sconosciuta",
+  "nav.requests": "Richieste",
+  "join_request.title": "Entra nel team di {name}",
+  "join_request.subtitle": "Compila il modulo per richiedere di entrare nel team",
+  "join_request.first_name": "Nome",
+  "join_request.last_name": "Cognome",
+  "join_request.email": "Email",
+  "join_request.notes": "Note (facoltativo)",
+  "join_request.notes_placeholder": "Scrivi al team leader perché vorresti entrare...",
+  "join_request.submit": "Richiedi di entrare",
+  "join_request.success_title": "Richiesta inviata!",
+  "join_request.success_body": "Il team leader esaminerà la tua richiesta e ti ricontatterà.",
+  "join_request.duplicate": "Hai già inviato una richiesta a questo team",
+  "join_request.error_email": "Inserisci un'email valida",
+  "join_request.error_required": "Campo obbligatorio",
+  "join_token.title": "Entra nel team di {name}",
+  "join_token.subtitle": "Completa la registrazione per entrare nel team",
+  "join_token.email_locked": "Email dall'invito",
+  "join_token.invalid": "Questo link di invito non è valido o è scaduto",
+  "join_token.already_used": "Questo invito è già stato utilizzato",
+  "join_token.register": "Crea account e entra",
+  "tl_requests.title": "Richieste di adesione",
+  "tl_requests.empty": "Nessuna richiesta in attesa",
+  "tl_requests.accept": "Accetta",
+  "tl_requests.reject": "Rifiuta",
+  "tl_requests.accepted": "Accettata",
+  "tl_requests.rejected": "Rifiutata",
+  "tl_requests.accepted_success": "Richiesta accettata e invito inviato",
+  "tl_requests.rejected_success": "Richiesta rifiutata",
+  "tl_requests.notes_label": "Note",
+  "tl_requests.pending": "In attesa",
+  "tl_requests.date": "Data",
 };
 
 const es: Partial<Record<TranslationKey, string>> = {
@@ -3922,6 +4015,37 @@ const es: Partial<Record<TranslationKey, string>> = {
   "tl_dashboard.error.invite_already_linked": "Esta invitación ya está vinculada a un usuario registrado.",
   "tl_dashboard.error.resend_failed": "No se pudo reenviar la invitacion.",
   "tl_dashboard.error.unknown_action": "Acción desconocida",
+  "nav.requests": "Solicitudes",
+  "join_request.title": "Únete al equipo de {name}",
+  "join_request.subtitle": "Completa el formulario para solicitar unirte a este equipo",
+  "join_request.first_name": "Nombre",
+  "join_request.last_name": "Apellido",
+  "join_request.email": "Email",
+  "join_request.notes": "Notas (opcional)",
+  "join_request.notes_placeholder": "Cuéntale al líder del equipo por qué te gustaría unirte...",
+  "join_request.submit": "Solicitar unirse",
+  "join_request.success_title": "¡Solicitud enviada!",
+  "join_request.success_body": "El líder del equipo revisará tu solicitud y se pondrá en contacto contigo.",
+  "join_request.duplicate": "Ya has enviado una solicitud a este equipo",
+  "join_request.error_email": "Introduce un email válido",
+  "join_request.error_required": "Este campo es obligatorio",
+  "join_token.title": "Únete al equipo de {name}",
+  "join_token.subtitle": "Completa tu registro para unirte al equipo",
+  "join_token.email_locked": "Email de la invitación",
+  "join_token.invalid": "Este enlace de invitación no es válido o ha expirado",
+  "join_token.already_used": "Esta invitación ya ha sido utilizada",
+  "join_token.register": "Crear cuenta y unirse",
+  "tl_requests.title": "Solicitudes de adhesión",
+  "tl_requests.empty": "No hay solicitudes pendientes",
+  "tl_requests.accept": "Aceptar",
+  "tl_requests.reject": "Rechazar",
+  "tl_requests.accepted": "Aceptada",
+  "tl_requests.rejected": "Rechazada",
+  "tl_requests.accepted_success": "Solicitud aceptada e invitación enviada",
+  "tl_requests.rejected_success": "Solicitud rechazada",
+  "tl_requests.notes_label": "Notas",
+  "tl_requests.pending": "Pendiente",
+  "tl_requests.date": "Fecha",
 };
 
 const fr: Partial<Record<TranslationKey, string>> = {
@@ -4903,6 +5027,37 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "tl_dashboard.error.invite_already_linked": "Cette invitation est déjà associée à un utilisateur enregistré.",
   "tl_dashboard.error.resend_failed": "Impossible de renvoyer l'invitation.",
   "tl_dashboard.error.unknown_action": "Action inconnue",
+  "nav.requests": "Demandes",
+  "join_request.title": "Rejoindre l'équipe de {name}",
+  "join_request.subtitle": "Remplissez le formulaire pour demander à rejoindre cette équipe",
+  "join_request.first_name": "Prénom",
+  "join_request.last_name": "Nom",
+  "join_request.email": "Email",
+  "join_request.notes": "Notes (facultatif)",
+  "join_request.notes_placeholder": "Expliquez au chef d'équipe pourquoi vous souhaitez rejoindre...",
+  "join_request.submit": "Demander à rejoindre",
+  "join_request.success_title": "Demande envoyée !",
+  "join_request.success_body": "Le chef d'équipe examinera votre demande et vous recontactera.",
+  "join_request.duplicate": "Vous avez déjà envoyé une demande à cette équipe",
+  "join_request.error_email": "Veuillez entrer un email valide",
+  "join_request.error_required": "Ce champ est obligatoire",
+  "join_token.title": "Rejoindre l'équipe de {name}",
+  "join_token.subtitle": "Complétez votre inscription pour rejoindre l'équipe",
+  "join_token.email_locked": "Email de l'invitation",
+  "join_token.invalid": "Ce lien d'invitation est invalide ou expiré",
+  "join_token.already_used": "Cette invitation a déjà été utilisée",
+  "join_token.register": "Créer un compte et rejoindre",
+  "tl_requests.title": "Demandes d'adhésion",
+  "tl_requests.empty": "Aucune demande en attente",
+  "tl_requests.accept": "Accepter",
+  "tl_requests.reject": "Refuser",
+  "tl_requests.accepted": "Acceptée",
+  "tl_requests.rejected": "Refusée",
+  "tl_requests.accepted_success": "Demande acceptée et invitation envoyée",
+  "tl_requests.rejected_success": "Demande refusée",
+  "tl_requests.notes_label": "Notes",
+  "tl_requests.pending": "En attente",
+  "tl_requests.date": "Date",
 };
 
 const de: Partial<Record<TranslationKey, string>> = {
@@ -5884,6 +6039,37 @@ const de: Partial<Record<TranslationKey, string>> = {
   "tl_dashboard.error.invite_already_linked": "Diese Einladung ist bereits einem registrierten Benutzer zugeordnet.",
   "tl_dashboard.error.resend_failed": "Einladung konnte nicht erneut gesendet werden.",
   "tl_dashboard.error.unknown_action": "Unbekannte Aktion",
+  "nav.requests": "Anfragen",
+  "join_request.title": "Tritt dem Team von {name} bei",
+  "join_request.subtitle": "Fülle das Formular aus, um eine Beitrittsanfrage zu stellen",
+  "join_request.first_name": "Vorname",
+  "join_request.last_name": "Nachname",
+  "join_request.email": "E-Mail",
+  "join_request.notes": "Notizen (optional)",
+  "join_request.notes_placeholder": "Erzähle dem Teamleiter, warum du beitreten möchtest...",
+  "join_request.submit": "Beitritt anfragen",
+  "join_request.success_title": "Anfrage gesendet!",
+  "join_request.success_body": "Der Teamleiter wird deine Anfrage prüfen und sich bei dir melden.",
+  "join_request.duplicate": "Du hast bereits eine Anfrage an dieses Team gesendet",
+  "join_request.error_email": "Bitte gib eine gültige E-Mail-Adresse ein",
+  "join_request.error_required": "Dieses Feld ist erforderlich",
+  "join_token.title": "Tritt dem Team von {name} bei",
+  "join_token.subtitle": "Schließe deine Registrierung ab, um dem Team beizutreten",
+  "join_token.email_locked": "E-Mail aus der Einladung",
+  "join_token.invalid": "Dieser Einladungslink ist ungültig oder abgelaufen",
+  "join_token.already_used": "Diese Einladung wurde bereits verwendet",
+  "join_token.register": "Konto erstellen und beitreten",
+  "tl_requests.title": "Beitrittsanfragen",
+  "tl_requests.empty": "Keine ausstehenden Anfragen",
+  "tl_requests.accept": "Akzeptieren",
+  "tl_requests.reject": "Ablehnen",
+  "tl_requests.accepted": "Akzeptiert",
+  "tl_requests.rejected": "Abgelehnt",
+  "tl_requests.accepted_success": "Anfrage akzeptiert und Einladung gesendet",
+  "tl_requests.rejected_success": "Anfrage abgelehnt",
+  "tl_requests.notes_label": "Notizen",
+  "tl_requests.pending": "Ausstehend",
+  "tl_requests.date": "Datum",
 };
 
 const nl: Partial<Record<TranslationKey, string>> = {
@@ -6865,6 +7051,37 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "tl_dashboard.error.invite_already_linked": "Deze uitnodiging is al gekoppeld aan een geregistreerde gebruiker.",
   "tl_dashboard.error.resend_failed": "Uitnodiging opnieuw verzenden mislukt.",
   "tl_dashboard.error.unknown_action": "Onbekende actie",
+  "nav.requests": "Verzoeken",
+  "join_request.title": "Word lid van het team van {name}",
+  "join_request.subtitle": "Vul het formulier in om een verzoek te doen om lid te worden van dit team",
+  "join_request.first_name": "Voornaam",
+  "join_request.last_name": "Achternaam",
+  "join_request.email": "E-mail",
+  "join_request.notes": "Opmerkingen (optioneel)",
+  "join_request.notes_placeholder": "Vertel de teamleider waarom je wilt deelnemen...",
+  "join_request.submit": "Verzoek om lid te worden",
+  "join_request.success_title": "Verzoek verzonden!",
+  "join_request.success_body": "De teamleider zal je verzoek bekijken en contact met je opnemen.",
+  "join_request.duplicate": "Je hebt al een verzoek naar dit team gestuurd",
+  "join_request.error_email": "Voer een geldig e-mailadres in",
+  "join_request.error_required": "Dit veld is verplicht",
+  "join_token.title": "Word lid van het team van {name}",
+  "join_token.subtitle": "Voltooi je registratie om lid te worden van het team",
+  "join_token.email_locked": "E-mail van uitnodiging",
+  "join_token.invalid": "Deze uitnodigingslink is ongeldig of verlopen",
+  "join_token.already_used": "Deze uitnodiging is al gebruikt",
+  "join_token.register": "Account aanmaken en deelnemen",
+  "tl_requests.title": "Lidmaatschapsverzoeken",
+  "tl_requests.empty": "Geen openstaande verzoeken",
+  "tl_requests.accept": "Accepteren",
+  "tl_requests.reject": "Afwijzen",
+  "tl_requests.accepted": "Geaccepteerd",
+  "tl_requests.rejected": "Afgewezen",
+  "tl_requests.accepted_success": "Verzoek geaccepteerd en uitnodiging verzonden",
+  "tl_requests.rejected_success": "Verzoek afgewezen",
+  "tl_requests.notes_label": "Opmerkingen",
+  "tl_requests.pending": "In afwachting",
+  "tl_requests.date": "Datum",
 };
 
 const pt: Partial<Record<TranslationKey, string>> = {
@@ -7846,6 +8063,37 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "tl_dashboard.error.invite_already_linked": "Este convite já está vinculado a um usuário registrado.",
   "tl_dashboard.error.resend_failed": "Nao foi possivel reenviar o convite.",
   "tl_dashboard.error.unknown_action": "Ação desconhecida",
+  "nav.requests": "Solicitações",
+  "join_request.title": "Junte-se à equipe de {name}",
+  "join_request.subtitle": "Preencha o formulário para solicitar a adesão a esta equipe",
+  "join_request.first_name": "Nome",
+  "join_request.last_name": "Sobrenome",
+  "join_request.email": "Email",
+  "join_request.notes": "Notas (opcional)",
+  "join_request.notes_placeholder": "Conte ao líder da equipe por que você gostaria de participar...",
+  "join_request.submit": "Solicitar adesão",
+  "join_request.success_title": "Solicitação enviada!",
+  "join_request.success_body": "O líder da equipe analisará sua solicitação e entrará em contato.",
+  "join_request.duplicate": "Você já enviou uma solicitação para esta equipe",
+  "join_request.error_email": "Insira um email válido",
+  "join_request.error_required": "Este campo é obrigatório",
+  "join_token.title": "Junte-se à equipe de {name}",
+  "join_token.subtitle": "Complete seu cadastro para entrar na equipe",
+  "join_token.email_locked": "Email do convite",
+  "join_token.invalid": "Este link de convite é inválido ou expirou",
+  "join_token.already_used": "Este convite já foi utilizado",
+  "join_token.register": "Criar conta e participar",
+  "tl_requests.title": "Solicitações de adesão",
+  "tl_requests.empty": "Nenhuma solicitação pendente",
+  "tl_requests.accept": "Aceitar",
+  "tl_requests.reject": "Rejeitar",
+  "tl_requests.accepted": "Aceita",
+  "tl_requests.rejected": "Rejeitada",
+  "tl_requests.accepted_success": "Solicitação aceita e convite enviado",
+  "tl_requests.rejected_success": "Solicitação rejeitada",
+  "tl_requests.notes_label": "Notas",
+  "tl_requests.pending": "Pendente",
+  "tl_requests.date": "Data",
 };
 
 const dictionaries: Record<SupportedLocale, Partial<Record<TranslationKey, string>>> = {

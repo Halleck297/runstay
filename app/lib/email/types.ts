@@ -4,7 +4,9 @@ export type EmailTemplateId =
   | "referral_invite"
   | "password_reset"
   | "account_setup"
-  | "platform_notification";
+  | "platform_notification"
+  | "join_request_notification"
+  | "join_request_rejected";
 
 export interface RenderedEmailTemplate {
   subject: string;
