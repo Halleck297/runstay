@@ -242,7 +242,7 @@ export default function AdminImpersonate() {
 
               {user.id !== (admin as any).id ? (
                 <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                  <Form method="post">
+                  <Form method="post" action="/admin/impersonate">
                     <input type="hidden" name="_action" value="impersonate" />
                     <input type="hidden" name="userId" value={user.id} />
                     <button
@@ -259,6 +259,7 @@ export default function AdminImpersonate() {
                   {Boolean((user as any).is_mock) && (
                     <Form
                       method="post"
+                      action="/admin/impersonate"
                       onSubmit={(e) => {
                         if (!confirm(`Delete mock user ${user.full_name || user.email}?`)) e.preventDefault();
                       }}
