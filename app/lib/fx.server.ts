@@ -37,10 +37,14 @@ async function fetchFrankfurterUsdPerUnit(): Promise<FxRatesMap | null> {
   const url = `${FX_PROVIDER_URL}?from=USD&to=${encodeURIComponent(targetCurrencies)}`;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
     const response = await fetch(url, {
       method: "GET",
       headers: { Accept: "application/json" },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     if (!response.ok) return null;
 
     const payload = (await response.json()) as {

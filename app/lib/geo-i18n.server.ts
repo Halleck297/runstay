@@ -97,9 +97,13 @@ export async function buildCityI18nFromPlaceId(
   const fetches = SUPPORTED_LOCALES.map(async (locale) => {
     try {
       const url = `${GOOGLE_PLACES_BASE}/places/${encodeURIComponent(placeId)}?fields=displayName,addressComponents&languageCode=${locale}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8_000);
       const response = await fetch(url, {
         headers: { "X-Goog-Api-Key": apiKey },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (!response.ok) return;
       const place = await response.json();
 
@@ -134,9 +138,13 @@ export async function buildCountryI18nFromPlaceId(
   // Single call to get the country code from addressComponents
   try {
     const url = `${GOOGLE_PLACES_BASE}/places/${encodeURIComponent(placeId)}?fields=addressComponents&languageCode=en`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
     const response = await fetch(url, {
       headers: { "X-Goog-Api-Key": apiKey },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     if (!response.ok) return { countryCode: null, i18n: {} };
     const place = await response.json();
 

@@ -63,5 +63,9 @@ declare global {
       ANALYTICS_GA_MEASUREMENT_ID?: string;
       ANALYTICS_COOKIELESS_MODE?: string;
     };
+    Tawk_API?: {
+      hideWidget?: () => void;
+      showWidget?: () => void;
+    };
   }
 }

@@ -6,6 +6,7 @@ import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { isTeamLeader } from "~/lib/user-access";
+import { formatDateStable } from "~/lib/format-date";
 
 export const meta: MetaFunction = () => [{ title: "Your Runners - Team Leader - Runoot" }];
 
@@ -48,16 +49,8 @@ export default function TLRunnersPage() {
   const statusCycleOrder = ["registered", "active", "unactive"] as const;
   const [statusPriority, setStatusPriority] = useState<(typeof statusCycleOrder)[number]>("registered");
 
-  const formatDate = (value: string) => {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
-    return new Intl.DateTimeFormat(locale, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    }).format(parsed);
-  };
+  const formatDate = (value: string) =>
+    formatDateStable(value, locale, { day: "numeric", month: "short", year: "numeric" });
 
   const preventAutoLink = (value: string) =>
     value.replace(/@/g, "@\u200B").replace(/\./g, ".\u200B");

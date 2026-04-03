@@ -24,6 +24,9 @@ export async function sendWithResend(input: SendEmailInput): Promise<SendEmailRe
   }
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000); // 10s timeout
+
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -37,7 +40,9 @@ export async function sendWithResend(input: SendEmailInput): Promise<SendEmailRe
         html: input.html,
         text: input.text,
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errorText = await response.text();

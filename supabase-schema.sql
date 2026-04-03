@@ -322,6 +322,9 @@ CREATE INDEX idx_conversations_updated ON public.conversations(updated_at DESC);
 
 CREATE INDEX idx_messages_conversation ON public.messages(conversation_id);
 CREATE INDEX idx_messages_created ON public.messages(created_at);
+CREATE INDEX idx_messages_conversation_created ON public.messages(conversation_id, created_at DESC);
+CREATE INDEX idx_messages_sender ON public.messages(sender_id);
+CREATE INDEX idx_messages_unread ON public.messages(conversation_id, sender_id) WHERE read_at IS NULL;
 CREATE INDEX idx_saved_listings_user ON public.saved_listings(user_id);
 CREATE INDEX idx_saved_listings_listing ON public.saved_listings(listing_id);
 CREATE INDEX idx_blocked_users_blocker ON public.blocked_users(blocker_id);

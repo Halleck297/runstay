@@ -1,12 +1,13 @@
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
-import { Form, Link, useActionData } from "react-router";
+import { Form, Link, useActionData, useNavigation } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
 import { getAppUrl } from "~/lib/app-url.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { isSupportedLocale, resolveLocaleForRequest } from "~/lib/locale";
 import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { checkRateLimit, getClientIp } from "~/lib/rate-limit.server";
 
 type ForgotPasswordActionData = {
   success?: boolean;
@@ -33,6 +34,20 @@ export async function action({ request }: ActionFunctionArgs) {
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!email || !emailPattern.test(email)) {
     return data<ForgotPasswordActionData>({ errorKey: "invalid_email" }, { status: 400 });
+  }
+
+  // Honeypot check
+  if (formData.get("website")) {
+    return data<ForgotPasswordActionData>({ success: true });
+  }
+
+  // Rate limit: 2 requests per hour per IP, plus 2 per hour per email
+  const ip = getClientIp(request);
+  const rlIp = checkRateLimit(`forgot:${ip}`, 3, 60 * 60 * 1000);
+  const rlEmail = checkRateLimit(`forgot:${email}`, 2, 60 * 60 * 1000);
+  if (!rlIp.allowed || !rlEmail.allowed) {
+    // Return success to avoid leaking whether rate limit was hit per-email
+    return data<ForgotPasswordActionData>({ success: true });
   }
 
   const appUrl = getAppUrl(request);
@@ -79,7 +94,7 @@ export async function action({ request }: ActionFunctionArgs) {
           redirectTo,
         }, { status: 400 });
       }
-      return data<ForgotPasswordActionData>({ errorKey: "unable_send", detail: linkErrorMessage }, { status: 400 });
+      return data<ForgotPasswordActionData>({ errorKey: "unable_send" }, { status: 400 });
     }
 
     const emailResult = await sendTemplatedEmail({
@@ -114,6 +129,8 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function ForgotPassword() {
   const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
   const { t } = useI18n();
 
   return (
@@ -150,12 +167,17 @@ export default function ForgotPassword() {
                   )}
                 </div>
               )}
+              {/* Honeypot */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, height: 0, overflow: "hidden" }}>
+                <label htmlFor="website">Website</label>
+                <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+              </div>
               <div>
                 <label htmlFor="email" className="label pl-4">{t("auth.email")}</label>
                 <input id="email" name="email" type="email" autoComplete="email" required className="input" />
               </div>
-              <button type="submit" className="btn-primary mx-auto flex rounded-full px-8 py-2.5">
-                {t("auth.send_reset_link")}
+              <button type="submit" disabled={isSubmitting} className="btn-primary mx-auto flex rounded-full px-8 py-2.5 disabled:opacity-60">
+                {isSubmitting ? "…" : t("auth.send_reset_link")}
               </button>
             </Form>
           )}

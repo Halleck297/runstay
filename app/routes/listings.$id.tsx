@@ -12,9 +12,10 @@ import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/curren
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { isAdmin } from "~/lib/user-access";
-import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { getPublicDisplayName, getPublicInitial, getShortDisplayName } from "~/lib/user-display";
 import { calculateDistanceData } from "~/lib/distance.server";
 import { isEventExpired } from "~/lib/listing-status";
+import { toLocaleDateStable } from "~/lib/format-date";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: (data as any)?.listing?.title || "Listing - Runoot" }];
@@ -291,7 +292,7 @@ export default function ListingDetail() {
       : null;
   
   const eventDate = new Date(listingData.event.event_date);
-  const eventDateShort = eventDate.toLocaleDateString(locale, {
+  const eventDateShort = toLocaleDateStable(eventDate, locale, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -504,7 +505,7 @@ export default function ListingDetail() {
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-gray-900">
-                            {checkIn.toLocaleDateString(locale, { day: "numeric", month: "short" })} → {checkOut.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}
+                            {toLocaleDateStable(checkIn, locale, { day: "numeric", month: "short" })} → {toLocaleDateStable(checkOut, locale, { day: "numeric", month: "short", year: "numeric" })}
                             <span className="text-sm text-gray-500 font-normal ml-2">
                               ({nights} {nights > 1 ? t("listings.nights") : t("listings.night")})
                             </span>
@@ -1021,11 +1022,11 @@ export default function ListingDetail() {
                             state={profileBackState}
                             className="truncate text-lg font-semibold text-gray-900 hover:text-brand-700 hover:underline"
                           >
-                            {getPublicDisplayName(sellerProfile)}
+                            {getShortDisplayName(sellerProfile)}
                           </Link>
                         ) : (
                           <p className="truncate text-lg font-semibold text-gray-900">
-                            {getPublicDisplayName(sellerProfile)}
+                            {getShortDisplayName(sellerProfile)}
                           </p>
                         )}
                         {(isEventListing ? eventOrganizer?.is_verified : listingData.author.is_verified) && (
@@ -1069,7 +1070,7 @@ export default function ListingDetail() {
                   ) : (
                     <>
                       <p className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-900">
-                        {(listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") && !isEventListing
+                        {listingData.listing_type === "bib" && !isEventListing
                           ? t("listings.associated_costs")
                           : t("listings.price")}
                       </p>
@@ -1085,7 +1086,7 @@ export default function ListingDetail() {
                             </p>
                           )}
                         </>
-                      ) : (listingData.listing_type === "bib" || listingData.listing_type === "room_and_bib") ? (
+                      ) : listingData.listing_type === "bib" ? (
                         listingData.associated_costs ? (
                           <>
                             <p className="text-3xl font-bold text-gray-900">
@@ -1143,7 +1144,7 @@ export default function ListingDetail() {
       to={`/listings/${getListingPublicId(listingData)}/contact`}
                     className="mt-4 block w-full rounded-full bg-accent-500 px-4 py-3 text-center text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-accent-600"
                   >
-                    {t("listings.contact")} {getPublicDisplayName(listingData.author) || t("listings.seller")}
+                    {t("listings.contact")} {getShortDisplayName(listingData.author) || t("listings.seller")}
                   </Link>
                 )}
 

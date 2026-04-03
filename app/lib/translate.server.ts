@@ -48,9 +48,13 @@ export async function translateText(
       params.append("source", sourceLanguage);
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
     const response = await fetch(`${TRANSLATE_API_URL}?${params}`, {
       method: "POST",
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const error = await response.json();
@@ -91,9 +95,13 @@ export async function detectLanguage(text: string): Promise<DetectionResult | nu
       q: text,
     });
 
+    const controller = new AbortController();
+    const timeout2 = setTimeout(() => controller.abort(), 8_000);
     const response = await fetch(`${DETECT_API_URL}?${params}`, {
       method: "POST",
+      signal: controller.signal,
     });
+    clearTimeout(timeout2);
 
     if (!response.ok) {
       const error = await response.json();

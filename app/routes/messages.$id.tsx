@@ -10,13 +10,14 @@ import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
 import { useRealtimeMessages } from "~/hooks/useRealtimeMessages";
 import { useTranslation } from "~/hooks/useTranslation";
 import { applyConversationPublicIdFilter } from "~/lib/conversation.server";
-import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { getPublicDisplayName, getPublicInitial, getShortDisplayName } from "~/lib/user-display";
 import { isTeamLeader, isTourOperator } from "~/lib/user-access";
 import {
   forceScrollContainerToBottom,
   scheduleBottomAlignment,
   useMobileConversationViewport,
 } from "~/lib/messages-mobile-layout";
+import { toLocaleDateStable } from "~/lib/format-date";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Conversation - Runoot" }];
@@ -37,15 +38,11 @@ function mergeOlderMessages(current: any[], older: any[]) {
 }
 
 function formatConversationDateLabel(date: Date, locale: string) {
-  const parts = new Intl.DateTimeFormat(locale, {
+  return toLocaleDateStable(date, locale, {
     weekday: "short",
     day: "numeric",
     month: "short",
-  }).formatToParts(date);
-  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
-  const day = parts.find((part) => part.type === "day")?.value ?? "";
-  const month = parts.find((part) => part.type === "month")?.value ?? "";
-  return [weekday, day, month].filter(Boolean).join(" ");
+  });
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -582,7 +579,7 @@ export default function Conversation() {
         <div className="min-w-0 flex-1 text-center">
           <div className="inline-flex min-w-0 max-w-full items-center justify-center gap-1">
             <p className="max-w-full truncate text-base font-bold text-gray-900">
-              {getPublicDisplayName(otherUser) || t("messages.user")}
+              {getShortDisplayName(otherUser) || t("messages.user")}
             </p>
             {otherUser?.is_verified && (
               <svg className="h-4 w-4 text-brand-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -778,7 +775,7 @@ export default function Conversation() {
           <div className="min-w-0 flex items-center justify-center gap-3 text-center">
             <div className="inline-flex min-w-0 max-w-full items-center justify-center gap-1">
               <p className="max-w-full truncate text-[15px] font-semibold text-gray-900 md:text-lg">
-                {getPublicDisplayName(otherUser) || t("messages.user")}
+                {getShortDisplayName(otherUser) || t("messages.user")}
               </p>
               {otherUser?.is_verified && (
                 <svg

@@ -1,8 +1,9 @@
 import { useFetcher, useNavigate } from "react-router";
 import { getListingPublicId } from "~/lib/publicIds";
 import { useI18n } from "~/hooks/useI18n";
-import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { getPublicDisplayName, getPublicInitial, getShortDisplayName } from "~/lib/user-display";
 import { isEventExpired } from "~/lib/listing-status";
+import { parseDateStable, formatDateStable } from "~/lib/format-date";
 
 const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
 
@@ -66,26 +67,6 @@ function getLastMinuteThreshold(listingType: "room" | "bib" | "room_and_bib"): n
   return 21;
 }
 
-function parseDateStable(rawDate: string): Date {
-  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate || "");
-  if (dateOnlyMatch) {
-    const yyyy = Number(dateOnlyMatch[1]);
-    const mm = Number(dateOnlyMatch[2]) - 1;
-    const dd = Number(dateOnlyMatch[3]);
-    return new Date(Date.UTC(yyyy, mm, dd));
-  }
-  return new Date(rawDate);
-}
-
-function formatDateStable(
-  rawDate: string,
-  locale: string | string[],
-  options: Intl.DateTimeFormatOptions
-): string {
-  const parsed = parseDateStable(rawDate);
-  if (Number.isNaN(parsed.getTime())) return rawDate;
-  return new Intl.DateTimeFormat(locale, { ...options, timeZone: "UTC" }).format(parsed);
-}
 
 // Helper: calcola se è Last Minute (soglia variabile per tipo)
 function isLastMinute(eventDate: string, listingType: "room" | "bib" | "room_and_bib"): boolean {
@@ -197,7 +178,7 @@ export function ListingCardCompact({
     : "block overflow-hidden bg-white border border-brand-300 rounded-3xl p-4 hover:shadow-md transition-all";
 
   // Nome venditore
-  const sellerName = getPublicDisplayName(listing.author);
+  const sellerName = getShortDisplayName(listing.author);
   const sellerNameShort = sellerName.split(' ')[0];
 
   // Event logo path

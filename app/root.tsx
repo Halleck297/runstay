@@ -1,6 +1,7 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, useRouteError, isRouteErrorResponse, redirect, data, useRouteLoaderData, useLocation, useNavigate } from "react-router";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/react";
 import { getUser, getAccessTokenWithRefresh, getImpersonationContext } from "~/lib/session.server";
 import { NotFoundPage } from "~/components/NotFoundPage";
 import { ServerErrorPage } from "~/components/ServerErrorPage";
@@ -57,7 +58,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   if (url.pathname === "/") {
     return redirect(`/${locale}${url.search}`, {
-      status: 307,
+      status: 302,
       headers: {
         "Set-Cookie": buildLocaleCookie(locale),
       },
@@ -121,6 +122,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         ANALYTICS_PLAUSIBLE_DOMAIN: process.env.ANALYTICS_PLAUSIBLE_DOMAIN || "",
         ANALYTICS_GA_MEASUREMENT_ID: process.env.ANALYTICS_GA_MEASUREMENT_ID || "",
         ANALYTICS_COOKIELESS_MODE: process.env.ANALYTICS_COOKIELESS_MODE || "",
+        SENTRY_DSN: process.env.SENTRY_DSN || "",
       },
     },
     {
@@ -156,6 +158,13 @@ export function ErrorBoundary() {
   const isNotFound = isRouteErrorResponse(error) && error.status === 404;
   const statusCode = isRouteErrorResponse(error) ? error.status : 500;
 
+  // Report non-404 errors to Sentry
+  useEffect(() => {
+    if (!isNotFound && error) {
+      Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+    }
+  }, [error, isNotFound]);
+
   if (isNotFound) {
     return <NotFoundPage />;
   }
@@ -175,6 +184,28 @@ export default function App() {
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  // Initialize Sentry once on client
+  useEffect(() => {
+    if (!ENV.SENTRY_DSN || typeof window === "undefined") return;
+    Sentry.init({
+      dsn: ENV.SENTRY_DSN,
+      environment: ENV.SENTRY_DSN.includes("localhost") ? "development" : "production",
+      tracesSampleRate: 0.2, // 20% of transactions for performance monitoring
+      replaysSessionSampleRate: 0,
+      replaysOnErrorSampleRate: 0,
+      beforeSend(event) {
+        // Strip PII from URLs (access tokens, etc.)
+        if (event.request?.url) {
+          event.request.url = event.request.url.replace(/access_token=[^&]+/g, "access_token=[REDACTED]");
+        }
+        return event;
+      },
+    });
+    if (user?.id) {
+      Sentry.setUser({ id: user.id });
+    }
+  }, [ENV.SENTRY_DSN]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -221,6 +252,50 @@ export default function App() {
     }
     resetAnalytics();
   }, [user]);
+
+  // Tawk.to live chat — only for logged-in users, hidden on excluded routes
+  useEffect(() => {
+    const hideTawkPatterns = [
+      /\/(login|register|forgot-password|reset-password|logout|verify-phone|contact|report)(\/|$)/,
+      /\/admin(\/|$)/,
+      /\/api\//,
+      /\/auth\//,
+      /\/messages(\/|$)/,
+      /\/join\//,
+      /\/become-tl\//,
+      /\/(terms|terms-tour-operator|privacy-policy|cookie-policy|legal|legal-notes|note-legali|mentions-legales|aviso-legal|impressum)(\/|$)/,
+    ];
+    const shouldHide = !user || hideTawkPatterns.some((re) => re.test(location.pathname));
+
+    // If we should hide, remove any existing widget and bail
+    if (shouldHide) {
+      if (window.Tawk_API?.hideWidget) {
+        window.Tawk_API.hideWidget();
+      }
+      return;
+    }
+
+    // Show widget if already loaded
+    if (window.Tawk_API?.showWidget) {
+      window.Tawk_API.showWidget();
+      return;
+    }
+
+    // First load: inject the script
+    const s1 = document.createElement("script");
+    s1.async = true;
+    s1.src = "https://embed.tawk.to/69cb69224d5d1e1c3928a31e/1jl195c5g";
+    s1.charset = "UTF-8";
+    s1.setAttribute("crossorigin", "*");
+    document.body.appendChild(s1);
+
+    return () => {
+      // On cleanup, hide (don't remove — Tawk manages its own lifecycle)
+      if (window.Tawk_API?.hideWidget) {
+        window.Tawk_API.hideWidget();
+      }
+    };
+  }, [user, location.pathname]);
 
   return (
     <>

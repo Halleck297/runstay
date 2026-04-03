@@ -5,6 +5,7 @@ import { getSupabaseBrowserClient, hasBrowserAccessToken } from "~/lib/supabase.
 
 interface Conversation {
   id: string;
+  short_id: string;
   participant_1: string;
   participant_2: string;
   listing_id: string;

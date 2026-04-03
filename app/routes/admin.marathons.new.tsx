@@ -4,6 +4,7 @@ import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requireAdmin } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { invalidateCacheByPrefix } from "~/lib/cache.server";
 import { buildGeoI18nFromPlaceId } from "~/lib/geo-i18n.server";
 import { buildCountryI18nFromCode, countryNameToCode } from "~/lib/geo-i18n.server";
 import { DatePicker } from "~/components/DatePicker";
@@ -87,6 +88,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: `Failed to create event: ${insertError?.message || "unknown"}` }, { status: 400 });
   }
 
+  invalidateCacheByPrefix("events:");
   return redirect("/admin/marathons");
 }
 

@@ -1,9 +1,10 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
+import { Form, useActionData, useLoaderData, useNavigate, useNavigation } from "react-router";
 import { useState, useEffect } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabase, supabaseAdmin } from "~/lib/supabase.server";
+import { cached } from "~/lib/cache.server";
 import { getListingPublicId } from "~/lib/publicIds";
 import { Header } from "~/components/Header";
 import { ControlPanelLayout } from "~/components/ControlPanelLayout";
@@ -49,15 +50,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return redirect("/to-panel/listings/new");
   }
 
-  // Get existing events for autocomplete
-  const { data: events } = await supabase
-    .from("events")
-    .select("*")
-    .order("event_date", { ascending: true });
+  // Get existing events for autocomplete (cached 30 min)
+  const events = await cached("events:all", 30 * 60 * 1000, async () => {
+    const { data } = await supabase
+      .from("events")
+      .select("*")
+      .order("event_date", { ascending: true });
+    return data || [];
+  });
 
   return {
     user,
-    events: events || [],
+    events,
   };
 }
 
@@ -420,6 +424,8 @@ export default function NewListing() {
   const { t } = useI18n();
   const { user, events } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
   const actionErrorField =
     actionData && "field" in actionData ? actionData.field : undefined;
   const actionErrorMessage = (() => {
@@ -1106,8 +1112,8 @@ useEffect(() => {
 
             {/* Submit */}
             <div className="flex gap-4 pt-4 max-[390px]:pt-2">
-              <button type="submit" className="btn-primary rounded-full px-7 py-2.5 text-base max-[390px]:w-full max-[390px]:justify-center">
-                {t("create_listing.submit")}
+              <button type="submit" disabled={isSubmitting} className="btn-primary rounded-full px-7 py-2.5 text-base max-[390px]:w-full max-[390px]:justify-center disabled:opacity-60">
+                {isSubmitting ? "…" : t("create_listing.submit")}
               </button>
             </div>
           </Form>

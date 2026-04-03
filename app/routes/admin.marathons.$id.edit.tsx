@@ -3,6 +3,7 @@ import { data, redirect } from "react-router";
 import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
 import { requireAdmin } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { invalidateCacheByPrefix } from "~/lib/cache.server";
 import { DatePicker } from "~/components/DatePicker";
 
 export const meta: MetaFunction = () => [{ title: "Edit Marathon - Admin - Runoot" }];
@@ -49,6 +50,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   if (error) return data({ error: `Failed to update: ${error.message}` }, { status: 400 });
 
+  invalidateCacheByPrefix("events:");
   return redirect("/admin/marathons");
 }
 

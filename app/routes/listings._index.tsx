@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { cached } from "~/lib/cache.server";
 import { localizeEvent, localizeListing, resolveLocaleForRequest } from "~/lib/locale";
 import { applyListingDisplayCurrency, getCurrencyForCountry } from "~/lib/currency";
 import type { ListingType } from "~/lib/database.types";
@@ -119,11 +120,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     savedListingIds = savedListings?.map((s: any) => s.listing_id) || [];
   }
 
-  // Get all events for autocomplete suggestions (include i18n for cross-language search)
-  const { data: events } = await supabaseAdmin
-    .from("events")
-    .select("id, name, name_i18n, location_i18n, country, country_i18n, event_date")
-    .order("event_date", { ascending: true });
+  // Get all events for autocomplete suggestions (cached 30 min — events change rarely)
+  const events = await cached("events:list", 30 * 60 * 1000, async () => {
+    const { data } = await supabaseAdmin
+      .from("events")
+      .select("id, name, name_i18n, location_i18n, country, country_i18n, event_date")
+      .order("event_date", { ascending: true });
+    return data || [];
+  });
 
   const localizedEvents = (events || []).map((event: any) => localizeEvent(event, locale));
 

@@ -10,6 +10,7 @@ import { isEventExpired } from "~/lib/listing-status";
 import { getListingPublicId } from "~/lib/publicIds";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { toLocaleDateStable } from "~/lib/format-date";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Saved Listings - Runoot" }];
@@ -141,7 +142,7 @@ function SavedListingCard({
   const canSaveListing = !!currentUserId && listing?.author?.id !== currentUserId;
 
   const eventDate = listing?.event?.event_date
-    ? new Date(listing.event.event_date).toLocaleDateString(locale, {
+    ? toLocaleDateStable(new Date(listing.event.event_date), locale, {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -149,7 +150,7 @@ function SavedListingCard({
     : "-";
 
   const savedOnDate = listing.saved_at
-    ? new Date(listing.saved_at).toLocaleDateString(locale, {
+    ? toLocaleDateStable(new Date(listing.saved_at), locale, {
         day: "numeric",
         month: "short",
         year: "numeric",

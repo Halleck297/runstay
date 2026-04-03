@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
-import { Form, Link, useActionData, useLoaderData } from "react-router";
+import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-router";
 import { NotFoundPage } from "~/components/NotFoundPage";
 import { useI18n } from "~/hooks/useI18n";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -217,6 +217,8 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function CatchAllRoute() {
   const { t } = useI18n();
   const loaderData = useLoaderData<typeof loader>() as any;
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
 
   if (loaderData.mode !== "referral") {
     return <NotFoundPage />;
@@ -290,7 +292,7 @@ export default function CatchAllRoute() {
           <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("join_referral.new_runner_title")}</h1>
           <p className="text-gray-500 mb-6">{t("join_referral.new_runner_body")}</p>
           <Form method="post" action="/logout" className="mb-2">
-            <button type="submit" className="btn-primary inline-block w-full py-3">{t("join_referral.logout_continue")}</button>
+            <button type="submit" disabled={isSubmitting} className="btn-primary inline-block w-full py-3 disabled:opacity-60">{isSubmitting ? "…" : t("join_referral.logout_continue")}</button>
           </Form>
           <Link to={nextPath} className="btn-secondary inline-block w-full py-3">{t("listings.back")}</Link>
           <p className="text-xs text-gray-400 mt-4">{t("join_referral.runner_only_note")}</p>

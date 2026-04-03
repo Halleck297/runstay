@@ -16,6 +16,8 @@ async function callTwilioVerify(
   const cfg = getTwilioConfig();
   const body = new URLSearchParams(params);
   const authHeader = `Basic ${Buffer.from(`${cfg.accountSid}:${cfg.authToken}`).toString("base64")}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   const response = await fetch(`https://verify.twilio.com/v2/Services/${cfg.verifyServiceSid}/${path}`, {
     method: "POST",
     headers: {
@@ -23,7 +25,9 @@ async function callTwilioVerify(
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body,
+    signal: controller.signal,
   });
+  clearTimeout(timeout);
 
   const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) {

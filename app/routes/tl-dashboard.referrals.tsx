@@ -8,6 +8,7 @@ import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { generateInviteToken } from "~/lib/referral-code.server";
 import { useI18n } from "~/hooks/useI18n";
 import { isTeamLeader } from "~/lib/user-access";
+import { formatDateStable } from "~/lib/format-date";
 
 const MAX_BATCH_INVITES = 10;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -343,16 +344,8 @@ export default function TLReferralsPage() {
   const referralLink = `${appUrl}/${referralSlug}`;
   const referralLinkDisplay = referralLink.replace(/^https?:\/\//i, "");
 
-  const formatDate = (value: string) => {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
-    return new Intl.DateTimeFormat(locale, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    }).format(parsed);
-  };
+  const formatDate = (value: string) =>
+    formatDateStable(value, locale, { day: "numeric", month: "short", year: "numeric" });
 
   const preventAutoLink = (value: string) =>
     value.replace(/@/g, "@\u200B").replace(/\./g, ".\u200B");

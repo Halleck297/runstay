@@ -26,3 +26,9 @@ jobs:
 
       - name: Audit runtime dependencies
         run: npm audit --omit=dev
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build

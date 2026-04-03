@@ -2,8 +2,9 @@ import { useFetcher, useNavigate } from "react-router";
 import { getListingPublicId } from "~/lib/publicIds";
 import { useI18n } from "~/hooks/useI18n";
 import type { TranslationKey } from "~/lib/i18n";
-import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { getPublicDisplayName, getPublicInitial, getShortDisplayName } from "~/lib/user-display";
 import { isEventExpired } from "~/lib/listing-status";
+import { parseDateStable, formatDateStable } from "~/lib/format-date";
 
 
 interface ListingCardProps {
@@ -56,26 +57,6 @@ function getLastMinuteThreshold(listingType: "room" | "bib" | "room_and_bib"): n
   return 21;
 }
 
-function parseDateStable(rawDate: string): Date {
-  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate || "");
-  if (dateOnlyMatch) {
-    const yyyy = Number(dateOnlyMatch[1]);
-    const mm = Number(dateOnlyMatch[2]) - 1;
-    const dd = Number(dateOnlyMatch[3]);
-    return new Date(Date.UTC(yyyy, mm, dd));
-  }
-  return new Date(rawDate);
-}
-
-function formatDateStable(
-  rawDate: string,
-  locale: string | string[],
-  options: Intl.DateTimeFormatOptions
-): string {
-  const parsed = parseDateStable(rawDate);
-  if (Number.isNaN(parsed.getTime())) return rawDate;
-  return new Intl.DateTimeFormat(locale, { ...options, timeZone: "UTC" }).format(parsed);
-}
 
 // Helper: calcola se è Last Minute (soglia variabile per tipo)
 function isLastMinute(eventDate: string, listingType: "room" | "bib" | "room_and_bib"): boolean {
@@ -449,7 +430,7 @@ if (listing.listing_type === "bib") {
               <div>
                <div className="flex items-center gap-1">
   <p className="text-base font-semibold text-gray-900 truncate">
-    {getPublicDisplayName(listing.author)}
+    {getShortDisplayName(listing.author)}
   </p>
   {listing.author.is_verified && (
       <svg className="h-4 w-4 text-brand-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">

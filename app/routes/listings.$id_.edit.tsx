@@ -1,10 +1,11 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { Form, useActionData, useLoaderData, Link, useNavigate } from "react-router";
+import { Form, useActionData, useLoaderData, Link, useNavigate, useNavigation } from "react-router";
 import { useState, useEffect } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { cached } from "~/lib/cache.server";
 import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
 import { Header } from "~/components/Header";
 import { EventPicker } from "~/components/EventPicker";
@@ -49,16 +50,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Unauthorized", { status: 403 });
   }
 
-  // Get existing events for autocomplete
-  const { data: events } = await supabaseAdmin
-    .from("events")
-    .select("*")
-    .order("event_date", { ascending: true });
+  // Get existing events for autocomplete (cached 30 min)
+  const events = await cached("events:all", 30 * 60 * 1000, async () => {
+    const { data } = await supabaseAdmin
+      .from("events")
+      .select("*")
+      .order("event_date", { ascending: true });
+    return data || [];
+  });
 
   return {
     user,
     listing,
-    events: events || [],
+    events,
   };
 }
 
@@ -315,6 +319,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
 export default function EditListing() {
   const { user, listing, events } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
   const actionErrorField =
     actionData && "field" in actionData ? actionData.field : undefined;
   const actionErrorMessage =
@@ -758,8 +764,8 @@ export default function EditListing() {
 
             {/* Submit */}
             <div className="pt-4">
-              <button type="submit" className="btn-primary w-full rounded-full">
-                {t("profile.actions.save_changes")}
+              <button type="submit" disabled={isSubmitting} className="btn-primary w-full rounded-full disabled:opacity-60">
+                {isSubmitting ? "…" : t("profile.actions.save_changes")}
               </button>
             </div>
           </Form>

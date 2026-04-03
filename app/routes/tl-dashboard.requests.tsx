@@ -7,6 +7,7 @@ import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { generateInviteToken } from "~/lib/referral-code.server";
 import { useI18n } from "~/hooks/useI18n";
 import { isTeamLeader } from "~/lib/user-access";
+import { formatDateStable } from "~/lib/format-date";
 
 export const meta: MetaFunction = () => [{ title: "Requests - Team Leader - Runoot" }];
 
@@ -139,16 +140,8 @@ export default function TLRequestsPage() {
     ? t(actionData.messageKey as any)
     : undefined;
 
-  const formatDate = (value: string) => {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
-    return new Intl.DateTimeFormat(locale, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    }).format(parsed);
-  };
+  const formatDate = (value: string) =>
+    formatDateStable(value, locale, { day: "numeric", month: "short", year: "numeric" });
 
   const pendingRequests = (requests || []).filter((r: any) => r.status === "pending");
   const resolvedRequests = (requests || []).filter((r: any) => r.status !== "pending");

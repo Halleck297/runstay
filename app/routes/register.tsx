@@ -8,7 +8,9 @@ import { getDialingPrefix, getSuggestedLocaleForCountry, getSupportedCountries, 
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin, isMissingColumnError } from "~/lib/supabase.server";
 import { getDefaultAppPath } from "~/lib/user-access";
+import { checkRateLimit, getClientIp } from "~/lib/rate-limit.server";
 import { translate } from "~/lib/i18n";
+import { toTitleCase } from "~/lib/user-display";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const locale = ((data as any)?.detectedLocale as SupportedLocale | undefined) || "en";
@@ -76,7 +78,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 type ActionData =
-  | { errorKey: "register.error.invite_code_required" | "register.error.first_name_required" | "register.error.last_name_required" | "register.error.valid_email_required" | "register.error.country_required" | "register.error.country_unsupported" | "register.error.city_required" | "register.error.date_of_birth_required" | "register.error.date_of_birth_invalid" | "register.error.date_of_birth_too_young" | "register.error.date_of_birth_too_old" | "register.error.note_required" | "register.error.note_too_long" | "register.error.terms_required" | "register.error.privacy_required" | "register.error.submit_failed" | "register.error.invalid_action"; field?: string }
+  | { errorKey: "register.error.invite_code_required" | "register.error.first_name_required" | "register.error.last_name_required" | "register.error.valid_email_required" | "register.error.country_required" | "register.error.country_unsupported" | "register.error.city_required" | "register.error.date_of_birth_required" | "register.error.date_of_birth_invalid" | "register.error.date_of_birth_too_young" | "register.error.date_of_birth_too_old" | "register.error.note_required" | "register.error.note_too_long" | "register.error.terms_required" | "register.error.privacy_required" | "register.error.submit_failed" | "register.error.too_many_attempts" | "register.error.invalid_action"; field?: string }
   | { success: true; type: "invite_redirect" }
   | { success: true; type: "lead_created"; alreadyPending?: boolean };
 
@@ -94,9 +96,25 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   if (intent === "request_access") {
+    // Rate limit: 3 registrations per hour per IP
+    const ip = getClientIp(request);
+    const rl = checkRateLimit(`register:${ip}`, 3, 60 * 60 * 1000);
+    if (!rl.allowed) {
+      return data<ActionData>(
+        { errorKey: "register.error.too_many_attempts" },
+        { status: 429 }
+      );
+    }
+
+    // Honeypot check — if filled, it's a bot. Return fake success silently.
+    const honeypot = formData.get("website");
+    if (honeypot) {
+      return data<ActionData>({ success: true, type: "lead_created" });
+    }
+
     const firstName = String(formData.get("firstName") || "").trim();
     const lastName = String(formData.get("lastName") || "").trim();
-    const fullName = `${firstName} ${lastName}`.trim();
+    const fullName = toTitleCase(`${firstName} ${lastName}`.trim());
     const emailRaw = String(formData.get("email") || "").trim();
     const country = String(formData.get("country") || "").trim();
     const city = String(formData.get("city") || "").trim();
@@ -277,7 +295,7 @@ export default function Register() {
       ? actionData.errorKey
       : null;
   const overlayMessage = isLeadCreated
-    ? actionData && "success" in actionData && actionData.alreadyPending
+    ? actionData && "type" in actionData && actionData.type === "lead_created" && actionData.alreadyPending
       ? t("register.success.pending")
       : t("register.success.received")
     : isSubmitFailed
@@ -382,6 +400,11 @@ export default function Register() {
 
             <Form method="post" className="mt-5 space-y-4 [&_.input]:border [&_.input]:border-solid [&_.input]:border-accent-500 [&_.input]:shadow-none [&_.input:focus]:border-brand-500 [&_.input:focus]:ring-brand-500/20">
               <input type="hidden" name="intent" defaultValue="request_access" />
+              {/* Honeypot — hidden from real users, bots will fill it */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, height: 0, overflow: "hidden" }}>
+                <label htmlFor="website">Website</label>
+                <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+              </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>

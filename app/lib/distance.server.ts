@@ -91,7 +91,10 @@ export async function getWalkingDuration(
   try {
     const url = `${GOOGLE_DISTANCE_MATRIX_URL}?origins=${fromLat},${fromLng}&destinations=${toLat},${toLng}&mode=walking&key=${apiKey}`;
 
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000); // 8s timeout
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -156,7 +159,10 @@ export async function getTransitDuration(
     // Directions API handles walking segments to/from transit stops automatically
     const url = `${GOOGLE_DIRECTIONS_URL}?origin=${fromLat},${fromLng}&destination=${toLat},${toLng}&mode=transit&departure_time=${departureTime}&key=${apiKey}`;
 
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000); // 8s timeout
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errorText = await response.text();

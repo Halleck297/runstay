@@ -12,7 +12,7 @@ import { useRealtimeConversations } from "~/hooks/useRealtimeConversations";
 import { useI18n } from "~/hooks/useI18n";
 import { getTlEventNotificationSummary } from "~/lib/tl-event-notifications.server";
 import { isTeamLeader, isTourOperator } from "~/lib/user-access";
-import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
+import { getPublicDisplayName, getPublicInitial, getShortDisplayName } from "~/lib/user-display";
 
 type MessagesUser = {
   id: string;
@@ -48,7 +48,7 @@ type MessagesPreview = {
 
 type ConversationListItem = {
   id: string;
-  short_id?: string;
+  short_id: string;
   listing_id: string;
   participant_1: string;
   participant_2: string;
@@ -288,7 +288,7 @@ export default function MessagesLayout() {
                             unreadCount > 0 ? "text-gray-900" : "text-gray-700"
                           }`}
                         >
-                          {getPublicDisplayName(otherUser) || t("messages.user")}
+                          {getShortDisplayName(otherUser) || t("messages.user")}
                         </p>
                         {previewMessage && (
                           <span className={`text-xs flex-shrink-0 ${unreadCount > 0 ? "text-gray-500" : "text-gray-400"}`}>

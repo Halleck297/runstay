@@ -3,6 +3,7 @@ import { data } from "react-router";
 import { useLoaderData, Link, Form } from "react-router";
 import { requireAdmin } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { invalidateCacheByPrefix } from "~/lib/cache.server";
 
 export const meta: MetaFunction = () => [{ title: "Marathons - Admin - Runoot" }];
 
@@ -76,6 +77,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (error) return data({ error: `Failed to delete: ${error.message}` }, { status: 400 });
 
+  invalidateCacheByPrefix("events:");
   return data({ success: true });
 }
 

@@ -4,6 +4,7 @@ import { Form, Link, useActionData, useLoaderData, useNavigate } from "react-rou
 import { useEffect, useMemo, useState } from "react";
 import { requireAdmin } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { invalidateCacheByPrefix } from "~/lib/cache.server";
 import { applyListingPublicIdFilter, getListingPublicId } from "~/lib/publicIds";
 import { EventPicker } from "~/components/EventPicker";
 import { HotelAutocomplete } from "~/components/HotelAutocomplete";
@@ -213,6 +214,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     finalEventId = newEvent.id;
     createdEventId = newEvent.id;
+    invalidateCacheByPrefix("events:");
   }
 
   const { data: eventData } = await supabaseAdmin

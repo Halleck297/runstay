@@ -1,9 +1,10 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { Form, Link, useActionData, useSearchParams } from "react-router";
+import { Form, Link, useActionData, useSearchParams, useNavigation } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
 import { supabase, supabaseAdmin, isMissingColumnError } from "~/lib/supabase.server";
 import { createUserSession, getUser } from "~/lib/session.server";
+import { checkRateLimit, getClientIp } from "~/lib/rate-limit.server";
 import { getDefaultAppPath, needsAdminPhoneVerification } from "~/lib/user-access";
 
 export const meta: MetaFunction = () => {
@@ -36,6 +37,21 @@ export async function action({ request }: ActionFunctionArgs) {
     return data({ error: "Email and password are required" }, { status: 400 });
   }
 
+  // Honeypot check
+  if (formData.get("website")) {
+    return data({ error: "Invalid email or password" }, { status: 400 });
+  }
+
+  // Rate limit: 5 attempts per 15 minutes per IP
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`login:${ip}`, 5, 15 * 60 * 1000);
+  if (!rl.allowed) {
+    return data(
+      { error: "Too many login attempts. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   let authData: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>["data"] | null = null;
   let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>["error"] | null = null;
   try {
@@ -58,7 +74,8 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   if (error) {
-    return data({ error: error.message }, { status: 400 });
+    console.error("Login auth error:", error.message);
+    return data({ error: "Invalid email or password" }, { status: 400 });
   }
 
   if (!authData?.session) {
@@ -109,6 +126,8 @@ export default function Login() {
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
   const redirectTo = searchParams.get("redirectTo") || "";
 
   return (
@@ -138,6 +157,11 @@ export default function Login() {
 
           <Form method="post" className="space-y-6 [&_.input]:border [&_.input]:border-solid [&_.input]:border-accent-500 [&_.input]:shadow-none">
             <input type="hidden" name="redirectTo" defaultValue={redirectTo} />
+            {/* Honeypot */}
+            <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, height: 0, overflow: "hidden" }}>
+              <label htmlFor="website">Website</label>
+              <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+            </div>
 
             {actionData?.error && (
               <div className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">
@@ -179,8 +203,8 @@ export default function Login() {
             </div>
 
             <div className="pt-4 flex justify-center">
-              <button type="submit" className="btn-primary flex w-1/3 justify-center rounded-full">
-                {t("auth.sign_in")}
+              <button type="submit" disabled={isSubmitting} className="btn-primary flex w-1/3 justify-center rounded-full disabled:opacity-60">
+                {isSubmitting ? "…" : t("auth.sign_in")}
               </button>
             </div>
           </Form>

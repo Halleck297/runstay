@@ -780,6 +780,7 @@ export type TranslationKey =
   | "register.error.terms_required"
   | "register.error.privacy_required"
   | "register.error.submit_failed"
+  | "register.error.too_many_attempts"
   | "register.error.invalid_action"
   | "pro_access.meta_title"
   | "pro_access.title"
@@ -1791,6 +1792,7 @@ const en: Record<TranslationKey, string> = {
   "register.error.terms_required": "You must accept the Terms of Service",
   "register.error.privacy_required": "You must accept the Privacy Policy",
   "register.error.submit_failed": "Could not submit your request. Please try again.",
+  "register.error.too_many_attempts": "Too many attempts. Please try again later.",
   "register.error.invalid_action": "Invalid action",
   "pro_access.meta_title": "Professional Access - Runoot",
   "pro_access.title": "Professional access",
@@ -2803,6 +2805,7 @@ const it: Partial<Record<TranslationKey, string>> = {
   "register.error.terms_required": "Devi accettare i Termini di servizio",
   "register.error.privacy_required": "Devi accettare la Privacy Policy",
   "register.error.submit_failed": "Impossibile inviare la richiesta. Riprova.",
+  "register.error.too_many_attempts": "Troppi tentativi. Riprova più tardi.",
   "register.error.invalid_action": "Azione non valida",
   "pro_access.meta_title": "Accesso professionale - Runoot",
   "pro_access.title": "Accesso professionale",
@@ -3815,6 +3818,7 @@ const es: Partial<Record<TranslationKey, string>> = {
   "register.error.terms_required": "Debes aceptar los Terminos del servicio",
   "register.error.privacy_required": "Debes aceptar la Politica de privacidad",
   "register.error.submit_failed": "No se pudo enviar tu solicitud. Intentalo de nuevo.",
+  "register.error.too_many_attempts": "Demasiados intentos. Intentalo mas tarde.",
   "register.error.invalid_action": "Accion no valida",
   "pro_access.meta_title": "Acceso profesional - Runoot",
   "pro_access.title": "Acceso profesional",
@@ -4827,6 +4831,7 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "register.error.terms_required": "Vous devez accepter les Conditions d'utilisation",
   "register.error.privacy_required": "Vous devez accepter la Politique de confidentialite",
   "register.error.submit_failed": "Impossible d'envoyer votre demande. Veuillez reessayer.",
+  "register.error.too_many_attempts": "Trop de tentatives. Veuillez reessayer plus tard.",
   "register.error.invalid_action": "Action invalide",
   "pro_access.meta_title": "Acces professionnel - Runoot",
   "pro_access.title": "Acces professionnel",
@@ -5839,6 +5844,7 @@ const de: Partial<Record<TranslationKey, string>> = {
   "register.error.terms_required": "Du musst die Nutzungsbedingungen akzeptieren",
   "register.error.privacy_required": "Du musst die Datenschutzrichtlinie akzeptieren",
   "register.error.submit_failed": "Deine Anfrage konnte nicht gesendet werden. Bitte versuche es erneut.",
+  "register.error.too_many_attempts": "Zu viele Versuche. Bitte versuche es spater erneut.",
   "register.error.invalid_action": "Ungultige Aktion",
   "pro_access.meta_title": "Professioneller Zugang - Runoot",
   "pro_access.title": "Professioneller Zugang",
