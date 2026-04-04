@@ -66,6 +66,8 @@ declare global {
     Tawk_API?: {
       hideWidget?: () => void;
       showWidget?: () => void;
+      setAttributes?: (attrs: Record<string, string>, cb?: (error: unknown) => void) => void;
+      onLoad?: () => void;
     };
   }
 }

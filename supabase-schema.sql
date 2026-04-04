@@ -258,15 +258,25 @@ CREATE TABLE IF NOT EXISTS public.reports (
 );
 
 -- Admin audit log
+-- NOTE: SET NULL on all FKs so that audit records survive user/listing deletion.
+-- The JSONB "details" column preserves historical context (names, IDs, etc.).
 CREATE TABLE IF NOT EXISTS public.admin_audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  admin_id UUID NOT NULL REFERENCES public.profiles(id),
+  admin_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   action TEXT NOT NULL,
-  target_user_id UUID REFERENCES public.profiles(id),
-  target_listing_id UUID REFERENCES public.listings(id),
+  target_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  target_listing_id UUID REFERENCES public.listings(id) ON DELETE SET NULL,
   details JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- DESIGN NOTE (2026-04-02): Listings use ON DELETE CASCADE from profiles.
+-- This is fine for admin-initiated deletions. When user self-delete is
+-- implemented (settings page), add application-level safeguards:
+-- 1. Warn user about active listings and open conversations being removed
+-- 2. Optionally set listings to 'expired' before deletion
+-- 3. Require explicit confirmation (e.g. type "DELETE")
+-- The CASCADE at DB level remains correct — protection belongs in the UX layer.
 
 -- Team leader referrals
 CREATE TABLE IF NOT EXISTS public.referrals (

@@ -275,13 +275,26 @@ export default function App() {
       return;
     }
 
+    // Helper: send user identity to Tawk.to so chat history is linked
+    const setTawkUser = () => {
+      if (!window.Tawk_API?.setAttributes || !user) return;
+      window.Tawk_API.setAttributes({
+        name: user.full_name || "User",
+        id: user.id,
+      }, (error: unknown) => { /* silent */ });
+    };
+
     // Show widget if already loaded
     if (window.Tawk_API?.showWidget) {
       window.Tawk_API.showWidget();
+      setTawkUser();
       return;
     }
 
-    // First load: inject the script
+    // First load: inject the script and identify user once ready
+    window.Tawk_API = window.Tawk_API || {};
+    window.Tawk_API.onLoad = setTawkUser;
+
     const s1 = document.createElement("script");
     s1.async = true;
     s1.src = "https://embed.tawk.to/69cb69224d5d1e1c3928a31e/1jl195c5g";
