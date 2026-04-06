@@ -1,21 +1,75 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
-import { data, redirect } from "react-router";
+import { createCookie, data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { supabaseAdmin, supabase } from "~/lib/supabase.server";
 import { createUserSession, getUser } from "~/lib/session.server";
-import { resolveLocaleForRequest, type SupportedLocale } from "~/lib/locale";
+import { getLocaleLabelsForUi, isSupportedLocale, resolveLocaleForRequest, type SupportedLocale } from "~/lib/locale";
+import { getDialingPrefix, getSuggestedLocaleForCountry, getSupportedCountries, resolveSupportedCountry } from "~/lib/supportedCountries";
+import { startPhoneVerification, checkPhoneVerificationCode } from "~/lib/twilio-verify.server";
 import { translate } from "~/lib/i18n";
+import { toTitleCase } from "~/lib/user-display";
 
 const LEGAL_TERMS_VERSION = "2026-03-15";
 const LEGAL_PRIVACY_VERSION = "2026-03-15";
 
-async function logLegalConsent(args: {
-  userId: string;
-  email: string;
-  locale: SupportedLocale;
-}) {
+const phoneVerificationCookie = createCookie("runoot_join_phone_verification", {
+  httpOnly: true,
+  sameSite: "lax",
+  path: "/",
+  secure: process.env.NODE_ENV === "production",
+  maxAge: 60 * 60,
+  secrets: [process.env.SESSION_SECRET || "runoot-dev-secret"],
+});
+
+function isStrongPassword(value: string): boolean {
+  return /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(value);
+}
+
+function normalizeToE164(dialingPrefix: string, rawPhone: string): string | null {
+  let nationalDigits = String(rawPhone || "").replace(/[^\d]/g, "");
+  const dialingDigits = dialingPrefix.replace("+", "");
+  if (nationalDigits.startsWith(dialingDigits)) {
+    nationalDigits = nationalDigits.slice(dialingDigits.length);
+  }
+  if (!nationalDigits) return null;
+  return `${dialingPrefix}${nationalDigits}`;
+}
+
+function normalizeDisplayPhone(dialingPrefix: string, rawPhone: string): string | null {
+  let nationalDigits = String(rawPhone || "").replace(/[^\d]/g, "");
+  const dialingDigits = dialingPrefix.replace("+", "");
+  if (nationalDigits.startsWith(dialingDigits)) {
+    nationalDigits = nationalDigits.slice(dialingDigits.length);
+  }
+  if (!nationalDigits) return null;
+  return `${dialingPrefix} ${nationalDigits}`;
+}
+
+function getDobBounds() {
+  const now = new Date();
+  const youngest = new Date(now);
+  youngest.setFullYear(youngest.getFullYear() - 18);
+  const oldest = new Date(now);
+  oldest.setFullYear(oldest.getFullYear() - 75);
+  return {
+    minDob: oldest.toISOString().slice(0, 10),
+    maxDob: youngest.toISOString().slice(0, 10),
+  };
+}
+
+function normalizeEmail(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[""''"'`]/g, "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
+async function logLegalConsent(args: { userId: string; email: string; locale: SupportedLocale }) {
   const now = new Date().toISOString();
   await (supabaseAdmin.from("legal_consents" as any) as any).insert({
     user_id: args.userId,
@@ -30,8 +84,22 @@ async function logLegalConsent(args: {
   });
 }
 
+async function readPhoneCookieState(request: Request): Promise<{ pendingPhoneE164?: string } | undefined> {
+  try {
+    const parsed = (await phoneVerificationCookie.parse(request.headers.get("Cookie"))) as unknown;
+    if (!parsed || typeof parsed !== "object") return undefined;
+    const maybe = parsed as Record<string, unknown>;
+    return { pendingPhoneE164: typeof maybe.pendingPhoneE164 === "string" ? maybe.pendingPhoneE164 : undefined };
+  } catch {
+    return undefined;
+  }
+}
+
 export const meta: MetaFunction<typeof loader> = ({ data: loaderData }) => {
   const d = loaderData as any;
+  if (d?.isAdminInvite) {
+    return [{ title: "Join Runoot" }];
+  }
   if (d?.teamLeader?.full_name) {
     return [{ title: `Join ${d.teamLeader.full_name}'s team - Runoot` }];
   }
@@ -46,9 +114,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   const locale = resolveLocaleForRequest(request, null);
 
-  // Find invite by token
   const { data: invite } = await (supabaseAdmin.from("referral_invites" as any) as any)
-    .select("id, team_leader_id, email, status, token")
+    .select("id, team_leader_id, email, status, token, invite_type, invited_full_name")
     .eq("token", token)
     .maybeSingle();
 
@@ -60,10 +127,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     return data({ status: "already_used" as const, locale });
   }
 
-  // Fetch TL profile
   const { data: teamLeader } = await supabaseAdmin
     .from("profiles")
-    .select("id, full_name, company_name, avatar_url, is_verified, tl_welcome_message")
+    .select("id, full_name, company_name, avatar_url, is_verified, tl_welcome_message, user_type")
     .eq("id", invite.team_leader_id)
     .single();
 
@@ -71,13 +137,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     return data({ status: "invalid" as const, locale });
   }
 
-  // Check if user is already logged in
+  const isAdminInvite =
+    invite.invite_type === "admin_invite" ||
+    (teamLeader as any).user_type === "admin" ||
+    (teamLeader as any).user_type === "superadmin";
+
   const currentUser = await getUser(request);
 
   return data({
     status: "ready" as const,
     teamLeader,
     invitedEmail: invite.email,
+    invitedFullName: invite.invited_full_name || null,
+    isAdminInvite,
     isLoggedIn: !!currentUser,
     currentUserEmail: currentUser?.email || null,
     locale,
@@ -92,30 +164,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   const locale = resolveLocaleForRequest(request, null);
   const formData = await request.formData();
+  const intent = String(formData.get("intent") || "register");
 
-  const firstName = String(formData.get("firstName") || "").trim();
-  const lastName = String(formData.get("lastName") || "").trim();
-  const password = String(formData.get("password") || "");
-  const confirmPassword = String(formData.get("confirmPassword") || "");
-  const acceptTerms = formData.get("acceptTerms") === "on";
-
-  // Validation
-  if (!firstName || !lastName) {
-    return data({ errorKey: "join_request.error_required" }, { status: 400 });
-  }
-  if (!password || password.length < 8) {
-    return data({ errorKey: "register.error.password_too_short" }, { status: 400 });
-  }
-  if (password !== confirmPassword) {
-    return data({ errorKey: "register.error.passwords_no_match" }, { status: 400 });
-  }
-  if (!acceptTerms) {
-    return data({ errorKey: "register.error.terms_required" }, { status: 400 });
-  }
-
-  // Fetch invite — email comes from DB, not user input
+  // Fetch invite
   const { data: invite } = await (supabaseAdmin.from("referral_invites" as any) as any)
-    .select("id, team_leader_id, email, status")
+    .select("id, team_leader_id, email, status, invite_type, invited_full_name")
     .eq("token", token)
     .maybeSingle();
 
@@ -126,107 +179,252 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return data({ errorKey: "join_token.already_used" }, { status: 400 });
   }
 
-  const email = invite.email;
-  const fullName = `${firstName} ${lastName}`;
+  const isAdminInvite = invite.invite_type === "admin_invite";
 
-  // Create Supabase auth user
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      full_name: fullName,
-      user_type: "private",
-    },
-  });
+  // --- Send phone OTP ---
+  if (intent === "send_phone_otp") {
+    const country = String(formData.get("country") || "").trim();
+    const phone = String(formData.get("phone") || "").trim();
+    const resolvedCountry = resolveSupportedCountry(country, locale);
 
-  if (authError || !authData?.user?.id) {
-    console.error("Join token: auth user creation failed:", authError);
-    // If user already exists, show a helpful message
-    if (authError?.message?.includes("already been registered")) {
-      return data({ errorKey: "register.error.email_taken" }, { status: 400 });
+    if (!resolvedCountry) {
+      return data({ errorKey: "join_referral.error.country_unsupported", formValues: { country, phone } }, { status: 400 });
     }
-    return data({ errorKey: "register.error.submit_failed" }, { status: 500 });
+
+    const dialingPrefix = getDialingPrefix(resolvedCountry.code);
+    const phoneE164 = normalizeToE164(dialingPrefix, phone);
+
+    if (!phoneE164) {
+      return data({ errorKey: "join_referral.error.phone_required", formValues: { country, phone } }, { status: 400 });
+    }
+
+    try {
+      await startPhoneVerification(phoneE164);
+    } catch (error) {
+      console.error("join token: send OTP failed", error);
+      return data({ errorKey: "join_referral.error.phone_otp_send_failed", formValues: { country, phone } }, { status: 400 });
+    }
+
+    const headers = new Headers();
+    headers.append("Set-Cookie", await phoneVerificationCookie.serialize({ pendingPhoneE164: phoneE164 }));
+    return data({ infoKey: "phone_otp_sent", formValues: { country, phone } }, { headers });
   }
 
-  const userId = authData.user.id;
-  const now = new Date().toISOString();
+  // --- Register ---
+  if (intent === "register") {
+    const firstName = String(formData.get("firstName") || "").trim();
+    const lastName = String(formData.get("lastName") || "").trim();
+    const password = String(formData.get("password") || "");
+    const confirmPassword = String(formData.get("confirmPassword") || "");
+    const country = String(formData.get("country") || "").trim();
+    const city = String(formData.get("city") || "").trim();
+    const dateOfBirth = String(formData.get("dateOfBirth") || "").trim();
+    const phone = String(formData.get("phone") || "").trim();
+    const phoneOtpCode = String(formData.get("phoneOtpCode") || "").trim();
+    const preferredLanguageRaw = String(formData.get("language") || "").trim().toLowerCase();
+    const acceptTerms = formData.get("acceptTerms") === "on";
+    const acceptPrivacy = formData.get("acceptPrivacy") === "on";
 
-  // Create profile
-  await (supabaseAdmin.from("profiles") as any).upsert({
-    id: userId,
-    full_name: fullName,
-    email,
-    user_type: "private",
-    preferred_language: locale,
-    created_at: now,
-    updated_at: now,
-  });
+    const preferredLanguage: SupportedLocale = isSupportedLocale(preferredLanguageRaw)
+      ? preferredLanguageRaw
+      : locale;
+    const resolvedCountry = resolveSupportedCountry(country, preferredLanguage);
 
-  // Create referral link
-  const { data: tl } = await supabaseAdmin
-    .from("profiles")
-    .select("referral_code")
-    .eq("id", invite.team_leader_id)
-    .single();
+    // Validation
+    if (!firstName || !lastName) {
+      return data({ errorKey: "join_referral.error.all_fields_required" }, { status: 400 });
+    }
+    if (!password || password.length < 8) {
+      return data({ errorKey: "join_referral.error.password_min" }, { status: 400 });
+    }
+    if (!isStrongPassword(password)) {
+      return data({ errorKey: "join_referral.error.password_requirements" }, { status: 400 });
+    }
+    if (password !== confirmPassword) {
+      return data({ errorKey: "register.error.passwords_no_match" }, { status: 400 });
+    }
+    if (!resolvedCountry) {
+      return data({ errorKey: "join_referral.error.country_unsupported" }, { status: 400 });
+    }
+    if (!city) {
+      return data({ errorKey: "register.error.city_required" }, { status: 400 });
+    }
+    if (dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+      return data({ errorKey: "join_referral.error.date_of_birth_invalid" }, { status: 400 });
+    }
+    if (dateOfBirth) {
+      const { minDob, maxDob } = getDobBounds();
+      if (dateOfBirth > minDob) {
+        return data({ errorKey: "join_referral.error.date_of_birth_too_young" }, { status: 400 });
+      }
+      if (dateOfBirth < maxDob) {
+        return data({ errorKey: "join_referral.error.date_of_birth_too_old" }, { status: 400 });
+      }
+    }
+    if (!acceptTerms) {
+      return data({ errorKey: "join_referral.error.terms_required" }, { status: 400 });
+    }
+    if (!acceptPrivacy) {
+      return data({ errorKey: "join_referral.error.privacy_required" }, { status: 400 });
+    }
 
-  await (supabaseAdmin.from("referrals" as any) as any).insert({
-    referred_user_id: userId,
-    team_leader_id: invite.team_leader_id,
-    referral_code_used: (tl as any)?.referral_code || "TOKEN_INVITE",
-    status: "registered",
-    created_at: now,
-  });
+    // Phone verification
+    const dialingPrefix = getDialingPrefix(resolvedCountry.code);
+    const phoneE164 = normalizeToE164(dialingPrefix, phone);
+    const normalizedPhone = normalizeDisplayPhone(dialingPrefix, phone);
 
-  // Update invite status
-  await (supabaseAdmin.from("referral_invites" as any) as any)
-    .update({
-      status: "accepted",
-      claimed_by: userId,
-      claimed_at: now,
+    if (!phoneE164 || !normalizedPhone) {
+      return data({ errorKey: "join_referral.error.phone_required" }, { status: 400 });
+    }
+    if (!phoneOtpCode) {
+      return data({ errorKey: "join_referral.error.phone_not_verified" }, { status: 400 });
+    }
+
+    const phoneCookie = await readPhoneCookieState(request);
+    if (!phoneCookie?.pendingPhoneE164 || phoneCookie.pendingPhoneE164 !== phoneE164) {
+      return data({ errorKey: "join_referral.error.phone_otp_send_failed" }, { status: 400 });
+    }
+
+    let otpApproved = false;
+    try {
+      otpApproved = await checkPhoneVerificationCode(phoneE164, phoneOtpCode);
+    } catch (error) {
+      console.error("join token: verify OTP failed", error);
+      return data({ errorKey: "join_referral.error.phone_otp_invalid" }, { status: 400 });
+    }
+    if (!otpApproved) {
+      return data({ errorKey: "join_referral.error.phone_otp_invalid" }, { status: 400 });
+    }
+
+    // Create auth user
+    const email = normalizeEmail(invite.email);
+    const fullName = toTitleCase(`${firstName} ${lastName}`.trim());
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        user_type: "private",
+      },
+    });
+
+    if (authError || !authData?.user?.id) {
+      console.error("Join token: auth user creation failed:", authError);
+      if (authError?.message?.includes("already been registered")) {
+        return data({ errorKey: "register.error.email_taken" }, { status: 400 });
+      }
+      return data({ errorKey: "join_referral.error.registration_failed" }, { status: 500 });
+    }
+
+    const userId = authData.user.id;
+    const now = new Date().toISOString();
+
+    // Create profile
+    const profileData: Record<string, unknown> = {
+      id: userId,
+      full_name: fullName,
+      email,
+      user_type: "private",
+      country: resolvedCountry.nameEn,
+      city: city || null,
+      date_of_birth: dateOfBirth || null,
+      phone: normalizedPhone,
+      phone_verified_at: now,
+      preferred_language: preferredLanguage,
+      created_at: now,
       updated_at: now,
-    })
-    .eq("id", invite.id);
+    };
 
-  // Log legal consent
-  try {
-    await logLegalConsent({ userId, email, locale });
-  } catch (e) {
-    console.error("Failed to log legal consent:", e);
+    if (isAdminInvite) {
+      profileData.created_by_admin = invite.team_leader_id;
+    }
+
+    await (supabaseAdmin.from("profiles") as any).upsert(profileData);
+
+    // Create referral link
+    const { data: tl } = await supabaseAdmin
+      .from("profiles")
+      .select("referral_code")
+      .eq("id", invite.team_leader_id)
+      .single();
+
+    await (supabaseAdmin.from("referrals" as any) as any).insert({
+      referred_user_id: userId,
+      team_leader_id: invite.team_leader_id,
+      referral_code_used: (tl as any)?.referral_code || "TOKEN_INVITE",
+      status: "registered",
+      created_at: now,
+    });
+
+    // Update invite status
+    await (supabaseAdmin.from("referral_invites" as any) as any)
+      .update({
+        status: "accepted",
+        claimed_by: userId,
+        claimed_at: now,
+        updated_at: now,
+      })
+      .eq("id", invite.id);
+
+    // Admin managed account tag
+    if (isAdminInvite) {
+      await (supabaseAdmin as any)
+        .from("admin_managed_accounts")
+        .upsert(
+          {
+            user_id: userId,
+            access_mode: "external_invite",
+            created_by_admin: invite.team_leader_id,
+          },
+          { onConflict: "user_id" },
+        );
+    }
+
+    // Log legal consent
+    try {
+      await logLegalConsent({ userId, email, locale: preferredLanguage });
+    } catch (e) {
+      console.error("Failed to log legal consent:", e);
+    }
+
+    // Sign in and redirect
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError || !signInData?.session) {
+      return redirect("/login");
+    }
+
+    const clearPhoneCookie = await phoneVerificationCookie.serialize("");
+
+    return createUserSession(
+      signInData.user.id,
+      signInData.session.access_token,
+      signInData.session.refresh_token,
+      "/listings",
+      { additionalSetCookies: [clearPhoneCookie] }
+    );
   }
 
-  // Sign in the new user and redirect
-  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (signInError || !signInData?.session) {
-    // Account created but couldn't sign in — redirect to login
-    return redirect("/login");
-  }
-
-  return createUserSession(
-    signInData.user.id,
-    signInData.session.access_token,
-    signInData.session.refresh_token,
-    "/listings"
-  );
+  return data({ errorKey: "join_token.invalid" }, { status: 400 });
 }
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export default function JoinByToken() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const loaderData = useLoaderData<typeof loader>() as any;
   const actionData = useActionData<typeof action>() as any;
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
-  const [showPassword, setShowPassword] = useState(false);
 
   const { status } = loaderData;
-
-  const errorMessage = actionData?.errorKey
-    ? t(actionData.errorKey as any)
-    : null;
 
   // Invalid token
   if (status === "invalid") {
@@ -263,59 +461,187 @@ export default function JoinByToken() {
   }
 
   // Ready — registration form
+  return <RegistrationForm loaderData={loaderData} actionData={actionData} isSubmitting={isSubmitting} />;
+}
+
+// ---------------------------------------------------------------------------
+// Registration form component (extracted for readability)
+// ---------------------------------------------------------------------------
+
+function RegistrationForm({
+  loaderData,
+  actionData,
+  isSubmitting,
+}: {
+  loaderData: any;
+  actionData: any;
+  isSubmitting: boolean;
+}) {
+  const { t, locale } = useI18n();
   const tl = loaderData.teamLeader;
   const invitedEmail = loaderData.invitedEmail;
+  const invitedFullName: string | null = loaderData.invitedFullName;
+  const isAdminInvite: boolean = loaderData.isAdminInvite;
+  const detectedLocale = (loaderData.locale || locale) as SupportedLocale;
+
+  const countries = getSupportedCountries(locale);
+  const localeLabels = useMemo(() => getLocaleLabelsForUi(locale), [locale]);
+  const { minDob, maxDob } = useMemo(() => getDobBounds(), []);
+
+  // Split invited name into first/last if provided
+  const invitedNameParts = useMemo(() => {
+    if (!invitedFullName) return null;
+    const parts = invitedFullName.trim().split(/\s+/);
+    if (parts.length === 1) return { first: parts[0], last: "" };
+    return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
+  }, [invitedFullName]);
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [countryValue, setCountryValue] = useState(actionData?.formValues?.country || "");
+  const [languageValue, setLanguageValue] = useState<SupportedLocale>(detectedLocale);
+  const [languageTouched, setLanguageTouched] = useState(false);
+  const [phoneValue, setPhoneValue] = useState(actionData?.formValues?.phone || "");
+  const [phoneOtpSent, setPhoneOtpSent] = useState(Boolean(actionData?.infoKey === "phone_otp_sent"));
+  const [phoneOtpCode, setPhoneOtpCode] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+
+  // DOB state
+  const [dateOfBirthDigits, setDateOfBirthDigits] = useState("");
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
+  const datePickerRef = useRef<HTMLInputElement | null>(null);
+  const dobCaretModeRef = useRef<"forward" | "backward">("forward");
+
+  const selectedCountry = useMemo(() => resolveSupportedCountry(countryValue, locale), [countryValue, locale]);
+  const phonePrefix = selectedCountry ? getDialingPrefix(selectedCountry.code) : "+--";
+  const isUsDobFormat = countryValue === "US";
+  const dobHint = isUsDobFormat ? t("join_referral.dob_hint_us") : t("join_referral.dob_hint_default");
+  const dobMask = "__/__/____";
+  const dobDigitSlots = [0, 1, 3, 4, 6, 7, 8, 9];
+
+  const errorMessage = actionData?.errorKey ? t(actionData.errorKey as any) : null;
+
+  // Mark OTP as sent when action returns success
+  useEffect(() => {
+    if (actionData?.infoKey === "phone_otp_sent") {
+      setPhoneOtpSent(true);
+    }
+  }, [actionData]);
+
+  // DOB formatting helpers
+  const formatDobForDisplay = (isoDate: string) => {
+    const match = String(isoDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return "";
+    const year = match[1];
+    const month = match[2];
+    const day = match[3];
+    return isUsDobFormat ? `${month}/${day}/${year}` : `${day}/${month}/${year}`;
+  };
+
+  const formatDobMaskedValue = (digits: string) => {
+    const chars = dobMask.split("");
+    const limitedDigits = digits.slice(0, 8);
+    for (let i = 0; i < limitedDigits.length; i += 1) {
+      chars[dobDigitSlots[i]] = limitedDigits[i];
+    }
+    return chars.join("");
+  };
+
+  const parseDobDigitsToIso = (digits: string) => {
+    if (digits.length !== 8) return "";
+    const first = Number.parseInt(digits.slice(0, 2), 10);
+    const second = Number.parseInt(digits.slice(2, 4), 10);
+    const year = Number.parseInt(digits.slice(4, 8), 10);
+    if (!Number.isFinite(first) || !Number.isFinite(second) || !Number.isFinite(year)) return "";
+    const day = isUsDobFormat ? second : first;
+    const month = isUsDobFormat ? first : second;
+    const iso = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const testDate = new Date(Date.UTC(year, month - 1, day));
+    const isValid = testDate.getUTCFullYear() === year && testDate.getUTCMonth() === month - 1 && testDate.getUTCDate() === day;
+    if (!isValid) return "";
+    return iso;
+  };
+
+  const getDobCaretPosition = (digitCount: number, mode: "forward" | "backward" = "forward") => {
+    const capped = Math.max(0, Math.min(digitCount, 8));
+    if (capped >= dobDigitSlots.length) return dobMask.length;
+    const nextSlot = dobDigitSlots[capped];
+    return mode === "backward" ? nextSlot : nextSlot + 1;
+  };
+
+  const dateOfBirthIsoValue = parseDobDigitsToIso(dateOfBirthDigits);
+
+  useEffect(() => {
+    const input = dateInputRef.current;
+    if (!input || document.activeElement !== input) return;
+    const nextPosition = getDobCaretPosition(dateOfBirthDigits.length, dobCaretModeRef.current);
+    input.setSelectionRange(nextPosition, nextPosition);
+    dobCaretModeRef.current = "forward";
+  }, [dateOfBirthDigits, isUsDobFormat]);
 
   return (
     <div className="flex flex-col justify-start pt-8 pb-24 px-4 sm:min-h-screen sm:justify-center sm:py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-xl">
-        {/* TL info card */}
-        <div className="bg-white rounded-3xl border border-brand-500 shadow-sm p-6 mb-6 text-center">
-          <div className="mx-auto mb-3 h-14 w-14 overflow-hidden rounded-full bg-purple-100">
-            {tl?.avatar_url ? (
-              <img
-                src={tl.avatar_url}
-                alt={tl?.full_name ? `${tl.full_name} avatar` : "Team Leader avatar"}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xl font-bold text-purple-600">
-                {tl?.full_name?.charAt(0)?.toUpperCase() || "T"}
+        {/* Inviter info card */}
+        {isAdminInvite ? (
+          <div className="bg-white rounded-3xl border border-brand-500 shadow-sm p-6 mb-6 text-center">
+            <img src="/logo225px.png" alt="Runoot" className="mx-auto mb-3 h-14 w-auto" />
+            <p className="text-sm text-gray-500">{t("join_token.admin_invited_by")}</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl border border-brand-500 shadow-sm p-6 mb-6 text-center">
+            <div className="mx-auto mb-3 h-14 w-14 overflow-hidden rounded-full bg-purple-100">
+              {tl?.avatar_url ? (
+                <img
+                  src={tl.avatar_url}
+                  alt={tl?.full_name ? `${tl.full_name} avatar` : "Team Leader avatar"}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xl font-bold text-purple-600">
+                  {tl?.full_name?.charAt(0)?.toUpperCase() || "T"}
+                </div>
+              )}
+            </div>
+            <h1 className="font-display text-lg font-bold text-gray-900">{tl?.full_name}</h1>
+            {tl?.company_name && <p className="text-sm text-gray-500">{tl.company_name}</p>}
+            {tl?.is_verified && (
+              <div className="mt-1 flex items-center justify-center gap-1">
+                <svg className="h-4 w-4 text-brand-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-xs text-brand-600 font-medium">{t("dashboard.verified")}</span>
               </div>
             )}
+            {tl?.tl_welcome_message && (
+              <p className="mt-3 text-sm text-gray-600 italic border-t border-gray-100 pt-3">"{tl.tl_welcome_message}"</p>
+            )}
           </div>
-          <h1 className="font-display text-lg font-bold text-gray-900">
-            {tl?.full_name}
-          </h1>
-          {tl?.company_name && (
-            <p className="text-sm text-gray-500">{tl.company_name}</p>
-          )}
-          {tl?.is_verified && (
-            <div className="mt-1 flex items-center justify-center gap-1">
-              <svg className="h-4 w-4 text-brand-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span className="text-xs text-brand-600 font-medium">{t("dashboard.verified")}</span>
-            </div>
-          )}
-          {tl?.tl_welcome_message && (
-            <p className="mt-3 text-sm text-gray-600 italic border-t border-gray-100 pt-3">"{tl.tl_welcome_message}"</p>
-          )}
-        </div>
+        )}
 
         {/* Registration form */}
         <div className="py-8 px-0 sm:bg-white sm:rounded-3xl sm:border sm:border-brand-500 sm:shadow-sm sm:px-10">
           <div className="mb-6 text-center">
             <h2 className="mb-1 font-display text-[1.7rem] font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">
-              {t("join_token.title").replace("{name}", tl?.full_name || "")}
+              {isAdminInvite
+                ? t("join_referral.join_title")
+                : t("join_token.title").replace("{name}", tl?.full_name || "")}
             </h2>
-            <p className="text-sm text-gray-500">{t("join_token.subtitle")}</p>
+            <p className="text-sm text-gray-500">
+              {isAdminInvite ? t("join_referral.join_subtitle") : t("join_token.subtitle")}
+            </p>
           </div>
 
+          {errorMessage && (
+            <div className="mb-4 rounded-3xl bg-red-50 p-4 text-sm text-red-700">{errorMessage}</div>
+          )}
+          {actionData?.infoKey === "phone_otp_sent" && (
+            <div className="mb-4 rounded-3xl bg-brand-50 border border-brand-200 p-4 text-sm text-brand-700">
+              {t("join_referral.phone_otp_sent")}
+            </div>
+          )}
+
           <Form method="post" className="flex flex-col gap-5 [&_.input]:border [&_.input]:border-solid [&_.input]:border-accent-500 [&_.input]:shadow-none [&_.input:focus]:border-brand-500 [&_.input:focus]:ring-brand-500/20">
-            {errorMessage && (
-              <div className="rounded-3xl bg-red-50 p-4 text-sm text-red-700">{errorMessage}</div>
-            )}
+            <input type="hidden" name="intent" value="register" />
 
             {/* Email — locked */}
             <div>
@@ -334,17 +660,229 @@ export default function JoinByToken() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="firstName" className="label">{t("join_request.first_name")}</label>
-                <input id="firstName" name="firstName" type="text" autoComplete="given-name" required className="input w-full rounded-full !pl-4" />
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  autoComplete="given-name"
+                  required
+                  defaultValue={invitedNameParts?.first || ""}
+                  readOnly={!!invitedNameParts}
+                  className={`input w-full rounded-full !pl-4 ${invitedNameParts ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                />
               </div>
               <div>
                 <label htmlFor="lastName" className="label">{t("join_request.last_name")}</label>
-                <input id="lastName" name="lastName" type="text" autoComplete="family-name" required className="input w-full rounded-full !pl-4" />
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  autoComplete="family-name"
+                  required
+                  defaultValue={invitedNameParts?.last || ""}
+                  readOnly={!!invitedNameParts}
+                  className={`input w-full rounded-full !pl-4 ${invitedNameParts ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                />
               </div>
+            </div>
+
+            {/* Country & City */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="country" className="label">{t("profile.form.country")}</label>
+                <select
+                  id="country"
+                  name="country"
+                  className="input h-11 w-full rounded-full bg-white !pl-10"
+                  style={{ textIndent: "0.45rem" }}
+                  required
+                  value={countryValue}
+                  onChange={(event) => {
+                    const nextCountryValue = event.target.value;
+                    setCountryValue(nextCountryValue);
+                    if (!languageTouched) {
+                      const resolved = resolveSupportedCountry(nextCountryValue, locale);
+                      if (resolved) {
+                        setLanguageValue(getSuggestedLocaleForCountry(resolved.code, detectedLocale));
+                      }
+                    }
+                  }}
+                >
+                  <option value="" disabled>{" "}</option>
+                  {countries.map((c) => (
+                    <option key={c.code} value={c.code}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="city" className="label">{t("profile.form.city")}</label>
+                <input id="city" name="city" type="text" className="input w-full rounded-full bg-white !pl-4" required />
+              </div>
+            </div>
+
+            {/* DOB & Language */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="dateOfBirth" className="label">{t("register.form.date_of_birth")}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={dateInputRef}
+                    id="dateOfBirth"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="bday"
+                    required
+                    value={formatDobMaskedValue(dateOfBirthDigits)}
+                    onChange={(event) => {
+                      const nextDigits = event.currentTarget.value.replace(/[^\d]/g, "").slice(0, 8);
+                      dobCaretModeRef.current = nextDigits.length < dateOfBirthDigits.length ? "backward" : "forward";
+                      setDateOfBirthDigits(nextDigits);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.metaKey || event.ctrlKey || event.altKey) return;
+                      if (/^\d$/.test(event.key)) {
+                        event.preventDefault();
+                        dobCaretModeRef.current = "forward";
+                        setDateOfBirthDigits((current) => (current.length >= 8 ? current : `${current}${event.key}`));
+                        return;
+                      }
+                      if (event.key === "Backspace" || event.key === "Delete") {
+                        event.preventDefault();
+                        dobCaretModeRef.current = "backward";
+                        setDateOfBirthDigits((current) => current.slice(0, -1));
+                        return;
+                      }
+                      if (event.key === "Tab" || event.key.startsWith("Arrow") || event.key === "Home" || event.key === "End") return;
+                      if (event.key === "/") event.preventDefault();
+                    }}
+                    onPaste={(event) => {
+                      event.preventDefault();
+                      const pastedDigits = event.clipboardData.getData("text").replace(/[^\d]/g, "");
+                      if (!pastedDigits) return;
+                      dobCaretModeRef.current = "forward";
+                      setDateOfBirthDigits((current) => `${current}${pastedDigits}`.slice(0, 8));
+                    }}
+                    onFocus={(event) => {
+                      const pos = getDobCaretPosition(dateOfBirthDigits.length, "forward");
+                      event.currentTarget.setSelectionRange(pos, pos);
+                    }}
+                    onClick={(event) => {
+                      const pos = getDobCaretPosition(dateOfBirthDigits.length, "forward");
+                      event.currentTarget.setSelectionRange(pos, pos);
+                    }}
+                    placeholder={dobHint}
+                    className="input h-11 w-[10rem] rounded-full bg-white !pl-5 !text-[16px] !leading-[1.2]"
+                  />
+                  <input type="hidden" name="dateOfBirth" value={dateOfBirthIsoValue} readOnly />
+                  <div className="relative h-11 w-11">
+                    <input
+                      ref={datePickerRef}
+                      type="date"
+                      aria-label={t("join_referral.open_calendar")}
+                      min={maxDob}
+                      max={minDob}
+                      value={dateOfBirthIsoValue || minDob}
+                      className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                      onChange={(event) => {
+                        const isoValue = event.target.value;
+                        if (!isoValue) return;
+                        setDateOfBirthDigits(formatDobForDisplay(isoValue).replace(/[^\d]/g, "").slice(0, 8));
+                      }}
+                    />
+                    <div className="pointer-events-none flex h-11 w-11 items-center justify-center rounded-full border border-accent-500 bg-white text-gray-600">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-1 ml-4 text-xs text-gray-500">{dobHint}</p>
+              </div>
+              <div>
+                <label htmlFor="language" className="label">{t("register.form.language")}</label>
+                <select
+                  id="language"
+                  name="language"
+                  className="input h-11 w-full rounded-3xl bg-white pr-10 !pl-10"
+                  style={{ textIndent: "0.45rem" }}
+                  required
+                  value={languageValue}
+                  onChange={(event) => {
+                    setLanguageTouched(true);
+                    const nextValue = event.target.value as SupportedLocale;
+                    if (isSupportedLocale(nextValue)) setLanguageValue(nextValue);
+                  }}
+                >
+                  {Object.entries(localeLabels).map(([langCode, label]) => (
+                    <option key={langCode} value={langCode}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Phone + OTP verification */}
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-4">
+              <p className="text-sm font-medium text-gray-700">{t("join_referral.phone_verification_title")}</p>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <label htmlFor="phone" className="label">{t("profile.form.phone_number")}</label>
+                  <div className="flex items-stretch">
+                    <span className="shrink-0 rounded-r-none rounded-l-full bg-gray-100 px-3 py-2.5 text-sm text-gray-700 flex items-center justify-center border border-accent-500 border-r-0 shadow-none md:px-4 min-w-[72px]">
+                      {phonePrefix}
+                    </span>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      autoComplete="tel-national"
+                      className="input w-full rounded-l-none rounded-r-full bg-white"
+                      value={phoneValue}
+                      onChange={(e) => {
+                        setPhoneValue(e.target.value);
+                        setPhoneOtpSent(false);
+                        setPhoneVerified(false);
+                        setPhoneOtpCode("");
+                      }}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  name="intent"
+                  value="send_phone_otp"
+                  disabled={isSubmitting || !phoneValue || !countryValue}
+                  className="btn-secondary rounded-full text-sm px-5 py-2.5 whitespace-nowrap disabled:opacity-50"
+                >
+                  {phoneOtpSent ? t("join_referral.phone_send_code_sent") : t("join_referral.phone_send_code")}
+                </button>
+              </div>
+
+              {phoneOtpSent && (
+                <div>
+                  <label htmlFor="phoneOtpCode" className="label">{t("join_referral.phone_code_label")}</label>
+                  <input
+                    id="phoneOtpCode"
+                    name="phoneOtpCode"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    className="input w-full rounded-full !pl-4"
+                    maxLength={6}
+                    value={phoneOtpCode}
+                    onChange={(e) => setPhoneOtpCode(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {/* Hidden fields to preserve phone values for the register intent */}
+              <input type="hidden" name="country" value={countryValue} />
             </div>
 
             {/* Password */}
             <div>
               <label htmlFor="password" className="label">Password</label>
+              <p className="mb-2 text-xs text-gray-600">{t("join_referral.password_requirements_title")}</p>
               <div className="relative">
                 <input
                   id="password"
@@ -353,6 +891,7 @@ export default function JoinByToken() {
                   autoComplete="new-password"
                   required
                   minLength={8}
+                  pattern="(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}"
                   className="input w-full rounded-full !pl-4 !pr-10"
                 />
                 <button
@@ -373,7 +912,6 @@ export default function JoinByToken() {
                   )}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-gray-400">{t("auth.password_min")}</p>
             </div>
 
             {/* Confirm password */}
@@ -390,19 +928,28 @@ export default function JoinByToken() {
               />
             </div>
 
-            {/* Terms */}
-            <label className="flex items-start gap-2 text-sm text-gray-600">
-              <input type="checkbox" name="acceptTerms" required className="mt-1 rounded border-gray-300" />
-              <span>
-                {t("register.legal_accept_terms_prefix")}{" "}
-                <Link to="/terms" target="_blank" className="text-brand-600 hover:underline">{t("footer.terms")}</Link>
-                {" & "}
-                <Link to="/privacy-policy" target="_blank" className="text-brand-600 hover:underline">{t("footer.privacy")}</Link>
-              </span>
-            </label>
+            {/* Legal */}
+            <div className="space-y-2">
+              <label className="flex items-start gap-2 text-sm text-gray-600">
+                <input type="checkbox" name="acceptTerms" required className="mt-1 rounded border-gray-300" />
+                <span>
+                  {t("join_referral.legal_accept_terms_prefix")}{" "}
+                  <Link to="/terms" target="_blank" className="text-brand-600 hover:underline">{t("footer.terms")}</Link>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-gray-600">
+                <input type="checkbox" name="acceptPrivacy" required className="mt-1 rounded border-gray-300" />
+                <span>
+                  {t("join_referral.legal_accept_privacy_prefix")}{" "}
+                  <Link to="/privacy-policy" target="_blank" className="text-brand-600 hover:underline">{t("footer.privacy")}</Link>
+                </span>
+              </label>
+            </div>
 
             <button
               type="submit"
+              name="intent"
+              value="register"
               disabled={isSubmitting}
               className="btn-primary mx-auto mt-4 flex rounded-full px-8 py-3 font-bold disabled:opacity-50"
             >

@@ -52,70 +52,8 @@ async function createAuthUserWithPassword(args: {
   return { error: null as string | null, userId: authData.user.id };
 }
 
-function getActionLinkFromLinkResponse(linkData: any): string | null {
-  return (
-    linkData?.properties?.action_link ||
-    linkData?.action_link ||
-    linkData?.data?.properties?.action_link ||
-    linkData?.data?.action_link ||
-    null
-  );
-}
-
-async function createUserWithInviteEmail(args: {
-  email: string;
-  fullName: string;
-  userType: "private";
-  companyName?: string | null;
-  appUrl: string;
-}) {
-  const tempPassword = randomTempPassword();
-
-  const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-    email: args.email,
-    password: tempPassword,
-    email_confirm: true,
-    user_metadata: {
-      full_name: args.fullName,
-      user_type: args.userType,
-      company_name: args.companyName || null,
-    },
-  });
-
-  if (createError || !createData?.user?.id) {
-    return { error: createError?.message || "Failed to create user", userId: null as string | null };
-  }
-
-  const redirectTo = `${args.appUrl}/reset-password`;
-  const { data: linkData, error: linkError } = await (supabaseAdmin.auth.admin as any).generateLink({
-    type: "recovery",
-    email: args.email,
-    options: { redirectTo },
-  });
-
-  const actionLink = getActionLinkFromLinkResponse(linkData);
-  if (linkError || !actionLink) {
-    return {
-      error: linkError?.message || "Could not generate password setup link",
-      userId: createData.user.id,
-    };
-  }
-
-  const emailResult = await sendTemplatedEmail({
-    to: args.email,
-    templateId: "account_setup",
-    locale: null,
-    payload: { setupLink: actionLink },
-  });
-
-  if (!emailResult.ok) {
-    return {
-      error: emailResult.error || "Could not send password setup email",
-      userId: createData.user.id,
-    };
-  }
-
-  return { error: null as string | null, userId: createData.user.id };
+function generateInviteToken(): string {
+  return crypto.randomUUID().replace(/-/g, "");
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -186,82 +124,133 @@ export async function action({ request }: ActionFunctionArgs) {
         targetUserId = createResult.userId;
         managedAccessMode = "external_password";
       }
-    } else {
-      email = String(formData.get("email") || "").trim().toLowerCase();
-      fullName = String(formData.get("fullName") || "").trim();
-      companyName = "";
-      userType = "private";
-      managedAccessMode = "external_invite";
 
-      if (!email || !fullName) {
-        return data({ error: "Email and full name are required" }, { status: 400 });
-      }
-
-      const inviteResult = await createUserWithInviteEmail({
+      // --- Mock profile + managed account ---
+      const profileData: any = {
+        id: targetUserId,
         email,
-        fullName,
-        userType,
-        companyName: null,
-        appUrl,
-      });
-      if (inviteResult.error || !inviteResult.userId) {
-        return data({ error: inviteResult.error || "Could not create invited user" }, { status: 400 });
-      }
-      targetUserId = inviteResult.userId;
-    }
-
-    const profileData: any = {
-      id: targetUserId,
-      email,
-      full_name: fullName,
-      user_type: userType,
-      company_name: companyName || null,
-      is_verified: isVerified,
-      created_by_admin: (admin as any).id,
-    };
-
-    const { error: profileError } = await (supabaseAdmin as any)
-      .from("profiles")
-      .upsert(profileData, { onConflict: "id" });
-
-    if (profileError) {
-      return data({ error: `Profile creation failed: ${profileError.message}` }, { status: 500 });
-    }
-
-    const { error: managedError } = await (supabaseAdmin as any)
-      .from("admin_managed_accounts")
-      .upsert(
-        {
-          user_id: targetUserId,
-          access_mode: managedAccessMode,
-          created_by_admin: (admin as any).id,
-        },
-        { onConflict: "user_id" },
-      );
-    if (managedError) {
-      return data({ error: `Managed account tagging failed: ${managedError.message}` }, { status: 500 });
-    }
-
-    await logAdminAction((admin as any).id, "user_created", {
-      targetUserId,
-      details: {
-        email,
+        full_name: fullName,
         user_type: userType,
-        mode: actionType,
-        access_mode: managedAccessMode,
-        mock_profile_only: isMockMode,
-      },
-    });
+        company_name: companyName || null,
+        is_verified: isVerified,
+        created_by_admin: (admin as any).id,
+      };
 
-    if (isMockMode) {
+      const { error: profileError } = await (supabaseAdmin as any)
+        .from("profiles")
+        .upsert(profileData, { onConflict: "id" });
+
+      if (profileError) {
+        return data({ error: `Profile creation failed: ${profileError.message}` }, { status: 500 });
+      }
+
+      const { error: managedError } = await (supabaseAdmin as any)
+        .from("admin_managed_accounts")
+        .upsert(
+          {
+            user_id: targetUserId,
+            access_mode: managedAccessMode,
+            created_by_admin: (admin as any).id,
+          },
+          { onConflict: "user_id" },
+        );
+      if (managedError) {
+        return data({ error: `Managed account tagging failed: ${managedError.message}` }, { status: 500 });
+      }
+
+      await logAdminAction((admin as any).id, "user_created", {
+        targetUserId,
+        details: {
+          email,
+          user_type: userType,
+          mode: actionType,
+          access_mode: managedAccessMode,
+          mock_profile_only: true,
+        },
+      });
+
       if (managedAccessMode === "internal_only") {
         return data({ success: true, message: `Mock internal user created: ${fullName}` });
       }
       return data({ success: true, message: `Mock external user created: ${fullName}` });
     }
 
-    if (isRealInviteMode) return data({ success: true, message: `Invite sent to ${email}. Password setup email delivered.` });
-    return data({ success: true, message: "User created." });
+    // --- Real invite mode: create referral_invites record + send email ---
+    if (isRealInviteMode) {
+      email = String(formData.get("email") || "").trim().toLowerCase();
+      fullName = String(formData.get("fullName") || "").trim();
+
+      if (!email) {
+        return data({ error: "Email is required" }, { status: 400 });
+      }
+
+      // Check if email already has a pending invite
+      const { data: existingInvite } = await (supabaseAdmin.from("referral_invites" as any) as any)
+        .select("id")
+        .eq("email", email)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (existingInvite) {
+        return data({ error: `A pending invite already exists for ${email}` }, { status: 400 });
+      }
+
+      // Check if email already has an account
+      const { data: existingProfile } = await (supabaseAdmin as any)
+        .from("profiles")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+      if (existingProfile) {
+        return data({ error: `An account already exists for ${email}` }, { status: 400 });
+      }
+
+      const token = generateInviteToken();
+      const now = new Date().toISOString();
+
+      const { error: inviteError } = await (supabaseAdmin.from("referral_invites" as any) as any)
+        .insert({
+          team_leader_id: (admin as any).id,
+          email,
+          token,
+          status: "pending",
+          invite_type: "admin_invite",
+          invited_full_name: fullName || null,
+          created_at: now,
+          updated_at: now,
+        });
+
+      if (inviteError) {
+        return data({ error: `Failed to create invite: ${inviteError.message}` }, { status: 500 });
+      }
+
+      const referralLink = `${appUrl}/join/${token}`;
+      const emailResult = await sendTemplatedEmail({
+        to: email,
+        templateId: "referral_invite",
+        locale: null,
+        payload: {
+          inviterName: "runoot",
+          referralLink,
+        },
+      });
+
+      if (!emailResult.ok) {
+        return data({ error: emailResult.error || "Could not send invite email" }, { status: 500 });
+      }
+
+      await logAdminAction((admin as any).id, "user_invited", {
+        details: {
+          email,
+          full_name: fullName || null,
+          token,
+          mode: "referral_invite",
+        },
+      });
+
+      return data({ success: true, message: `Invite sent to ${email}.` });
+    }
+
+    return data({ error: "Invalid action" }, { status: 400 });
   } catch (err: any) {
     return data({ error: err.message || "An unexpected error occurred" }, { status: 500 });
   }
@@ -432,7 +421,7 @@ export default function AdminCreateUser() {
               </div>
 
               <div>
-                <label htmlFor="fullName" className="label">Full Name *</label>
+                <label htmlFor="fullName" className="label">Full Name (optional)</label>
                 <input
                   type="text"
                   id="fullName"
@@ -440,9 +429,10 @@ export default function AdminCreateUser() {
                   className="input w-full"
                   placeholder="John Doe"
                 />
+                <p className="text-xs text-gray-500 mt-1">If provided, the name will be pre-filled and locked in the signup form.</p>
               </div>
               <p className="text-xs text-gray-500">
-                Real users are invite-only. They will receive an email to set their password.
+                The user will receive an invite email with a link to complete their registration.
               </p>
             </>
           )}

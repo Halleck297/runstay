@@ -1006,6 +1006,7 @@ export type TranslationKey =
   | "join_token.invalid"
   | "join_token.already_used"
   | "join_token.register"
+  | "join_token.admin_invited_by"
   | "tl_requests.title"
   | "tl_requests.empty"
   | "tl_requests.accept"
@@ -2023,6 +2024,7 @@ const en: Record<TranslationKey, string> = {
   "join_token.invalid": "This invite link is invalid or expired",
   "join_token.already_used": "This invite has already been used",
   "join_token.register": "Create account & join",
+  "join_token.admin_invited_by": "Invited by runoot",
   "tl_requests.title": "Join requests",
   "tl_requests.empty": "No pending requests",
   "tl_requests.accept": "Accept",
@@ -3041,6 +3043,7 @@ const it: Partial<Record<TranslationKey, string>> = {
   "join_token.invalid": "Questo link di invito non è valido o è scaduto",
   "join_token.already_used": "Questo invito è già stato utilizzato",
   "join_token.register": "Crea account e entra",
+  "join_token.admin_invited_by": "Invitato da runoot",
   "tl_requests.title": "Richieste di adesione",
   "tl_requests.empty": "Nessuna richiesta in attesa",
   "tl_requests.accept": "Accetta",
@@ -4059,6 +4062,7 @@ const es: Partial<Record<TranslationKey, string>> = {
   "join_token.invalid": "Este enlace de invitación no es válido o ha expirado",
   "join_token.already_used": "Esta invitación ya ha sido utilizada",
   "join_token.register": "Crear cuenta y unirse",
+  "join_token.admin_invited_by": "Invitado por runoot",
   "tl_requests.title": "Solicitudes de adhesión",
   "tl_requests.empty": "No hay solicitudes pendientes",
   "tl_requests.accept": "Aceptar",
@@ -5077,6 +5081,7 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "join_token.invalid": "Ce lien d'invitation est invalide ou expiré",
   "join_token.already_used": "Cette invitation a déjà été utilisée",
   "join_token.register": "Créer un compte et rejoindre",
+  "join_token.admin_invited_by": "Invité par runoot",
   "tl_requests.title": "Demandes d'adhésion",
   "tl_requests.empty": "Aucune demande en attente",
   "tl_requests.accept": "Accepter",
@@ -6095,6 +6100,7 @@ const de: Partial<Record<TranslationKey, string>> = {
   "join_token.invalid": "Dieser Einladungslink ist ungültig oder abgelaufen",
   "join_token.already_used": "Diese Einladung wurde bereits verwendet",
   "join_token.register": "Konto erstellen und beitreten",
+  "join_token.admin_invited_by": "Eingeladen von runoot",
   "tl_requests.title": "Beitrittsanfragen",
   "tl_requests.empty": "Keine ausstehenden Anfragen",
   "tl_requests.accept": "Akzeptieren",
@@ -7112,6 +7118,7 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "join_token.invalid": "Deze uitnodigingslink is ongeldig of verlopen",
   "join_token.already_used": "Deze uitnodiging is al gebruikt",
   "join_token.register": "Account aanmaken en deelnemen",
+  "join_token.admin_invited_by": "Uitgenodigd door runoot",
   "tl_requests.title": "Lidmaatschapsverzoeken",
   "tl_requests.empty": "Geen openstaande verzoeken",
   "tl_requests.accept": "Accepteren",
@@ -8129,6 +8136,7 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "join_token.invalid": "Este link de convite é inválido ou expirou",
   "join_token.already_used": "Este convite já foi utilizado",
   "join_token.register": "Criar conta e participar",
+  "join_token.admin_invited_by": "Convidado por runoot",
   "tl_requests.title": "Solicitações de adesão",
   "tl_requests.empty": "Nenhuma solicitação pendente",
   "tl_requests.accept": "Aceitar",
