@@ -96,7 +96,8 @@ export default function ResetPassword() {
     return () => {
       mounted = false;
     };
-  }, [supabase, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
