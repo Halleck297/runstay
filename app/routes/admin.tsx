@@ -16,7 +16,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const { count: eventRequestsOpenCount } = await (supabaseAdmin as any)
     .from("event_requests")
     .select("*", { count: "exact", head: true })
-    .neq("status", "published");
+    .neq("status", "published")
+    .is("archived_at", null);
 
   const { count: accessRequestsPendingCount } = await (supabaseAdmin as any)
     .from("access_requests")
@@ -121,18 +122,9 @@ const baseNavItems = [
     ),
   },
   {
-    to: "/admin/event-requests",
-    label: "Event Requests",
-    superadminOnly: true,
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
     to: "/admin/events",
-    label: "Private Events",
+    label: "Events",
+    superadminOnly: true,
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -168,7 +160,7 @@ export default function AdminLayout() {
       if (item.to === "/admin/pending") {
         return { ...item, badgeCount: pendingCount, badgeTone: "accent" as const };
       }
-      if (item.to === "/admin/event-requests") {
+      if (item.to === "/admin/events") {
         return {
           ...item,
           badgeCount: eventRequestsOpenCount,

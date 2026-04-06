@@ -27,6 +27,7 @@ const TYPE_FILTERS = [
   { id: "room", label: "Hotel" },
   { id: "bib", label: "Race Entry" },
   { id: "room_and_bib", label: "Package" },
+  { id: "event", label: "Events" },
 ] as const;
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -76,9 +77,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
   if (typeFilter) {
-    const allowedTypes: ListingType[] = ["room", "bib", "room_and_bib"];
-    if (allowedTypes.includes(typeFilter as ListingType)) {
-      query = query.eq("listing_type", typeFilter as ListingType);
+    if (typeFilter === "event") {
+      query = query.eq("listing_mode", "event");
+    } else {
+      const allowedTypes: ListingType[] = ["room", "bib", "room_and_bib"];
+      if (allowedTypes.includes(typeFilter as ListingType)) {
+        query = query.eq("listing_type", typeFilter as ListingType);
+      }
     }
   }
 

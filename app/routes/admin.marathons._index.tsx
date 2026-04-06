@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
-import { useLoaderData, Link, Form } from "react-router";
+import { useLoaderData, useActionData, Link, Form } from "react-router";
 import { requireAdmin } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { invalidateCacheByPrefix } from "~/lib/cache.server";
@@ -83,9 +83,15 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function AdminMarathonsIndex() {
   const { events } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
 
   return (
     <div>
+      {actionData && "error" in actionData && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {(actionData as any).error}
+        </div>
+      )}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-gray-900">Marathons</h1>

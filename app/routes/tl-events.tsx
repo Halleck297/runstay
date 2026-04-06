@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
 import { Form, useActionData, useLoaderData } from "react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
@@ -396,6 +396,37 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
 
+  // Check which published requests still have a live listing
+  const listingDeletedByRequest: Record<string, boolean> = {};
+  const publishedRequests = (requests || []).filter((r: any) => r.status === "published" && r.published_listing_url);
+  if (publishedRequests.length > 0) {
+    // Extract listing public IDs from URLs
+    const urlToRequestId: Record<string, string> = {};
+    const listingPublicIds: string[] = [];
+    for (const req of publishedRequests) {
+      const publicId = String(req.published_listing_url || "").replace(/\/+$/, "").split("/").pop() || "";
+      if (publicId) {
+        listingPublicIds.push(publicId);
+        urlToRequestId[publicId] = req.id;
+      }
+    }
+    if (listingPublicIds.length > 0) {
+      // Check by short_id first, then by id (UUID)
+      const { data: foundListings } = await supabaseAdmin
+        .from("listings")
+        .select("id, short_id")
+        .or(`short_id.in.(${listingPublicIds.join(",")}),id.in.(${listingPublicIds.join(",")})`)
+        ;
+      const foundIds = new Set(
+        (foundListings || []).flatMap((l: any) => [l.id, l.short_id].filter(Boolean))
+      );
+      for (const req of publishedRequests) {
+        const publicId = String(req.published_listing_url || "").replace(/\/+$/, "").split("/").pop() || "";
+        listingDeletedByRequest[req.id] = !foundIds.has(publicId);
+      }
+    }
+  }
+
   return {
     user,
     requests: requests || [],
@@ -403,6 +434,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     quotesByRequest,
     unreadByRequest,
     statusUnreadByRequest,
+    listingDeletedByRequest,
     eventUnreadCount: eventNotificationSummary.totalUnread,
   };
 }
@@ -807,7 +839,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function TLEventsPage() {
   const { t, locale } = useI18n();
-  const { user, requests, updatesByRequest, quotesByRequest, unreadByRequest, statusUnreadByRequest, eventUnreadCount } = useLoaderData<typeof loader>();
+  const { user, requests, updatesByRequest, quotesByRequest, unreadByRequest, statusUnreadByRequest, listingDeletedByRequest, eventUnreadCount } = useLoaderData<typeof loader>();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
   const [createRequestType, setCreateRequestType] = useState("package");
@@ -850,6 +882,31 @@ export default function TLEventsPage() {
     actionData?.messageKey ? t(actionData.messageKey as any) : actionData?.message;
   const todayIso = getLocalTodayIso();
   const maxFutureIso = getLocalMaxFutureIso(2);
+
+  // Active = published, not archived, future date, listing still exists
+  const activeRequests = useMemo(
+    () => requests.filter((r: any) =>
+      r.status === "published" && !r.archived_at && r.event_date >= todayIso && !listingDeletedByRequest?.[r.id]
+    ),
+    [requests, todayIso, listingDeletedByRequest]
+  );
+  // Pending = in workflow (not published, not archived)
+  const pendingRequests = useMemo(
+    () => requests.filter((r: any) => r.status !== "published" && !r.archived_at),
+    [requests, todayIso]
+  );
+  // Expired = archived OR published with past date OR published with listing deleted
+  const expiredRequests = useMemo(
+    () => requests.filter((r: any) =>
+      !!r.archived_at ||
+      (r.status === "published" && r.event_date < todayIso) ||
+      (r.status === "published" && !!listingDeletedByRequest?.[r.id])
+    ),
+    [requests, todayIso, listingDeletedByRequest]
+  );
+
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ pending: true });
+  const toggleSection = (key: string) => setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   const formatIsoForDisplay = (isoDate: string) => {
     const match = String(isoDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!match) return "";
@@ -991,11 +1048,12 @@ export default function TLEventsPage() {
         </div>
       )}
       <div className="min-h-full">
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
-        <div className="mb-4 rounded-3xl border border-brand-500 bg-white px-4 py-4 md:mx-auto md:mb-6 md:w-[58%] md:border-2 md:p-6 lg:w-[52%]">
-          <h1 className="text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_events.title")}</h1>
-          <p className="mt-1 text-center text-gray-600">{t("tl_events.subtitle")}</p>
-        </div>
+        <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 md:py-8 md:pb-8 lg:px-8">
+          <div className="rounded-3xl border border-brand-500 bg-white p-4 sm:p-5 md:border-2 md:p-6">
+            <div className="mb-4 rounded-3xl bg-white px-4 py-4 md:mx-auto md:mb-6 md:w-[58%] md:p-6 lg:w-[52%]">
+              <h1 className="text-center font-display text-2xl font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">{t("tl_events.title")}</h1>
+              <p className="mt-1 text-center text-gray-600">{t("tl_events.subtitle")}</p>
+            </div>
 
         {actionError && (
           <div className="mb-4 rounded-lg bg-alert-50 p-3 text-sm text-alert-700 md:mx-auto md:w-[74%] lg:w-[68%]">{actionError}</div>
@@ -1004,23 +1062,27 @@ export default function TLEventsPage() {
           <div className="mb-4 rounded-lg bg-success-50 p-3 text-sm text-success-700 md:mx-auto md:w-[74%] lg:w-[68%]">{actionMessage}</div>
         )}
 
-        <div className="mb-6 rounded-3xl border border-brand-200/70 bg-white/95 transition-colors hover:border-brand-300 md:mx-auto md:w-[74%] lg:w-[68%]">
+        <div className="mb-6 rounded-3xl bg-white/95 transition-colors md:mx-auto md:w-[74%] lg:w-[68%]">
           <button
             type="button"
             onClick={() => setIsCreateOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left"
+            className="flex w-full items-center px-6 py-4 text-left"
             aria-expanded={isCreateOpen}
             aria-controls="create-event-request-panel"
           >
-            <h2 className="font-display font-semibold text-gray-900">{t("tl_events.new_request")}</h2>
-            <svg
-              className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${isCreateOpen ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <span className="inline-flex items-center gap-2">
+              <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-gray-700 underline decoration-accent-500 underline-offset-4">
+                {t("tl_events.create_new")}
+              </h2>
+              <svg
+                className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${isCreateOpen ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </span>
           </button>
 
           {isCreateOpen && (
@@ -1239,33 +1301,73 @@ export default function TLEventsPage() {
           )}
         </div>
 
-        <div className="mb-6 flex items-center gap-3 px-1 md:mx-auto md:w-[74%] lg:w-[68%]">
-          <div className="h-px flex-1 bg-gray-300" />
-          <span className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
-            {t("tl_events.your_requests")}
-          </span>
-          <div className="h-px flex-1 bg-gray-300" />
-        </div>
+        {/* === SECTIONS: Active / Pending / Expired === */}
+        {[
+          { key: "active", items: activeRequests, labelKey: "tl_events.active_events" as const, borderColor: "border-emerald-300", bgColor: "bg-emerald-50/50" },
+          { key: "pending", items: pendingRequests, labelKey: "tl_events.pending_events" as const, borderColor: "border-slate-300", bgColor: "bg-slate-50/70" },
+          { key: "expired", items: expiredRequests, labelKey: "tl_events.expired_events" as const, borderColor: "border-gray-200", bgColor: "bg-gray-50/50" },
+        ]
+          .filter((section) => section.items.length > 0)
+          .map((section) => {
+            const isCollapsible = section.items.length >= 3 || section.key === "pending";
+            const isCollapsed = isCollapsible && !!collapsedSections[section.key];
+            const visibleItems = isCollapsed ? [] : section.items;
 
-        <div className="overflow-hidden rounded-3xl border border-slate-300 bg-slate-50/70 shadow-sm transition-colors hover:border-slate-400 md:mx-auto md:w-[74%] lg:w-[68%]">
-          <div className="border-b border-slate-200 bg-white/90 px-6 py-4">
-            <h2 className="font-display font-semibold text-gray-900">{t("tl_events.your_requests")}</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {STATUS_LEGEND_ORDER.map((status) => (
-                <span
-                  key={status}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                    STATUS_BADGE_CLASSES[status] || "bg-gray-100 text-gray-700 border-gray-200"
-                  }`}
+            return (
+              <div
+                key={section.key}
+                className={`${section.key === "pending" ? "mb-10" : "mb-6"} md:mx-auto md:w-[74%] lg:w-[68%]`}
+              >
+                <button
+                  type="button"
+                  onClick={isCollapsible ? () => toggleSection(section.key) : undefined}
+                  className={`mb-3 flex w-full items-center gap-2 px-1 text-left ${isCollapsible ? "cursor-pointer" : "cursor-default"}`}
                 >
-                  {t((STATUS_LABELS[status] || "tl_events.status.unknown") as any)}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-3 p-3">
-            {requests.length > 0 ? (
-              requests.map((req: any) => (
+                  <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-gray-700 underline decoration-accent-500 underline-offset-4">
+                    {t(section.labelKey)}
+                    {section.items.length >= 3 && (
+                      <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gray-200 px-1.5 text-[11px] font-bold text-gray-600">
+                        {section.items.length}
+                      </span>
+                    )}
+                  </h2>
+                  {isCollapsible && (
+                    <svg
+                      className={`h-4 w-4 text-gray-400 transition-transform ${isCollapsed ? "" : "rotate-180"}`}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </button>
+
+                {!isCollapsed && (
+                  <div className={`overflow-hidden rounded-3xl border ${section.borderColor} ${section.bgColor} shadow-sm`}>
+                    <div className="space-y-3 p-3">
+                      {section.key === "expired" ? (
+                        visibleItems.map((req: any) => (
+                          <div key={req.id} className="rounded-2xl border border-gray-200 bg-white/80 p-4 opacity-70">
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div>
+                                <p className="text-sm font-semibold text-gray-700">{req.event_name}</p>
+                                <p className="text-xs text-gray-400">{req.event_location} · {formatDateStable(req.event_date)}</p>
+                              </div>
+                              <span className="rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500">
+                                {t("tl_events.status.expired")}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {t("tl_events.type")}: {req.request_type} · {t("tl_events.people")}: {req.people_count}
+                            </p>
+                            {req.public_note && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                <span className="font-semibold">{t("tl_events.announcement_note_label")}:</span> {req.public_note}
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        visibleItems.map((req: any) => (
                 <div key={req.id} className="rounded-2xl border border-brand-300 bg-white p-4">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div>
@@ -1570,13 +1672,22 @@ export default function TLEventsPage() {
                   )}
                 </div>
               ))
-            ) : (
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-gray-500">{t("tl_events.none")}</div>
-            )}
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+        {activeRequests.length === 0 && pendingRequests.length === 0 && expiredRequests.length === 0 && (
+          <div className="md:mx-auto md:w-[74%] lg:w-[68%]">
+            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-gray-500">{t("tl_events.none")}</div>
           </div>
-        </div>
-      </main>
-    </div>
+        )}
+          </div>
+        </main>
+      </div>
     </ControlPanelLayout>
   );
 }

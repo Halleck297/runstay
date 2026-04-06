@@ -446,8 +446,8 @@ export default function AdminCreateEventListingPage() {
                 : "Admin-only form to build the final listing card from approved requests."}
             </p>
           </div>
-          <Link to="/admin/event-requests" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            Back to Event Requests
+          <Link to="/admin/events?tab=requests" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Back to Events
           </Link>
         </div>
 
@@ -483,7 +483,7 @@ export default function AdminCreateEventListingPage() {
             {"sourceRequestId" in actionData && actionData.sourceRequestId ? (
               <span>
                 {" "}·{" "}
-                <Link className="font-semibold underline" to="/admin/event-requests">
+                <Link className="font-semibold underline" to="/admin/events?tab=requests">
                   Continue publish/notify
                 </Link>
               </span>

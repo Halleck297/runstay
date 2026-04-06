@@ -823,6 +823,7 @@ export type TranslationKey =
   | "tl_events.title"
   | "tl_events.subtitle"
   | "tl_events.new_request"
+  | "tl_events.create_new"
   | "tl_events.event_name"
   | "tl_events.event_name_placeholder"
   | "tl_events.location"
@@ -861,6 +862,10 @@ export type TranslationKey =
   | "tl_events.status.published"
   | "tl_events.status.rejected"
   | "tl_events.status.unknown"
+  | "tl_events.status.expired"
+  | "tl_events.active_events"
+  | "tl_events.pending_events"
+  | "tl_events.expired_events"
   | "tl_events.type"
   | "tl_events.people"
   | "tl_events.deadline"
@@ -1835,6 +1840,7 @@ const en: Record<TranslationKey, string> = {
   "tl_events.title": "Event Management",
   "tl_events.subtitle": "Create new requests and track their approval status.",
   "tl_events.new_request": "Create New Event Request",
+  "tl_events.create_new": "Create new",
   "tl_events.event_name": "Event name",
   "tl_events.event_name_placeholder": "Name",
   "tl_events.location": "Location",
@@ -1873,6 +1879,10 @@ const en: Record<TranslationKey, string> = {
   "tl_events.status.published": "Published",
   "tl_events.status.rejected": "Rejected",
   "tl_events.status.unknown": "Unknown",
+  "tl_events.status.expired": "Expired",
+  "tl_events.active_events": "Active Events",
+  "tl_events.pending_events": "Pending",
+  "tl_events.expired_events": "Expired",
   "tl_events.type": "Type",
   "tl_events.people": "People",
   "tl_events.deadline": "Deadline",
@@ -2848,6 +2858,7 @@ const it: Partial<Record<TranslationKey, string>> = {
   "tl_events.title": "Gestione eventi",
   "tl_events.subtitle": "Crea nuove richieste e monitora il loro stato di approvazione.",
   "tl_events.new_request": "Crea nuova richiesta evento",
+  "tl_events.create_new": "Crea nuovo",
   "tl_events.event_name": "Nome evento",
   "tl_events.event_name_placeholder": "Nome",
   "tl_events.location": "Localita",
@@ -2886,6 +2897,10 @@ const it: Partial<Record<TranslationKey, string>> = {
   "tl_events.status.published": "Pubblicata",
   "tl_events.status.rejected": "Rifiutata",
   "tl_events.status.unknown": "Sconosciuto",
+  "tl_events.status.expired": "Scaduto",
+  "tl_events.active_events": "Eventi attivi",
+  "tl_events.pending_events": "In attesa",
+  "tl_events.expired_events": "Scaduti",
   "tl_events.type": "Tipo",
   "tl_events.people": "Persone",
   "tl_events.deadline": "Scadenza",
@@ -3861,6 +3876,7 @@ const es: Partial<Record<TranslationKey, string>> = {
   "tl_events.title": "Gestión de eventos",
   "tl_events.subtitle": "Crea nuevas solicitudes y realiza el seguimiento de su estado de aprobación.",
   "tl_events.new_request": "Crear nueva solicitud de evento",
+  "tl_events.create_new": "Crear nuevo",
   "tl_events.event_name": "Nombre del evento",
   "tl_events.event_name_placeholder": "Nombre",
   "tl_events.location": "Ubicación",
@@ -3899,6 +3915,10 @@ const es: Partial<Record<TranslationKey, string>> = {
   "tl_events.status.published": "Publicado",
   "tl_events.status.rejected": "Rechazado",
   "tl_events.status.unknown": "Desconocido",
+  "tl_events.status.expired": "Expirado",
+  "tl_events.active_events": "Eventos activos",
+  "tl_events.pending_events": "Pendientes",
+  "tl_events.expired_events": "Expirados",
   "tl_events.type": "Tipo",
   "tl_events.people": "Gente",
   "tl_events.deadline": "Fecha límite",
@@ -4874,6 +4894,7 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "tl_events.title": "Gestion des événements",
   "tl_events.subtitle": "Créez de nouvelles demandes et suivez leur statut d'approbation.",
   "tl_events.new_request": "Créer une nouvelle demande d'événement",
+  "tl_events.create_new": "Creer nouveau",
   "tl_events.event_name": "Nom de l'événement",
   "tl_events.event_name_placeholder": "Nom",
   "tl_events.location": "Emplacement",
@@ -4912,6 +4933,10 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "tl_events.status.published": "Publié",
   "tl_events.status.rejected": "Rejeté",
   "tl_events.status.unknown": "Inconnu",
+  "tl_events.status.expired": "Expiré",
+  "tl_events.active_events": "Événements actifs",
+  "tl_events.pending_events": "En attente",
+  "tl_events.expired_events": "Expirés",
   "tl_events.type": "Taper",
   "tl_events.people": "Personnes",
   "tl_events.deadline": "Date limite",
@@ -5887,6 +5912,7 @@ const de: Partial<Record<TranslationKey, string>> = {
   "tl_events.title": "Event-Management",
   "tl_events.subtitle": "Erstellen Sie neue Anfragen und verfolgen Sie deren Freigabestatus.",
   "tl_events.new_request": "Neue Event-Anfrage erstellen",
+  "tl_events.create_new": "Neu erstellen",
   "tl_events.event_name": "Veranstaltungsname",
   "tl_events.event_name_placeholder": "Name",
   "tl_events.location": "Standort",
@@ -5925,6 +5951,10 @@ const de: Partial<Record<TranslationKey, string>> = {
   "tl_events.status.published": "Veröffentlicht",
   "tl_events.status.rejected": "Abgelehnt",
   "tl_events.status.unknown": "Unbekannt",
+  "tl_events.status.expired": "Abgelaufen",
+  "tl_events.active_events": "Aktive Veranstaltungen",
+  "tl_events.pending_events": "Ausstehend",
+  "tl_events.expired_events": "Abgelaufen",
   "tl_events.type": "Typ",
   "tl_events.people": "Menschen",
   "tl_events.deadline": "Frist",
@@ -6899,6 +6929,7 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "tl_events.title": "Evenementbeheer",
   "tl_events.subtitle": "Maak nieuwe aanvragen en volg hun goedkeuringsstatus.",
   "tl_events.new_request": "Nieuwe evenementaanvraag maken",
+  "tl_events.create_new": "Nieuw maken",
   "tl_events.event_name": "Naam van het evenement",
   "tl_events.event_name_placeholder": "Naam",
   "tl_events.location": "Locatie",
@@ -6937,6 +6968,10 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "tl_events.status.published": "Gepubliceerd",
   "tl_events.status.rejected": "Afgewezen",
   "tl_events.status.unknown": "Onbekend",
+  "tl_events.status.expired": "Verlopen",
+  "tl_events.active_events": "Actieve evenementen",
+  "tl_events.pending_events": "Lopend",
+  "tl_events.expired_events": "Verlopen",
   "tl_events.type": "Type",
   "tl_events.people": "Mensen",
   "tl_events.deadline": "Termijn",
@@ -7911,6 +7946,7 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "tl_events.title": "Gestão de eventos",
   "tl_events.subtitle": "Crie novas solicitações e acompanhe o status de aprovação.",
   "tl_events.new_request": "Criar nova solicitação de evento",
+  "tl_events.create_new": "Criar novo",
   "tl_events.event_name": "Nome do evento",
   "tl_events.event_name_placeholder": "Nome",
   "tl_events.location": "Localização",
@@ -7949,6 +7985,10 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "tl_events.status.published": "Publicado",
   "tl_events.status.rejected": "Rejeitado",
   "tl_events.status.unknown": "Desconhecido",
+  "tl_events.status.expired": "Expirado",
+  "tl_events.active_events": "Eventos ativos",
+  "tl_events.pending_events": "Pendentes",
+  "tl_events.expired_events": "Expirados",
   "tl_events.type": "Tipo",
   "tl_events.people": "Pessoas",
   "tl_events.deadline": "Prazo final",

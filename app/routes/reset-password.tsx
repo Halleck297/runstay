@@ -41,7 +41,7 @@ export default function ResetPassword() {
         let shouldCleanUrl = false;
 
         if (code) {
-          const { error } = await client.auth.exchangeCodeForSession(window.location.href);
+          const { error } = await client.auth.exchangeCodeForSession(code);
           if (error && mounted) {
             setState("invalid");
             setMessage(t("auth.reset_link_invalid"));
