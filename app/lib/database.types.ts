@@ -671,6 +671,7 @@ export interface Database {
           personal_message: string | null;
           claimed_by: string | null;
           claimed_at: string | null;
+          expires_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -683,6 +684,7 @@ export interface Database {
           personal_message?: string | null;
           claimed_by?: string | null;
           claimed_at?: string | null;
+          expires_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -694,6 +696,7 @@ export interface Database {
           personal_message?: string | null;
           claimed_by?: string | null;
           claimed_at?: string | null;
+          expires_at?: string | null;
           updated_at?: string;
         };
         Relationships: [];

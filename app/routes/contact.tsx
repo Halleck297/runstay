@@ -67,8 +67,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return { user, defaultSubject, formStartedAt: Date.now() };
 }
 
-// Email validation regex
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail } from "~/lib/validation";
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await getUser(request);
@@ -108,7 +107,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Validate email format with regex
-    if (!emailRegex.test(email)) {
+    if (!isValidEmail(email)) {
       return data({ error: tServer("contact.error.email_invalid"), field: "email" }, { status: 400 });
     }
   }

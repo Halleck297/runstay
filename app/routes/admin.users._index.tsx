@@ -1,13 +1,15 @@
 // app/routes/admin.users.tsx - Admin Users Management
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { useLoaderData, useActionData, useSearchParams, Form, Link } from "react-router";
-import { useMemo, useState } from "react";
+import { useLoaderData, useActionData, useSearchParams, useNavigation, Form, Link } from "react-router";
+import { useEffect, useMemo, useState } from "react";
 import { requireAdmin, logAdminAction, startImpersonation } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { getProfilePublicId } from "~/lib/publicIds";
 import { isSuperAdmin } from "~/lib/user-access";
-import { generateUniqueReferralCode } from "~/lib/referral-code.server";
+import { generateUniqueReferralCode, generateInviteToken } from "~/lib/referral-code.server";
+import { sendTemplatedEmail } from "~/lib/email/service.server";
+import { getAppUrl } from "~/lib/app-url.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Users - Admin - Runoot" }];
@@ -16,6 +18,7 @@ export const meta: MetaFunction = () => {
 const ITEMS_PER_PAGE = 20;
 const SEGMENTS = [
   { id: "all", label: "All" },
+  { id: "pending_invites", label: "Pending Invites" },
   { id: "superadmins", label: "Superadmins" },
   { id: "admins", label: "Admins" },
   { id: "team_leaders", label: "Team Leaders" },
@@ -81,14 +84,39 @@ export async function loader({ request }: LoaderFunctionArgs) {
     admin_managed_by: managedByUserId.get(String(user.id))?.created_by_admin || null,
   }));
 
+  // Fetch pending admin invites
+  let pendingInvites: any[] = [];
+  let pendingInvitesCount = 0;
+  if (segment === "pending_invites") {
+    const { data: invites, count: invCount } = await (supabaseAdmin.from("referral_invites") as any)
+      .select("id, email, token, status, invite_type, expires_at, created_at, updated_at", { count: "exact" })
+      .in("invite_type", ["admin_invite", "admin_invite_tl", "admin_invite_to"])
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+    pendingInvites = invites || [];
+    pendingInvitesCount = invCount || 0;
+  } else {
+    // Just get the count for the badge
+    const { count: invCount } = await (supabaseAdmin.from("referral_invites") as any)
+      .select("id", { count: "exact", head: true })
+      .in("invite_type", ["admin_invite", "admin_invite_tl", "admin_invite_to"])
+      .eq("status", "pending");
+    pendingInvitesCount = invCount || 0;
+  }
+
   return {
     admin,
     users: usersWithMockFlag,
     totalCount: count || 0,
     currentPage: page,
-    totalPages: Math.ceil((count || 0) / ITEMS_PER_PAGE),
+    totalPages: segment === "pending_invites"
+      ? Math.ceil(pendingInvitesCount / ITEMS_PER_PAGE)
+      : Math.ceil((count || 0) / ITEMS_PER_PAGE),
     activeSegment: SEGMENTS.some((s) => s.id === segment) ? segment : "all",
     initialSearch: search,
+    pendingInvites,
+    pendingInvitesCount,
   };
 }
 
@@ -186,6 +214,77 @@ export async function action({ request }: ActionFunctionArgs) {
         return data({ error: "You can only impersonate mock users" }, { status: 403 });
       }
       return startImpersonation(request, userId);
+    }
+
+    case "resendInvite": {
+      const inviteId = formData.get("inviteId") as string;
+      if (!inviteId) return data({ error: "Missing invite ID" }, { status: 400 });
+
+      const { data: invite } = await (supabaseAdmin.from("referral_invites") as any)
+        .select("id, email, status")
+        .eq("id", inviteId)
+        .eq("invite_type", "admin_invite")
+        .maybeSingle();
+
+      if (!invite) return data({ error: "Invite not found" }, { status: 404 });
+      if (invite.status === "accepted") return data({ error: "Invite already accepted" }, { status: 400 });
+
+      const appUrl = getAppUrl(request);
+      const newToken = generateInviteToken();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+      await (supabaseAdmin.from("referral_invites") as any)
+        .update({
+          token: newToken,
+          expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", inviteId);
+
+      const referralLink = `${appUrl}/join/${newToken}`;
+      const emailResult = await sendTemplatedEmail({
+        to: invite.email,
+        templateId: "referral_invite",
+        locale: null,
+        payload: {
+          inviterName: "runoot",
+          referralLink,
+        },
+      });
+
+      if (!emailResult.ok) {
+        return data({ error: emailResult.error || "Could not send invite email" }, { status: 500 });
+      }
+
+      await logAdminAction((admin as any).id, "invite_resent", {
+        details: { inviteId, email: invite.email, newToken },
+      });
+
+      return data({ success: true, resentInviteId: inviteId });
+    }
+
+    case "revokeInvite": {
+      const inviteId = formData.get("inviteId") as string;
+      if (!inviteId) return data({ error: "Missing invite ID" }, { status: 400 });
+
+      const { data: invite } = await (supabaseAdmin.from("referral_invites") as any)
+        .select("id, email, status")
+        .eq("id", inviteId)
+        .eq("invite_type", "admin_invite")
+        .maybeSingle();
+
+      if (!invite) return data({ error: "Invite not found" }, { status: 404 });
+      if (invite.status === "accepted") return data({ error: "Cannot revoke accepted invite" }, { status: 400 });
+
+      await (supabaseAdmin.from("referral_invites") as any)
+        .delete()
+        .eq("id", inviteId);
+
+      await logAdminAction((admin as any).id, "invite_revoked", {
+        details: { inviteId, email: invite.email },
+      });
+
+      return data({ success: true });
     }
 
     case "deleteUser": {
@@ -296,14 +395,252 @@ function formatDateStable(value: string) {
   return `${day}/${month}/${year}`;
 }
 
+function getInviteStatus(invite: any): { label: string; className: string } {
+  if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+    return { label: "Expired", className: "bg-red-100 text-red-700" };
+  }
+  return { label: "Pending", className: "bg-amber-100 text-amber-700" };
+}
+
+function getInviteRoleBadge(invite: any): { label: string; className: string } | null {
+  if (invite.invite_type === "admin_invite_tl") {
+    return { label: "TL", className: "bg-indigo-100 text-indigo-700" };
+  }
+  if (invite.invite_type === "admin_invite_to") {
+    return { label: "TO", className: "bg-blue-100 text-blue-700" };
+  }
+  return null;
+}
+
+function PendingInvitesSection({
+  invites,
+  resentIds,
+  copiedId,
+  setCopiedId,
+  navigation,
+}: {
+  invites: any[];
+  resentIds: Set<string>;
+  copiedId: string | null;
+  setCopiedId: (id: string | null) => void;
+  navigation: ReturnType<typeof useNavigation>;
+}) {
+  const appUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+  const copyLink = async (invite: any) => {
+    const link = `${appUrl}/join/${invite.token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = link;
+      ta.style.position = "absolute";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopiedId(invite.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  if (invites.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 text-sm">
+        No pending invites
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Email</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Status</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Invited</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Expires</th>
+              <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {invites.map((invite: any) => {
+              const status = getInviteStatus(invite);
+              const roleBadge = getInviteRoleBadge(invite);
+              const isResending = navigation.state === "submitting"
+                && navigation.formData?.get("_action") === "resendInvite"
+                && navigation.formData?.get("inviteId") === invite.id;
+              return (
+                <tr key={invite.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900">{invite.email}</p>
+                      {roleBadge && (
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${roleBadge.className}`}>
+                          {roleBadge.label}
+                        </span>
+                      )}
+                    </div>
+                    {invite.updated_at !== invite.created_at && (
+                      <p className="text-xs text-gray-400">Last resent {formatDateStable(invite.updated_at)}</p>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.className}`}>
+                      {status.label}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {formatDateStable(invite.created_at)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {invite.expires_at ? formatDateStable(invite.expires_at) : "—"}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => copyLink(invite)}
+                        className={`text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors ${
+                          copiedId === invite.id
+                            ? "bg-brand-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        {copiedId === invite.id ? "Copied!" : "Copy Link"}
+                      </button>
+                      <Form method="post" className="inline">
+                        <input type="hidden" name="_action" value="resendInvite" />
+                        <input type="hidden" name="inviteId" value={invite.id} />
+                        <button
+                          type="submit"
+                          disabled={resentIds.has(invite.id) || isResending}
+                          className={`text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors ${
+                            resentIds.has(invite.id)
+                              ? "bg-brand-600 text-white"
+                              : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                          }`}
+                        >
+                          {resentIds.has(invite.id) ? "Sent!" : isResending ? "Sending..." : "Resend"}
+                        </button>
+                      </Form>
+                      <Form method="post" className="inline" onSubmit={(e) => { if (!confirm(`Revoke invite for ${invite.email}?`)) e.preventDefault(); }}>
+                        <input type="hidden" name="_action" value="revokeInvite" />
+                        <input type="hidden" name="inviteId" value={invite.id} />
+                        <button
+                          type="submit"
+                          className="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1 rounded-full hover:bg-red-50 transition-colors"
+                        >
+                          Revoke
+                        </button>
+                      </Form>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="md:hidden divide-y divide-gray-100">
+        {invites.map((invite: any) => {
+          const status = getInviteStatus(invite);
+          const roleBadge = getInviteRoleBadge(invite);
+          const isResending = navigation.state === "submitting"
+            && navigation.formData?.get("_action") === "resendInvite"
+            && navigation.formData?.get("inviteId") === invite.id;
+          return (
+            <div key={invite.id} className="p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div className="min-w-0 pr-2">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-900 truncate">{invite.email}</p>
+                    {roleBadge && (
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${roleBadge.className}`}>
+                        {roleBadge.label}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Invited {formatDateStable(invite.created_at)}
+                    {invite.expires_at && (
+                      <span> · Expires {formatDateStable(invite.expires_at)}</span>
+                    )}
+                  </p>
+                  {invite.updated_at !== invite.created_at && (
+                    <p className="text-xs text-gray-400">Resent {formatDateStable(invite.updated_at)}</p>
+                  )}
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${status.className}`}>
+                  {status.label}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => copyLink(invite)}
+                  className={`text-xs px-2.5 py-1.5 rounded-full transition-colors ${
+                    copiedId === invite.id
+                      ? "bg-brand-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {copiedId === invite.id ? "Copied!" : "Copy Link"}
+                </button>
+                <Form method="post" className="inline">
+                  <input type="hidden" name="_action" value="resendInvite" />
+                  <input type="hidden" name="inviteId" value={invite.id} />
+                  <button
+                    type="submit"
+                    disabled={resentIds.has(invite.id) || isResending}
+                    className={`text-xs px-2.5 py-1.5 rounded-full transition-colors ${
+                      resentIds.has(invite.id)
+                        ? "bg-brand-600 text-white"
+                        : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                    }`}
+                  >
+                    {resentIds.has(invite.id) ? "Sent!" : isResending ? "Sending..." : "Resend"}
+                  </button>
+                </Form>
+                <Form method="post" className="inline" onSubmit={(e) => { if (!confirm(`Revoke invite for ${invite.email}?`)) e.preventDefault(); }}>
+                  <input type="hidden" name="_action" value="revokeInvite" />
+                  <input type="hidden" name="inviteId" value={invite.id} />
+                  <button type="submit" className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-full bg-red-50">
+                    Revoke
+                  </button>
+                </Form>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminUsers() {
-  const { admin, users, totalCount, currentPage, totalPages, activeSegment, initialSearch } = useLoaderData<typeof loader>();
+  const { admin, users, totalCount, currentPage, totalPages, activeSegment, initialSearch, pendingInvites, pendingInvitesCount } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
   const adminIsSuperAdmin = isSuperAdmin(admin);
   const adminId = (admin as any).id;
   const [searchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(initialSearch || "");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [resentIds, setResentIds] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (actionData && "resentInviteId" in actionData && (actionData as any).resentInviteId) {
+      setResentIds((prev) => new Set(prev).add((actionData as any).resentInviteId));
+    }
+  }, [actionData]);
 
   const searchSuggestions = useMemo(() => {
     const q = searchInput.trim().toLowerCase();
@@ -425,12 +762,28 @@ export default function AdminUsers() {
               }`}
             >
               {segment.label}
+              {segment.id === "pending_invites" && pendingInvitesCount > 0 && (
+                <span className={`ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                  activeSegment === "pending_invites" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"
+                }`}>
+                  {pendingInvitesCount}
+                </span>
+              )}
             </Link>
           ))}
         </div>
       </div>
 
-      {/* Users table */}
+      {/* Pending Invites view */}
+      {activeSegment === "pending_invites" ? (
+        <PendingInvitesSection
+          invites={pendingInvites}
+          resentIds={resentIds}
+          copiedId={copiedId}
+          setCopiedId={setCopiedId}
+          navigation={navigation}
+        />
+      ) : (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {/* Desktop table */}
         <div className="hidden md:block overflow-x-auto">
@@ -685,6 +1038,7 @@ export default function AdminUsers() {
           </div>
         )}
       </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

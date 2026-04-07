@@ -44,8 +44,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return data({ error: "Company name, representative name, and email are required." }, { status: 400 });
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
+  const { isValidEmail } = await import("~/lib/validation");
+  if (!isValidEmail(email)) {
     return data({ error: "Please enter a valid email address." }, { status: 400 });
   }
 

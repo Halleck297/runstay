@@ -10,6 +10,7 @@ import { getDialingPrefix, getSuggestedLocaleForCountry, getSupportedCountries, 
 import { startPhoneVerification, checkPhoneVerificationCode } from "~/lib/twilio-verify.server";
 import { translate } from "~/lib/i18n";
 import { toTitleCase } from "~/lib/user-display";
+import { generateUniqueReferralCode } from "~/lib/referral-code.server";
 
 const LEGAL_TERMS_VERSION = "2026-03-15";
 const LEGAL_PRIVACY_VERSION = "2026-03-15";
@@ -115,7 +116,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const locale = resolveLocaleForRequest(request, null);
 
   const { data: invite } = await (supabaseAdmin.from("referral_invites" as any) as any)
-    .select("id, team_leader_id, email, status, token, invite_type, invited_full_name")
+    .select("id, team_leader_id, email, status, token, invite_type, expires_at")
     .eq("token", token)
     .maybeSingle();
 
@@ -125,6 +126,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (invite.status === "accepted" || invite.status === "claimed") {
     return data({ status: "already_used" as const, locale });
+  }
+
+  if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+    return data({ status: "invalid" as const, locale });
   }
 
   const { data: teamLeader } = await supabaseAdmin
@@ -138,7 +143,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   const isAdminInvite =
-    invite.invite_type === "admin_invite" ||
+    ["admin_invite", "admin_invite_tl", "admin_invite_to"].includes(invite.invite_type) ||
     (teamLeader as any).user_type === "admin" ||
     (teamLeader as any).user_type === "superadmin";
 
@@ -148,7 +153,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     status: "ready" as const,
     teamLeader,
     invitedEmail: invite.email,
-    invitedFullName: invite.invited_full_name || null,
     isAdminInvite,
     isLoggedIn: !!currentUser,
     currentUserEmail: currentUser?.email || null,
@@ -168,7 +172,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   // Fetch invite
   const { data: invite } = await (supabaseAdmin.from("referral_invites" as any) as any)
-    .select("id, team_leader_id, email, status, invite_type, invited_full_name")
+    .select("id, team_leader_id, email, status, invite_type, expires_at")
     .eq("token", token)
     .maybeSingle();
 
@@ -178,8 +182,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
   if (invite.status === "accepted" || invite.status === "claimed") {
     return data({ errorKey: "join_token.already_used" }, { status: 400 });
   }
+  if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+    return data({ errorKey: "join_token.invalid" }, { status: 400 });
+  }
 
-  const isAdminInvite = invite.invite_type === "admin_invite";
+  const isAdminInvite = ["admin_invite", "admin_invite_tl", "admin_invite_to"].includes(invite.invite_type);
 
   // --- Send phone OTP ---
   if (intent === "send_phone_otp") {
@@ -300,13 +307,20 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const email = normalizeEmail(invite.email);
     const fullName = toTitleCase(`${firstName} ${lastName}`.trim());
 
+    // Resolve target user_type from invite_type
+    const targetUserType = invite.invite_type === "admin_invite_tl"
+      ? "team_leader"
+      : invite.invite_type === "admin_invite_to"
+        ? "tour_operator"
+        : "private";
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
       user_metadata: {
         full_name: fullName,
-        user_type: "private",
+        user_type: targetUserType,
       },
     });
 
@@ -326,7 +340,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       id: userId,
       full_name: fullName,
       email,
-      user_type: "private",
+      user_type: targetUserType,
       country: resolvedCountry.nameEn,
       city: city || null,
       date_of_birth: dateOfBirth || null,
@@ -339,6 +353,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     if (isAdminInvite) {
       profileData.created_by_admin = invite.team_leader_id;
+    }
+
+    // Generate referral code for Team Leaders
+    if (targetUserType === "team_leader") {
+      profileData.referral_code = await generateUniqueReferralCode({
+        fullName,
+        email,
+        excludeUserId: userId,
+      });
     }
 
     await (supabaseAdmin.from("profiles") as any).upsert(profileData);
@@ -480,21 +503,12 @@ function RegistrationForm({
   const { t, locale } = useI18n();
   const tl = loaderData.teamLeader;
   const invitedEmail = loaderData.invitedEmail;
-  const invitedFullName: string | null = loaderData.invitedFullName;
   const isAdminInvite: boolean = loaderData.isAdminInvite;
   const detectedLocale = (loaderData.locale || locale) as SupportedLocale;
 
   const countries = getSupportedCountries(locale);
   const localeLabels = useMemo(() => getLocaleLabelsForUi(locale), [locale]);
   const { minDob, maxDob } = useMemo(() => getDobBounds(), []);
-
-  // Split invited name into first/last if provided
-  const invitedNameParts = useMemo(() => {
-    if (!invitedFullName) return null;
-    const parts = invitedFullName.trim().split(/\s+/);
-    if (parts.length === 1) return { first: parts[0], last: "" };
-    return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
-  }, [invitedFullName]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [countryValue, setCountryValue] = useState(actionData?.formValues?.country || "");
@@ -666,9 +680,8 @@ function RegistrationForm({
                   type="text"
                   autoComplete="given-name"
                   required
-                  defaultValue={invitedNameParts?.first || ""}
-                  readOnly={!!invitedNameParts}
-                  className={`input w-full rounded-full !pl-4 ${invitedNameParts ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                  defaultValue=""
+                  className="input w-full rounded-full !pl-4"
                 />
               </div>
               <div>
@@ -679,9 +692,8 @@ function RegistrationForm({
                   type="text"
                   autoComplete="family-name"
                   required
-                  defaultValue={invitedNameParts?.last || ""}
-                  readOnly={!!invitedNameParts}
-                  className={`input w-full rounded-full !pl-4 ${invitedNameParts ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+                  defaultValue=""
+                  className="input w-full rounded-full !pl-4"
                 />
               </div>
             </div>

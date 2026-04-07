@@ -11,7 +11,7 @@ import { isTeamLeader } from "~/lib/user-access";
 import { formatDateStable } from "~/lib/format-date";
 
 const MAX_BATCH_INVITES = 10;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail } from "~/lib/validation";
 
 function normalizeEmail(value: string): string {
   return value
@@ -126,7 +126,7 @@ export async function action({ request }: ActionFunctionArgs) {
         return data({ errorKey: "too_many_emails" as const }, { status: 400 });
       }
 
-      const invalidEmails = emails.filter((email) => !EMAIL_PATTERN.test(email));
+      const invalidEmails = emails.filter((email) => !isValidEmail(email));
       if (invalidEmails.length > 0) {
         return data({ errorKey: "invalid_email_format" as const }, { status: 400 });
       }
@@ -193,12 +193,15 @@ export async function action({ request }: ActionFunctionArgs) {
         // Generate a token for the invite link
         const inviteToken = generateInviteToken();
 
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
         if (!invite) {
           const { error: insertInviteError } = await (supabaseAdmin.from("referral_invites") as any).insert({
             team_leader_id: (user as any).id,
             email,
             status: "pending",
             token: inviteToken,
+            expires_at: expiresAt,
             created_at: now,
             updated_at: now,
           });
@@ -208,7 +211,7 @@ export async function action({ request }: ActionFunctionArgs) {
           }
         } else {
           await (supabaseAdmin.from("referral_invites") as any)
-            .update({ updated_at: now, token: inviteToken })
+            .update({ updated_at: now, token: inviteToken, expires_at: expiresAt })
             .eq("id", invite.id);
         }
 
@@ -313,7 +316,11 @@ export async function action({ request }: ActionFunctionArgs) {
       }
 
       await (supabaseAdmin.from("referral_invites") as any)
-        .update({ updated_at: new Date().toISOString(), token: resendToken })
+        .update({
+          updated_at: new Date().toISOString(),
+          token: resendToken,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        })
         .eq("id", invite.id);
 
       return data({ success: true, messageKey: "tl_dashboard.success.invitation_resent" as const, resentInviteId: invite.id });

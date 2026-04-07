@@ -178,11 +178,18 @@ export async function action({ request }: ActionFunctionArgs) {
     // --- Real invite mode: create referral_invites record + send email ---
     if (isRealInviteMode) {
       email = String(formData.get("email") || "").trim().toLowerCase();
-      fullName = String(formData.get("fullName") || "").trim();
+      const targetRole = String(formData.get("targetRole") || "private");
 
       if (!email) {
         return data({ error: "Email is required" }, { status: 400 });
       }
+
+      const inviteTypeMap: Record<string, string> = {
+        private: "admin_invite",
+        team_leader: "admin_invite_tl",
+        tour_operator: "admin_invite_to",
+      };
+      const inviteType = inviteTypeMap[targetRole] || "admin_invite";
 
       // Check if email already has a pending invite
       const { data: existingInvite } = await (supabaseAdmin.from("referral_invites" as any) as any)
@@ -206,6 +213,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
       const token = generateInviteToken();
       const now = new Date().toISOString();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
       const { error: inviteError } = await (supabaseAdmin.from("referral_invites" as any) as any)
         .insert({
@@ -213,8 +221,8 @@ export async function action({ request }: ActionFunctionArgs) {
           email,
           token,
           status: "pending",
-          invite_type: "admin_invite",
-          invited_full_name: fullName || null,
+          invite_type: inviteType,
+          expires_at: expiresAt,
           created_at: now,
           updated_at: now,
         });
@@ -241,13 +249,14 @@ export async function action({ request }: ActionFunctionArgs) {
       await logAdminAction((admin as any).id, "user_invited", {
         details: {
           email,
-          full_name: fullName || null,
           token,
+          invite_type: inviteType,
           mode: "referral_invite",
         },
       });
 
-      return data({ success: true, message: `Invite sent to ${email}.` });
+      const roleLabel = targetRole === "team_leader" ? " (Team Leader)" : targetRole === "tour_operator" ? " (Tour Operator)" : "";
+      return data({ success: true, message: `Invite sent to ${email}${roleLabel}.` });
     }
 
     return data({ error: "Invalid action" }, { status: 400 });
@@ -421,16 +430,20 @@ export default function AdminCreateUser() {
               </div>
 
               <div>
-                <label htmlFor="fullName" className="label">Full Name (optional)</label>
-                <input
-                  type="text"
-                  id="fullName"
-                  name="fullName"
+                <label htmlFor="targetRole" className="label">Account type</label>
+                <select
+                  id="targetRole"
+                  name="targetRole"
                   className="input w-full"
-                  placeholder="John Doe"
-                />
-                <p className="text-xs text-gray-500 mt-1">If provided, the name will be pre-filled and locked in the signup form.</p>
+                  defaultValue="private"
+                >
+                  <option value="private">User (Private)</option>
+                  <option value="team_leader">Team Leader</option>
+                  <option value="tour_operator">Tour Operator</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">The account will be created with this role after the user completes registration.</p>
               </div>
+
               <p className="text-xs text-gray-500">
                 The user will receive an invite email with a link to complete their registration.
               </p>

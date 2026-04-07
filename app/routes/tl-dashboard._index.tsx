@@ -11,7 +11,7 @@ import { isTeamLeader } from "~/lib/user-access";
 import { formatDateStable } from "~/lib/format-date";
 
 const MAX_BATCH_INVITES = 10;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail } from "~/lib/validation";
 
 function normalizeEmail(value: string): string {
   return value
@@ -223,7 +223,7 @@ export async function action({ request }: ActionFunctionArgs) {
         return data({ error: `You can send up to ${MAX_BATCH_INVITES} invitations at once.` }, { status: 400 });
       }
 
-      const invalidEmails = emails.filter((email) => !EMAIL_PATTERN.test(email));
+      const invalidEmails = emails.filter((email) => !isValidEmail(email));
       if (invalidEmails.length > 0) {
         return data({ error: `Invalid email format: ${invalidEmails.join(", ")}` }, { status: 400 });
       }

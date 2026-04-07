@@ -17,7 +17,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: translate(locale, "register.meta_title") }];
 };
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail } from "~/lib/validation";
 
 function toIsoDateOnly(value: Date): string {
   return value.toISOString().slice(0, 10);
@@ -137,7 +137,7 @@ export async function action({ request }: ActionFunctionArgs) {
       return data<ActionData>({ errorKey: "register.error.last_name_required", field: "lastName" }, { status: 400 });
     }
 
-    if (!emailRaw || !emailRegex.test(emailRaw)) {
+    if (!emailRaw || !isValidEmail(emailRaw)) {
       return data<ActionData>({ errorKey: "register.error.valid_email_required", field: "email" }, { status: 400 });
     }
 

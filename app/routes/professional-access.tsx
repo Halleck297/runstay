@@ -10,7 +10,7 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { getDefaultAppPath } from "~/lib/user-access";
 import { translate } from "~/lib/i18n";
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail } from "~/lib/validation";
 
 function normalizeEmail(value: string): string {
   return value
@@ -66,7 +66,7 @@ export async function action({ request }: ActionFunctionArgs) {
   if (!fullName || fullName.length < 2) {
     return data<ActionData>({ errorKey: "pro_access.error.full_name_required", field: "fullName" }, { status: 400 });
   }
-  if (!emailRaw || !emailRegex.test(emailRaw)) {
+  if (!emailRaw || !isValidEmail(emailRaw)) {
     return data<ActionData>({ errorKey: "pro_access.error.valid_email_required", field: "email" }, { status: 400 });
   }
   if (!role || !["team_leader", "tour_operator", "agency"].includes(role)) {
