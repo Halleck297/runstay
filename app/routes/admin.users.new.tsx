@@ -191,16 +191,6 @@ export async function action({ request }: ActionFunctionArgs) {
       };
       const inviteType = inviteTypeMap[targetRole] || "admin_invite";
 
-      // Check if email already has a pending invite
-      const { data: existingInvite } = await (supabaseAdmin.from("referral_invites" as any) as any)
-        .select("id")
-        .eq("email", email)
-        .eq("status", "pending")
-        .maybeSingle();
-      if (existingInvite) {
-        return data({ error: `A pending invite already exists for ${email}` }, { status: 400 });
-      }
-
       // Check if email already has an account
       const { data: existingProfile } = await (supabaseAdmin as any)
         .from("profiles")
@@ -210,6 +200,12 @@ export async function action({ request }: ActionFunctionArgs) {
       if (existingProfile) {
         return data({ error: `An account already exists for ${email}` }, { status: 400 });
       }
+
+      // Delete any existing pending invite for this email (allows re-invite)
+      await (supabaseAdmin.from("referral_invites" as any) as any)
+        .delete()
+        .eq("email", email)
+        .eq("status", "pending");
 
       const token = generateInviteToken();
       const now = new Date().toISOString();

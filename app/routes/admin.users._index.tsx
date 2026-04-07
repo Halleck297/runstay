@@ -330,6 +330,19 @@ export async function action({ request }: ActionFunctionArgs) {
       await (supabaseAdmin.from("tl_invite_tokens") as any).delete().or(`created_by.eq.${userId},used_by.eq.${userId}`);
       await (supabaseAdmin.from("referral_invites") as any).delete().or(`team_leader_id.eq.${userId},claimed_by.eq.${userId}`);
 
+      // Also delete pending invites by email (for invited-but-not-registered users)
+      const { data: targetProfile } = await (supabaseAdmin as any)
+        .from("profiles")
+        .select("email")
+        .eq("id", userId)
+        .maybeSingle();
+      if (targetProfile?.email) {
+        await (supabaseAdmin.from("referral_invites") as any)
+          .delete()
+          .eq("email", targetProfile.email)
+          .eq("status", "pending");
+      }
+
       // Delete profile
       const { error: profileDeleteError } = await (supabaseAdmin.from("profiles") as any).delete().eq("id", userId);
       if (profileDeleteError) {
