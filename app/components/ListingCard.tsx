@@ -5,6 +5,7 @@ import type { TranslationKey } from "~/lib/i18n";
 import { getPublicDisplayName, getPublicInitial, getShortDisplayName } from "~/lib/user-display";
 import { isEventExpired } from "~/lib/listing-status";
 import { parseDateStable, formatDateStable } from "~/lib/format-date";
+import { getEventImageSlug } from "~/lib/event-image";
 
 
 interface ListingCardProps {
@@ -110,13 +111,6 @@ function parseToMeta(raw: string | null | undefined): ToListingMeta | null {
 }
 
 // Helper: genera slug dal nome evento (fallback se slug è null)
-function getEventSlug(event: { name: string; slug: string | null }): string {
-  if (event.slug) return event.slug;
-  return event.name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
 
 export function ListingCard({
   listing,
@@ -154,7 +148,7 @@ export function ListingCard({
   const needsNameChange = listing.transfer_type === "official_process";
   const bibCount = listing.bib_count || 1;
   const bibLabel = bibCount > 1 ? t("common.bibs") : t("common.bib");
-  const eventSlug = getEventSlug(listing.event);
+  const eventSlug = getEventImageSlug(listing.event);
   const defaultEventImage = `/events/${eventSlug}.jpg`;
   const primaryEventImage = listing.event.card_image_url || defaultEventImage;
 

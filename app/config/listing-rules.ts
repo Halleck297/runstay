@@ -14,13 +14,21 @@ export const LISTING_RULES = {
     maxBibs: null,  // unlimited
     allowedTransferMethods: ["official_process", "package"] as TransferMethod[],
     description: "Business platform for tour operators"
+  },
+  admin: {
+    maxRooms: null, // unlimited
+    maxBibs: null,  // unlimited
+    allowedTransferMethods: ["official_process", "package", "contact"] as TransferMethod[],
+    description: "Full access for platform administrators"
   }
 } as const;
 
 type ListingRulesUserType = keyof typeof LISTING_RULES;
 
 function resolveListingRulesUserType(userType: UserType): ListingRulesUserType {
-  return userType === "tour_operator" ? "tour_operator" : "private";
+  if (userType === "admin" || userType === "superadmin") return "admin";
+  if (userType === "tour_operator") return "tour_operator";
+  return "private";
 }
 
 /**

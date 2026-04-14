@@ -67,14 +67,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   // Search filter server-side (cross-language: searches base fields + all i18n translations)
   if (search) {
+    const safeSearch = search.replace(/[,.()\\"]/g, "");
     const { data: matchingEvents } = await supabaseAdmin.rpc("search_events_i18n", {
       query: search,
     });
     const eventIds = (matchingEvents || []).map((e: any) => e.id);
     if (eventIds.length > 0) {
-      query = query.or(`title.ilike.%${search}%,event_id.in.(${eventIds.join(",")})`);
+      query = query.or(`title.ilike.%${safeSearch}%,event_id.in.(${eventIds.join(",")})`);
     } else {
-      query = query.ilike("title", `%${search}%`);
+      query = query.ilike("title", `%${safeSearch}%`);
     }
   }
 

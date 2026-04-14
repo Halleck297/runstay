@@ -51,10 +51,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // Get existing events for autocomplete (cached 30 min)
+  // Exclude past events (must be at least tomorrow to allow time for transfer)
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
   const events = await cached("events:all", 30 * 60 * 1000, async () => {
     const { data } = await supabase
       .from("events")
       .select("*")
+      .gte("event_date", tomorrowStr)
       .order("event_date", { ascending: true });
     return data || [];
   });

@@ -11,18 +11,11 @@ import { getListingPublicId } from "~/lib/publicIds";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { toLocaleDateStable } from "~/lib/format-date";
+import { getEventImageSlug } from "~/lib/event-image";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Saved Listings - Runoot" }];
 };
-
-function getEventSlug(event: { name: string; slug?: string | null }): string {
-  if (event.slug) return event.slug;
-  return event.name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
 
 function getDisplayPrice(listing: any): number | null {
   if (listing.listing_type === "bib") {
@@ -172,7 +165,7 @@ function SavedListingCard({
         ? "bg-blue-100 text-blue-700"
         : "bg-green-100 text-green-700";
 
-  const eventSlug = getEventSlug(listing.event || { name: "event", slug: null });
+  const eventSlug = getEventImageSlug(listing.event || { name: "event", slug: null });
   const defaultEventImage = `/events/${eventSlug}.jpg`;
   const primaryEventImage = listing?.event?.card_image_url || defaultEventImage;
 

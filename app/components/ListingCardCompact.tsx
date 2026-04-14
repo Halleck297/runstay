@@ -4,6 +4,7 @@ import { useI18n } from "~/hooks/useI18n";
 import { getPublicDisplayName, getPublicInitial, getShortDisplayName } from "~/lib/user-display";
 import { isEventExpired } from "~/lib/listing-status";
 import { parseDateStable, formatDateStable } from "~/lib/format-date";
+import { getEventImageSlug } from "~/lib/event-image";
 
 const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
 
@@ -115,13 +116,6 @@ function parseToMeta(raw: string | null | undefined): ToListingMeta | null {
 }
 
 // Helper: genera slug dal nome evento (fallback se slug è null)
-function getEventSlug(event: { name: string; slug: string | null }): string {
-  if (event.slug) return event.slug;
-  return event.name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
 
 export function ListingCardCompact({
   listing,
@@ -182,7 +176,7 @@ export function ListingCardCompact({
   const sellerNameShort = sellerName.split(' ')[0];
 
   // Event logo path
-  const eventSlug = getEventSlug(listing.event);
+  const eventSlug = getEventImageSlug(listing.event);
   const logoPath = `/logos/${eventSlug}.webp`;
   const logoSrc = listing.event.card_image_url || logoPath;
 

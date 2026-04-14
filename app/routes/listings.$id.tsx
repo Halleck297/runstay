@@ -16,6 +16,7 @@ import { getPublicDisplayName, getPublicInitial, getShortDisplayName } from "~/l
 import { calculateDistanceData } from "~/lib/distance.server";
 import { isEventExpired } from "~/lib/listing-status";
 import { toLocaleDateStable } from "~/lib/format-date";
+import { getEventImageSlug } from "~/lib/event-image";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: (data as any)?.listing?.title || "Listing - Runoot" }];
@@ -247,13 +248,6 @@ function getDaysUntilEvent(eventDate: string): number {
 }
 
 // Helper: genera slug dal nome evento (fallback se slug è null)
-function getEventSlug(event: { name: string; slug: string | null }): string {
-  if (event.slug) return event.slug;
-  return event.name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
 
 export default function ListingDetail() {
   const { t, locale } = useI18n();
@@ -317,7 +311,7 @@ export default function ListingDetail() {
   const canOpenSellerProfile = !!sellerProfile?.id && sellerIsProfileVisible;
   const sellerPublicId = sellerProfile ? getProfilePublicId(sellerProfile) : null;
   const daysUntil = getDaysUntilEvent(listingData.event.event_date);
-  const eventSlug = getEventSlug(listingData.event);
+  const eventSlug = getEventImageSlug(listingData.event);
   const defaultEventImage = `/events/${eventSlug}.jpg`;
   const bannerPrimary = listingData.event.card_image_url || defaultEventImage;
   const profileBackState = { from: `${location.pathname}${location.search}` };
