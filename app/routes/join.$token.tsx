@@ -658,7 +658,6 @@ function RegistrationForm({
           )}
 
           <Form method="post" className="flex flex-col gap-5 [&_.input]:border [&_.input]:border-solid [&_.input]:border-accent-500 [&_.input]:shadow-none [&_.input:focus]:border-brand-500 [&_.input:focus]:ring-brand-500/20">
-            <input type="hidden" name="intent" value="register" />
 
             {/* Email — locked */}
             <div>
@@ -866,6 +865,7 @@ function RegistrationForm({
                   type="submit"
                   name="intent"
                   value="send_phone_otp"
+                  formNoValidate
                   disabled={isSubmitting || !phoneValue || !countryValue}
                   className="btn-secondary rounded-full text-sm px-5 py-2.5 whitespace-nowrap disabled:opacity-50"
                 >
@@ -897,7 +897,6 @@ function RegistrationForm({
             {/* Password */}
             <div>
               <label htmlFor="password" className="label">Password</label>
-              <p className="mb-2 text-xs text-gray-600">{t("join_referral.error.password_min")}</p>
               <div className="relative">
                 <input
                   id="password"
@@ -929,7 +928,14 @@ function RegistrationForm({
                   )}
                 </button>
               </div>
-              <ul className="mt-2 space-y-1 text-xs">
+              <p className="mt-2 text-xs text-gray-600 font-medium">{t("join_referral.password_rules_title")}</p>
+              <ul className="mt-1 space-y-1 text-xs">
+                <li className={`flex items-center gap-2 ${passwordValue.length >= 8 ? "text-green-600" : "text-gray-500"}`}>
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M16.704 5.29a1 1 0 010 1.414l-7.18 7.18a1 1 0 01-1.414 0L3.296 9.07a1 1 0 011.414-1.414l4.107 4.108 6.473-6.474a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>{t("join_referral.password_rule_length")}</span>
+                </li>
                 <li className={`flex items-center gap-2 ${passwordHasNumber ? "text-green-600" : "text-gray-500"}`}>
                   <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fillRule="evenodd" d="M16.704 5.29a1 1 0 010 1.414l-7.18 7.18a1 1 0 01-1.414 0L3.296 9.07a1 1 0 011.414-1.414l4.107 4.108 6.473-6.474a1 1 0 011.414 0z" clipRule="evenodd" />

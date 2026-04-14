@@ -166,6 +166,7 @@ export type TranslationKey =
   | "public_profile.social"
   | "common.private"
   | "common.tour_operator"
+  | "common.website_admin"
   | "common.user"
   | "common.bib"
   | "common.bibs"
@@ -713,6 +714,8 @@ export type TranslationKey =
   | "join_referral.dob_hint_default"
   | "join_referral.dob_hint_us"
   | "join_referral.password_requirements_title"
+  | "join_referral.password_rules_title"
+  | "join_referral.password_rule_length"
   | "join_referral.password_rule_number"
   | "join_referral.password_rule_symbol"
   | "join_referral.phone_otp_sent"
@@ -1182,6 +1185,7 @@ const en: Record<TranslationKey, string> = {
   "public_profile.social": "Social",
   "common.private": "Runner",
   "common.tour_operator": "Tour Operator",
+  "common.website_admin": "Website Administrator",
   "common.user": "User",
   "common.bib": "Bib",
   "common.bibs": "Bibs",
@@ -1729,6 +1733,8 @@ const en: Record<TranslationKey, string> = {
   "join_referral.dob_hint_default": "DD/MM/YYYY",
   "join_referral.dob_hint_us": "MM/DD/YYYY",
   "join_referral.password_requirements_title": "Minimum 8 characters, at least one number and one symbol.",
+  "join_referral.password_rules_title": "Password must have:",
+  "join_referral.password_rule_length": "At least 8 characters",
   "join_referral.password_rule_number": "At least one number",
   "join_referral.password_rule_symbol": "At least one symbol",
   "join_referral.phone_otp_sent": "SMS code sent. Check your phone.",
@@ -2199,6 +2205,7 @@ const it: Partial<Record<TranslationKey, string>> = {
   "public_profile.social": "Social",
   "common.private": "Runner",
   "common.tour_operator": "Tour operator",
+  "common.website_admin": "Amministratore del sito",
   "common.user": "Utente",
   "common.bib": "Pettorale",
   "common.bibs": "Pettorali",
@@ -2746,6 +2753,8 @@ const it: Partial<Record<TranslationKey, string>> = {
   "join_referral.dob_hint_default": "GG/MM/AAAA",
   "join_referral.dob_hint_us": "MM/GG/AAAA",
   "join_referral.password_requirements_title": "Minimo 8 caratteri, almeno un numero e un simbolo.",
+  "join_referral.password_rules_title": "La password deve avere:",
+  "join_referral.password_rule_length": "Almeno 8 caratteri",
   "join_referral.password_rule_number": "Almeno un numero",
   "join_referral.password_rule_symbol": "Almeno un simbolo",
   "join_referral.phone_otp_sent": "Codice SMS inviato. Controlla il telefono.",
@@ -3216,6 +3225,7 @@ const es: Partial<Record<TranslationKey, string>> = {
   "public_profile.social": "Social",
   "common.private": "Corredor",
   "common.tour_operator": "Operador turístico",
+  "common.website_admin": "Administrador del sitio",
   "common.user": "Usuario",
   "common.bib": "Dorsal",
   "common.bibs": "Dorsales",
@@ -3763,6 +3773,8 @@ const es: Partial<Record<TranslationKey, string>> = {
   "join_referral.dob_hint_default": "DD/MM/AAAA",
   "join_referral.dob_hint_us": "MM/DD/AAAA",
   "join_referral.password_requirements_title": "Minimo 8 caracteres, al menos un numero y un simbolo.",
+  "join_referral.password_rules_title": "La contrasena debe tener:",
+  "join_referral.password_rule_length": "Al menos 8 caracteres",
   "join_referral.password_rule_number": "Al menos un numero",
   "join_referral.password_rule_symbol": "Al menos un simbolo",
   "join_referral.phone_otp_sent": "Codigo SMS enviado. Revisa tu telefono.",
@@ -4233,6 +4245,7 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "public_profile.social": "Social",
   "common.private": "Coureur",
   "common.tour_operator": "voyagiste",
+  "common.website_admin": "Administrateur du site",
   "common.user": "Utilisateur",
   "common.bib": "Dossard",
   "common.bibs": "Dossards",
@@ -4780,6 +4793,8 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "join_referral.dob_hint_default": "JJ/MM/AAAA",
   "join_referral.dob_hint_us": "MM/JJ/AAAA",
   "join_referral.password_requirements_title": "Minimum 8 caracteres, au moins un chiffre et un symbole.",
+  "join_referral.password_rules_title": "Le mot de passe doit contenir :",
+  "join_referral.password_rule_length": "Au moins 8 caracteres",
   "join_referral.password_rule_number": "Au moins un chiffre",
   "join_referral.password_rule_symbol": "Au moins un symbole",
   "join_referral.phone_otp_sent": "Code SMS envoye. Verifiez votre telephone.",
@@ -5250,6 +5265,7 @@ const de: Partial<Record<TranslationKey, string>> = {
   "public_profile.social": "Social",
   "common.private": "Laufer",
   "common.tour_operator": "Reiseveranstalter",
+  "common.website_admin": "Website-Administrator",
   "common.user": "Benutzer",
   "common.bib": "Startnummer",
   "common.bibs": "Startnummern",
@@ -5797,6 +5813,8 @@ const de: Partial<Record<TranslationKey, string>> = {
   "join_referral.dob_hint_default": "TT/MM/JJJJ",
   "join_referral.dob_hint_us": "MM/TT/JJJJ",
   "join_referral.password_requirements_title": "Mindestens 8 Zeichen, mindestens eine Zahl und ein Symbol.",
+  "join_referral.password_rules_title": "Das Passwort muss enthalten:",
+  "join_referral.password_rule_length": "Mindestens 8 Zeichen",
   "join_referral.password_rule_number": "Mindestens eine Zahl",
   "join_referral.password_rule_symbol": "Mindestens ein Symbol",
   "join_referral.phone_otp_sent": "SMS-Code gesendet. Pruefe dein Telefon.",
@@ -6267,6 +6285,7 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "public_profile.social": "Social",
   "common.private": "Coureur",
   "common.tour_operator": "Touroperator",
+  "common.website_admin": "Websitebeheerder",
   "common.user": "Gebruiker",
   "common.bib": "Startnummer",
   "common.bibs": "Startnummers",
@@ -6814,6 +6833,8 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "join_referral.dob_hint_default": "DD/MM/JJJJ",
   "join_referral.dob_hint_us": "MM/DD/JJJJ",
   "join_referral.password_requirements_title": "Minimaal 8 tekens, ten minste een cijfer en een symbool.",
+  "join_referral.password_rules_title": "Het wachtwoord moet bevatten:",
+  "join_referral.password_rule_length": "Minimaal 8 tekens",
   "join_referral.password_rule_number": "Minstens een cijfer",
   "join_referral.password_rule_symbol": "Minstens een symbool",
   "join_referral.phone_otp_sent": "SMS-code verzonden. Controleer je telefoon.",
@@ -7283,6 +7304,7 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "public_profile.social": "Social",
   "common.private": "Corredor",
   "common.tour_operator": "Operadora de Turismo",
+  "common.website_admin": "Administrador do site",
   "common.user": "Usuário",
   "common.bib": "Dorsal",
   "common.bibs": "Dorsais",
@@ -7830,6 +7852,8 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "join_referral.dob_hint_default": "DD/MM/AAAA",
   "join_referral.dob_hint_us": "MM/DD/AAAA",
   "join_referral.password_requirements_title": "Minimo 8 caracteres, pelo menos um numero e um simbolo.",
+  "join_referral.password_rules_title": "A senha deve conter:",
+  "join_referral.password_rule_length": "Pelo menos 8 caracteres",
   "join_referral.password_rule_number": "Pelo menos um numero",
   "join_referral.password_rule_symbol": "Pelo menos um simbolo",
   "join_referral.phone_otp_sent": "Codigo SMS enviado. Verifique seu telefone.",
