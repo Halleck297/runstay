@@ -1,0 +1,89 @@
+{
+  "generated_at": "2026-04-08",
+  "scope": "Account creation and invite/join flows",
+  "workspace": "/Users/jay/Desktop/Runoot",
+  "account_creation_flows": [
+    {
+      "route": "/join/:token",
+      "file": "app/routes/join.$token.tsx",
+      "creates_auth_user": true,
+      "creates_profile": true,
+      "auto_sign_in": true,
+      "invitation_types": [
+        "admin_invite",
+        "admin_invite_tl",
+        "admin_invite_to",
+        "referral_invite"
+      ],
+      "notes": "Primary invite-based self-registration flow."
+    },
+    {
+      "route": "/admin/access-requests",
+      "file": "app/routes/admin.access-requests.tsx",
+      "creates_auth_user": true,
+      "creates_profile": true,
+      "auto_sign_in": false,
+      "trigger": "Admin approval action",
+      "notes": "Backoffice flow that approves pending access requests and provisions user."
+    },
+    {
+      "route": "/admin/to-accounts/new",
+      "file": "app/routes/admin.to-accounts.new.tsx",
+      "creates_auth_user": true,
+      "creates_profile": true,
+      "auto_sign_in": false,
+      "trigger": "Admin form submit",
+      "notes": "Creates Tour Operator account and sends setup/reset-password email."
+    },
+    {
+      "route": "/admin/users/new",
+      "file": "app/routes/admin.users.new.tsx",
+      "creates_auth_user": true,
+      "creates_profile": true,
+      "auto_sign_in": false,
+      "trigger": "Only in specific modes",
+      "modes": [
+        "createMock + external_password (creates real auth user)",
+        "createRealInvite (does not create account immediately; account created later in /join/:token)"
+      ],
+      "notes": "Mixed-purpose admin tool (mock + real invite paths)."
+    }
+  ],
+  "related_non_creation_flows": [
+    {
+      "route": "/register",
+      "file": "app/routes/register.tsx",
+      "creates_auth_user": false,
+      "writes": ["access_requests"],
+      "notes": "Public lead/access request flow, not direct account creation."
+    },
+    {
+      "route": "/professional-access",
+      "file": "app/routes/professional-access.tsx",
+      "creates_auth_user": false,
+      "writes": ["access_requests"],
+      "notes": "Professional access request flow, not direct account creation."
+    },
+    {
+      "route": "/:code",
+      "file": "app/routes/$.tsx",
+      "creates_auth_user": false,
+      "writes": ["team_join_requests"],
+      "notes": "Referral/team join request flow, not direct account creation."
+    },
+    {
+      "route": "/become-tl/:token",
+      "file": "app/routes/become-tl.$token.tsx",
+      "creates_auth_user": false,
+      "writes": ["profiles.user_type update", "tl_invite_tokens usage"],
+      "notes": "Promotes an existing logged-in user to Team Leader; no new auth account."
+    }
+  ],
+  "review_focus": [
+    "Consolidate overlapping invite/account provisioning paths",
+    "Separate mock/test-only admin flows from production flows",
+    "Standardize locale/language behavior across all invite entry points",
+    "Unify validation + legal consent handling",
+    "Remove redundant routes/actions after deciding canonical registration path"
+  ]
+}

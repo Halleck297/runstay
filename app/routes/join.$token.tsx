@@ -12,8 +12,8 @@ import { translate } from "~/lib/i18n";
 import { toTitleCase } from "~/lib/user-display";
 import { generateUniqueReferralCode } from "~/lib/referral-code.server";
 
-const LEGAL_TERMS_VERSION = "2026-03-15";
-const LEGAL_PRIVACY_VERSION = "2026-03-15";
+const LEGAL_TERMS_VERSION = "2026-04-08";
+const LEGAL_PRIVACY_VERSION = "2026-04-08";
 
 const phoneVerificationCookie = createCookie("runoot_join_phone_verification", {
   httpOnly: true,
@@ -55,8 +55,8 @@ function getDobBounds() {
   const oldest = new Date(now);
   oldest.setFullYear(oldest.getFullYear() - 75);
   return {
-    minDob: oldest.toISOString().slice(0, 10),
-    maxDob: youngest.toISOString().slice(0, 10),
+    earliestDob: oldest.toISOString().slice(0, 10),
+    latestDob: youngest.toISOString().slice(0, 10),
   };
 }
 
@@ -260,11 +260,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return data({ errorKey: "join_referral.error.date_of_birth_invalid" }, { status: 400 });
     }
     if (dateOfBirth) {
-      const { minDob, maxDob } = getDobBounds();
-      if (dateOfBirth > minDob) {
+      const { earliestDob, latestDob } = getDobBounds();
+      if (dateOfBirth > latestDob) {
         return data({ errorKey: "join_referral.error.date_of_birth_too_young" }, { status: 400 });
       }
-      if (dateOfBirth < maxDob) {
+      if (dateOfBirth < earliestDob) {
         return data({ errorKey: "join_referral.error.date_of_birth_too_old" }, { status: 400 });
       }
     }
@@ -508,9 +508,10 @@ function RegistrationForm({
 
   const countries = getSupportedCountries(locale);
   const localeLabels = useMemo(() => getLocaleLabelsForUi(locale), [locale]);
-  const { minDob, maxDob } = useMemo(() => getDobBounds(), []);
+  const { earliestDob, latestDob } = useMemo(() => getDobBounds(), []);
 
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordValue, setPasswordValue] = useState("");
   const [countryValue, setCountryValue] = useState(actionData?.formValues?.country || "");
   const [languageValue, setLanguageValue] = useState<SupportedLocale>(detectedLocale);
   const [languageTouched, setLanguageTouched] = useState(false);
@@ -531,6 +532,8 @@ function RegistrationForm({
   const dobHint = isUsDobFormat ? t("join_referral.dob_hint_us") : t("join_referral.dob_hint_default");
   const dobMask = "__/__/____";
   const dobDigitSlots = [0, 1, 3, 4, 6, 7, 8, 9];
+  const passwordHasNumber = /\d/.test(passwordValue);
+  const passwordHasSymbol = /[^A-Za-z0-9]/.test(passwordValue);
 
   const errorMessage = actionData?.errorKey ? t(actionData.errorKey as any) : null;
 
@@ -598,7 +601,7 @@ function RegistrationForm({
         {/* Inviter info card */}
         {isAdminInvite ? (
           <div className="bg-white rounded-3xl border border-brand-500 shadow-sm p-6 mb-6 text-center">
-            <img src="/logo225px.png" alt="Runoot" className="mx-auto mb-3 h-14 w-auto" />
+            <img src="/logo225px.png" alt="Runoot" className="mx-auto mb-3 h-14 md:h-20 w-auto" />
             <p className="text-sm text-gray-500">{t("join_token.admin_invited_by")}</p>
           </div>
         ) : (
@@ -634,15 +637,15 @@ function RegistrationForm({
 
         {/* Registration form */}
         <div className="py-8 px-0 sm:bg-white sm:rounded-3xl sm:border sm:border-brand-500 sm:shadow-sm sm:px-10">
-          <div className="mb-6 text-center">
+          <div className="mb-8 text-center">
             <h2 className="mb-1 font-display text-[1.7rem] font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">
-              {isAdminInvite
-                ? t("join_referral.join_title")
-                : t("join_token.title").replace("{name}", tl?.full_name || "")}
+              {t("join_common.create_account_title")}
             </h2>
-            <p className="text-sm text-gray-500">
-              {isAdminInvite ? t("join_referral.join_subtitle") : t("join_token.subtitle")}
-            </p>
+            {!isAdminInvite && (
+              <p className="text-sm text-gray-500">
+                {t("join_token.subtitle")}
+              </p>
+            )}
           </div>
 
           {errorMessage && (
@@ -705,8 +708,8 @@ function RegistrationForm({
                 <select
                   id="country"
                   name="country"
-                  className="input h-11 w-full rounded-full bg-white !pl-10"
-                  style={{ textIndent: "0.45rem" }}
+                  className="input h-11 w-full rounded-full bg-white !pl-4 appearance-none"
+                  style={{ WebkitAppearance: "none", MozAppearance: "none", appearance: "none" }}
                   required
                   value={countryValue}
                   onChange={(event) => {
@@ -791,9 +794,9 @@ function RegistrationForm({
                       ref={datePickerRef}
                       type="date"
                       aria-label={t("join_referral.open_calendar")}
-                      min={maxDob}
-                      max={minDob}
-                      value={dateOfBirthIsoValue || minDob}
+                      min={earliestDob}
+                      max={latestDob}
+                      value={dateOfBirthIsoValue || latestDob}
                       className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                       onChange={(event) => {
                         const isoValue = event.target.value;
@@ -815,8 +818,8 @@ function RegistrationForm({
                 <select
                   id="language"
                   name="language"
-                  className="input h-11 w-full rounded-3xl bg-white pr-10 !pl-10"
-                  style={{ textIndent: "0.45rem" }}
+                  className="input h-11 w-full rounded-3xl bg-white !pl-4 appearance-none"
+                  style={{ WebkitAppearance: "none", MozAppearance: "none", appearance: "none" }}
                   required
                   value={languageValue}
                   onChange={(event) => {
@@ -894,7 +897,7 @@ function RegistrationForm({
             {/* Password */}
             <div>
               <label htmlFor="password" className="label">Password</label>
-              <p className="mb-2 text-xs text-gray-600">{t("join_referral.password_requirements_title")}</p>
+              <p className="mb-2 text-xs text-gray-600">{t("join_referral.error.password_min")}</p>
               <div className="relative">
                 <input
                   id="password"
@@ -905,6 +908,8 @@ function RegistrationForm({
                   minLength={8}
                   pattern="(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}"
                   className="input w-full rounded-full !pl-4 !pr-10"
+                  value={passwordValue}
+                  onChange={(event) => setPasswordValue(event.target.value)}
                 />
                 <button
                   type="button"
@@ -924,6 +929,20 @@ function RegistrationForm({
                   )}
                 </button>
               </div>
+              <ul className="mt-2 space-y-1 text-xs">
+                <li className={`flex items-center gap-2 ${passwordHasNumber ? "text-green-600" : "text-gray-500"}`}>
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M16.704 5.29a1 1 0 010 1.414l-7.18 7.18a1 1 0 01-1.414 0L3.296 9.07a1 1 0 011.414-1.414l4.107 4.108 6.473-6.474a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>{t("join_referral.password_rule_number")}</span>
+                </li>
+                <li className={`flex items-center gap-2 ${passwordHasSymbol ? "text-green-600" : "text-gray-500"}`}>
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M16.704 5.29a1 1 0 010 1.414l-7.18 7.18a1 1 0 01-1.414 0L3.296 9.07a1 1 0 011.414-1.414l4.107 4.108 6.473-6.474a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>{t("join_referral.password_rule_symbol")}</span>
+                </li>
+              </ul>
             </div>
 
             {/* Confirm password */}
@@ -946,14 +965,14 @@ function RegistrationForm({
                 <input type="checkbox" name="acceptTerms" required className="mt-1 rounded border-gray-300" />
                 <span>
                   {t("join_referral.legal_accept_terms_prefix")}{" "}
-                  <Link to="/terms" target="_blank" className="text-brand-600 hover:underline">{t("footer.terms")}</Link>
+                  <Link to="/terms" target="_blank" className="text-brand-600 hover:underline">{t("legal.terms_of_service")}</Link>
                 </span>
               </label>
               <label className="flex items-start gap-2 text-sm text-gray-600">
                 <input type="checkbox" name="acceptPrivacy" required className="mt-1 rounded border-gray-300" />
                 <span>
                   {t("join_referral.legal_accept_privacy_prefix")}{" "}
-                  <Link to="/privacy-policy" target="_blank" className="text-brand-600 hover:underline">{t("footer.privacy")}</Link>
+                  <Link to="/privacy-policy" target="_blank" className="text-brand-600 hover:underline">{t("legal.privacy_policy")}</Link>
                 </span>
               </label>
             </div>

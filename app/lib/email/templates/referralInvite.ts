@@ -6,7 +6,7 @@ const copy = {
     subjectSuffix: "invited you to join runoot",
     defaultInviter: "Someone",
     title: "You have been invited to join Runoot.",
-    intro: "invited you to become part of their team.",
+    intro: "invited you to join Runoot.",
     cta: "Accept invitation",
     fallback: "If the button does not work, click",
     description:
@@ -21,7 +21,7 @@ const copy = {
     subjectSuffix: "ti ha invitato a entrare su runoot",
     defaultInviter: "Qualcuno",
     title: "Sei invitato su Runoot",
-    intro: "ti ha invitato nella sua community di corsa.",
+    intro: "ti ha invitato a entrare su Runoot.",
     cta: "Accetta invito",
     fallback: "Se il pulsante non funziona, fai clic",
     description:
@@ -36,7 +36,7 @@ const copy = {
     subjectSuffix: "hat dich eingeladen, runoot beizutreten",
     defaultInviter: "Jemand",
     title: "Du bist zu Runoot eingeladen",
-    intro: "hat dich in die Lauf-Community eingeladen.",
+    intro: "hat dich eingeladen, Runoot beizutreten.",
     cta: "Einladung annehmen",
     fallback: "Wenn der Button nicht funktioniert, klicke",
     description:
@@ -51,7 +51,7 @@ const copy = {
     subjectSuffix: "vous a invite a rejoindre runoot",
     defaultInviter: "Quelqu'un",
     title: "Vous etes invite sur Runoot",
-    intro: "vous a invite dans la communaute running.",
+    intro: "vous a invite a rejoindre Runoot.",
     cta: "Accepter l'invitation",
     fallback: "Si le bouton ne fonctionne pas, cliquez",
     description:
@@ -66,7 +66,7 @@ const copy = {
     subjectSuffix: "te ha invitado a unirte a runoot",
     defaultInviter: "Alguien",
     title: "Estas invitado a Runoot",
-    intro: "te ha invitado a su comunidad de running.",
+    intro: "te ha invitado a unirte a Runoot.",
     cta: "Aceptar invitacion",
     fallback: "Si el boton no funciona, haz clic",
     description:
@@ -81,7 +81,7 @@ const copy = {
     subjectSuffix: "heeft je uitgenodigd om je bij runoot aan te sluiten",
     defaultInviter: "Iemand",
     title: "Je bent uitgenodigd voor Runoot",
-    intro: "heeft je uitgenodigd om deel uit te maken van het team.",
+    intro: "heeft je uitgenodigd om je bij Runoot aan te sluiten.",
     cta: "Uitnodiging accepteren",
     fallback: "Als de knop niet werkt, klik",
     description:
@@ -96,7 +96,7 @@ const copy = {
     subjectSuffix: "convidou voce para entrar na runoot",
     defaultInviter: "Alguem",
     title: "Voce foi convidado para a Runoot",
-    intro: "convidou voce para fazer parte do time.",
+    intro: "convidou voce para entrar na Runoot.",
     cta: "Aceitar convite",
     fallback: "Se o botao nao funcionar, clique",
     description:

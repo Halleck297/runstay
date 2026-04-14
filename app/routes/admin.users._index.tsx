@@ -223,7 +223,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const { data: invite } = await (supabaseAdmin.from("referral_invites") as any)
         .select("id, email, status")
         .eq("id", inviteId)
-        .eq("invite_type", "admin_invite")
+        .in("invite_type", ["admin_invite", "admin_invite_tl", "admin_invite_to"])
         .maybeSingle();
 
       if (!invite) return data({ error: "Invite not found" }, { status: 404 });
@@ -247,7 +247,7 @@ export async function action({ request }: ActionFunctionArgs) {
         templateId: "referral_invite",
         locale: null,
         payload: {
-          inviterName: "runoot",
+          inviterName: "Admin",
           referralLink,
         },
       });
@@ -270,7 +270,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const { data: invite } = await (supabaseAdmin.from("referral_invites") as any)
         .select("id, email, status")
         .eq("id", inviteId)
-        .eq("invite_type", "admin_invite")
+        .in("invite_type", ["admin_invite", "admin_invite_tl", "admin_invite_to"])
         .maybeSingle();
 
       if (!invite) return data({ error: "Invite not found" }, { status: 404 });

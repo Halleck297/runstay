@@ -349,9 +349,9 @@ export default function CatchAllRoute() {
             </div>
           ) : (
             <>
-              <div className="mb-6 text-center">
+              <div className="mb-8 text-center">
                 <h2 className="mb-1 font-display text-[1.7rem] font-bold text-gray-900 underline decoration-accent-500 underline-offset-4">
-                  {t("join_request.title").replace("{name}", tl?.full_name || "")}
+                  {t("join_common.create_account_title")}
                 </h2>
                 <p className="text-sm text-gray-500">{t("join_request.subtitle")}</p>
               </div>

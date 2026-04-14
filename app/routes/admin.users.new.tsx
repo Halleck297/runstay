@@ -233,7 +233,7 @@ export async function action({ request }: ActionFunctionArgs) {
         templateId: "referral_invite",
         locale: null,
         payload: {
-          inviterName: "runoot",
+          inviterName: "Admin",
           referralLink,
         },
       });
