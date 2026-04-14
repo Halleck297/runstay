@@ -26,6 +26,7 @@ CREATE TABLE public.profiles (
   role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'superadmin')),
   company_name TEXT,
   phone TEXT,
+  phone_verified_at TIMESTAMPTZ,
   is_verified BOOLEAN DEFAULT FALSE,
   avatar_url TEXT,
 

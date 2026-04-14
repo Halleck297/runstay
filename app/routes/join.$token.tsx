@@ -3,8 +3,8 @@ import { createCookie, data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
-import { supabaseAdmin, supabase } from "~/lib/supabase.server";
-import { createUserSession, getUser } from "~/lib/session.server";
+import { supabaseAdmin } from "~/lib/supabase.server";
+import { getUser } from "~/lib/session.server";
 import { getLocaleLabelsForUi, isSupportedLocale, resolveLocaleForRequest, type SupportedLocale } from "~/lib/locale";
 import { getDialingPrefix, getSuggestedLocaleForCountry, getSupportedCountries, resolveSupportedCountry } from "~/lib/supportedCountries";
 import { startPhoneVerification, checkPhoneVerificationCode } from "~/lib/twilio-verify.server";
@@ -412,25 +412,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       console.error("Failed to log legal consent:", e);
     }
 
-    // Sign in and redirect
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError || !signInData?.session) {
-      return redirect("/login");
-    }
-
+    // Registration complete — show success popup (user will login manually)
     const clearPhoneCookie = await phoneVerificationCookie.serialize("");
-
-    return createUserSession(
-      signInData.user.id,
-      signInData.session.access_token,
-      signInData.session.refresh_token,
-      "/listings",
-      { additionalSetCookies: [clearPhoneCookie] }
-    );
+    const headers = new Headers();
+    headers.append("Set-Cookie", clearPhoneCookie);
+    return data({ success: true }, { headers });
   }
 
   return data({ errorKey: "join_token.invalid" }, { status: 400 });
@@ -448,6 +434,24 @@ export default function JoinByToken() {
   const isSubmitting = navigation.state === "submitting";
 
   const { status } = loaderData;
+
+  // Registration success
+  if (actionData?.success) {
+    return (
+      <div className="flex items-start justify-center px-4 pt-8 pb-24 sm:min-h-screen sm:items-center sm:pt-0 sm:pb-0">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-brand-500 shadow-sm p-8 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">{t("join_referral.registration_success_title")}</h1>
+          <p className="text-sm text-gray-600 mb-6">{t("join_referral.registration_success_body")}</p>
+          <Link to="/login" className="btn-primary mt-2 inline-block w-full py-3">{t("auth.sign_in")}</Link>
+        </div>
+      </div>
+    );
+  }
 
   // Invalid token
   if (status === "invalid") {
