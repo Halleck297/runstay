@@ -124,7 +124,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     return data({ status: "invalid" as const, locale });
   }
 
+  const url = new URL(request.url);
+  const justRegistered = url.searchParams.get("success") === "1";
+
   if (invite.status === "accepted" || invite.status === "claimed") {
+    if (justRegistered) {
+      return data({ status: "success" as const, locale });
+    }
     return data({ status: "already_used" as const, locale });
   }
 
@@ -412,11 +418,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       console.error("Failed to log legal consent:", e);
     }
 
-    // Registration complete — show success popup (user will login manually)
+    // Registration complete — redirect with success flag to avoid loader/actionData conflict
     const clearPhoneCookie = await phoneVerificationCookie.serialize("");
     const headers = new Headers();
     headers.append("Set-Cookie", clearPhoneCookie);
-    return data({ success: true }, { headers });
+    return redirect(`/join/${token}?success=1`, { headers });
   }
 
   return data({ errorKey: "join_token.invalid" }, { status: 400 });
@@ -436,7 +442,7 @@ export default function JoinByToken() {
   const { status } = loaderData;
 
   // Registration success
-  if (actionData?.success) {
+  if (status === "success") {
     return (
       <div className="flex items-start justify-center px-4 pt-8 pb-24 sm:min-h-screen sm:items-center sm:pt-0 sm:pb-0">
         <div className="max-w-md w-full bg-white rounded-3xl border border-brand-500 shadow-sm p-8 text-center">
