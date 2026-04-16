@@ -747,6 +747,7 @@ function RegistrationForm({
                   name="city"
                   placeIdName="cityPlaceId"
                   required
+                  countryCode={countryValue || undefined}
                   className="input w-full rounded-full bg-white !pl-4"
                 />
               </div>

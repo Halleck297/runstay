@@ -9,19 +9,14 @@ interface CitySuggestion {
 }
 
 interface CityAutocompleteProps {
-  /** Current city name (for pre-filling) */
   defaultValue?: string;
-  /** Current place_id (for pre-filling) */
   defaultPlaceId?: string;
-  /** Name attribute for the city text hidden input */
   name?: string;
-  /** Name attribute for the place_id hidden input */
   placeIdName?: string;
-  /** Additional CSS class for the input */
   className?: string;
-  /** Whether the field is required */
   required?: boolean;
-  /** Callback when a city is selected */
+  /** ISO 3166-1 alpha-2 country code (e.g. "IT", "FR") to restrict results */
+  countryCode?: string;
   onSelect?: (city: { name: string; placeId: string }) => void;
 }
 
@@ -32,6 +27,7 @@ export function CityAutocomplete({
   placeIdName = "cityPlaceId",
   className = "",
   required = false,
+  countryCode,
   onSelect,
 }: CityAutocompleteProps) {
   const { locale } = useI18n();
@@ -75,6 +71,7 @@ export function CityAutocomplete({
             input: query,
             language: locale,
             sessionToken: sessionTokenRef.current,
+            country: countryCode || undefined,
           }),
         });
 

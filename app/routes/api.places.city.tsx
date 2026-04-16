@@ -27,7 +27,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   const body = await request.json();
-  const { input, language, sessionToken } = body;
+  const { input, language, sessionToken, country } = body;
 
   if (!input || typeof input !== "string" || input.trim().length < 2) {
     return data({ suggestions: [] });
@@ -35,10 +35,13 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const requestBody: Record<string, any> = {
     input: input.trim(),
-    includedPrimaryTypes: ["(cities)"],
+    includedPrimaryTypes: ["locality", "administrative_area_level_3"],
   };
   if (sessionToken) requestBody.sessionToken = sessionToken;
   if (language && typeof language === "string") requestBody.languageCode = language;
+  if (country && typeof country === "string" && country.length === 2) {
+    requestBody.includedRegionCodes = [country.toLowerCase()];
+  }
 
   const response = await fetch(`${GOOGLE_PLACES_BASE}/places:autocomplete`, {
     method: "POST",

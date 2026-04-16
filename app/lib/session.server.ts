@@ -414,6 +414,12 @@ export async function getImpersonationContext(request: Request) {
   };
 }
 
+/** Returns true if the current request is an active impersonation session (no DB query). */
+export async function isImpersonatingSession(request: Request): Promise<boolean> {
+  const session = await getUserSession(request);
+  return Boolean(session.get("impersonatingAs"));
+}
+
 // ============================================
 // Audit Log Helper
 // ============================================

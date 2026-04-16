@@ -2,7 +2,7 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, Form, u
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { useEffect, useState } from "react";
 import * as Sentry from "@sentry/react";
-import { getUser, getAccessTokenWithRefresh, getImpersonationContext } from "~/lib/session.server";
+import { getUser, getAccessTokenWithRefresh, getImpersonationContext, isImpersonatingSession } from "~/lib/session.server";
 import { NotFoundPage } from "~/components/NotFoundPage";
 import { ServerErrorPage } from "~/components/ServerErrorPage";
 import {
@@ -30,7 +30,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const currentCookieLocale = getLocaleFromCookie(request.headers.get("Cookie"));
   const shouldSetLocaleCookie = currentCookieLocale !== locale;
 
-  if (needsAdminPhoneVerification(user)) {
+  if (needsAdminPhoneVerification(user) && !(await isImpersonatingSession(request))) {
     const pathname = url.pathname;
     const isAllowedPath =
       pathname === "/verify-phone" ||

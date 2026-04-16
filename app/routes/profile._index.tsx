@@ -7,7 +7,7 @@ import { Header } from "~/components/Header";
 import { useI18n } from "~/hooks/useI18n";
 import type { TranslationKey } from "~/lib/i18n";
 import { NO_AVATAR_VALUE, OPEN_DOODLE_AVATARS, isValidOpenDoodleAvatar } from "~/lib/avatars";
-import { getCountryDisplayName } from "~/lib/supportedCountries";
+import { getCountryDisplayName, resolveSupportedCountry } from "~/lib/supportedCountries";
 import { CityAutocomplete } from "~/components/CityAutocomplete";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
@@ -198,6 +198,7 @@ export default function ProfileIndex() {
     user.avatar_url && isValidOpenDoodleAvatar(user.avatar_url) ? user.avatar_url : NO_AVATAR_VALUE,
   );
   const countryDisplayValue = getCountryDisplayName((user as any).country, locale);
+  const countryCode = resolveSupportedCountry((user as any).country || "", locale)?.code;
 
   const getInitials = (name: string | null) => {
     if (!name) return "?";
@@ -414,6 +415,7 @@ export default function ProfileIndex() {
                     placeIdName="cityPlaceId"
                     defaultValue={(user as any).city || ""}
                     defaultPlaceId={(user as any).city_place_id || ""}
+                    countryCode={countryCode}
                     className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
                   />
                 </div>

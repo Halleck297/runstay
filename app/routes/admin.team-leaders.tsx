@@ -1,7 +1,7 @@
 // app/routes/admin.team-leaders.tsx - Admin: Team Leaders Management
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
-import { useLoaderData, useActionData, Form, Link } from "react-router";
+import { useLoaderData, useActionData, Form, Link, Outlet, useLocation } from "react-router";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useState } from "react";
@@ -170,6 +170,11 @@ export default function AdminTeamLeaders() {
   const { teamLeaders, referralCounts, tokens, stats } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const location = useLocation();
+
+  if (location.pathname !== "/admin/team-leaders" && location.pathname !== "/admin/team-leaders/") {
+    return <Outlet />;
+  }
 
   const copyToClipboard = (text: string, tokenId: string) => {
     navigator.clipboard.writeText(text);
