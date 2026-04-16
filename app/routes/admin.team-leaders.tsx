@@ -1,7 +1,7 @@
 // app/routes/admin.team-leaders.tsx - Admin: Team Leaders Management
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
-import { useLoaderData, useActionData, Form } from "react-router";
+import { useLoaderData, useActionData, Form, Link } from "react-router";
 import { requireAdmin, logAdminAction } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { useState } from "react";
@@ -332,7 +332,9 @@ export default function AdminTeamLeaders() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">
-                      {tl.full_name || "No name"}
+                      <Link to={`/admin/team-leaders/${tl.id}`} className="hover:text-brand-600 hover:underline">
+                        {tl.full_name || "No name"}
+                      </Link>
                       {tl.company_name && (
                         <span className="text-gray-400 font-normal"> · {tl.company_name}</span>
                       )}

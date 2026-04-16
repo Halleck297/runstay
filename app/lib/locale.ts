@@ -211,6 +211,7 @@ export function localizeListing<T extends Record<string, any>>(listing: T, local
     hotel_name: readLocalizedValue(listing.hotel_name, listing.hotel_name_i18n, locale) ?? listing.hotel_name,
     hotel_city: readLocalizedValue(listing.hotel_city, listing.hotel_city_i18n, locale) ?? listing.hotel_city,
     hotel_country: readLocalizedValue(listing.hotel_country, listing.hotel_country_i18n, locale) ?? listing.hotel_country,
+    cost_notes_note_localized: readLocalizedValue(null, listing.cost_notes_note_i18n, locale),
     event: listing.event ? localizeEvent(listing.event, locale) : listing.event,
   };
 }

@@ -8,6 +8,7 @@ import { useI18n } from "~/hooks/useI18n";
 import type { TranslationKey } from "~/lib/i18n";
 import { NO_AVATAR_VALUE, OPEN_DOODLE_AVATARS, isValidOpenDoodleAvatar } from "~/lib/avatars";
 import { getCountryDisplayName } from "~/lib/supportedCountries";
+import { CityAutocomplete } from "~/components/CityAutocomplete";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 
@@ -43,6 +44,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const fullName = formData.get("fullName");
   const country = formData.get("country");
   const city = formData.get("city");
+  const cityPlaceId = formData.get("cityPlaceId");
   const bio = formData.get("bio");
 
   if (typeof fullName !== "string" || !fullName.trim()) {
@@ -69,6 +71,7 @@ export async function action({ request }: ActionFunctionArgs) {
     full_name: normalizedFullName,
     country: user.country || null,
     city: normalizedCity || null,
+    city_place_id: typeof cityPlaceId === "string" && cityPlaceId.trim() ? cityPlaceId.trim() : null,
     bio: normalizedBio || null,
   };
 
@@ -406,12 +409,12 @@ export default function ProfileIndex() {
 
                 <div className="rounded-2xl border border-brand-300 bg-white p-4 shadow-none transition-all focus-within:border-brand-400 md:p-5 md:shadow-sm md:focus-within:shadow-md">
                   <label className="text-sm font-medium text-gray-500">{t("profile.form.city")}</label>
-                  <input
+                  <CityAutocomplete
                     name="city"
-                    type="text"
+                    placeIdName="cityPlaceId"
                     defaultValue={(user as any).city || ""}
+                    defaultPlaceId={(user as any).city_place_id || ""}
                     className="mt-1 block w-full border-0 bg-transparent p-0 text-[15px] font-medium text-gray-900 focus:outline-none focus:ring-0"
-                    placeholder={t("profile.form.city_placeholder")}
                   />
                 </div>
 

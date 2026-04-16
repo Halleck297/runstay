@@ -1090,7 +1090,7 @@ export default function ListingDetail() {
                             </p>
                             {listingData.cost_notes && (
                               <p className="mt-2 text-sm text-gray-600">
-                                {parsedCostNotes.note || ""}
+                                {(listingData as any).cost_notes_note_localized || parsedCostNotes.note || ""}
                               </p>
                             )}
                           </>

@@ -40,6 +40,7 @@ export interface Database {
           // Personal Information
           country: string | null;
           city: string | null;
+          city_place_id: string | null;
           bio: string | null;
           // Running Experience
           marathons_completed: number | null;
@@ -89,6 +90,7 @@ export interface Database {
           avatar_url?: string | null;
           country?: string | null;
           city?: string | null;
+          city_place_id?: string | null;
           bio?: string | null;
           marathons_completed?: number | null;
           marathon_pb?: string | null;
@@ -132,6 +134,7 @@ export interface Database {
           avatar_url?: string | null;
           country?: string | null;
           city?: string | null;
+          city_place_id?: string | null;
           bio?: string | null;
           marathons_completed?: number | null;
           marathon_pb?: string | null;
@@ -309,6 +312,7 @@ export interface Database {
     associated_costs: number | null;
     associated_costs_converted: Json | null;
     cost_notes: string | null;
+    cost_notes_note_i18n: Json | null;
 
     // Distance to finish line
     distance_to_finish: number | null;
@@ -359,6 +363,7 @@ export interface Database {
   associated_costs?: number | null;
   associated_costs_converted?: Json | null;
   cost_notes?: string | null;
+  cost_notes_note_i18n?: Json | null;
 
   // Distance to finish line
   distance_to_finish?: number | null;
@@ -406,6 +411,7 @@ export interface Database {
   associated_costs?: number | null;
   associated_costs_converted?: Json | null;
   cost_notes?: string | null;
+  cost_notes_note_i18n?: Json | null;
 
   // Distance to finish line
   distance_to_finish?: number | null;

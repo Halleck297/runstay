@@ -25,7 +25,7 @@ import {
 } from "~/config/listing-rules";
 import type { TransferMethod } from "~/config/listing-rules";
 import { calculateDistanceData } from "~/lib/distance.server";
-import { buildListingI18nFields, getSourceLanguageFromProfile } from "~/lib/listing-i18n.server";
+import { buildListingI18nFields, buildI18nMap, getSourceLanguageFromProfile } from "~/lib/listing-i18n.server";
 
 
 
@@ -353,14 +353,17 @@ export async function action({ request }: ActionFunctionArgs) {
     ? JSON.stringify({ to_meta: toListingMeta, note: costNotes || null })
     : costNotes || null;
   const sourceLanguageHint = getSourceLanguageFromProfile((user as any).preferred_language);
-  const listingI18n = await buildListingI18nFields({
-    title: autoTitle,
-    description: description || null,
-    hotelName: hotelName || null,
-    hotelCity: hotelCity || null,
-    hotelCountry: hotelCountry || null,
-    sourceLanguageHint,
-  });
+  const [listingI18n, costNotesNoteI18n] = await Promise.all([
+    buildListingI18nFields({
+      title: autoTitle,
+      description: description || null,
+      hotelName: hotelName || null,
+      hotelCity: hotelCity || null,
+      hotelCountry: hotelCountry || null,
+      sourceLanguageHint,
+    }),
+    buildI18nMap(costNotes || null, sourceLanguageHint),
+  ]);
 
   const { data: listing, error } = await supabaseAdmin
   .from("listings")
@@ -406,6 +409,7 @@ export async function action({ request }: ActionFunctionArgs) {
     associated_costs: numericAssociatedCosts,
     associated_costs_converted: associatedCostsConverted,
     cost_notes: serializedCostNotes,
+    cost_notes_note_i18n: costNotesNoteI18n,
 
     // Distance to finish line
     distance_to_finish: distanceData.distance_to_finish,

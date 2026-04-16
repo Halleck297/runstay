@@ -277,7 +277,7 @@ export default function Settings() {
                   <input type="hidden" name="intent" value="update_language" />
                   <select
                     name="language"
-                    defaultValue={(user as any).preferred_language || locale}
+                    defaultValue={locale}
                     className="h-9 w-auto rounded-xl border border-brand-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                   >
                     {supportedLocales.map((l) => (

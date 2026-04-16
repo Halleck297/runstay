@@ -11,6 +11,7 @@ import { startPhoneVerification, checkPhoneVerificationCode } from "~/lib/twilio
 import { translate } from "~/lib/i18n";
 import { toTitleCase } from "~/lib/user-display";
 import { generateUniqueReferralCode } from "~/lib/referral-code.server";
+import { CityAutocomplete } from "~/components/CityAutocomplete";
 
 const LEGAL_TERMS_VERSION = "2026-04-08";
 const LEGAL_PRIVACY_VERSION = "2026-04-08";
@@ -231,6 +232,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const confirmPassword = String(formData.get("confirmPassword") || "");
     const country = String(formData.get("country") || "").trim();
     const city = String(formData.get("city") || "").trim();
+    const cityPlaceId = String(formData.get("cityPlaceId") || "").trim();
     const dateOfBirth = String(formData.get("dateOfBirth") || "").trim();
     const phone = String(formData.get("phone") || "").trim();
     const phoneOtpCode = String(formData.get("phoneOtpCode") || "").trim();
@@ -349,6 +351,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       user_type: targetUserType,
       country: resolvedCountry.nameEn,
       city: city || null,
+      city_place_id: cityPlaceId || null,
       date_of_birth: dateOfBirth || null,
       phone: normalizedPhone,
       phone_verified_at: now,
@@ -740,7 +743,12 @@ function RegistrationForm({
               </div>
               <div>
                 <label htmlFor="city" className="label">{t("profile.form.city")}</label>
-                <input id="city" name="city" type="text" className="input w-full rounded-full bg-white !pl-4" required />
+                <CityAutocomplete
+                  name="city"
+                  placeIdName="cityPlaceId"
+                  required
+                  className="input w-full rounded-full bg-white !pl-4"
+                />
               </div>
             </div>
 

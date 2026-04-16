@@ -213,14 +213,17 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   const autoTitle = `${listingTypeText} for ${eventData?.name || "Marathon"}`;
   const sourceLanguageHint = getSourceLanguageFromProfile((user as any).preferred_language);
-  const listingI18n = await buildListingI18nFields({
-    title: autoTitle,
-    description: description || null,
-    hotelName: hotelName || null,
-    hotelCity: hotelCity || null,
-    hotelCountry: hotelCountry || null,
-    sourceLanguageHint,
-  });
+  const [listingI18n, costNotesNoteI18n] = await Promise.all([
+    buildListingI18nFields({
+      title: autoTitle,
+      description: description || null,
+      hotelName: hotelName || null,
+      hotelCity: hotelCity || null,
+      hotelCountry: hotelCountry || null,
+      sourceLanguageHint,
+    }),
+    buildI18nMap(costNotes || null, sourceLanguageHint),
+  ]);
 
   // Handle hotel
   let finalHotelId: string | null = null;
@@ -305,6 +308,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       associated_costs: numericAssociatedCosts,
       associated_costs_converted: associatedCostsConverted,
       cost_notes: costNotes || null,
+      cost_notes_note_i18n: costNotesNoteI18n,
     } as any)
     .eq("id", (existingListing as any).id);
 

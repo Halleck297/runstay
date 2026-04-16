@@ -21,13 +21,6 @@ export const links: LinksFunction = () => [
   { rel: "icon", href: "/favicon.ico" },
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
   { rel: "apple-touch-icon-precomposed", href: "/apple-touch-icon-precomposed.png" },
-  {
-    rel: "preload",
-    href: "/fonts/dm-sans-400.woff2",
-    as: "font",
-    type: "font/woff2",
-    crossOrigin: "anonymous",
-  },
 ];
 
 export async function loader({ request }: LoaderFunctionArgs) {

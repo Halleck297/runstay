@@ -8,6 +8,7 @@ import { getDialingPrefix, getSuggestedLocaleForCountry, getSupportedCountries, 
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin, isMissingColumnError } from "~/lib/supabase.server";
 import { getDefaultAppPath } from "~/lib/user-access";
+import { CityAutocomplete } from "~/components/CityAutocomplete";
 import { checkRateLimit, getClientIp } from "~/lib/rate-limit.server";
 import { translate } from "~/lib/i18n";
 import { toTitleCase } from "~/lib/user-display";
@@ -118,6 +119,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const emailRaw = String(formData.get("email") || "").trim();
     const country = String(formData.get("country") || "").trim();
     const city = String(formData.get("city") || "").trim();
+    const cityPlaceId = String(formData.get("cityPlaceId") || "").trim();
     const phone = String(formData.get("phone") || "").trim();
     const dateOfBirth = String(formData.get("dateOfBirth") || "").trim();
     const note = String(formData.get("note") || "").trim();
@@ -196,6 +198,7 @@ export async function action({ request }: ActionFunctionArgs) {
       email,
       country: resolvedCountry.nameEn,
       city: city || null,
+      city_place_id: cityPlaceId || null,
       phone: normalizedPhone,
       date_of_birth: dateOfBirth,
       preferred_language: preferredLanguage,
@@ -451,7 +454,12 @@ export default function Register() {
                 </div>
                 <div>
                   <label htmlFor="city" className="label">{t("profile.form.city")}</label>
-                  <input id="city" name="city" type="text" className="input w-full rounded-full bg-white !pl-4" required />
+                  <CityAutocomplete
+                    name="city"
+                    placeIdName="cityPlaceId"
+                    required
+                    className="input w-full rounded-full bg-white !pl-4"
+                  />
                 </div>
                 <div>
                   <label htmlFor="dateOfBirth" className="label">{t("register.form.date_of_birth")}</label>
