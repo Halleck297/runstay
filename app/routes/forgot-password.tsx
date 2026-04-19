@@ -115,7 +115,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
   }
 
-  if (profile?.id && profile?.user_type === "tour_operator") {
+  if (profile?.id && profile?.user_type === "agency") {
     await sendToUnifiedNotificationEmail({
       userId: profile.id,
       prefKey: "credentials_change",

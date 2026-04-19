@@ -16,7 +16,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  if (user.user_type !== "tour_operator") return redirect("/my-listings");
+  if (user.user_type !== "agency") return redirect("/my-listings");
   const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
 
   const { data: listings } = await supabaseAdmin

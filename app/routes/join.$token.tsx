@@ -11,6 +11,8 @@ import { startPhoneVerification, checkPhoneVerificationCode } from "~/lib/twilio
 import { translate } from "~/lib/i18n";
 import { toTitleCase } from "~/lib/user-display";
 import { generateUniqueReferralCode } from "~/lib/referral-code.server";
+import { sendTemplatedEmail } from "~/lib/email/service.server";
+import { getAppUrl } from "~/lib/app-url.server";
 import { CityAutocomplete } from "~/components/CityAutocomplete";
 
 const LEGAL_TERMS_VERSION = "2026-04-08";
@@ -141,7 +143,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   const { data: teamLeader } = await supabaseAdmin
     .from("profiles")
-    .select("id, full_name, company_name, avatar_url, is_verified, tl_welcome_message, user_type")
+    .select("id, full_name, company_name, avatar_url, is_verified, tl_welcome_message, user_type, platform_role, role")
     .eq("id", invite.team_leader_id)
     .single();
 
@@ -151,16 +153,18 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   const isAdminInvite =
     ["admin_invite", "admin_invite_tl", "admin_invite_to"].includes(invite.invite_type) ||
-    (teamLeader as any).user_type === "admin" ||
-    (teamLeader as any).user_type === "superadmin";
+    (teamLeader as any).role === "admin" ||
+    (teamLeader as any).role === "superadmin";
 
   const currentUser = await getUser(request);
+  const isAmbassadorInvite = invite.invite_type === "ambassador_invite";
 
   return data({
     status: "ready" as const,
     teamLeader,
     invitedEmail: invite.email,
     isAdminInvite,
+    isAmbassadorInvite,
     isLoggedIn: !!currentUser,
     currentUserEmail: currentUser?.email || null,
     locale,
@@ -315,12 +319,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const email = normalizeEmail(invite.email);
     const fullName = toTitleCase(`${firstName} ${lastName}`.trim());
 
-    // Resolve target user_type from invite_type
-    const targetUserType = invite.invite_type === "admin_invite_tl"
-      ? "team_leader"
-      : invite.invite_type === "admin_invite_to"
-        ? "tour_operator"
-        : "private";
+    // Resolve user_type and platform_role from invite_type
+    const targetUserType = invite.invite_type === "admin_invite_to" ? "agency" : "private";
+    const targetPlatformRole = invite.invite_type === "admin_invite_tl" ? "team_leader" : "runner";
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -349,6 +350,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
       full_name: fullName,
       email,
       user_type: targetUserType,
+      platform_role: targetUserType === "agency" ? null : targetPlatformRole,
+      referred_by_id: targetUserType === "private" ? invite.team_leader_id : null,
       country: resolvedCountry.nameEn,
       city: city || null,
       city_place_id: cityPlaceId || null,
@@ -365,7 +368,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     // Generate referral code for Team Leaders
-    if (targetUserType === "team_leader") {
+    if (targetPlatformRole === "team_leader") {
       profileData.referral_code = await generateUniqueReferralCode({
         fullName,
         email,
@@ -419,6 +422,19 @@ export async function action({ request, params }: ActionFunctionArgs) {
       await logLegalConsent({ userId, email, locale: preferredLanguage });
     } catch (e) {
       console.error("Failed to log legal consent:", e);
+    }
+
+    // Send welcome email
+    try {
+      const appUrl = getAppUrl(request);
+      await sendTemplatedEmail({
+        to: email,
+        templateId: "welcome_user",
+        payload: { firstName, profileUrl: `${appUrl}/profile` },
+        locale: preferredLanguage,
+      });
+    } catch (e) {
+      console.error("Failed to send welcome email:", e);
     }
 
     // Registration complete — redirect with success flag to avoid loader/actionData conflict
@@ -517,6 +533,7 @@ function RegistrationForm({
   const tl = loaderData.teamLeader;
   const invitedEmail = loaderData.invitedEmail;
   const isAdminInvite: boolean = loaderData.isAdminInvite;
+  const isAmbassadorInvite: boolean = loaderData.isAmbassadorInvite || false;
   const detectedLocale = (loaderData.locale || locale) as SupportedLocale;
 
   const countries = getSupportedCountries(locale);
@@ -616,6 +633,34 @@ function RegistrationForm({
           <div className="bg-white rounded-3xl border border-brand-500 shadow-sm p-6 mb-6 text-center">
             <img src="/logo225px.png" alt="Runoot" className="mx-auto mb-3 h-14 md:h-20 w-auto" />
             <p className="text-sm text-gray-500">{t("join_token.admin_invited_by")}</p>
+          </div>
+        ) : isAmbassadorInvite ? (
+          <div className="bg-white rounded-3xl border border-yellow-400 shadow-sm p-6 mb-6 text-center">
+            <div className="mx-auto mb-3 h-14 w-14 overflow-hidden rounded-full bg-yellow-100">
+              {tl?.avatar_url ? (
+                <img
+                  src={tl.avatar_url}
+                  alt={tl?.full_name ? `${tl.full_name} avatar` : "Ambassador avatar"}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xl font-bold text-yellow-600">
+                  {tl?.full_name?.charAt(0)?.toUpperCase() || "A"}
+                </div>
+              )}
+            </div>
+            <h1 className="font-display text-lg font-bold text-gray-900">{tl?.full_name}</h1>
+            <span className="mt-1 inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-yellow-700">
+              Ambassador
+            </span>
+            {tl?.is_verified && (
+              <div className="mt-1 flex items-center justify-center gap-1">
+                <svg className="h-4 w-4 text-brand-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-xs text-brand-600 font-medium">{t("dashboard.verified")}</span>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-3xl border border-brand-500 shadow-sm p-6 mb-6 text-center">

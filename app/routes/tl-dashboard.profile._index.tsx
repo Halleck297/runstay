@@ -20,7 +20,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
-  const isTourOperator = user.user_type === "tour_operator";
+  const isTourOperator = user.user_type === "agency";
   const formData = await request.formData();
   const intent = formData.get("intent");
 
@@ -186,7 +186,7 @@ export default function ProfileIndex() {
   const { t, locale } = useI18n();
   const isSubmitting = navigation.state === "submitting" && navigation.formMethod?.toLowerCase() === "post";
   const isUpdatingAvatar = navigation.state === "submitting" && navigation.formData?.get("intent") === "update_avatar";
-  const isTourOperator = user.user_type === "tour_operator";
+  const isTourOperator = user.user_type === "agency";
   const visibleSidebarNavItems = isTourOperator ? [sidebarNavItems[0]] : sidebarNavItems;
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<string>(

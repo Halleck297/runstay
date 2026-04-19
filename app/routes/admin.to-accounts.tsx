@@ -14,7 +14,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const { data: accounts } = await supabaseAdmin
     .from("profiles")
     .select("id, short_id, email, full_name, company_name, phone, website, country, city, is_verified, created_at")
-    .eq("user_type", "tour_operator")
+    .eq("user_type", "agency")
     .order("created_at", { ascending: false });
 
   return { accounts: accounts || [] };

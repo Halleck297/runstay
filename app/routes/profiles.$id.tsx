@@ -82,7 +82,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   const isOwner = !!user && (user as any).id === profile.id;
   const userIsAdmin = !!user && isAdmin(user);
-  const isAlwaysPublicRole = profile.user_type === "tour_operator" || profile.user_type === "team_leader";
+  const isAlwaysPublicRole = profile.user_type === "agency" || profile.platform_role === "team_leader";
   if (!isAlwaysPublicRole && profile.public_profile_enabled === false && !isOwner && !userIsAdmin) {
     if (debugMode) {
       return {
@@ -173,9 +173,9 @@ export default function PublicProfilePage() {
   const showExperience = profile.public_show_experience !== false;
   const showSocial = profile.public_show_social !== false;
   const roleLabel =
-    profile.user_type === "team_leader"
+    profile.platform_role === "team_leader"
       ? t("public_profile.role.team_leader")
-      : profile.user_type === "tour_operator"
+      : profile.user_type === "agency"
       ? "Tour Operator"
       : t("public_profile.role.runner");
   const normalizePublicUrl = (value: string | null | undefined) => {
@@ -217,10 +217,13 @@ export default function PublicProfilePage() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="truncate font-display text-2xl font-bold text-slate-900">{displayName}</h1>
                   {profile.is_verified && (
                     <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">{t("public_profile.verified")}</span>
+                  )}
+                  {(profile as any).platform_role === "ambassador" && (
+                    <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-700 uppercase tracking-wide">Ambassador</span>
                   )}
                 </div>
                 <p className="mt-1 text-sm text-slate-600">

@@ -18,7 +18,7 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
 
-  if (user.user_type === "tour_operator") {
+  if (user.user_type === "agency") {
     return redirect("/profile");
   }
 

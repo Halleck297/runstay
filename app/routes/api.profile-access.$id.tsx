@@ -92,7 +92,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const isInternalOnly = accessMode === "internal_only";
   const isMock = accessMode === "internal_only" || accessMode === "external_password";
   const isOwner = !!actorId && actorId === profile.id;
-  const isAlwaysPublicRole = profile.user_type === "tour_operator" || profile.user_type === "team_leader";
+  const isAlwaysPublicRole = profile.user_type === "agency" || profile.platform_role === "team_leader";
 
   // Mirrors current app behavior (listing link + profile loader):
   const publicProfileEnabled = profile.public_profile_enabled !== false;

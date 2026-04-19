@@ -27,7 +27,7 @@ export function getShortDisplayName(profile: any): string {
 export function getPublicDisplayName(profile: any): string {
   if (!profile) return "User";
 
-  if (profile.user_type === "tour_operator") {
+  if (profile.user_type === "agency") {
     return profile.company_name || "Tour Operator";
   }
 

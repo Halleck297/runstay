@@ -21,10 +21,11 @@ function formatDateTimeStable(value: string) {
 }
 
 function userCategory(user: any) {
-  if (user.user_type === "superadmin") return "Superadmin";
-  if (user.user_type === "admin") return "Admin";
-  if (user.user_type === "team_leader") return "Team Leader";
-  if (user.user_type === "tour_operator") return "Tour Operator";
+  if (user.role === "superadmin") return "Superadmin";
+  if (user.role === "admin") return "Admin";
+  if (user.platform_role === "team_leader") return "Team Leader";
+  if (user.platform_role === "ambassador") return "Ambassador";
+  if (user.user_type === "agency") return "Agency";
   return "User";
 }
 
@@ -166,36 +167,140 @@ export default function AdminUserDetail() {
       </div>
 
       {tab === "profile" ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-          <h2 className="font-semibold text-gray-900 mb-4">Profile details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-gray-500">Full name</p>
-              <p className="font-medium text-gray-900">{(targetUser as any).full_name || "N/A"}</p>
+        <div className="space-y-4">
+          {/* Personal info */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Personal info</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Full name</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).full_name || "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Company</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).company_name || "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Email</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).email}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Phone</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).phone || "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Date of birth</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).date_of_birth || "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Country</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).country || "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">City</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).city || "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Preferred language</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).preferred_language || "—"}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-gray-500">Bio</p>
+                <p className="font-medium text-gray-900 whitespace-pre-wrap">{(targetUser as any).bio || "—"}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-500">Company</p>
-              <p className="font-medium text-gray-900">{(targetUser as any).company_name || "N/A"}</p>
+          </div>
+
+          {/* Running experience */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Running experience</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Years of experience</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).years_experience ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Marathons completed</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).marathons_completed ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Marathon PB</p>
+                <p className="font-medium text-gray-900">
+                  {(targetUser as any).marathon_pb
+                    ? `${(targetUser as any).marathon_pb}${(targetUser as any).marathon_pb_location ? ` — ${(targetUser as any).marathon_pb_location}` : ""}`
+                    : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500">Half marathons completed</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).half_marathons_completed ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Half marathon PB</p>
+                <p className="font-medium text-gray-900">
+                  {(targetUser as any).half_marathon_pb
+                    ? `${(targetUser as any).half_marathon_pb}${(targetUser as any).half_marathon_pb_location ? ` — ${(targetUser as any).half_marathon_pb_location}` : ""}`
+                    : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500">Specialties</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).specialties || "—"}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-gray-500">Favorite races</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).favorite_races || "—"}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-gray-500">Running goals</p>
+                <p className="font-medium text-gray-900">{(targetUser as any).running_goals || "—"}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-500">Email</p>
-              <p className="font-medium text-gray-900">{(targetUser as any).email}</p>
+          </div>
+
+          {/* Social */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Social &amp; links</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              {[
+                { label: "Instagram", key: "instagram", prefix: "instagram.com/" },
+                { label: "Strava", key: "strava", prefix: "strava.com/athletes/" },
+                { label: "Facebook", key: "facebook", prefix: null },
+                { label: "LinkedIn", key: "linkedin", prefix: null },
+                { label: "Website", key: "website", prefix: null },
+                { label: "Languages spoken", key: "languages_spoken", prefix: null },
+              ].map(({ label, key, prefix }) => (
+                <div key={key}>
+                  <p className="text-gray-500">{label}</p>
+                  <p className="font-medium text-gray-900">
+                    {(targetUser as any)[key]
+                      ? prefix
+                        ? <a href={`https://${prefix}${(targetUser as any)[key]}`} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{(targetUser as any)[key]}</a>
+                        : (targetUser as any)[key]
+                      : "—"}
+                  </p>
+                </div>
+              ))}
             </div>
-            <div>
-              <p className="text-gray-500">Phone</p>
-              <p className="font-medium text-gray-900">{(targetUser as any).phone || "N/A"}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Country</p>
-              <p className="font-medium text-gray-900">{(targetUser as any).country || "N/A"}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">City</p>
-              <p className="font-medium text-gray-900">{(targetUser as any).city || "N/A"}</p>
-            </div>
-            <div className="md:col-span-2">
-              <p className="text-gray-500">Bio</p>
-              <p className="font-medium text-gray-900 whitespace-pre-wrap">{(targetUser as any).bio || "N/A"}</p>
+          </div>
+
+          {/* Privacy settings */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Privacy settings</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              {[
+                { label: "Public profile", key: "public_profile_enabled" },
+                { label: "Show personal info", key: "public_show_personal_info" },
+                { label: "Show experience", key: "public_show_experience" },
+                { label: "Show social", key: "public_show_social" },
+              ].map(({ label, key }) => (
+                <div key={key}>
+                  <p className="text-gray-500">{label}</p>
+                  <p className={`font-medium ${(targetUser as any)[key] ? "text-brand-600" : "text-gray-400"}`}>
+                    {(targetUser as any)[key] ? "Yes" : "No"}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>

@@ -44,7 +44,7 @@ interface ListingCardCompactProps {
       id: string;
       full_name: string | null;
       company_name: string | null;
-      user_type: "tour_operator" | "private";
+      user_type: "agency" | "private";
       is_verified: boolean;
       avatar_url?: string | null;
     };
@@ -148,7 +148,7 @@ export function ListingCardCompact({
 
   const isLM = isLastMinute(listing.event.event_date, listing.listing_type);
   const isExpired = isEventExpired(listing.event.event_date);
-  const isTourOperator = listing.author.user_type === "tour_operator";
+  const isTourOperator = listing.author.user_type === "agency";
 
   // Sottotitolo compatto
   let subtitle = "";
@@ -356,7 +356,7 @@ export function ListingCardCompact({
                   )}
                 </div>
                 <p className="text-xs text-gray-500">
-                  {listing.author.user_type === "tour_operator" ? "Tour Operator" : "Runner"}
+                  {listing.author.user_type === "agency" ? "Tour Operator" : "Runner"}
                 </p>
               </div>
             </div>

@@ -1,35 +1,44 @@
+export function isAgency(profile: any): boolean {
+  return profile?.user_type === "agency";
+}
+
+/** @deprecated use isAgency() */
 export function isTourOperator(profile: any): boolean {
-  return profile?.user_type === "tour_operator";
+  return isAgency(profile);
 }
 
 export function isTeamLeader(profile: any): boolean {
-  return profile?.user_type === "team_leader" || profile?.is_team_leader === true;
+  return profile?.platform_role === "team_leader";
+}
+
+export function isAmbassador(profile: any): boolean {
+  return profile?.platform_role === "ambassador";
+}
+
+export function canInvite(profile: any): boolean {
+  return isTeamLeader(profile) || isAmbassador(profile);
 }
 
 export function isAdmin(profile: any): boolean {
-  return (
-    profile?.user_type === "admin" ||
-    profile?.user_type === "superadmin" ||
-    profile?.role === "admin" ||
-    profile?.role === "superadmin"
-  );
+  return profile?.role === "admin" || profile?.role === "superadmin";
 }
 
 export function isSuperAdmin(profile: any): boolean {
-  return profile?.user_type === "superadmin" || profile?.role === "superadmin";
+  return profile?.role === "superadmin";
 }
 
 export function getUserRoleLabel(profile: any): string {
-  if (profile?.user_type === "superadmin") return "superadmin";
-  if (profile?.user_type === "admin") return "admin";
-  if (profile?.user_type === "team_leader") return "team leader";
-  if (profile?.user_type === "tour_operator") return "tour operator";
+  if (isSuperAdmin(profile)) return "superadmin";
+  if (isAdmin(profile)) return "admin";
+  if (isTeamLeader(profile)) return "team leader";
+  if (isAmbassador(profile)) return "ambassador";
+  if (isAgency(profile)) return "agency";
   return "user";
 }
 
 export function getDefaultAppPath(profile: any): string {
   if (isTeamLeader(profile)) return "/tl-dashboard";
-  if (isTourOperator(profile)) return "/to-panel";
+  if (isAgency(profile)) return "/to-panel";
   return "/listings";
 }
 

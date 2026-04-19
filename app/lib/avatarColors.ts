@@ -35,7 +35,7 @@ function hashString(str: string): number {
  */
 export function getAvatarColor(userId: string, userType?: string): { bg: string; text: string } {
   // Tour operator sempre arancione
-  if (userType === "tour_operator") {
+  if (userType === "agency") {
     return TOUR_OPERATOR_COLOR;
   }
   // Utenti privati: colore basato su hash

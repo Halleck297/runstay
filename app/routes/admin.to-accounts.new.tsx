@@ -37,7 +37,7 @@ async function createUserWithInviteEmail(args: {
     email_confirm: true,
     user_metadata: {
       full_name: args.representativeName,
-      user_type: "tour_operator",
+      user_type: "agency",
       company_name: args.companyName,
     },
   });
@@ -107,7 +107,7 @@ export async function action({ request }: ActionFunctionArgs) {
     id: inviteResult.userId,
     email,
     full_name: representativeName,
-    user_type: "tour_operator",
+    user_type: "agency",
     company_name: companyName,
     phone: phone || null,
     website: website || null,

@@ -9,11 +9,11 @@ export const LISTING_RULES = {
     allowedTransferMethods: ["official_process"] as TransferMethod[],
     description: "Exchange platform for individual runners"
   },
-  tour_operator: {
+  agency: {
     maxRooms: null, // unlimited
     maxBibs: null,  // unlimited
     allowedTransferMethods: ["official_process", "package"] as TransferMethod[],
-    description: "Business platform for tour operators"
+    description: "Business platform for agencies"
   },
   admin: {
     maxRooms: null, // unlimited
@@ -26,8 +26,7 @@ export const LISTING_RULES = {
 type ListingRulesUserType = keyof typeof LISTING_RULES;
 
 function resolveListingRulesUserType(userType: UserType): ListingRulesUserType {
-  if (userType === "admin" || userType === "superadmin") return "admin";
-  if (userType === "tour_operator") return "tour_operator";
+  if (userType === "agency") return "agency";
   return "private";
 }
 

@@ -222,11 +222,11 @@ export default function AdminPending() {
                 <div className="flex gap-2 flex-shrink-0">
                   {/* User type badge */}
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    listing.author?.user_type === "tour_operator"
+                    listing.author?.user_type === "agency"
                       ? "bg-blue-100 text-blue-700"
                       : "bg-gray-100 text-gray-600"
                   }`}>
-                    {listing.author?.user_type === "tour_operator" ? "Tour Operator" : "Private"}
+                    {listing.author?.user_type === "agency" ? "Tour Operator" : "Private"}
                   </span>
                   {/* Listing type badge */}
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${

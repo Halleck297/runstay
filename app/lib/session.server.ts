@@ -266,7 +266,7 @@ export async function requireUser(request: Request): Promise<Profile> {
 
   // Runner referral activity lifecycle:
   // if no login for 15+ days, mark referral as inactive and force re-login.
-  if ((profile as any).user_type === "private") {
+  if ((profile as any).user_type !== "agency") {
     const lastLoginAt = (profile as any).last_login_at || (profile as any).created_at;
     if (lastLoginAt) {
       const lastLoginTs = new Date(lastLoginAt).getTime();

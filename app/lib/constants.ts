@@ -14,7 +14,7 @@ export const ListingType = {
 
 export const UserType = {
   PRIVATE: "private",
-  TOUR_OPERATOR: "tour_operator",
+  TOUR_OPERATOR: "agency",
   TEAM_LEADER: "team_leader",
   ADMIN: "admin",
   SUPERADMIN: "superadmin",

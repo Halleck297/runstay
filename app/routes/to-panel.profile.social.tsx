@@ -8,13 +8,13 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  if (user.user_type !== "tour_operator") return redirect("/listings");
+  if (user.user_type !== "agency") return redirect("/listings");
   return redirect("/to-panel/profile/experience");
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
-  if (user.user_type !== "tour_operator") return redirect("/listings");
+  if (user.user_type !== "agency") return redirect("/listings");
   return redirect("/to-panel/profile/experience");
 }
 

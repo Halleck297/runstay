@@ -50,7 +50,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const locale = "en";
   const viewerCurrency = getCurrencyForCountry((user as any)?.country || null);
 
-  if (user.user_type !== "tour_operator") {
+  if (user.user_type !== "agency") {
     return redirect("/listings");
   }
 

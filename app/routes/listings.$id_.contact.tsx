@@ -308,7 +308,7 @@ export default function ContactSeller() {
                 )}
               </div>
               <p className="text-sm text-gray-500">
-                {recipientProfile.user_type === "tour_operator" ? t("common.tour_operator") : t("contact_seller.private_seller")}
+                {recipientProfile.user_type === "agency" ? t("common.tour_operator") : t("contact_seller.private_seller")}
               </p>
             </div>
           </div>

@@ -47,11 +47,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     supabaseAdmin.from("messages").select("*", { count: "exact", head: true }),
     supabaseAdmin.from("conversations").select("*", { count: "exact", head: true }),
     supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "private"),
-    supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "tour_operator"),
+    supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "agency"),
     supabaseAdmin.from("listings").select("*", { count: "exact", head: true }).eq("listing_type", "room"),
     supabaseAdmin.from("listings").select("*", { count: "exact", head: true }).eq("listing_type", "bib"),
     supabaseAdmin.from("listings").select("*", { count: "exact", head: true }).eq("listing_type", "room_and_bib"),
-    supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "team_leader"),
+    supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("platform_role", "team_leader"),
     supabaseAdmin.from("referrals").select("*", { count: "exact", head: true }),
     supabaseAdmin.from("listings").select("*", { count: "exact", head: true }).eq("status", "pending"),
     supabaseAdmin.from("profiles").select("id, full_name, email, user_type, is_verified, created_at").order("created_at", { ascending: false }).limit(10),
@@ -262,7 +262,7 @@ export default function AdminDashboard() {
                       {user.full_name || user.email}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {user.user_type === "tour_operator" ? "TO" : user.user_type === "team_leader" ? "TL" : user.user_type === "admin" ? "Admin" : user.user_type === "superadmin" ? "Superadmin" : "Runner"} · {formatDateStable(user.created_at)}
+                      {user.user_type === "agency" ? "TO" : user.platform_role === "team_leader" ? "TL" : user.role === "admin" ? "Admin" : user.role === "superadmin" ? "Superadmin" : "Runner"} · {formatDateStable(user.created_at)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -273,12 +273,12 @@ export default function AdminDashboard() {
                         </svg>
                       </span>
                     )}
-                    {user.user_type === "team_leader" && (
+                    {user.platform_role === "team_leader" && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600">
                         TL
                       </span>
                     )}
-                    {(user.user_type === "admin" || user.user_type === "superadmin") && (
+                    {(user.role === "admin" || user.role === "superadmin") && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
                         {user.user_type}
                       </span>

@@ -82,7 +82,7 @@ export async function sendToUnifiedNotificationEmail(args: {
     .eq("id", args.userId)
     .maybeSingle();
 
-  if (!profile || profile.user_type !== "tour_operator" || !profile.email) return;
+  if (!profile || profile.user_type !== "agency" || !profile.email) return;
 
   const prefs = await getToNotificationPrefs(profile.id);
   if (!prefs[args.prefKey]) return;

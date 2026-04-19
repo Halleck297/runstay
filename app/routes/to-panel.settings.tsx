@@ -15,7 +15,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  if (user.user_type !== "tour_operator") return redirect("/listings");
+  if (user.user_type !== "agency") return redirect("/listings");
   const userId = (user as any).id as string;
 
   const { data: blockedUsers } = await supabaseAdmin
@@ -55,7 +55,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
-  if (user.user_type !== "tour_operator") {
+  if (user.user_type !== "agency") {
     return data({ error: "Forbidden" }, { status: 403 });
   }
   const userId = (user as any).id as string;

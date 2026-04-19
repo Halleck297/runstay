@@ -207,8 +207,8 @@ const statusColors: Record<string, string> = {
 function getAuthorBadge(author: any) {
   if (author?.user_type === "superadmin") return { label: "Superadmin", className: "bg-red-100 text-red-700" };
   if (author?.user_type === "admin") return { label: "Admin", className: "bg-purple-100 text-purple-700" };
-  if (author?.user_type === "team_leader") return { label: "Team Leader", className: "bg-indigo-100 text-indigo-700" };
-  if (author?.user_type === "tour_operator") return { label: "Tour Operator", className: "bg-blue-100 text-blue-700" };
+  if (author?.platform_role === "team_leader") return { label: "Team Leader", className: "bg-indigo-100 text-indigo-700" };
+  if (author?.user_type === "agency") return { label: "Tour Operator", className: "bg-blue-100 text-blue-700" };
   return { label: "User", className: "bg-gray-100 text-gray-600" };
 }
 

@@ -522,7 +522,7 @@ export default function EditListing() {
                   <div>
                     <label htmlFor="roomCount" className="label">
                       {t("edit_listing.number_rooms")}
-                      {maxRooms !== null && (user as any).user_type === "tour_operator" && (
+                      {maxRooms !== null && (user as any).user_type === "agency" && (
                         <span className="text-xs text-gray-500 ml-2">({t("edit_listing.max_for_account")} {maxRooms})</span>
                       )}
                     </label>
@@ -605,7 +605,7 @@ export default function EditListing() {
                 <div className={(user as any).user_type === "private" ? "mt-6" : ""}>
                   <label htmlFor="bibCount" className="label">
                     {t("edit_listing.number_bibs")}
-                    {maxBibs !== null && (user as any).user_type === "tour_operator" && (
+                    {maxBibs !== null && (user as any).user_type === "agency" && (
                         <span className="text-xs text-gray-500 ml-2">({t("edit_listing.max_for_account")} {maxBibs})</span>
                     )}
                   </label>

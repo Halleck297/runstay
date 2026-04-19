@@ -16,7 +16,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  if (user.user_type !== "tour_operator") {
+  if (user.user_type !== "agency") {
     return redirect("/listings");
   }
   return { user };
@@ -24,7 +24,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
-  if (user.user_type !== "tour_operator") {
+  if (user.user_type !== "agency") {
     return data({ error: "Unauthorized" }, { status: 403 });
   }
   const formData = await request.formData();
@@ -76,7 +76,7 @@ export default function ProfileIndex() {
   const navigation = useNavigation();
   const { t, locale } = useI18n();
   const isUpdatingAvatar = navigation.state === "submitting" && navigation.formData?.get("intent") === "update_avatar";
-  const isTourOperator = user.user_type === "tour_operator";
+  const isTourOperator = user.user_type === "agency";
   const publicName = getPublicDisplayName(user);
   const countryDisplayValue = getCountryDisplayName((user as any).country, locale);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);

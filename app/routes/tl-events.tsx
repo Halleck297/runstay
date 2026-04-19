@@ -809,7 +809,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     const { data: adminProfiles } = await (supabaseAdmin.from("profiles") as any)
       .select("id")
-      .in("user_type", ["admin", "superadmin"]);
+      .in("role", ["admin", "superadmin"]);
 
     const adminNotificationRows = (adminProfiles || []).map((profile: any) => ({
       user_id: profile.id,

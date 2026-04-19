@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { Database } from "~/lib/database.types";
 import { useUnreadCount } from "~/hooks/useUnreadCount";
 import { useI18n } from "~/hooks/useI18n";
-import { isAdmin, isTeamLeader, isTourOperator } from "~/lib/user-access";
+import { isAdmin, isAmbassador, isTeamLeader, isTourOperator } from "~/lib/user-access";
 import { getPublicDisplayName, getPublicInitial } from "~/lib/user-display";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
@@ -20,6 +20,7 @@ export function MobileNav({ user }: MobileNavProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const teamLeader = isTeamLeader(user);
+  const ambassador = isAmbassador(user);
   const tourOperator = isTourOperator(user);
   const adminUser = isAdmin(user);
   const displayName = getPublicDisplayName(user);
@@ -130,6 +131,20 @@ export function MobileNav({ user }: MobileNavProps) {
                 <span className="flex-1">{t("nav.new_event")}</span>
               </Link>
             </>
+          )}
+
+          {/* Ambassador shortcut */}
+          {ambassador && (
+            <Link
+              to="/profile#invites"
+              onClick={() => setIsSidebarOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 text-sm text-yellow-700 hover:bg-yellow-50"
+            >
+              <svg className="h-4 w-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span className="flex-1">I tuoi inviti</span>
+            </Link>
           )}
 
           {/* Dashboard - solo per Tour Operators */}

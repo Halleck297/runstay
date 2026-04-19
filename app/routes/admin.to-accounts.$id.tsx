@@ -18,7 +18,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const query = supabaseAdmin
     .from("profiles")
     .select("id, short_id, email, full_name, user_type, company_name, phone, website, country, city")
-    .eq("user_type", "tour_operator");
+    .eq("user_type", "agency");
   const { data: account } = await applyProfilePublicIdFilter(query as any, accountId).maybeSingle();
 
   if (!account) throw new Response("TO account not found", { status: 404 });
@@ -52,7 +52,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const targetQuery = supabaseAdmin
     .from("profiles")
     .select("id, short_id")
-    .eq("user_type", "tour_operator");
+    .eq("user_type", "agency");
   const { data: target } = await applyProfilePublicIdFilter(targetQuery as any, accountId).maybeSingle();
   if (!target) return data({ error: "TO account not found" }, { status: 404 });
 
@@ -79,7 +79,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     email,
     user_metadata: {
       full_name: representativeName,
-      user_type: "tour_operator",
+      user_type: "agency",
       company_name: companyName,
     },
   });

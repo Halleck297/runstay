@@ -11,6 +11,11 @@ import { getCountryDisplayName, resolveSupportedCountry } from "~/lib/supportedC
 import { CityAutocomplete } from "~/components/CityAutocomplete";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
+import { isAmbassador } from "~/lib/user-access";
+import { isValidEmail } from "~/lib/validation";
+import { generateInviteToken } from "~/lib/referral-code.server";
+import { sendTemplatedEmail } from "~/lib/email/service.server";
+import { getAppUrl } from "~/lib/app-url.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "My Profile - runoot" }];
@@ -18,14 +23,65 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
-  return { user };
+  let ambassadorInvites: any[] = [];
+  if (isAmbassador(user)) {
+    const { data: invites } = await (supabaseAdmin.from("referral_invites") as any)
+      .select("id, email, status, created_at, claimed_at")
+      .eq("team_leader_id", user.id)
+      .eq("invite_type", "ambassador_invite")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    ambassadorInvites = invites || [];
+  }
+  return { user, ambassadorInvites };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
-  const isTourOperator = user.user_type === "tour_operator";
+  const isTourOperator = user.user_type === "agency";
   const formData = await request.formData();
   const intent = formData.get("intent");
+
+  if (intent === "ambassador_invite") {
+    if (!isAmbassador(user)) {
+      return data({ error: "Unauthorized" }, { status: 403 });
+    }
+    const rawEmail = String(formData.get("inviteEmail") || "").trim().toLowerCase();
+    if (!rawEmail || !isValidEmail(rawEmail)) {
+      return data({ inviteError: "Email non valida." }, { status: 400 });
+    }
+    const existing = await (supabaseAdmin.from("referral_invites") as any)
+      .select("id, status")
+      .eq("team_leader_id", user.id)
+      .eq("invite_type", "ambassador_invite")
+      .ilike("email", rawEmail)
+      .maybeSingle();
+    if (existing.data) {
+      return data({ inviteError: "Email già invitata." }, { status: 400 });
+    }
+    const token = generateInviteToken();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    await (supabaseAdmin.from("referral_invites") as any).insert({
+      team_leader_id: user.id,
+      email: rawEmail,
+      invite_type: "ambassador_invite",
+      status: "pending",
+      token,
+      expires_at: expiresAt,
+    });
+    const appUrl = getAppUrl(request);
+    const inviteLink = `${appUrl}/join/${token}`;
+    await sendTemplatedEmail({
+      to: rawEmail,
+      templateId: "ambassador_invite",
+      locale: null,
+      payload: {
+        inviterName: user.full_name || "Ambassador",
+        referralLink: inviteLink,
+      },
+    });
+    return data({ inviteSuccess: true });
+  }
 
   const avatarUrl = formData.get("avatarUrl");
   if (intent === "update_avatar" && typeof avatarUrl === "string") {
@@ -184,14 +240,14 @@ const sidebarNavItems: Array<{ key: TranslationKey; href: string; icon: string }
 ];
 
 export default function ProfileIndex() {
-  const { user } = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>() as { error: string } | { success: boolean } | undefined;
+  const { user, ambassadorInvites } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>() as any;
   const location = useLocation();
   const navigation = useNavigation();
   const { t, locale } = useI18n();
   const isSubmitting = navigation.state === "submitting" && navigation.formMethod?.toLowerCase() === "post";
   const isUpdatingAvatar = navigation.state === "submitting" && navigation.formData?.get("intent") === "update_avatar";
-  const isTourOperator = user.user_type === "tour_operator";
+  const isTourOperator = user.user_type === "agency";
   const visibleSidebarNavItems = isTourOperator ? [sidebarNavItems[0]] : sidebarNavItems;
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<string>(
@@ -612,6 +668,55 @@ export default function ProfileIndex() {
                 </div>
               </div>
             )}
+          {/* Ambassador Invites Section */}
+          {isAmbassador(user) && (
+            <div id="invites" className="mx-auto max-w-7xl w-full px-4 pb-12 sm:px-6 lg:px-8">
+              <div className="md:rounded-3xl md:border md:border-brand-300 md:bg-white md:p-6">
+                <h2 className="font-display text-xl font-bold text-slate-900 mb-1">I tuoi inviti</h2>
+                <p className="text-sm text-slate-500 mb-6">Invita persone inserendo la loro email. Riceveranno un link per iscriversi a Runoot sotto di te.</p>
+
+                <Form method="post" className="flex gap-2 mb-8">
+                  <input type="hidden" name="intent" value="ambassador_invite" />
+                  <input
+                    name="inviteEmail"
+                    type="email"
+                    placeholder="email@esempio.com"
+                    className="flex-1 rounded-xl border border-brand-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                    required
+                  />
+                  <button type="submit" className="btn-primary rounded-xl px-5 py-2.5 text-sm">
+                    Invia invito
+                  </button>
+                </Form>
+
+                {actionData?.inviteError && (
+                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {actionData.inviteError}
+                  </div>
+                )}
+                {actionData?.inviteSuccess && (
+                  <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                    Invito inviato!
+                  </div>
+                )}
+
+                {ambassadorInvites.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic">Nessun invito inviato ancora.</p>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {ambassadorInvites.map((invite: any) => (
+                      <div key={invite.id} className="flex items-center justify-between py-3 text-sm">
+                        <span className="text-slate-800 font-medium">{invite.email}</span>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${invite.status === "accepted" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                          {invite.status === "accepted" ? "Registrato" : "In attesa"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           </main>
           </div>
         </div>

@@ -34,7 +34,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     applyListingDisplayCurrency(localizeListing(listing, locale), viewerCurrency)
   );
 
-  if (user.user_type === "tour_operator") {
+  if (user.user_type === "agency") {
     return redirect("/to-panel/listings");
   }
 

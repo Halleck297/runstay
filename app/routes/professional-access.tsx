@@ -69,7 +69,7 @@ export async function action({ request }: ActionFunctionArgs) {
   if (!emailRaw || !isValidEmail(emailRaw)) {
     return data<ActionData>({ errorKey: "pro_access.error.valid_email_required", field: "email" }, { status: 400 });
   }
-  if (!role || !["team_leader", "tour_operator", "agency"].includes(role)) {
+  if (!role || !["team_leader", "agency"].includes(role)) {
     return data<ActionData>({ errorKey: "pro_access.error.role_required", field: "role" }, { status: 400 });
   }
   if (!country || !resolvedCountry) {

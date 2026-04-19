@@ -51,7 +51,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .from("profiles")
     .select("id, full_name, company_name, user_type, avatar_url, is_verified, referral_code, tl_welcome_message, email")
     .or(`referral_slug.ilike.${code},referral_code.ilike.${code}`)
-    .eq("user_type", "team_leader")
+    .eq("platform_role", "team_leader")
     .maybeSingle();
 
   if (!teamLeader) {
@@ -65,7 +65,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       .eq("id", userId)
       .maybeSingle();
 
-    const nextPath = (currentUserProfile as any)?.user_type === "tour_operator" ? "/to-panel" : "/listings";
+    const nextPath = (currentUserProfile as any)?.user_type === "agency" ? "/to-panel" : "/listings";
     const showRegistrationSuccess = url.searchParams.get("registered") === "1";
 
     if (showRegistrationSuccess) {
@@ -155,7 +155,7 @@ export async function action({ request }: ActionFunctionArgs) {
     .from("profiles")
     .select("id, referral_code, email, full_name")
     .or(`referral_slug.ilike.${code},referral_code.ilike.${code}`)
-    .eq("user_type", "team_leader")
+    .eq("platform_role", "team_leader")
     .maybeSingle();
 
   if (!teamLeader) {

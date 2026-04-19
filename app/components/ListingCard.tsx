@@ -34,7 +34,7 @@ interface ListingCardProps {
       id: string;
       full_name: string | null;
       company_name: string | null;
-      user_type: "tour_operator" | "private";
+      user_type: "agency" | "private";
       is_verified: boolean;
       avatar_url?: string | null;
     };
@@ -144,7 +144,7 @@ export function ListingCard({
   const mainTitle = listing.event.name;
   const isLM = isLastMinute(listing.event.event_date, listing.listing_type);
   const isExpired = isEventExpired(listing.event.event_date);
-  const isTourOperator = listing.author.user_type === "tour_operator";
+  const isTourOperator = listing.author.user_type === "agency";
   const needsNameChange = listing.transfer_type === "official_process";
   const bibCount = listing.bib_count || 1;
   const bibLabel = bibCount > 1 ? t("common.bibs") : t("common.bib");
@@ -437,7 +437,7 @@ if (listing.listing_type === "bib") {
   )}
 </div>
 <p className="text-sm text-gray-900">
-  {listing.author.user_type === "tour_operator" ? "Tour Operator" : "Runner"}
+  {listing.author.user_type === "agency" ? "Tour Operator" : "Runner"}
   {listing.author.is_verified && " • Verified"}
 </p>
 

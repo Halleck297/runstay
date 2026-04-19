@@ -17,21 +17,23 @@ export const meta: MetaFunction = () => {
 
 const ITEMS_PER_PAGE = 20;
 const SEGMENTS = [
-  { id: "all", label: "All" },
-  { id: "pending_invites", label: "Pending Invites" },
-  { id: "superadmins", label: "Superadmins" },
-  { id: "admins", label: "Admins" },
-  { id: "team_leaders", label: "Team Leaders" },
-  { id: "tour_operators", label: "Tour Operators" },
-  { id: "simple_users", label: "Simple Users" },
+  { id: "all",             label: "All",            activeClass: "bg-gray-800 text-white",        inactiveClass: "bg-gray-100 text-gray-700 hover:bg-gray-200" },
+  { id: "pending_invites", label: "Pending Invites", activeClass: "bg-amber-500 text-white",       inactiveClass: "bg-amber-50 text-amber-700 hover:bg-amber-100" },
+  { id: "admins",         label: "Admins",           activeClass: "bg-purple-600 text-white",       inactiveClass: "bg-purple-50 text-purple-700 hover:bg-purple-100" },
+  { id: "team_leaders",   label: "Team Leaders",     activeClass: "bg-indigo-600 text-white",       inactiveClass: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100" },
+  { id: "ambassadors",    label: "Ambassadors",      activeClass: "bg-yellow-500 text-white",       inactiveClass: "bg-yellow-50 text-yellow-700 hover:bg-yellow-100" },
+  { id: "agencies",       label: "Agencies",         activeClass: "bg-blue-600 text-white",         inactiveClass: "bg-blue-50 text-blue-700 hover:bg-blue-100" },
+  { id: "simple_users",   label: "Runners",          activeClass: "bg-brand-600 text-white",        inactiveClass: "bg-brand-50 text-brand-700 hover:bg-brand-100" },
+  { id: "mocks",          label: "Mocks",            activeClass: "bg-orange-500 text-white",       inactiveClass: "bg-orange-50 text-orange-700 hover:bg-orange-100" },
 ] as const;
 type SegmentId = (typeof SEGMENTS)[number]["id"];
 const CATEGORY_OPTIONS = [
   { value: "superadmin", label: "Superadmin" },
   { value: "admin", label: "Admin" },
   { value: "team_leader", label: "Team Leader" },
-  { value: "tour_operator", label: "Tour Operator" },
-  { value: "private", label: "User" },
+  { value: "ambassador", label: "Ambassador" },
+  { value: "agency", label: "Agency" },
+  { value: "private", label: "Runner" },
 ] as const;
 type UserCategory = (typeof CATEGORY_OPTIONS)[number]["value"];
 
@@ -42,6 +44,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const segment = (url.searchParams.get("segment") || "all") as SegmentId;
   const page = parseInt(url.searchParams.get("page") || "1");
 
+  // Pre-fetch mock user IDs to split Runners / Mocks tabs
+  const { data: mockAccountRows } = await (supabaseAdmin as any)
+    .from("admin_managed_accounts")
+    .select("user_id")
+    .in("access_mode", ["internal_only", "external_password"]);
+  const mockUserIds: string[] = (mockAccountRows || []).map((r: any) => String(r.user_id));
+
   let query = supabaseAdmin
     .from("profiles")
     .select("*", { count: "exact" })
@@ -51,12 +60,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (search) {
     query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company_name.ilike.%${search}%`);
   }
-  if (segment === "superadmins") query = query.eq("user_type", "superadmin");
-  if (segment === "admins") query = query.eq("user_type", "admin");
-  if (segment === "team_leaders") query = query.eq("user_type", "team_leader");
-  if (segment === "tour_operators") query = query.eq("user_type", "tour_operator");
+  if (segment === "admins") query = query.in("role", ["admin", "superadmin"]);
+  if (segment === "team_leaders") query = query.eq("platform_role", "team_leader");
+  if (segment === "ambassadors") query = query.eq("platform_role", "ambassador");
+  if (segment === "agencies") query = query.eq("user_type", "agency");
   if (segment === "simple_users") {
-    query = query.eq("user_type", "private");
+    query = query.eq("platform_role", "runner");
+    if (mockUserIds.length > 0) query = (query as any).not("id", "in", `(${mockUserIds.join(",")})`);
+  }
+  if (segment === "mocks") {
+    if (mockUserIds.length > 0) query = query.in("id", mockUserIds);
+    else query = query.eq("id", "00000000-0000-0000-0000-000000000000"); // no mocks → empty result
   }
 
   const { data: users, count } = await query;
@@ -146,26 +160,32 @@ export async function action({ request }: ActionFunctionArgs) {
       const userId = formData.get("userId") as string;
       const category = formData.get("category") as UserCategory;
 
-      const allowedCategories: UserCategory[] = ["superadmin", "admin", "team_leader", "tour_operator", "private"];
+      const allowedCategories: UserCategory[] = ["superadmin", "admin", "team_leader", "ambassador", "agency", "private"];
       if (!allowedCategories.includes(category)) {
         return data({ error: "Invalid category" }, { status: 400 });
       }
 
       const adminIsSuperAdmin = isSuperAdmin(admin);
-      if (!adminIsSuperAdmin && !["team_leader", "private"].includes(category)) {
+      if (!adminIsSuperAdmin && !["team_leader", "ambassador", "private"].includes(category)) {
         return data({ error: "Only superadmins can set this category" }, { status: 403 });
       }
 
       const updateData: any = {};
       switch (category) {
         case "superadmin":
-          updateData.user_type = "superadmin";
+          updateData.role = "superadmin";
+          updateData.user_type = "private";
+          updateData.platform_role = "runner";
           break;
         case "admin":
-          updateData.user_type = "admin";
+          updateData.role = "admin";
+          updateData.user_type = "private";
+          updateData.platform_role = "runner";
           break;
         case "team_leader":
-          updateData.user_type = "team_leader";
+          updateData.user_type = "private";
+          updateData.platform_role = "team_leader";
+          updateData.role = "user";
           {
             const { data: userProfile } = await supabaseAdmin
               .from("profiles")
@@ -182,11 +202,20 @@ export async function action({ request }: ActionFunctionArgs) {
             }
           }
           break;
-        case "tour_operator":
-          updateData.user_type = "tour_operator";
+        case "ambassador":
+          updateData.user_type = "private";
+          updateData.platform_role = "ambassador";
+          updateData.role = "user";
+          break;
+        case "agency":
+          updateData.user_type = "agency";
+          updateData.platform_role = null;
+          updateData.role = "user";
           break;
         case "private":
           updateData.user_type = "private";
+          updateData.platform_role = "runner";
+          updateData.role = "user";
           break;
       }
 
@@ -368,35 +397,40 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 function getRowAccent(user: any) {
-  if (user.user_type === "superadmin") return "bg-red-50/30";
-  if (user.user_type === "admin") return "bg-purple-50/30";
-  if (user.user_type === "team_leader") return "bg-indigo-50/30";
-  if (user.user_type === "tour_operator") return "bg-blue-50/30";
+  if (user.role === "superadmin") return "bg-red-50/30";
+  if (user.role === "admin") return "bg-purple-50/30";
+  if (user.platform_role === "team_leader") return "bg-indigo-50/30";
+  if (user.platform_role === "ambassador") return "bg-yellow-50/30";
+  if (user.user_type === "agency") return "bg-blue-50/30";
   return "";
 }
 
 function getUserCategoryValue(user: any): UserCategory {
-  if (user.user_type === "superadmin") return "superadmin";
-  if (user.user_type === "admin") return "admin";
-  if (user.user_type === "team_leader") return "team_leader";
-  if (user.user_type === "tour_operator") return "tour_operator";
+  if (user.role === "superadmin") return "superadmin";
+  if (user.role === "admin") return "admin";
+  if (user.platform_role === "team_leader") return "team_leader";
+  if (user.platform_role === "ambassador") return "ambassador";
+  if (user.user_type === "agency") return "agency";
   return "private";
 }
 
 function getUserCategoryBadge(user: any) {
-  if (user.user_type === "superadmin") {
+  if (user.role === "superadmin") {
     return { label: "Superadmin", className: "bg-red-100 text-red-700" };
   }
-  if (user.user_type === "admin") {
+  if (user.role === "admin") {
     return { label: "Admin", className: "bg-purple-100 text-purple-700" };
   }
-  if (user.user_type === "team_leader") {
+  if (user.platform_role === "team_leader") {
     return { label: "Team Leader", className: "bg-indigo-100 text-indigo-700" };
   }
-  if (user.user_type === "tour_operator") {
-    return { label: "Tour Operator", className: "bg-blue-100 text-blue-700" };
+  if (user.platform_role === "ambassador") {
+    return { label: "Ambassador", className: "bg-yellow-100 text-yellow-700" };
   }
-  return { label: "User", className: "bg-gray-100 text-gray-600" };
+  if (user.user_type === "agency") {
+    return { label: "Agency", className: "bg-blue-100 text-blue-700" };
+  }
+  return { label: "Runner", className: "bg-gray-100 text-gray-600" };
 }
 
 function formatDateStable(value: string) {
@@ -769,15 +803,13 @@ export default function AdminUsers() {
               key={segment.id}
               to={segmentHref(segment.id)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                activeSegment === segment.id
-                  ? "bg-navy-900 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                activeSegment === segment.id ? segment.activeClass : segment.inactiveClass
               }`}
             >
               {segment.label}
               {segment.id === "pending_invites" && pendingInvitesCount > 0 && (
                 <span className={`ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                  activeSegment === "pending_invites" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"
+                  activeSegment === "pending_invites" ? "bg-white/25 text-white" : "bg-red-100 text-red-700"
                 }`}>
                   {pendingInvitesCount}
                 </span>
@@ -820,7 +852,7 @@ export default function AdminUsers() {
                       </p>
                       <p className="text-xs text-gray-500">{user.email}</p>
                       {user.is_mock && (
-                        <span className="mt-1 inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700">
+                        <span className="mt-1 inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium bg-orange-100 text-orange-700">
                           Mock
                         </span>
                       )}
@@ -907,7 +939,7 @@ export default function AdminUsers() {
                             >
                               {(adminIsSuperAdmin
                                 ? CATEGORY_OPTIONS
-                                : CATEGORY_OPTIONS.filter((opt) => ["team_leader", "private"].includes(opt.value))
+                                : CATEGORY_OPTIONS.filter((opt) => ["team_leader", "ambassador", "private"].includes(opt.value))
                               ).map((opt) => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
                               ))}
@@ -1019,7 +1051,7 @@ export default function AdminUsers() {
                         >
                           {(adminIsSuperAdmin
                             ? CATEGORY_OPTIONS
-                            : CATEGORY_OPTIONS.filter((opt) => ["team_leader", "private"].includes(opt.value))
+                            : CATEGORY_OPTIONS.filter((opt) => ["team_leader", "ambassador", "private"].includes(opt.value))
                           ).map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}

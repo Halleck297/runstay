@@ -89,7 +89,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Promote to TL
   await (supabaseAdmin.from("profiles") as any)
     .update({
-      user_type: "team_leader",
+      user_type: "private",
+      platform_role: "team_leader",
       referral_code: code,
     })
     .eq("id", (user as any).id);

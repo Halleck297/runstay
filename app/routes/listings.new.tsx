@@ -46,7 +46,7 @@ const TO_ROOM_TYPES = [
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   const pathname = new URL(request.url).pathname;
-  if (user.user_type === "tour_operator" && pathname === "/listings/new") {
+  if (user.user_type === "agency" && pathname === "/listings/new") {
     return redirect("/to-panel/listings/new");
   }
 
@@ -75,7 +75,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
   const pathname = new URL(request.url).pathname;
-  if (user.user_type === "tour_operator" && pathname === "/listings/new") {
+  if (user.user_type === "agency" && pathname === "/listings/new") {
     return redirect("/to-panel/listings/new");
   }
   const formData = await request.formData();
@@ -138,7 +138,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // TO listings require an explicit price for all listing types (room, bib, package).
-  if (user.user_type === "tour_operator") {
+  if (user.user_type === "agency") {
     const parsedPrice = Number.parseFloat(price || "");
     if (!Number.isFinite(parsedPrice) || Number.isNaN(parsedPrice) || parsedPrice <= 0) {
       return data({ error: "Price is required and must be greater than 0." }, { status: 400 });
@@ -146,7 +146,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   const toRoomTypePrices: Record<string, number> = {};
-  if (user.user_type === "tour_operator" && (listingType === "room" || listingType === "room_and_bib")) {
+  if (user.user_type === "agency" && (listingType === "room" || listingType === "room_and_bib")) {
     if (roomTypes.length === 0) {
       return data({ error: "Select at least one room type." }, { status: 400 });
     }
@@ -166,7 +166,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   let extraNightPrice: number | null = null;
-  if (user.user_type === "tour_operator" && extraNightEnabled) {
+  if (user.user_type === "agency" && extraNightEnabled) {
     const parsed = Number.parseFloat(extraNightPriceRaw);
     if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed <= 0) {
       return data({ error: "Extra night price must be greater than 0 when enabled." }, { status: 400 });
@@ -319,7 +319,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Create listing (usa supabaseAdmin per bypassare RLS)
   const toListingMeta =
-    user.user_type === "tour_operator"
+    user.user_type === "agency"
       ? {
           room_types: roomTypes,
           room_type_prices: toRoomTypePrices,
@@ -393,7 +393,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // Campi room
     room_count: roomCount ? parseInt(roomCount) : null,
-    room_type: user.user_type === "tour_operator" ? (roomTypes[0] || roomType || null) : roomType || null,
+    room_type: user.user_type === "agency" ? (roomTypes[0] || roomType || null) : roomType || null,
     check_in: checkIn || null,
     check_out: checkOut || null,
     bib_count: bibCount ? parseInt(bibCount) : null,
@@ -698,7 +698,7 @@ useEffect(() => {
                 <div>
                 <label htmlFor="roomCount" className="label mb-3">
                    {t("edit_listing.number_rooms")}
-                  {maxRooms !== null && user.user_type === "tour_operator" && (
+                  {maxRooms !== null && user.user_type === "agency" && (
                   <span className="text-xs text-gray-500 ml-2">({t("edit_listing.max_for_account")} {maxRooms})</span>
                   )}
                   </label>
@@ -725,7 +725,7 @@ useEffect(() => {
                    )}
                 </div>
 
-                {user.user_type === "tour_operator" ? (
+                {user.user_type === "agency" ? (
                   <div className="sm:col-span-2">
                     <label className="label mb-3">{t("edit_listing.room_type")}</label>
                     <div className="mb-2 flex items-center justify-between">
@@ -852,7 +852,7 @@ useEffect(() => {
                   />
                 </div>
 
-                {user.user_type === "tour_operator" && (
+                {user.user_type === "agency" && (
                   <div className="sm:col-span-2 space-y-3">
                     <div className="rounded-lg border border-gray-200 bg-slate-50 p-3">
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -929,7 +929,7 @@ useEffect(() => {
   <div className={(user.user_type === "private") ? "mt-6" : ""}>
   <label htmlFor="bibCount" className="label">
     {t("edit_listing.number_bibs")}
-    {maxBibs !== null && user.user_type === "tour_operator" && (
+    {maxBibs !== null && user.user_type === "agency" && (
       <span className="text-xs text-gray-500 ml-2">({t("edit_listing.max_for_account")} {maxBibs})</span>
     )}
   </label>
@@ -1026,7 +1026,7 @@ useEffect(() => {
                       {t("edit_listing.amount")}
                     </span>
                   </label>
-                  {user.user_type === "tour_operator" && (
+                  {user.user_type === "agency" && (
                     <p className="mb-2 text-xs text-gray-500">*Required</p>
                   )}
                   <div className="input flex w-full max-w-[150px] items-center gap-2 px-3">
@@ -1039,7 +1039,7 @@ useEffect(() => {
                       placeholder=""
                       className="w-full border-0 bg-transparent p-0 [appearance:textfield] focus:outline-none focus:ring-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={priceValue}
-                      required={user.user_type === "tour_operator"}
+                      required={user.user_type === "agency"}
                       onChange={(e) => {
                         setPriceValue(e.target.value);
                         // Reset negotiable to null when price is cleared
@@ -1051,7 +1051,7 @@ useEffect(() => {
                     <span className="shrink-0 font-medium text-gray-900">{currency}</span>
                     <input type="hidden" name="currency" value={currency} />
                   </div>
-                  {user.user_type !== "tour_operator" && (
+                  {user.user_type !== "agency" && (
                     <p className="mt-1.5 text-sm text-gray-500">
                       {t("edit_listing.empty_contact_price")}
                     </p>
@@ -1193,7 +1193,7 @@ useEffect(() => {
                 >
                   {t("create_listing.view_listing")}
                 </button>
-                {user.user_type === "tour_operator" && (
+                {user.user_type === "agency" && (
                   <button
                     onClick={() => {
                       setShowSuccessModal(false);
@@ -1212,7 +1212,7 @@ useEffect(() => {
     </>
   );
 
-  if (user.user_type === "tour_operator") {
+  if (user.user_type === "agency") {
     return (
       <ControlPanelLayout
         panelLabel={t("dashboard.panel_label")}

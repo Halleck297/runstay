@@ -7,7 +7,8 @@ export type Json =
   | Json[];
 
 export type ListingType = "room" | "bib" | "room_and_bib";
-export type UserType = "private" | "team_leader" | "tour_operator" | "admin" | "superadmin";
+export type UserType = "private" | "agency";
+export type PlatformRole = "runner" | "ambassador" | "team_leader";
 export type UserRole = "user" | "admin" | "superadmin";
 export type ListingStatus = "pending" | "active" | "sold" | "expired" | "rejected";
 export type TransferType = "official_process" | "package" | "contact";
@@ -65,6 +66,9 @@ export interface Database {
           public_show_personal_info: boolean;
           public_show_experience: boolean;
           public_show_social: boolean;
+          // Platform hierarchy
+          platform_role: PlatformRole | null;
+          referred_by_id: string | null;
           // Team Leader
           is_team_leader: boolean;
           referral_code: string | null;
@@ -113,6 +117,8 @@ export interface Database {
           public_show_personal_info?: boolean;
           public_show_experience?: boolean;
           public_show_social?: boolean;
+          platform_role?: PlatformRole | null;
+          referred_by_id?: string | null;
           is_team_leader?: boolean;
           referral_code?: string | null;
           tl_welcome_message?: string | null;
@@ -157,6 +163,8 @@ export interface Database {
           public_show_personal_info?: boolean;
           public_show_experience?: boolean;
           public_show_social?: boolean;
+          platform_role?: PlatformRole | null;
+          referred_by_id?: string | null;
           is_team_leader?: boolean;
           referral_code?: string | null;
           tl_welcome_message?: string | null;
