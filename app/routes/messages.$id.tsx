@@ -7,6 +7,8 @@ import { useI18n } from "~/hooks/useI18n";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
+import { sendTemplatedEmail } from "~/lib/email/service.server";
+import { normalizeEmailLocale } from "~/lib/email/types";
 import { useRealtimeMessages } from "~/hooks/useRealtimeMessages";
 import { useTranslation } from "~/hooks/useTranslation";
 import { applyConversationPublicIdFilter } from "~/lib/conversation.server";
@@ -313,6 +315,24 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .eq("id", conversation.id);
   }
 
+  // Email notification to recipient (all user types)
+  const [{ data: senderProfile }, { data: recipientProfile }] = await Promise.all([
+    supabaseAdmin.from("profiles").select("full_name, email").eq("id", userId).single(),
+    supabaseAdmin.from("profiles").select("full_name, email, preferred_language").eq("id", otherUserId).single(),
+  ]);
+  if (recipientProfile?.email) {
+    const senderName = (senderProfile as any)?.full_name || "Someone";
+    const convKey = (conversation as any).short_id || conversation.id;
+    const messagesUrl = `${process.env.APP_URL || "https://www.runoot.com"}/messages?c=${convKey}`;
+    await sendTemplatedEmail({
+      to: recipientProfile.email,
+      templateId: "new_message_notification",
+      locale: normalizeEmailLocale((recipientProfile as any)?.preferred_language),
+      payload: { senderName, messagesUrl },
+    }).catch((err) => console.error("[new_message_notification] failed:", err));
+  }
+
+  // Legacy agency notification (keeps TO notification prefs logic)
   await sendToUnifiedNotificationEmail({
     userId: otherUserId,
     prefKey: "new_message",

@@ -6,6 +6,7 @@ import { renderAmbassadorInviteTemplate, type AmbassadorInvitePayload } from "./
 import { renderJoinRequestNotificationTemplate, type JoinRequestNotificationPayload } from "./templates/joinRequestNotification";
 import { renderJoinRequestRejectedTemplate, type JoinRequestRejectedPayload } from "./templates/joinRequestRejected";
 import { renderWelcomeUserTemplate, type WelcomeUserPayload } from "./templates/welcomeUser";
+import { renderNewMessageNotificationTemplate, type NewMessageNotificationPayload } from "./templates/newMessageNotification";
 import type { EmailLocale, EmailTemplateId, RenderedEmailTemplate } from "./types";
 
 export interface EmailTemplatePayloadMap {
@@ -17,6 +18,7 @@ export interface EmailTemplatePayloadMap {
   join_request_notification: JoinRequestNotificationPayload;
   join_request_rejected: JoinRequestRejectedPayload;
   welcome_user: WelcomeUserPayload;
+  new_message_notification: NewMessageNotificationPayload;
 }
 
 export function renderEmailTemplate<T extends EmailTemplateId>(args: {
@@ -41,6 +43,8 @@ export function renderEmailTemplate<T extends EmailTemplateId>(args: {
       return renderJoinRequestRejectedTemplate(args.payload as JoinRequestRejectedPayload, args.locale);
     case "welcome_user":
       return renderWelcomeUserTemplate(args.payload as WelcomeUserPayload, args.locale);
+    case "new_message_notification":
+      return renderNewMessageNotificationTemplate(args.payload as NewMessageNotificationPayload, args.locale);
     default:
       throw new Error(`Unknown template: ${String(args.templateId)}`);
   }
