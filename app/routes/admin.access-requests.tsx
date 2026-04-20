@@ -69,7 +69,7 @@ async function createUserWithInviteEmail(args: {
   const emailResult = await sendTemplatedEmail({
     to: args.email,
     templateId: "account_setup",
-    locale: null,
+    locale: "en",
     payload: { setupLink: actionLink },
   });
 

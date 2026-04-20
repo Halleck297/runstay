@@ -544,7 +544,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const emailResult = await sendTemplatedEmail({
       to: (user as any).email,
       templateId: "platform_notification",
-      locale: (user as any).preferred_language || null,
+      locale: (user as any).preferred_language || "en",
       payload: {
         title: emailCopy.title,
         message: [

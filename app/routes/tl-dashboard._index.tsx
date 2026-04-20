@@ -4,10 +4,11 @@ import { data, redirect } from "react-router";
 import { useLoaderData, useActionData } from "react-router";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { useI18n } from "~/hooks/useI18n";
 import { isTeamLeader } from "~/lib/user-access";
+import { getLocaleLabelsForUi, isSupportedLocale } from "~/lib/locale";
 import { formatDateStable } from "~/lib/format-date";
 
 const MAX_BATCH_INVITES = 10;
@@ -208,6 +209,9 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     case "sendInvites": {
+      const rawLocale = String(formData.get("inviteLocale") || "").trim().toLowerCase();
+      const inviteLocale = isSupportedLocale(rawLocale) ? rawLocale : ((user as any).preferred_language || "en");
+
       const rawEmails = Array.from(formData.entries())
         .filter(([key]) => key.startsWith("inviteEmail"))
         .map(([, value]) => normalizeEmail(String(value || "")))
@@ -350,7 +354,7 @@ export async function action({ request }: ActionFunctionArgs) {
           const sendResult = await sendTemplatedEmail({
             to: email,
             templateId: "referral_invite",
-            locale: (user as any).preferred_language || null,
+            locale: inviteLocale,
             payload: {
               inviterName: (user as any).full_name || "Your Team Leader",
               referralLink,
@@ -409,7 +413,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const sendResult = await sendTemplatedEmail({
         to: invite.email,
         templateId: "referral_invite",
-        locale: (user as any).preferred_language || null,
+        locale: (user as any).preferred_language || "en",
         payload: {
           inviterName: (user as any).full_name || "Your Team Leader",
           referralLink,

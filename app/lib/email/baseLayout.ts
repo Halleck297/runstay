@@ -44,7 +44,7 @@ interface BaseLayoutArgs {
 export function renderBaseEmailLayout(args: BaseLayoutArgs): string {
   const currentYear = new Date().getUTCFullYear();
   const title = escapeHtml(args.title);
-  const intro = args.intro ? `<p style=\"margin:0 0 20px;color:#374151;\">${escapeHtml(args.intro)}</p>` : "";
+  const intro = args.intro ? `<p style=\"margin:0 0 20px;color:#374151;\">${args.intro}</p>` : "";
   const brandHeader = `
     <div style="line-height:1.05;text-align:center;margin:0 0 14px;">
       <div style="font-size:52px;font-weight:800;letter-spacing:-0.6px;color:#0C78F3;">runoot</div>

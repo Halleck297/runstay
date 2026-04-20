@@ -274,7 +274,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const emailResult = await sendTemplatedEmail({
         to: invite.email,
         templateId: "referral_invite",
-        locale: null,
+        locale: "en",
         payload: {
           inviterName: "Admin",
           referralLink,

@@ -633,7 +633,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const emailResult = await sendTemplatedEmail({
         to: tlProfile.email,
         templateId: "platform_notification",
-        locale: (tlProfile as any).preferred_language || null,
+        locale: (tlProfile as any).preferred_language || "en",
         payload: {
           title: emailCopy.title,
           message: emailCopy.message,
@@ -699,7 +699,7 @@ export async function action({ request }: ActionFunctionArgs) {
       await sendTemplatedEmail({
         to: tlProfile.email,
         templateId: "platform_notification",
-        locale: (tlProfile as any).preferred_language || null,
+        locale: (tlProfile as any).preferred_language || "en",
         payload: {
           title: emailCopy.title,
           message: emailCopy.body,
@@ -791,7 +791,7 @@ export async function action({ request }: ActionFunctionArgs) {
         await sendTemplatedEmail({
           to: profile.email,
           templateId: "platform_notification",
-          locale: (profile as any).preferred_language || null,
+          locale: (profile as any).preferred_language || "en",
           payload: {
             title: emailCopy.referralTitle,
             message: emailCopy.referralMessage,
@@ -813,7 +813,7 @@ export async function action({ request }: ActionFunctionArgs) {
       await sendTemplatedEmail({
         to: tlProfile.email,
         templateId: "platform_notification",
-        locale: (tlProfile as any).preferred_language || null,
+        locale: (tlProfile as any).preferred_language || "en",
         payload: {
           title: emailCopy.teamLeaderTitle,
           message: emailCopy.teamLeaderMessage,

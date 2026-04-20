@@ -8,10 +8,9 @@ export interface AmbassadorInvitePayload {
 
 const copy = {
   en: {
-    subjectSuffix: "invited you to join runoot as their guest",
+    subjectSuffix: "invited you to join Runoot",
     title: "You have been invited to join Runoot.",
     intro: "invited you to join Runoot.",
-    role: "Ambassador",
     cta: "Accept invitation",
     fallback: "If the button does not work, click",
     description:
@@ -20,10 +19,9 @@ const copy = {
       "You are receiving this email because an Ambassador invited you to join Runoot.",
   },
   it: {
-    subjectSuffix: "ti ha invitato su runoot",
-    title: "Sei invitato su Runoot",
+    subjectSuffix: "ti ha invitato su Runoot",
+    title: "Sei stato invitato su Runoot.",
     intro: "ti ha invitato a entrare su Runoot.",
-    role: "Ambassador",
     cta: "Accetta invito",
     fallback: "Se il pulsante non funziona, fai clic",
     description:
@@ -32,10 +30,9 @@ const copy = {
       "Ricevi questa email perché un Ambassador ti ha invitato a entrare in Runoot.",
   },
   de: {
-    subjectSuffix: "hat dich zu runoot eingeladen",
-    title: "Du bist zu Runoot eingeladen",
+    subjectSuffix: "hat dich zu Runoot eingeladen",
+    title: "Du bist zu Runoot eingeladen.",
     intro: "hat dich eingeladen, Runoot beizutreten.",
-    role: "Ambassador",
     cta: "Einladung annehmen",
     fallback: "Wenn der Button nicht funktioniert, klicke",
     description:
@@ -44,10 +41,9 @@ const copy = {
       "Sie erhalten diese E-Mail, weil ein Ambassador Sie zu Runoot eingeladen hat.",
   },
   fr: {
-    subjectSuffix: "vous a invité à rejoindre runoot",
-    title: "Vous êtes invité sur Runoot",
+    subjectSuffix: "vous a invité à rejoindre Runoot",
+    title: "Vous avez été invité sur Runoot.",
     intro: "vous a invité à rejoindre Runoot.",
-    role: "Ambassador",
     cta: "Accepter l'invitation",
     fallback: "Si le bouton ne fonctionne pas, cliquez",
     description:
@@ -56,10 +52,9 @@ const copy = {
       "Vous recevez cet e-mail car un Ambassador vous a invité à rejoindre Runoot.",
   },
   es: {
-    subjectSuffix: "te ha invitado a unirte a runoot",
-    title: "Estás invitado a Runoot",
+    subjectSuffix: "te ha invitado a unirse a Runoot",
+    title: "Has sido invitado a Runoot.",
     intro: "te ha invitado a unirte a Runoot.",
-    role: "Ambassador",
     cta: "Aceptar invitación",
     fallback: "Si el botón no funciona, haz clic",
     description:
@@ -68,10 +63,9 @@ const copy = {
       "Recibes este correo porque un Ambassador te ha invitado a unirte a Runoot.",
   },
   nl: {
-    subjectSuffix: "heeft je uitgenodigd voor runoot",
-    title: "Je bent uitgenodigd voor Runoot",
+    subjectSuffix: "heeft je uitgenodigd voor Runoot",
+    title: "Je bent uitgenodigd voor Runoot.",
     intro: "heeft je uitgenodigd voor Runoot.",
-    role: "Ambassador",
     cta: "Uitnodiging accepteren",
     fallback: "Als de knop niet werkt, klik dan",
     description:
@@ -80,10 +74,9 @@ const copy = {
       "U ontvangt deze e-mail omdat een Ambassador u heeft uitgenodigd voor Runoot.",
   },
   pt: {
-    subjectSuffix: "convidou-te para o runoot",
-    title: "Você foi convidado para o Runoot",
+    subjectSuffix: "convidou-te para o Runoot",
+    title: "Você foi convidado para o Runoot.",
     intro: "convidou-te para entrar no Runoot.",
-    role: "Ambassador",
     cta: "Aceitar convite",
     fallback: "Se o botão não funcionar, clique",
     description:
@@ -101,11 +94,9 @@ export function renderAmbassadorInviteTemplate(
   const safeName = escapeHtml(
     payload.inviterName.replace(/\s*ambassador\s*/gi, "").trim() || "Ambassador"
   );
-  const safeLink = escapeHtml(payload.referralLink);
 
   const subject = `${safeName} ${l.subjectSuffix}`;
-
-  const intro = `<strong>${safeName}</strong> [<em>${escapeHtml(l.role)}</em>] ${escapeHtml(l.intro)}`;
+  const intro = `<strong>${safeName}</strong> ${escapeHtml(l.intro)}`;
   const bodyHtml = `<p style="margin:0;color:#374151;">${escapeHtml(l.description)}</p>`;
 
   const html = renderBaseEmailLayout({
@@ -119,7 +110,7 @@ export function renderAmbassadorInviteTemplate(
     footerText: l.footer,
   });
 
-  const text = `${safeName} (${l.role}) ${l.intro}\n\n${l.description}\n\n${l.cta}: ${payload.referralLink}\n\n${l.footer}`;
+  const text = `${safeName} ${l.intro}\n\n${l.description}\n\n${l.cta}: ${payload.referralLink}\n\n${l.footer}`;
 
   return { subject, html, text };
 }

@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
 import { Form, useActionData, useLoaderData, useNavigation } from "react-router";
+import { useMemo, useState } from "react";
 import { Header } from "~/components/Header";
 import { FooterLight } from "~/components/FooterLight";
 import { useI18n } from "~/hooks/useI18n";
@@ -12,8 +13,8 @@ import { generateInviteToken } from "~/lib/referral-code.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { getAppUrl } from "~/lib/app-url.server";
 import { translate } from "~/lib/i18n";
+import { getLocaleLabelsForUi, isSupportedLocale, resolveLocaleForRequest } from "~/lib/locale";
 import type { SupportedLocale } from "~/lib/locale";
-import { resolveLocaleForRequest } from "~/lib/locale";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const locale = ((data as any)?.locale as SupportedLocale | undefined) || "en";
@@ -31,10 +32,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .order("created_at", { ascending: false })
     .limit(100);
 
+  const locale = resolveLocaleForRequest(request, user.id);
+
   return {
     user,
     invites: invites || [],
-    locale: resolveLocaleForRequest(request, user.id),
+    locale,
+    defaultInviteLocale: ((user as any).preferred_language as SupportedLocale) || locale,
   };
 }
 
@@ -44,20 +48,30 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const formData = await request.formData();
   const rawEmail = String(formData.get("inviteEmail") || "").trim().toLowerCase();
+  const rawLocale = String(formData.get("inviteLocale") || "").trim().toLowerCase();
+  const inviteLocale = isSupportedLocale(rawLocale) ? rawLocale : "en";
 
   if (!rawEmail || !isValidEmail(rawEmail)) {
     return data({ inviteError: "invalid_email" }, { status: 400 });
   }
 
-  const existing = await (supabaseAdmin.from("referral_invites") as any)
+  const { data: existingProfile } = await supabaseAdmin
+    .from("profiles")
     .select("id")
-    .eq("team_leader_id", user.id)
-    .eq("invite_type", "ambassador_invite")
     .ilike("email", rawEmail)
     .maybeSingle();
 
-  if (existing.data) {
-    return data({ inviteError: "already_invited" }, { status: 400 });
+  if (existingProfile) {
+    return data({ inviteError: "already_registered" }, { status: 400 });
+  }
+
+  const { data: existingInvite } = await (supabaseAdmin.from("referral_invites") as any)
+    .select("id")
+    .ilike("email", rawEmail)
+    .maybeSingle();
+
+  if (existingInvite) {
+    return data({ inviteError: "already_reserved" }, { status: 400 });
   }
 
   const token = generateInviteToken();
@@ -76,7 +90,7 @@ export async function action({ request }: ActionFunctionArgs) {
   await sendTemplatedEmail({
     to: rawEmail,
     templateId: "ambassador_invite",
-    locale: null,
+    locale: inviteLocale,
     payload: {
       inviterName: user.full_name || "Ambassador",
       referralLink: `${appUrl}/join/${token}`,
@@ -87,14 +101,16 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function AmbassadorInvites() {
-  const { user, invites } = useLoaderData<typeof loader>();
+  const { user, invites, defaultInviteLocale } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as
     | { inviteError: string }
     | { inviteSuccess: true }
     | undefined;
   const navigation = useNavigation();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const isSubmitting = navigation.state === "submitting";
+  const localeLabels = useMemo(() => getLocaleLabelsForUi(locale), [locale]);
+  const [inviteLocale, setInviteLocale] = useState<SupportedLocale>(defaultInviteLocale);
 
   return (
     <div className="min-h-screen bg-white md:bg-[#ECF4FE] md:bg-[radial-gradient(circle_at_1px_1px,rgba(12,120,243,0.08)_1px,transparent_0)] md:bg-[size:18px_18px] flex flex-col">
@@ -126,20 +142,37 @@ export default function AmbassadorInvites() {
               </svg>
               {actionData.inviteError === "already_invited"
                 ? t("ambassador.invites.error.already_invited")
-                : t("ambassador.invites.error.invalid_email")}
+                : actionData.inviteError === "already_registered"
+                  ? t("ambassador.invites.error.already_registered")
+                  : actionData.inviteError === "already_reserved"
+                    ? t("ambassador.invites.error.already_reserved")
+                    : t("ambassador.invites.error.invalid_email")}
             </div>
           )}
 
-          <Form method="post" className="mb-8 flex gap-2">
-            <input
-              name="inviteEmail"
-              type="email"
-              placeholder={t("ambassador.invites.form.placeholder")}
-              className="flex-1 rounded-xl border border-brand-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-              required
-              disabled={isSubmitting}
-              key={actionData && "inviteSuccess" in actionData ? "reset" : "active"}
-            />
+          <Form method="post" className="mb-8 space-y-3">
+            <div className="flex gap-2">
+              <input
+                name="inviteEmail"
+                type="email"
+                placeholder={t("ambassador.invites.form.placeholder")}
+                className="flex-1 rounded-xl border border-brand-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                required
+                disabled={isSubmitting}
+                key={actionData && "inviteSuccess" in actionData ? "reset" : "active"}
+              />
+              <select
+                name="inviteLocale"
+                value={inviteLocale}
+                onChange={(e) => isSupportedLocale(e.target.value) && setInviteLocale(e.target.value as SupportedLocale)}
+                disabled={isSubmitting}
+                className="rounded-xl border border-brand-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              >
+                {Object.entries(localeLabels).map(([code, label]) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
+              </select>
+            </div>
             <button
               type="submit"
               disabled={isSubmitting}

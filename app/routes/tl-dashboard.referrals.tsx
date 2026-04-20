@@ -1,7 +1,9 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
 import { Form, Link, useActionData, useLoaderData, useLocation, useNavigate, useNavigation } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getLocaleLabelsForUi, isSupportedLocale } from "~/lib/locale";
+import type { SupportedLocale } from "~/lib/locale";
 import { requireUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
@@ -115,6 +117,9 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     case "sendInvites": {
+      const rawLocale = String(formData.get("inviteLocale") || "").trim().toLowerCase();
+      const inviteLocale = isSupportedLocale(rawLocale) ? rawLocale : ((user as any).preferred_language || "en");
+
       const rawEmails = Array.from(formData.entries())
         .filter(([key]) => key.startsWith("inviteEmail"))
         .map(([, value]) => normalizeEmail(String(value || "")))
@@ -252,7 +257,7 @@ export async function action({ request }: ActionFunctionArgs) {
         const sendResult = await sendTemplatedEmail({
           to: email,
           templateId: "referral_invite",
-          locale: (user as any).preferred_language || null,
+          locale: inviteLocale,
           payload: {
             inviterName: (user as any).full_name || "Your Team Leader",
             referralLink: tokenReferralLink,
@@ -303,7 +308,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const sendResult = await sendTemplatedEmail({
         to: invite.email,
         templateId: "referral_invite",
-        locale: (user as any).preferred_language || null,
+        locale: (user as any).preferred_language || "en",
         payload: {
           inviterName: (user as any).full_name || "Your Team Leader",
           referralLink: tokenReferralLink,
@@ -346,6 +351,10 @@ export default function TLReferralsPage() {
   const [inviteSuccessCount, setInviteSuccessCount] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [sentInviteIds, setSentInviteIds] = useState<Set<string>>(new Set());
+  const localeLabels = useMemo(() => getLocaleLabelsForUi(locale), [locale]);
+  const [inviteLocale, setInviteLocale] = useState<SupportedLocale>(
+    ((user as any).preferred_language as SupportedLocale) || "en"
+  );
 
   const referralSlug = (user as any).referral_slug || String((user as any).referral_code || "").toLowerCase();
   const referralLink = `${appUrl}/${referralSlug}`;
@@ -513,6 +522,17 @@ export default function TLReferralsPage() {
               </button>
               <span className="text-xs text-gray-500">{inviteFields}/{MAX_BATCH_INVITES}</span>
             </div>
+
+            <select
+              name="inviteLocale"
+              value={inviteLocale}
+              onChange={(e) => isSupportedLocale(e.target.value) && setInviteLocale(e.target.value as SupportedLocale)}
+              className="rounded-xl border border-brand-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 w-full md:w-auto"
+            >
+              {Object.entries(localeLabels).map(([code, label]) => (
+                <option key={code} value={code}>{label}</option>
+              ))}
+            </select>
 
             <button type="submit" className="btn-primary rounded-full text-sm px-4 py-2">
               {t("tl_dashboard.send_invitations")}

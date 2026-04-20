@@ -1027,6 +1027,8 @@ export type TranslationKey =
   | "ambassador.invites.success"
   | "ambassador.invites.error.invalid_email"
   | "ambassador.invites.error.already_invited"
+  | "ambassador.invites.error.already_registered"
+  | "ambassador.invites.error.already_reserved"
   | "ambassador.invites.empty"
   | "ambassador.invites.status.pending"
   | "ambassador.invites.status.accepted";
@@ -2057,6 +2059,8 @@ const en: Record<TranslationKey, string> = {
   "ambassador.invites.success": "Invite sent!",
   "ambassador.invites.error.invalid_email": "Invalid email.",
   "ambassador.invites.error.already_invited": "Email already invited.",
+  "ambassador.invites.error.already_registered": "This email belongs to a user already registered on Runoot.",
+  "ambassador.invites.error.already_reserved": "This email has already been invited by another user.",
   "ambassador.invites.empty": "No invites sent yet.",
   "ambassador.invites.status.pending": "Pending",
   "ambassador.invites.status.accepted": "Registered",
@@ -3088,6 +3092,8 @@ const it: Partial<Record<TranslationKey, string>> = {
   "ambassador.invites.success": "Invito inviato!",
   "ambassador.invites.error.invalid_email": "Email non valida.",
   "ambassador.invites.error.already_invited": "Email già invitata.",
+  "ambassador.invites.error.already_registered": "Questa email appartiene a un utente già registrato su Runoot.",
+  "ambassador.invites.error.already_reserved": "Questa email è già stata invitata da un altro utente.",
   "ambassador.invites.empty": "Nessun invito inviato ancora.",
   "ambassador.invites.status.pending": "In attesa",
   "ambassador.invites.status.accepted": "Registrato",
@@ -3299,8 +3305,8 @@ const es: Partial<Record<TranslationKey, string>> = {
   "auth.failed_update_password": "Error al actualizar la contraseña.",
   "auth.password_updated_success": "Contraseña actualizada correctamente. Inicie sesión de nuevo.",
   "footer.privacy": "Privacidad",
-  "footer.cookies": "Galletas",
-  "footer.terms": "Terminos",
+  "footer.cookies": "Cookies",
+  "footer.terms": "Términos",
   "footer.legal_notes": "Notas Legales",
   "footer.rights": "Reservados todos los derechos.",
   "saved.title": "Anuncios guardados",
@@ -4119,6 +4125,8 @@ const es: Partial<Record<TranslationKey, string>> = {
   "ambassador.invites.success": "¡Invitación enviada!",
   "ambassador.invites.error.invalid_email": "Correo no válido.",
   "ambassador.invites.error.already_invited": "Correo ya invitado.",
+  "ambassador.invites.error.already_registered": "Este correo pertenece a un usuario ya registrado en Runoot.",
+  "ambassador.invites.error.already_reserved": "Este correo ya ha sido invitado por otro usuario.",
   "ambassador.invites.empty": "Aún no has enviado invitaciones.",
   "ambassador.invites.status.pending": "Pendiente",
   "ambassador.invites.status.accepted": "Registrado",
@@ -4332,7 +4340,7 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "footer.privacy": "Confidentialité",
   "footer.cookies": "Cookies",
   "footer.terms": "Termes",
-  "footer.legal_notes": "Notes Legales",
+  "footer.legal_notes": "Notes Légales",
   "footer.rights": "Tous droits réservés.",
   "saved.title": "Annonces enregistrées",
   "saved.subtitle": "Annonces que vous avez enregistrées pour plus tard",
@@ -5150,6 +5158,8 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "ambassador.invites.success": "Invitation envoyée !",
   "ambassador.invites.error.invalid_email": "E-mail invalide.",
   "ambassador.invites.error.already_invited": "E-mail déjà invité.",
+  "ambassador.invites.error.already_registered": "Cet e-mail appartient à un utilisateur déjà inscrit sur Runoot.",
+  "ambassador.invites.error.already_reserved": "Cet e-mail a déjà été invité par un autre utilisateur.",
   "ambassador.invites.empty": "Aucune invitation envoyée pour l'instant.",
   "ambassador.invites.status.pending": "En attente",
   "ambassador.invites.status.accepted": "Inscrit",
@@ -6181,6 +6191,8 @@ const de: Partial<Record<TranslationKey, string>> = {
   "ambassador.invites.success": "Einladung gesendet!",
   "ambassador.invites.error.invalid_email": "Ungültige E-Mail.",
   "ambassador.invites.error.already_invited": "E-Mail bereits eingeladen.",
+  "ambassador.invites.error.already_registered": "Diese E-Mail gehört einem bereits bei Runoot registrierten Nutzer.",
+  "ambassador.invites.error.already_reserved": "Diese E-Mail wurde bereits von einem anderen Nutzer eingeladen.",
   "ambassador.invites.empty": "Noch keine Einladungen gesendet.",
   "ambassador.invites.status.pending": "Ausstehend",
   "ambassador.invites.status.accepted": "Registriert",
@@ -7211,6 +7223,8 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "ambassador.invites.success": "Uitnodiging verstuurd!",
   "ambassador.invites.error.invalid_email": "Ongeldig e-mailadres.",
   "ambassador.invites.error.already_invited": "E-mail al uitgenodigd.",
+  "ambassador.invites.error.already_registered": "Dit e-mailadres behoort toe aan een gebruiker die al is geregistreerd op Runoot.",
+  "ambassador.invites.error.already_reserved": "Dit e-mailadres is al uitgenodigd door een andere gebruiker.",
   "ambassador.invites.empty": "Nog geen uitnodigingen verstuurd.",
   "ambassador.invites.status.pending": "In behandeling",
   "ambassador.invites.status.accepted": "Geregistreerd",
@@ -8241,6 +8255,8 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "ambassador.invites.success": "Convite enviado!",
   "ambassador.invites.error.invalid_email": "E-mail inválido.",
   "ambassador.invites.error.already_invited": "E-mail já convidado.",
+  "ambassador.invites.error.already_registered": "Este e-mail pertence a um usuário já cadastrado no Runoot.",
+  "ambassador.invites.error.already_reserved": "Este e-mail já foi convidado por outro usuário.",
   "ambassador.invites.empty": "Nenhum convite enviado ainda.",
   "ambassador.invites.status.pending": "Pendente",
   "ambassador.invites.status.accepted": "Registrado",
