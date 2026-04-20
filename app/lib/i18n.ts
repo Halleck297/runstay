@@ -1018,7 +1018,18 @@ export type TranslationKey =
   | "tl_requests.rejected_success"
   | "tl_requests.notes_label"
   | "tl_requests.pending"
-  | "tl_requests.date";
+  | "tl_requests.date"
+  | "ambassador.invites.meta_title"
+  | "ambassador.invites.title"
+  | "ambassador.invites.description"
+  | "ambassador.invites.form.placeholder"
+  | "ambassador.invites.form.send"
+  | "ambassador.invites.success"
+  | "ambassador.invites.error.invalid_email"
+  | "ambassador.invites.error.already_invited"
+  | "ambassador.invites.empty"
+  | "ambassador.invites.status.pending"
+  | "ambassador.invites.status.accepted";
 
 const en: Record<TranslationKey, string> = {
   "nav.home": "Home",
@@ -2038,6 +2049,17 @@ const en: Record<TranslationKey, string> = {
   "tl_requests.notes_label": "Notes",
   "tl_requests.pending": "Pending",
   "tl_requests.date": "Date",
+  "ambassador.invites.meta_title": "Invites - Runoot",
+  "ambassador.invites.title": "Invites",
+  "ambassador.invites.description": "Invite people by entering their email. They'll receive a link to join Runoot under you.",
+  "ambassador.invites.form.placeholder": "email@example.com",
+  "ambassador.invites.form.send": "Send invite",
+  "ambassador.invites.success": "Invite sent!",
+  "ambassador.invites.error.invalid_email": "Invalid email.",
+  "ambassador.invites.error.already_invited": "Email already invited.",
+  "ambassador.invites.empty": "No invites sent yet.",
+  "ambassador.invites.status.pending": "Pending",
+  "ambassador.invites.status.accepted": "Registered",
 };
 
 const it: Partial<Record<TranslationKey, string>> = {
@@ -3058,6 +3080,17 @@ const it: Partial<Record<TranslationKey, string>> = {
   "tl_requests.notes_label": "Note",
   "tl_requests.pending": "In attesa",
   "tl_requests.date": "Data",
+  "ambassador.invites.meta_title": "Inviti - Runoot",
+  "ambassador.invites.title": "Inviti",
+  "ambassador.invites.description": "Invita persone inserendo la loro email. Riceveranno un link per iscriversi a Runoot sotto di te.",
+  "ambassador.invites.form.placeholder": "email@esempio.com",
+  "ambassador.invites.form.send": "Invia invito",
+  "ambassador.invites.success": "Invito inviato!",
+  "ambassador.invites.error.invalid_email": "Email non valida.",
+  "ambassador.invites.error.already_invited": "Email già invitata.",
+  "ambassador.invites.empty": "Nessun invito inviato ancora.",
+  "ambassador.invites.status.pending": "In attesa",
+  "ambassador.invites.status.accepted": "Registrato",
 };
 
 const es: Partial<Record<TranslationKey, string>> = {
@@ -4078,6 +4111,17 @@ const es: Partial<Record<TranslationKey, string>> = {
   "tl_requests.notes_label": "Notas",
   "tl_requests.pending": "Pendiente",
   "tl_requests.date": "Fecha",
+  "ambassador.invites.meta_title": "Invitaciones - Runoot",
+  "ambassador.invites.title": "Invitaciones",
+  "ambassador.invites.description": "Invita personas ingresando su correo electrónico. Recibirán un enlace para unirse a Runoot bajo tu referencia.",
+  "ambassador.invites.form.placeholder": "email@ejemplo.com",
+  "ambassador.invites.form.send": "Enviar invitación",
+  "ambassador.invites.success": "¡Invitación enviada!",
+  "ambassador.invites.error.invalid_email": "Correo no válido.",
+  "ambassador.invites.error.already_invited": "Correo ya invitado.",
+  "ambassador.invites.empty": "Aún no has enviado invitaciones.",
+  "ambassador.invites.status.pending": "Pendiente",
+  "ambassador.invites.status.accepted": "Registrado",
 };
 
 const fr: Partial<Record<TranslationKey, string>> = {
@@ -5098,6 +5142,17 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "tl_requests.notes_label": "Notes",
   "tl_requests.pending": "En attente",
   "tl_requests.date": "Date",
+  "ambassador.invites.meta_title": "Invitations - Runoot",
+  "ambassador.invites.title": "Invitations",
+  "ambassador.invites.description": "Invitez des personnes en entrant leur adresse e-mail. Ils recevront un lien pour rejoindre Runoot sous votre parrainage.",
+  "ambassador.invites.form.placeholder": "email@exemple.com",
+  "ambassador.invites.form.send": "Envoyer l'invitation",
+  "ambassador.invites.success": "Invitation envoyée !",
+  "ambassador.invites.error.invalid_email": "E-mail invalide.",
+  "ambassador.invites.error.already_invited": "E-mail déjà invité.",
+  "ambassador.invites.empty": "Aucune invitation envoyée pour l'instant.",
+  "ambassador.invites.status.pending": "En attente",
+  "ambassador.invites.status.accepted": "Inscrit",
 };
 
 const de: Partial<Record<TranslationKey, string>> = {
@@ -6118,6 +6173,17 @@ const de: Partial<Record<TranslationKey, string>> = {
   "tl_requests.notes_label": "Notizen",
   "tl_requests.pending": "Ausstehend",
   "tl_requests.date": "Datum",
+  "ambassador.invites.meta_title": "Einladungen - Runoot",
+  "ambassador.invites.title": "Einladungen",
+  "ambassador.invites.description": "Lade Personen ein, indem du ihre E-Mail-Adresse eingibst. Sie erhalten einen Link, um sich unter dir bei Runoot anzumelden.",
+  "ambassador.invites.form.placeholder": "email@beispiel.com",
+  "ambassador.invites.form.send": "Einladung senden",
+  "ambassador.invites.success": "Einladung gesendet!",
+  "ambassador.invites.error.invalid_email": "Ungültige E-Mail.",
+  "ambassador.invites.error.already_invited": "E-Mail bereits eingeladen.",
+  "ambassador.invites.empty": "Noch keine Einladungen gesendet.",
+  "ambassador.invites.status.pending": "Ausstehend",
+  "ambassador.invites.status.accepted": "Registriert",
 };
 
 const nl: Partial<Record<TranslationKey, string>> = {
@@ -7137,6 +7203,17 @@ const nl: Partial<Record<TranslationKey, string>> = {
   "tl_requests.notes_label": "Opmerkingen",
   "tl_requests.pending": "In afwachting",
   "tl_requests.date": "Datum",
+  "ambassador.invites.meta_title": "Uitnodigingen - Runoot",
+  "ambassador.invites.title": "Uitnodigingen",
+  "ambassador.invites.description": "Nodig mensen uit door hun e-mailadres in te voeren. Ze ontvangen een link om zich bij Runoot aan te melden onder jou.",
+  "ambassador.invites.form.placeholder": "email@voorbeeld.com",
+  "ambassador.invites.form.send": "Uitnodiging sturen",
+  "ambassador.invites.success": "Uitnodiging verstuurd!",
+  "ambassador.invites.error.invalid_email": "Ongeldig e-mailadres.",
+  "ambassador.invites.error.already_invited": "E-mail al uitgenodigd.",
+  "ambassador.invites.empty": "Nog geen uitnodigingen verstuurd.",
+  "ambassador.invites.status.pending": "In behandeling",
+  "ambassador.invites.status.accepted": "Geregistreerd",
 };
 
 const pt: Partial<Record<TranslationKey, string>> = {
@@ -8156,6 +8233,17 @@ const pt: Partial<Record<TranslationKey, string>> = {
   "tl_requests.notes_label": "Notas",
   "tl_requests.pending": "Pendente",
   "tl_requests.date": "Data",
+  "ambassador.invites.meta_title": "Convites - Runoot",
+  "ambassador.invites.title": "Convites",
+  "ambassador.invites.description": "Convide pessoas inserindo o e-mail delas. Eles receberão um link para se cadastrar no Runoot sob a sua referência.",
+  "ambassador.invites.form.placeholder": "email@exemplo.com",
+  "ambassador.invites.form.send": "Enviar convite",
+  "ambassador.invites.success": "Convite enviado!",
+  "ambassador.invites.error.invalid_email": "E-mail inválido.",
+  "ambassador.invites.error.already_invited": "E-mail já convidado.",
+  "ambassador.invites.empty": "Nenhum convite enviado ainda.",
+  "ambassador.invites.status.pending": "Pendente",
+  "ambassador.invites.status.accepted": "Registrado",
 };
 
 const dictionaries: Record<SupportedLocale, Partial<Record<TranslationKey, string>>> = {

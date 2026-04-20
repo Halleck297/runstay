@@ -208,19 +208,6 @@ export function Header({ user, isHome = false }: HeaderProps) {
                 </Link>
               )}
 
-              {/* Ambassador Invites */}
-              {ambassador && (
-                <Link
-                  to="/profile#invites"
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#ECF4FE]"
-                >
-                  <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  I tuoi inviti
-                </Link>
-              )}
-
               {/* My Listings - link condizionale */}
               {!tourOperator && !teamLeader && (
                 <Link
@@ -277,6 +264,19 @@ export function Header({ user, isHome = false }: HeaderProps) {
 
               {/* Divisore */}
               <div className="my-2 border-t border-gray-100" />
+
+              {/* Ambassador Invites */}
+              {ambassador && (
+                <Link
+                  to="/profile/invites"
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#ECF4FE]"
+                >
+                  <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  {t("nav.invites")}
+                </Link>
+              )}
 
               <Link
                 to={teamLeader ? "/tl-dashboard/settings" : tourOperator ? "/to-panel/settings" : "/profile/settings"}

@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect } from "react-router";
-import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-router";
+import { Form, Link, useActionData, useFetcher, useLoaderData, useNavigation } from "react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "~/hooks/useI18n";
 import { getLocaleLabelsForUi, isSupportedLocale, resolveLocaleForRequest, type SupportedLocale } from "~/lib/locale";
@@ -265,6 +265,7 @@ export default function Register() {
   const { detectedLocale } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as ActionData | undefined;
   const navigation = useNavigation();
+  const localeFetcher = useFetcher();
   const isSubmitting = navigation.state === "submitting";
   const countries = getSupportedCountries(locale);
   const { minDob, maxDob } = useMemo(() => getDobBounds(), []);
@@ -567,7 +568,13 @@ export default function Register() {
                     onChange={(event) => {
                       setLanguageTouched(true);
                       const nextValue = event.target.value as SupportedLocale;
-                      if (isSupportedLocale(nextValue)) setLanguageValue(nextValue);
+                      if (isSupportedLocale(nextValue)) {
+                        setLanguageValue(nextValue);
+                        const fd = new FormData();
+                        fd.append("locale", nextValue);
+                        fd.append("persist", "false");
+                        localeFetcher.submit(fd, { method: "post", action: "/api/locale" });
+                      }
                     }}
                   >
                     {Object.entries(localeLabels).map(([langCode, label]) => (
