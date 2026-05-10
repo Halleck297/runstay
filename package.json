@@ -14,6 +14,8 @@
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "i18n:check": "node scripts/i18n-check.mjs",
     "i18n:audit": "node scripts/i18n-audit.mjs",
+    "i18n:dynamic-audit": "node --env-file=.env scripts/i18n-dynamic-audit.mjs",
+    "i18n:dynamic-fix": "node --env-file=.env scripts/i18n-dynamic-audit.mjs --fix",
     "i18n:autotranslate": "node scripts/i18n-autotranslate.mjs",
     "email:test": "node --env-file=.env --import tsx scripts/send-email-previews.ts",
     "start": "react-router-serve ./build/server/index.js",

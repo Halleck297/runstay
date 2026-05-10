@@ -29,8 +29,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const { data: listingCounts } = await supabaseAdmin
     .from("listings")
     .select("event_id")
-    .eq("status", "active")
-    .eq("listing_mode", "event");
+    .eq("status", "active");
 
   const countMap: Record<string, number> = {};
   for (const row of listingCounts || []) {

@@ -361,8 +361,9 @@ export async function action({ request }: ActionFunctionArgs) {
       hotelCity: hotelCity || null,
       hotelCountry: hotelCountry || null,
       sourceLanguageHint,
+      listingType,
     }),
-    buildI18nMap(costNotes || null, sourceLanguageHint),
+    buildI18nMap(costNotes || null, sourceLanguageHint, { listingType }),
   ]);
 
   const { data: listing, error } = await supabaseAdmin

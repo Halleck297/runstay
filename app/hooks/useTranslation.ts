@@ -22,28 +22,44 @@ interface TranslationState {
 interface UseTranslationOptions {
   userId: string;
   messages: Message[];
+  targetLanguage?: string | null;
   enabled?: boolean;
+}
+
+function normalizeLanguage(language?: string | null) {
+  return language?.split("-")[0]?.toLowerCase() || null;
+}
+
+function getNavigatorLanguage() {
+  if (typeof navigator === "undefined") return null;
+  return normalizeLanguage(navigator.language);
 }
 
 /**
  * Hook per gestire la traduzione automatica dei messaggi
  *
- * - Rileva automaticamente la lingua del browser
+ * - Usa la lingua preferita del lettore, con fallback alla lingua del browser
  * - Traduce solo i messaggi degli altri utenti
  * - Usa le traduzioni già salvate nel DB quando disponibili
  * - Permette di mostrare/nascondere l'originale
  */
-export function useTranslation({ userId, messages, enabled = true }: UseTranslationOptions) {
+export function useTranslation({ userId, messages, targetLanguage, enabled = true }: UseTranslationOptions) {
   const [translations, setTranslations] = useState<TranslationState>({});
-  const [browserLanguage, setBrowserLanguage] = useState<string>("en");
+  const [displayLanguage, setDisplayLanguage] = useState<string | null>(
+    () => normalizeLanguage(targetLanguage) || getNavigatorLanguage()
+  );
   const [showOriginalAll, setShowOriginalAll] = useState(false);
   const pendingTranslations = useRef<Set<string>>(new Set());
 
-  // Rileva lingua del browser
+  // Usa la lingua profilo quando disponibile; altrimenti ripiega sul browser.
   useEffect(() => {
-    const lang = navigator.language?.split("-")[0] || "en";
-    setBrowserLanguage(lang);
-  }, []);
+    setDisplayLanguage(normalizeLanguage(targetLanguage) || getNavigatorLanguage());
+  }, [targetLanguage]);
+
+  useEffect(() => {
+    setTranslations({});
+    pendingTranslations.current.clear();
+  }, [displayLanguage]);
 
   // Traduce un singolo messaggio
   const translateMessage = useCallback(
@@ -59,10 +75,12 @@ export function useTranslation({ userId, messages, enabled = true }: UseTranslat
       // Non tradurre se già in corso
       if (pendingTranslations.current.has(messageId)) return;
 
+      if (!displayLanguage) return;
+
       // Se ha già una traduzione salvata nel DB per la lingua corrente, usala
       if (
         message.translated_content &&
-        message.translated_to === browserLanguage
+        normalizeLanguage(message.translated_to) === displayLanguage
       ) {
         setTranslations((prev) => ({
           ...prev,
@@ -77,8 +95,8 @@ export function useTranslation({ userId, messages, enabled = true }: UseTranslat
         return;
       }
 
-      // Se la lingua rilevata è uguale a quella del browser, non tradurre
-      if (message.detected_language === browserLanguage) {
+      // Se la lingua rilevata è uguale a quella del lettore, non tradurre
+      if (normalizeLanguage(message.detected_language) === displayLanguage) {
         setTranslations((prev) => ({
           ...prev,
           [messageId]: {
@@ -111,7 +129,7 @@ export function useTranslation({ userId, messages, enabled = true }: UseTranslat
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messageId,
-            targetLanguage: browserLanguage,
+            targetLanguage: displayLanguage,
           }),
         });
 
@@ -147,7 +165,7 @@ export function useTranslation({ userId, messages, enabled = true }: UseTranslat
         pendingTranslations.current.delete(messageId);
       }
     },
-    [userId, browserLanguage]
+    [userId, displayLanguage]
   );
 
   // Traduce automaticamente tutti i messaggi quando cambiano
@@ -256,7 +274,8 @@ export function useTranslation({ userId, messages, enabled = true }: UseTranslat
 
   return {
     translations,
-    browserLanguage,
+    browserLanguage: displayLanguage || "en",
+    displayLanguage,
     showOriginalAll,
     translateMessage,
     toggleShowOriginal,

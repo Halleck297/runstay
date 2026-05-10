@@ -19,6 +19,7 @@ type MessagesUser = {
   full_name?: string | null;
   email?: string | null;
   avatar_url?: string | null;
+  preferred_language?: string | null;
 };
 
 type MessagesListing = {
@@ -44,6 +45,7 @@ type MessagesPreview = {
   read_at?: string | null;
   message_type?: string | null;
   translated_content?: string | null;
+  translated_to?: string | null;
 };
 
 type ConversationListItem = {
@@ -137,6 +139,7 @@ export default function MessagesLayout() {
   const navigate = useNavigate();
   const activeConversationId = searchParams.get("c") || params.id;
   const mobileSubtitle = activeConversationId ? undefined : t("messages.title");
+  const readerLanguage = (typedUser.preferred_language || locale).split("-")[0].toLowerCase();
 
   const formatTimeAgo = (dateString: string): string => {
     const date = new Date(dateString);
@@ -309,7 +312,12 @@ export default function MessagesLayout() {
                                 ? ""
                                 : previewMessage.sender_id === userId
                                   ? (previewMessage.content || "").trim()
-                                  : (previewMessage.translated_content || previewMessage.content || "").trim();
+                                  : (
+                                    previewMessage.translated_content &&
+                                    previewMessage.translated_to?.split("-")[0]?.toLowerCase() === readerLanguage
+                                      ? previewMessage.translated_content
+                                      : previewMessage.content || ""
+                                  ).trim();
                             const ownPrefix = t("messages.you_prefix");
                             return (
                           <p

@@ -221,8 +221,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
       hotelCity: hotelCity || null,
       hotelCountry: hotelCountry || null,
       sourceLanguageHint,
+      listingType,
     }),
-    buildI18nMap(costNotes || null, sourceLanguageHint),
+    buildI18nMap(costNotes || null, sourceLanguageHint, { listingType }),
   ]);
 
   // Handle hotel

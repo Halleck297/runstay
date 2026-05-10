@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { data } from "react-router";
 import { getUser } from "~/lib/session.server";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { translateText, isSameLanguage } from "~/lib/translate.server";
+import { detectLanguage, translateText, isSameLanguage } from "~/lib/translate.server";
 
 /**
  * POST /api/translate
@@ -70,33 +70,38 @@ export async function action({ request }: ActionFunctionArgs) {
       });
     }
 
-    // Traduci il messaggio
-    const translation = await translateText(message.content, targetLanguage);
-
-    if (!translation) {
-      return data({ error: "Translation failed" }, { status: 500 });
-    }
+    const detectedLanguage =
+      message.detected_language ||
+      (await detectLanguage(message.content))?.language ||
+      null;
 
     // Se la lingua rilevata è uguale a quella target, non serve traduzione
-    if (isSameLanguage(translation.detectedSourceLanguage, targetLanguage)) {
+    if (isSameLanguage(detectedLanguage, targetLanguage)) {
       // Salva solo la lingua rilevata, senza traduzione
       await supabaseAdmin
         .from("messages")
-        .update({ detected_language: translation.detectedSourceLanguage })
+        .update({ detected_language: detectedLanguage })
         .eq("id", messageId);
 
       return data({
         translatedContent: null,
-        detectedLanguage: translation.detectedSourceLanguage,
+        detectedLanguage,
         sameLanguage: true,
       });
+    }
+
+    // Traduci il messaggio
+    const translation = await translateText(message.content, targetLanguage, detectedLanguage || undefined);
+
+    if (!translation) {
+      return data({ error: "Translation failed" }, { status: 500 });
     }
 
     // Salva la traduzione nel database
     const { error: updateError } = await supabaseAdmin
       .from("messages")
       .update({
-        detected_language: translation.detectedSourceLanguage,
+        detected_language: detectedLanguage || translation.detectedSourceLanguage,
         translated_content: translation.translatedText,
         translated_to: targetLanguage,
       })
@@ -109,7 +114,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     return data({
       translatedContent: translation.translatedText,
-      detectedLanguage: translation.detectedSourceLanguage,
+      detectedLanguage: detectedLanguage || translation.detectedSourceLanguage,
       cached: false,
     });
   } catch (error) {

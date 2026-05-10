@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data } from "react-router";
-import { Link, useSearchParams } from "react-router";
+import { Link, useOutletContext, useSearchParams } from "react-router";
 // NOTE: This route implements the canonical ?c=<id> URL pattern for conversations.
 // React Router v7 does not support query-param-based routing natively, so this
 // route intentionally delegates its loader/action/component to messages.$id.
@@ -44,10 +44,18 @@ export async function action(args: ActionFunctionArgs) {
 export default function MessagesIndex() {
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
+  const outletContext = useOutletContext<{ conversations?: unknown[] } | undefined>();
   const conversationPublicId = searchParams.get("c");
+  const hasConversations = (outletContext?.conversations?.length || 0) > 0;
 
   if (conversationPublicId) {
     return <Conversation />;
+  }
+
+  if (hasConversations) {
+    return (
+      <div className="hidden md:flex flex-1 bg-white/95 backdrop-blur-[2px] md:rounded-r-3xl" />
+    );
   }
 
   // This component is shown only on desktop when no conversation is selected

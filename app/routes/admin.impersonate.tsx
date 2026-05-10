@@ -24,13 +24,27 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const managed = managedRows || [];
   const userIds = managed.map((row: any) => row.user_id).filter(Boolean);
   if (userIds.length === 0) {
-    return { admin, users: [] };
+    return { admin, users: [], mockMessageAlertCountsByUserId: {} };
   }
 
   const { data: profiles } = await (supabaseAdmin as any)
     .from("profiles")
     .select("id, full_name, email, user_type, company_name, is_verified, created_at")
     .in("id", userIds);
+
+  const { data: unreadMockAlerts } = await (supabaseAdmin.from("notifications") as any)
+    .select("data")
+    .eq("user_id", (admin as any).id)
+    .eq("type", "system")
+    .filter("data->>kind", "eq", "mock_user_new_message")
+    .is("read_at", null);
+
+  const unreadAlertsByMockUserId: Record<string, number> = {};
+  for (const alert of unreadMockAlerts || []) {
+    const mockUserId = String((alert as any)?.data?.mock_user_id || "");
+    if (!mockUserId) continue;
+    unreadAlertsByMockUserId[mockUserId] = (unreadAlertsByMockUserId[mockUserId] || 0) + 1;
+  }
 
   const profileById = new Map<string, any>((profiles || []).map((p: any) => [String(p.id), p]));
   const usersWithMockFlag = managed
@@ -42,6 +56,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         created_by_admin: row.created_by_admin ?? null,
         managed_access_mode: row.access_mode,
         is_mock: true,
+        unread_mock_messages_count: unreadAlertsByMockUserId[String(row.user_id)] || 0,
       };
     })
     .filter(Boolean)
@@ -53,7 +68,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       return fullName.includes(search) || email.includes(search) || company.includes(search);
     });
 
-  return { admin, users: usersWithMockFlag };
+  return { admin, users: usersWithMockFlag, mockMessageAlertCountsByUserId: unreadAlertsByMockUserId };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -200,22 +215,34 @@ export default function AdminImpersonate() {
       {/* User list */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="divide-y divide-gray-100">
-          {users.map((user: any) => (
-            <div
-              key={user.id}
-              className={`p-4 flex items-center justify-between hover:bg-gray-50 transition-colors ${
-                user.id === (admin as any).id ? "opacity-50" : ""
-              }`}
-            >
+          {users.map((user: any) => {
+            const unreadMockMessagesCount = Number(user.unread_mock_messages_count || 0);
+
+            return (
+              <div
+                key={user.id}
+                className={`p-4 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                  user.id === (admin as any).id ? "opacity-50" : ""
+                }`}
+              >
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-semibold flex-shrink-0">
                   {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {user.full_name || "No name"}
-                    {user.company_name && (
-                      <span className="text-gray-400 font-normal"> · {user.company_name}</span>
+                  <p className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                    <span className="truncate">
+                      {user.full_name || "No name"}
+                      {user.company_name && (
+                        <span className="text-gray-400 font-normal"> · {user.company_name}</span>
+                      )}
+                    </span>
+                    {unreadMockMessagesCount > 0 && (
+                      <span className="inline-flex flex-shrink-0 items-center rounded-full bg-brand-500 px-2 py-0.5 text-xs font-bold text-white">
+                        {unreadMockMessagesCount > 99
+                          ? "99+"
+                          : unreadMockMessagesCount} new
+                      </span>
                     )}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -278,8 +305,9 @@ export default function AdminImpersonate() {
               ) : (
                 <span className="text-xs text-gray-400 flex-shrink-0 ml-4">You</span>
               )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
 
         {users.length === 0 && (

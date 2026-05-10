@@ -6,6 +6,7 @@ import { requireAdmin, logAdminAction } from "~/lib/session.server";
 import { getListingPublicId } from "~/lib/publicIds";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
+import { hasBlockingTranslationIssues, validateListingTranslationQuality } from "~/lib/i18n-quality";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Pending Approvals - Admin - Runoot" }];
@@ -42,7 +43,7 @@ export async function action({ request }: ActionFunctionArgs) {
   // Fetch the listing for notification
   const { data: listing } = await (supabaseAdmin as any)
     .from("listings")
-    .select("id, short_id, title, author_id")
+    .select("id, short_id, title, author_id, listing_type, title_i18n, description_i18n, cost_notes_note_i18n")
     .eq("id", listingId)
     .single();
 
@@ -52,6 +53,14 @@ export async function action({ request }: ActionFunctionArgs) {
 
   switch (actionType) {
     case "approve": {
+      const translationIssues = validateListingTranslationQuality(listing);
+      if (hasBlockingTranslationIssues(translationIssues)) {
+        return data({
+          error: "Cannot approve: blocking translation quality issues found.",
+          translationIssues,
+        }, { status: 400 });
+      }
+
       await (supabaseAdmin as any)
         .from("listings")
         .update({
@@ -200,6 +209,31 @@ export default function AdminPending() {
         <div className="space-y-4">
           {listings.map((listing: any) => (
             <div key={listing.id} className="bg-white rounded-xl border border-gray-200 p-5">
+              {(() => {
+                const translationIssues = validateListingTranslationQuality(listing);
+                const blockingIssues = translationIssues.filter((issue) => issue.severity === "blocking");
+                if (translationIssues.length === 0) return null;
+
+                return (
+                  <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+                    blockingIssues.length > 0
+                      ? "border-red-200 bg-red-50 text-red-800"
+                      : "border-amber-200 bg-amber-50 text-amber-800"
+                  }`}>
+                    <p className="font-semibold">
+                      {blockingIssues.length > 0 ? "Blocking translation issue" : "Translation warning"}
+                    </p>
+                    <ul className="mt-1 list-disc space-y-1 pl-5">
+                      {translationIssues.map((issue, index) => (
+                        <li key={`${issue.field}-${issue.locale}-${issue.term}-${index}`}>
+                          [{issue.severity}] {issue.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
               {/* Header row */}
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="min-w-0">
@@ -322,7 +356,8 @@ export default function AdminPending() {
                     />
                     <button
                       type="submit"
-                      className="btn-primary w-full flex items-center justify-center gap-2"
+                      disabled={hasBlockingTranslationIssues(validateListingTranslationQuality(listing))}
+                      className="btn-primary w-full flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

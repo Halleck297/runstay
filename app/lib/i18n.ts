@@ -4520,7 +4520,7 @@ const fr: Partial<Record<TranslationKey, string>> = {
   "edit_listing.event_date": "Date de l'événement",
   "edit_listing.days": "jours",
   "edit_listing.check_out": "Vérifier",
-  "edit_listing.bib_transfer_details": "Détails du transfert de la biberon",
+  "edit_listing.bib_transfer_details": "Détails du transfert de dossard",
   "edit_listing.important": "Important",
   "edit_listing.private_bib_notice": "Runoot facilite uniquement les transferts de dossards légitimes. La vente directe de dossards peut enfreindre le règlement de l'événement.",
   "edit_listing.number_bibs": "Nombre de dossards",

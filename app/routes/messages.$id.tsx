@@ -9,6 +9,7 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { normalizeEmailLocale } from "~/lib/email/types";
+import { detectLanguage, isSameLanguage, translateText } from "~/lib/translate.server";
 import { useRealtimeMessages } from "~/hooks/useRealtimeMessages";
 import { useTranslation } from "~/hooks/useTranslation";
 import { applyConversationPublicIdFilter } from "~/lib/conversation.server";
@@ -68,8 +69,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       `
       *,
       listing:listings(id, title, listing_type, status, event:events(id, name, slug)),
-      participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified, avatar_url),
-      participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified, avatar_url)
+      participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, is_verified, avatar_url, preferred_language),
+      participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, is_verified, avatar_url, preferred_language)
     `
     );
 
@@ -293,12 +294,32 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return data({ errorKey: "empty_message" as const }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin.from("messages").insert({
+  const [{ data: senderProfile }, { data: recipientProfile }] = await Promise.all([
+    supabaseAdmin.from("profiles").select("full_name, email").eq("id", userId).single(),
+    supabaseAdmin.from("profiles").select("full_name, email, preferred_language").eq("id", otherUserId).single(),
+  ]);
+
+  const trimmedContent = content.trim();
+  const recipientLanguage = (recipientProfile as any)?.preferred_language || null;
+  const detectedLanguage = (await detectLanguage(trimmedContent))?.language || null;
+  const messageInsert: Record<string, unknown> = {
     conversation_id: conversation.id,
     sender_id: userId,
-    content: content.trim(),
+    content: trimmedContent,
     message_type: "user",
-  } as any);
+    detected_language: detectedLanguage,
+  };
+
+  if (recipientLanguage && !isSameLanguage(detectedLanguage, recipientLanguage)) {
+    const translation = await translateText(trimmedContent, recipientLanguage, detectedLanguage || undefined);
+    if (translation?.translatedText) {
+      messageInsert.detected_language = detectedLanguage || translation.detectedSourceLanguage;
+      messageInsert.translated_content = translation.translatedText;
+      messageInsert.translated_to = recipientLanguage;
+    }
+  }
+
+  const { error } = await supabaseAdmin.from("messages").insert(messageInsert as any);
 
   if (error) {
     return data({ errorKey: "failed_send_message" as const }, { status: 500 });
@@ -315,21 +336,36 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .eq("id", conversation.id);
   }
 
-  // Email notification to recipient (all user types)
-  const [{ data: senderProfile }, { data: recipientProfile }] = await Promise.all([
-    supabaseAdmin.from("profiles").select("full_name, email").eq("id", userId).single(),
-    supabaseAdmin.from("profiles").select("full_name, email, preferred_language").eq("id", otherUserId).single(),
-  ]);
+  // Email notification to recipient (throttled: max 1 email per 15 min per conversation)
+  const THROTTLE_MINUTES = 15;
   if (recipientProfile?.email) {
-    const senderName = (senderProfile as any)?.full_name || "Someone";
-    const convKey = (conversation as any).short_id || conversation.id;
-    const messagesUrl = `${process.env.APP_URL || "https://www.runoot.com"}/messages?c=${convKey}`;
-    await sendTemplatedEmail({
-      to: recipientProfile.email,
-      templateId: "new_message_notification",
-      locale: normalizeEmailLocale((recipientProfile as any)?.preferred_language),
-      payload: { senderName, messagesUrl },
-    }).catch((err) => console.error("[new_message_notification] failed:", err));
+    const throttleCutoff = new Date(Date.now() - THROTTLE_MINUTES * 60 * 1000).toISOString();
+    const { data: recentLog } = await (supabaseAdmin.from("email_notification_log") as any)
+      .select("id")
+      .eq("recipient_id", otherUserId)
+      .eq("conversation_id", conversation.id)
+      .eq("template_id", "new_message_notification")
+      .gte("sent_at", throttleCutoff)
+      .limit(1)
+      .maybeSingle();
+
+    if (!recentLog) {
+      const senderName = (senderProfile as any)?.full_name || "Someone";
+      const convKey = (conversation as any).short_id || conversation.id;
+      const messagesUrl = `${process.env.APP_URL || "https://www.runoot.com"}/messages?c=${convKey}`;
+      await sendTemplatedEmail({
+        to: recipientProfile.email,
+        templateId: "new_message_notification",
+        locale: normalizeEmailLocale((recipientProfile as any)?.preferred_language),
+        payload: { senderName, messagesUrl },
+      }).catch((err) => console.error("[new_message_notification] failed:", err));
+
+      await (supabaseAdmin.from("email_notification_log") as any).insert({
+        template_id: "new_message_notification",
+        recipient_id: otherUserId,
+        conversation_id: conversation.id,
+      });
+    }
   }
 
   // Legacy agency notification (keeps TO notification prefs logic)
@@ -339,29 +375,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
     message: "You have a new message in your Runoot inbox.",
     ctaUrl: `/messages?c=${conversation.short_id || conversation.id}`,
   });
-
-  // If recipient is an admin-managed mock account, also notify the owning admin.
-  const { data: managedRecipient } = await (supabaseAdmin as any)
-    .from("admin_managed_accounts")
-    .select("created_by_admin, access_mode")
-    .eq("user_id", otherUserId)
-    .in("access_mode", ["internal_only", "external_password"])
-    .maybeSingle();
-
-  const ownerAdminId = (managedRecipient as any)?.created_by_admin as string | null | undefined;
-  if (ownerAdminId && ownerAdminId !== userId) {
-    await (supabaseAdmin.from("notifications") as any).insert({
-      user_id: ownerAdminId,
-      type: "system",
-      title: "New message for your mock user",
-      message: "A mock account managed by you received a new conversation message.",
-      data: {
-        kind: "mock_user_new_message",
-        conversation_id: conversation.short_id || conversation.id,
-        mock_user_id: otherUserId,
-      },
-    });
-  }
 
   return data({ success: true });
 }
@@ -418,6 +431,7 @@ export default function Conversation() {
   const { getDisplayContent, showOriginalAll, toggleShowOriginalAll } = useTranslation({
     userId,
     messages: realtimeMessages,
+    targetLanguage: (user as any).preferred_language || locale,
     enabled: true,
   });
   const latestMessageId = realtimeMessages?.[realtimeMessages.length - 1]?.id ?? null;

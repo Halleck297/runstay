@@ -8,6 +8,7 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import type { ListingStatus, ListingType } from "~/lib/database.types";
 import { getListingPublicId } from "~/lib/publicIds";
 import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
+import { hasBlockingTranslationIssues, validateListingTranslationQuality } from "~/lib/i18n-quality";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Listings - Admin - Runoot" }];
@@ -117,9 +118,19 @@ export async function action({ request }: ActionFunctionArgs) {
 
       const { data: listing } = await (supabaseAdmin as any)
         .from("listings")
-        .select("id, short_id, title, author_id")
+        .select("id, short_id, title, author_id, listing_type, title_i18n, description_i18n, cost_notes_note_i18n")
         .eq("id", listingId)
         .maybeSingle();
+
+      if (newStatus === "active" && listing) {
+        const translationIssues = validateListingTranslationQuality(listing);
+        if (hasBlockingTranslationIssues(translationIssues)) {
+          return data({
+            error: "Cannot activate: blocking translation quality issues found.",
+            translationIssues,
+          }, { status: 400 });
+        }
+      }
 
       await (supabaseAdmin
         .from("listings") as any)
