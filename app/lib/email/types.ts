@@ -9,7 +9,8 @@ export type EmailTemplateId =
   | "join_request_notification"
   | "join_request_rejected"
   | "welcome_user"
-  | "new_message_notification";
+  | "new_message_notification"
+  | "listing_deleted_notification";
 
 export interface RenderedEmailTemplate {
   subject: string;

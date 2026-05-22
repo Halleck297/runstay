@@ -50,6 +50,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Unauthorized", { status: 403 });
   }
 
+  if ((listing as any).status === "deleted") {
+    throw new Response("Listing not found", { status: 404 });
+  }
+
   // Get existing events for autocomplete (cached 30 min)
   const events = await cached("events:all", 30 * 60 * 1000, async () => {
     const { data } = await supabaseAdmin
@@ -73,11 +77,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Verify ownership
   const existingListingQuery = supabaseAdmin
     .from("listings")
-    .select("id, short_id, author_id");
+    .select("id, short_id, author_id, status");
   const { data: existingListing } = await applyListingPublicIdFilter(existingListingQuery as any, id!).single();
 
   if (!existingListing || (existingListing as any).author_id !== (user as any).id) {
     return data({ errorKey: "unauthorized" }, { status: 403 });
+  }
+
+  if ((existingListing as any).status === "deleted") {
+    return data({ errorKey: "listing_not_found" }, { status: 404 });
   }
 
   const formData = await request.formData();
@@ -337,6 +345,7 @@ export default function EditListing() {
   const resolvedActionErrorMessage = actionErrorKey
     ? {
         unauthorized: t("edit_listing.error.unauthorized"),
+        listing_not_found: t("listings.error.not_found"),
         select_listing_type: t("edit_listing.error.select_listing_type"),
         failed_create_event: t("edit_listing.error.failed_create_event"),
         select_or_create_event: t("edit_listing.error.select_or_create_event"),

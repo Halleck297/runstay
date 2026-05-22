@@ -17,6 +17,7 @@ import { calculateDistanceData } from "~/lib/distance.server";
 import { isEventExpired } from "~/lib/listing-status";
 import { toLocaleDateStable } from "~/lib/format-date";
 import { getEventImageSlug } from "~/lib/event-image";
+import { notifyListingDeletionParticipants } from "~/lib/listing-deletion-notifications.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: (data as any)?.listing?.title || "Listing - Runoot" }];
@@ -162,9 +163,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .eq("id", userId)
       .single<{ user_type: string }>();
 
+    await notifyListingDeletionParticipants({ listingId: listing.id });
+
     const { error } = await supabaseAdmin
       .from("listings")
-      .delete()
+      .update({
+        status: "deleted",
+        deleted_at: new Date().toISOString(),
+        deleted_by: userId,
+      } as any)
       .eq("id", listing.id);
 
     if (error) {
@@ -1144,7 +1151,7 @@ export default function ListingDetail() {
                   </Link>
                 )}
 
-                {isOwner && (
+                {isOwner && listingData.status !== "deleted" && (
                   <div className="mt-4 space-y-3">
                     <Link
                       to={`/listings/${getListingPublicId(listingData)}/edit`}

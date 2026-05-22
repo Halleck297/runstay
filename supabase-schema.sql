@@ -171,10 +171,12 @@ CREATE TABLE public.listings (
   walking_duration INTEGER,        -- minutes
   transit_duration INTEGER,        -- minutes (only if > 1km)
 
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'sold', 'expired', 'rejected')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'sold', 'expired', 'rejected', 'deleted')),
   admin_note TEXT,
   reviewed_at TIMESTAMPTZ,
   reviewed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  deleted_at TIMESTAMPTZ,
+  deleted_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -323,6 +325,7 @@ CREATE INDEX idx_listings_status ON public.listings(status);
 CREATE INDEX idx_listings_type ON public.listings(listing_type);
 CREATE INDEX idx_listings_created ON public.listings(created_at DESC);
 CREATE INDEX idx_listings_hotel ON public.listings(hotel_id);
+CREATE INDEX idx_listings_deleted ON public.listings(deleted_at DESC) WHERE status = 'deleted';
 CREATE INDEX idx_hotels_place_id ON public.hotels(place_id);
 CREATE INDEX idx_hotels_city ON public.hotels(city);
 CREATE INDEX idx_hotels_country ON public.hotels(country);

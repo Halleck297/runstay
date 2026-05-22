@@ -9,6 +9,7 @@ import type { ListingStatus, ListingType } from "~/lib/database.types";
 import { getListingPublicId } from "~/lib/publicIds";
 import { sendToUnifiedNotificationEmail } from "~/lib/to-notifications.server";
 import { hasBlockingTranslationIssues, validateListingTranslationQuality } from "~/lib/i18n-quality";
+import { notifyListingDeletionParticipants } from "~/lib/listing-deletion-notifications.server";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Listings - Admin - Runoot" }];
@@ -22,6 +23,7 @@ const STATUS_FILTERS = [
   { id: "sold", label: "Sold" },
   { id: "expired", label: "Expired" },
   { id: "rejected", label: "Rejected" },
+  { id: "deleted", label: "Deleted" },
 ] as const;
 const TYPE_FILTERS = [
   { id: "", label: "All types" },
@@ -72,7 +74,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     query = query.or(orFilters.join(","));
   }
   if (statusFilter) {
-    const allowedStatuses: ListingStatus[] = ["pending", "active", "sold", "expired", "rejected"];
+    const allowedStatuses: ListingStatus[] = ["pending", "active", "sold", "expired", "rejected", "deleted"];
     if (allowedStatuses.includes(statusFilter as ListingStatus)) {
       query = query.eq("status", statusFilter as ListingStatus);
     }
@@ -112,7 +114,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const listingId = formData.get("listingId") as string;
       const newStatus = formData.get("newStatus") as string;
 
-      if (!["pending", "active", "sold", "expired", "rejected"].includes(newStatus)) {
+      if (!["pending", "active", "sold", "expired", "rejected", "deleted"].includes(newStatus)) {
         return data({ error: "Invalid status" }, { status: 400 });
       }
 
@@ -132,12 +134,25 @@ export async function action({ request }: ActionFunctionArgs) {
         }
       }
 
+      if (newStatus === "deleted") {
+        await notifyListingDeletionParticipants({ listingId });
+      }
+
+      const listingPatch =
+        newStatus === "deleted"
+          ? {
+              status: newStatus,
+              deleted_at: new Date().toISOString(),
+              deleted_by: (admin as any).id,
+            }
+          : { status: newStatus };
+
       await (supabaseAdmin
         .from("listings") as any)
-        .update({ status: newStatus })
+        .update(listingPatch)
         .eq("id", listingId);
 
-      if (listing?.author_id) {
+      if (listing?.author_id && newStatus !== "deleted") {
         const statusMessage =
           newStatus === "pending"
             ? `Listing pending review: "${listing.title}".`
@@ -185,9 +200,15 @@ export async function action({ request }: ActionFunctionArgs) {
     case "delete": {
       const listingId = formData.get("listingId") as string;
 
+      await notifyListingDeletionParticipants({ listingId });
+
       await supabaseAdmin
         .from("listings")
-        .delete()
+        .update({
+          status: "deleted",
+          deleted_at: new Date().toISOString(),
+          deleted_by: (admin as any).id,
+        } as any)
         .eq("id", listingId);
 
       await logAdminAction((admin as any).id, "listing_deleted", {
@@ -214,6 +235,7 @@ const statusColors: Record<string, string> = {
   sold: "bg-gray-100 text-gray-600",
   expired: "bg-alert-100 text-alert-700",
   rejected: "bg-red-100 text-red-700",
+  deleted: "bg-gray-200 text-gray-500",
 };
 function getAuthorBadge(author: any) {
   if (author?.user_type === "superadmin") return { label: "Superadmin", className: "bg-red-100 text-red-700" };
@@ -462,6 +484,7 @@ export default function AdminListings() {
                           <option value="sold">sold</option>
                           <option value="expired">expired</option>
                           <option value="rejected">rejected</option>
+                          <option value="deleted">deleted</option>
                         </select>
                       </Form>
                       {listing.reviewed_by && (
@@ -568,6 +591,7 @@ export default function AdminListings() {
                         <option value="active">active</option>
                         <option value="sold">sold</option>
                         <option value="expired">expired</option>
+                        <option value="deleted">deleted</option>
                       </select>
                     </Form>
                     <Form method="post" className="inline" onSubmit={(e) => {

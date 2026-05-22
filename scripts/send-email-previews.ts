@@ -76,6 +76,19 @@ async function main() {
           },
         }),
     },
+    {
+      name: "listing_deleted_notification",
+      run: () =>
+        sendTemplatedEmail({
+          to,
+          locale,
+          templateId: "listing_deleted_notification",
+          payload: {
+            listingTitle: "Berlin Marathon hotel package",
+            ownerName: "Marco Rossi Running Tours",
+          },
+        }),
+    },
   ];
 
   console.log(`Sending ${tests.length} email previews to ${to} (locale: ${locale})...`);

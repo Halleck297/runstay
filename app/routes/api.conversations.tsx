@@ -12,7 +12,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select(
       `
       *,
-      listing:listings(id, title, listing_type, author_id),
+      listing:listings(id, title, listing_type, author_id, status),
       participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, avatar_url),
       participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, avatar_url),
       messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)

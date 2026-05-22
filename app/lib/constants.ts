@@ -3,6 +3,7 @@ export const ListingStatus = {
   PENDING: "pending",
   SOLD: "sold",
   EXPIRED: "expired",
+  DELETED: "deleted",
   DRAFT: "draft",
 } as const;
 

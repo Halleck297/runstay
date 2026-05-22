@@ -27,6 +27,7 @@ type MessagesListing = {
   title?: string | null;
   listing_type?: string | null;
   author_id?: string | null;
+  status?: string | null;
 };
 
 type MessagesParticipant = {
@@ -79,7 +80,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .select(
       `
       *,
-      listing:listings(id, title, listing_type, author_id),
+      listing:listings(id, title, listing_type, author_id, status),
       participant1:profiles!conversations_participant_1_fkey(id, full_name, company_name, user_type, avatar_url),
       participant2:profiles!conversations_participant_2_fkey(id, full_name, company_name, user_type, avatar_url),
       messages(id, content, sender_id, created_at, read_at, message_type, detected_language, translated_content, translated_to)
@@ -140,6 +141,20 @@ export default function MessagesLayout() {
   const activeConversationId = searchParams.get("c") || params.id;
   const mobileSubtitle = activeConversationId ? undefined : t("messages.title");
   const readerLanguage = (typedUser.preferred_language || locale).split("-")[0].toLowerCase();
+  const listingDeletedLabel =
+    readerLanguage === "it"
+      ? "annuncio eliminato"
+      : readerLanguage === "fr"
+        ? "annonce supprimée"
+        : readerLanguage === "es"
+          ? "anuncio eliminado"
+          : readerLanguage === "de"
+            ? "Inserat gelöscht"
+            : readerLanguage === "nl"
+              ? "listing verwijderd"
+              : readerLanguage === "pt"
+                ? "anúncio eliminado"
+                : "listing deleted";
 
   const formatTimeAgo = (dateString: string): string => {
     const date = new Date(dateString);
@@ -302,6 +317,7 @@ export default function MessagesLayout() {
 
                       <p className="mt-0.5 text-xs text-gray-400 truncate">
                         {conv.listing?.title || t("messages.listing")}
+                        {conv.listing?.status === "deleted" ? ` · ${listingDeletedLabel}` : ""}
                       </p>
 
                       {previewMessage && (

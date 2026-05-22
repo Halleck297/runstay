@@ -10,7 +10,7 @@ export type ListingType = "room" | "bib" | "room_and_bib";
 export type UserType = "private" | "agency";
 export type PlatformRole = "runner" | "ambassador" | "team_leader";
 export type UserRole = "user" | "admin" | "superadmin";
-export type ListingStatus = "pending" | "active" | "sold" | "expired" | "rejected";
+export type ListingStatus = "pending" | "active" | "sold" | "expired" | "rejected" | "deleted";
 export type TransferType = "official_process" | "package" | "contact";
 export type Currency = "EUR" | "USD" | "GBP" | "JPY" | "CAD" | "CHF" | "AUD";
 export type ReferralStatus = "registered" | "active" | "inactive";
@@ -331,6 +331,8 @@ export interface Database {
     admin_note: string | null;
     reviewed_at: string | null;
     reviewed_by: string | null;
+    deleted_at: string | null;
+    deleted_by: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -382,6 +384,8 @@ export interface Database {
   admin_note?: string | null;
   reviewed_at?: string | null;
   reviewed_by?: string | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -430,6 +434,8 @@ export interface Database {
   admin_note?: string | null;
   reviewed_at?: string | null;
   reviewed_by?: string | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
   updated_at?: string;
 };
         Relationships: [];

@@ -15,6 +15,7 @@ interface Conversation {
     title?: string | null;
     listing_type?: string | null;
     author_id?: string | null;
+    status?: string | null;
   } | null;
   participant1?: {
     id: string;

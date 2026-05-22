@@ -203,7 +203,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // Get conversation to verify participation
   const conversationQuery = supabaseAdmin
     .from("conversations")
-    .select("id, short_id, participant_1, participant_2, deleted_by_1, deleted_by_2, listing_id, activated, listing:listings(author_id, title)")
+    .select("id, short_id, participant_1, participant_2, deleted_by_1, deleted_by_2, listing_id, activated, listing:listings(author_id, title, status)")
     ;
   const { data: conversation } = await applyConversationPublicIdFilter(
     conversationQuery as any,
@@ -426,6 +426,21 @@ export default function Conversation() {
     currentUserId: userId,
   });
   const conversationApiId = conversation.short_id || conversation.id;
+  const isListingDeleted = conversation.listing?.status === "deleted";
+  const listingDeletedLabel =
+    locale === "it"
+      ? "annuncio eliminato"
+      : locale === "fr"
+        ? "annonce supprimée"
+        : locale === "es"
+          ? "anuncio eliminado"
+          : locale === "de"
+            ? "Inserat gelöscht"
+            : locale === "nl"
+              ? "listing verwijderd"
+              : locale === "pt"
+                ? "anúncio eliminado"
+                : "listing deleted";
 
   // Use translation hook for automatic message translation
   const { getDisplayContent, showOriginalAll, toggleShowOriginalAll } = useTranslation({
@@ -830,16 +845,26 @@ export default function Conversation() {
                 </span>
               )}
             </div>
-            <Link
-              to={`/listings/${conversation.listing?.id}`}
-              className="inline-flex max-w-[45%] items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium text-brand-700 transition-colors hover:bg-gray-100 md:px-2.5 md:text-xs"
-              title={conversation.listing?.title || ""}
-            >
-              <svg className="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="truncate">{conversation.listing?.title || t("messages.listing")}</span>
-            </Link>
+            {isListingDeleted ? (
+              <span
+                className="inline-flex max-w-[45%] items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-500 md:px-2.5 md:text-xs"
+                title={conversation.listing?.title || ""}
+              >
+                <span className="truncate">{conversation.listing?.title || t("messages.listing")}</span>
+                <span className="shrink-0 text-gray-400">({listingDeletedLabel})</span>
+              </span>
+            ) : (
+              <Link
+                to={`/listings/${conversation.listing?.id}`}
+                className="inline-flex max-w-[45%] items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium text-brand-700 transition-colors hover:bg-gray-100 md:px-2.5 md:text-xs"
+                title={conversation.listing?.title || ""}
+              >
+                <svg className="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="truncate">{conversation.listing?.title || t("messages.listing")}</span>
+              </Link>
+            )}
           </div>
         </div>
 
