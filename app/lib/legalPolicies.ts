@@ -225,7 +225,7 @@ const TERMS: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "12. Contatti",
         paragraphs: [
-          "Per qualsiasi domanda o richiesta legale relativa ai presenti Termini, contattare: legal@runoot.com.",
+          "Per qualsiasi domanda o richiesta legale relativa ai presenti Termini, contattare: support@runoot.com.",
         ],
       },
     ],
@@ -331,7 +331,7 @@ const TERMS: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "12. Contacto",
         paragraphs: [
-          "Para cualquier consulta o solicitud legal relacionada con estos Terminos, contactar: legal@runoot.com.",
+          "Para cualquier consulta o solicitud legal relacionada con estos Terminos, contactar: support@runoot.com.",
         ],
       },
     ],
@@ -437,7 +437,7 @@ const TERMS: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "12. Contact",
         paragraphs: [
-          "Pour toute question ou demande juridique relative aux presentes conditions, contacter : legal@runoot.com.",
+          "Pour toute question ou demande juridique relative aux presentes conditions, contacter : support@runoot.com",
         ],
       },
     ],
@@ -523,7 +523,7 @@ const TERMS: Record<SupportedLocale, LegalPolicyDocument> = {
         title: "9. Sperrung und Kuendigung",
         paragraphs: [
           "Runoot kann Konten sperren oder kuendigen, die gegen diese Bedingungen oder geltendes Recht verstossen oder die Runoot vernuenftigerweise als Risiko fuer die Plattform, andere Nutzer oder Dritte ansieht.",
-          "Nutzer koennen jederzeit die Loeschung ihres Kontos beantragen, indem sie sich an legal@runoot.com wenden. Nach der Kontoloeschung werden Ihre personenbezogenen Daten gemaess der Datenschutzerklaerung behandelt.",
+          "Nutzer koennen jederzeit die Loeschung ihres Kontos beantragen, indem sie sich an support@runoot.com wenden. Nach der Kontoloeschung werden Ihre personenbezogenen Daten gemaess der Datenschutzerklaerung behandelt.",
         ],
       },
       {
@@ -543,7 +543,7 @@ const TERMS: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "12. Kontakt",
         paragraphs: [
-          "Fuer rechtliche Fragen oder Anfragen zu diesen Bedingungen: legal@runoot.com.",
+          "Fuer rechtliche Fragen oder Anfragen zu diesen Bedingungen: support@runoot.com.",
         ],
       },
     ],
@@ -581,7 +581,7 @@ const TERMS: Record<SupportedLocale, LegalPolicyDocument> = {
         title: "4. Gebruikersaccounts",
         paragraphs: [
           "Elke gebruiker mag slechts een account aanhouden. U bent verantwoordelijk voor de vertrouwelijkheid van uw inloggegevens en voor alle activiteiten onder uw account.",
-          "U dient Runoot onmiddellijk te informeren via legal@runoot.com als u ongeautoriseerd gebruik van uw account constateert.",
+          "U dient Runoot onmiddellijk te informeren via support@runoot.com als u ongeautoriseerd gebruik van uw account constateert.",
         ],
       },
       {
@@ -649,7 +649,7 @@ const TERMS: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "12. Contact",
         paragraphs: [
-          "Voor juridische vragen of verzoeken met betrekking tot deze voorwaarden: legal@runoot.com.",
+          "Voor juridische vragen of verzoeken met betrekking tot deze voorwaarden: support@runoot.com.",
         ],
       },
     ],
@@ -687,7 +687,7 @@ const TERMS: Record<SupportedLocale, LegalPolicyDocument> = {
         title: "4. Contas de usuario",
         paragraphs: [
           "Cada usuario pode manter apenas uma conta. Voce e responsavel pela confidencialidade de suas credenciais de acesso e por toda a atividade em sua conta.",
-          "Voce deve notificar imediatamente a Runoot em legal@runoot.com caso detecte qualquer uso nao autorizado de sua conta.",
+          "Voce deve notificar imediatamente a Runoot em support@runoot.com caso detecte qualquer uso nao autorizado de sua conta.",
         ],
       },
       {
@@ -755,7 +755,7 @@ const TERMS: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "12. Contato",
         paragraphs: [
-          "Para quaisquer questoes ou solicitacoes legais relacionadas a estes Termos, contatar: legal@runoot.com.",
+          "Para quaisquer questoes ou solicitacoes legais relacionadas a estes Termos, contatar: support@runoot.com.",
         ],
       },
     ],
@@ -773,8 +773,8 @@ const PRIVACY: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "1. Data Controller",
         paragraphs: [
-          "The data controller is Runoot, with registered office in Milan, Italy.",
-          "For all privacy-related matters, you can contact us at: legal@runoot.com.",
+          "The data controller is Runoot, Italy.",
+          "For all privacy-related matters, you can contact us at: support@runoot.com.",
         ],
       },
       {
@@ -820,7 +820,7 @@ const PRIVACY: Record<SupportedLocale, LegalPolicyDocument> = {
         title: "5. International Data Transfers",
         paragraphs: [
           "Some of our service providers may process data outside the European Economic Area (EEA). In such cases, we ensure that appropriate safeguards are in place, such as Standard Contractual Clauses (SCCs) approved by the European Commission, or transfers to countries that have received an adequacy decision.",
-          "You may request information about specific transfer safeguards by contacting legal@runoot.com.",
+          "You may request information about specific transfer safeguards by contacting support@runoot.com.",
         ],
       },
       {
@@ -853,7 +853,7 @@ const PRIVACY: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "8. How to Exercise Your Rights",
         paragraphs: [
-          "To exercise any of these rights, send a request to legal@runoot.com. We will respond within 30 days, as required by the GDPR.",
+          "To exercise any of these rights, send a request to support@runoot.com. We will respond within 30 days, as required by the GDPR.",
           "You also have the right to lodge a complaint with the competent supervisory authority. For users in Italy, this is the Garante per la protezione dei dati personali (www.garanteprivacy.it).",
         ],
       },
@@ -872,7 +872,7 @@ const PRIVACY: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "11. Contact",
         paragraphs: [
-          "For all privacy-related requests and questions: legal@runoot.com.",
+          "For all privacy-related requests and questions: support@runoot.com.",
         ],
       },
     ],
@@ -888,7 +888,7 @@ const PRIVACY: Record<SupportedLocale, LegalPolicyDocument> = {
         title: "1. Titolare del trattamento",
         paragraphs: [
           "Il titolare del trattamento e Runoot, con sede legale a Milano, Italia.",
-          "Per tutte le questioni relative alla privacy, puoi contattarci all'indirizzo: legal@runoot.com.",
+          "Per tutte le questioni relative alla privacy, puoi contattarci all'indirizzo: support@runoot.com.",
         ],
       },
       {
@@ -986,7 +986,7 @@ const PRIVACY: Record<SupportedLocale, LegalPolicyDocument> = {
       {
         title: "11. Contatti",
         paragraphs: [
-          "Per tutte le richieste e domande relative alla privacy: legal@runoot.com.",
+          "Per tutte le richieste e domande relative alla privacy: support@runoot.com.",
         ],
       },
     ],
@@ -1048,7 +1048,7 @@ const PRIVACY: Record<SupportedLocale, LegalPolicyDocument> = {
       { title: "8. Ausuebung Ihrer Rechte", paragraphs: ["Um eines dieser Rechte auszuueben, senden Sie eine Anfrage an legal@runoot.com. Wir antworten innerhalb von 30 Tagen, wie von der DSGVO vorgeschrieben.", "Sie haben ausserdem das Recht, eine Beschwerde bei der zustaendigen Aufsichtsbehoerde einzureichen. Fuer Nutzer in Italien ist dies der Garante per la protezione dei dati personali (www.garanteprivacy.it)."] },
       { title: "9. Minderjaehrige", paragraphs: ["Runoot richtet sich nicht an Personen unter 18 Jahren. Wir erheben wissentlich keine personenbezogenen Daten von Minderjaehrigen. Wenn wir erfahren, dass ein Nutzer unter 18 Jahre alt ist, werden wir Massnahmen ergreifen, um das Konto und die zugehoerigen Daten zu loeschen."] },
       { title: "10. Aenderungen dieser Richtlinie", paragraphs: ["Wir koennen diese Datenschutzrichtlinie von Zeit zu Zeit aktualisieren. Nutzer werden ueber wesentliche Aenderungen per E-Mail oder durch einen Hinweis auf der Plattform informiert. Das Datum der letzten Aktualisierung ist oben in diesem Dokument angegeben."] },
-      { title: "11. Kontakt", paragraphs: ["Fuer alle datenschutzbezogenen Anfragen und Fragen: legal@runoot.com."] },
+      { title: "11. Kontakt", paragraphs: ["Fuer alle datenschutzbezogenen Anfragen und Fragen: support@runoot.com."] },
     ],
   },
   nl: {
@@ -1068,7 +1068,7 @@ const PRIVACY: Record<SupportedLocale, LegalPolicyDocument> = {
       { title: "8. Hoe u uw rechten uitoefent", paragraphs: ["Om een van deze rechten uit te oefenen, stuur een verzoek naar legal@runoot.com. Wij zullen binnen 30 dagen reageren, zoals vereist door de AVG.", "U heeft ook het recht om een klacht in te dienen bij de bevoegde toezichthoudende autoriteit. Voor gebruikers in Italie is dit de Garante per la protezione dei dati personali (www.garanteprivacy.it)."] },
       { title: "9. Minderjarigen", paragraphs: ["Runoot is niet gericht op personen jonger dan 18 jaar. Wij verzamelen niet bewust persoonsgegevens van minderjarigen. Als wij vernemen dat een gebruiker jonger is dan 18, zullen wij stappen ondernemen om het account en bijbehorende gegevens te verwijderen."] },
       { title: "10. Wijzigingen van dit beleid", paragraphs: ["Wij kunnen dit privacybeleid van tijd tot tijd bijwerken. Gebruikers worden via e-mail of een melding op het platform geinformeerd over wezenlijke wijzigingen. De datum van de laatste update staat bovenaan dit document vermeld."] },
-      { title: "11. Contact", paragraphs: ["Voor alle privacygerelateerde verzoeken en vragen: legal@runoot.com."] },
+      { title: "11. Contact", paragraphs: ["Voor alle privacygerelateerde verzoeken en vragen: support@runoot.com."] },
     ],
   },
   pt: {
@@ -1088,7 +1088,7 @@ const PRIVACY: Record<SupportedLocale, LegalPolicyDocument> = {
       { title: "8. Como exercer seus direitos", paragraphs: ["Para exercer qualquer um desses direitos, envie uma solicitacao para legal@runoot.com. Responderemos em 30 dias, conforme exigido pelo RGPD.", "Voce tambem tem o direito de apresentar uma reclamacao a autoridade supervisora competente. Para usuarios na Italia, esta e o Garante per la protezione dei dati personali (www.garanteprivacy.it)."] },
       { title: "9. Menores", paragraphs: ["A Runoot nao e dirigida a pessoas menores de 18 anos. Nao coletamos conscientemente dados pessoais de menores. Se tomarmos conhecimento de que um usuario tem menos de 18 anos, tomaremos medidas para excluir sua conta e dados associados."] },
       { title: "10. Alteracoes a esta Politica", paragraphs: ["Podemos atualizar esta Politica de Privacidade de tempos em tempos. Os usuarios serao notificados sobre alteracoes substanciais por e-mail ou aviso na plataforma. A data da ultima atualizacao esta indicada no topo deste documento."] },
-      { title: "11. Contato", paragraphs: ["Para todas as solicitacoes e perguntas relacionadas a privacidade: legal@runoot.com."] },
+      { title: "11. Contato", paragraphs: ["Para todas as solicitacoes e perguntas relacionadas a privacidade: support@runoot.com."] },
     ],
   },
 };
@@ -1159,7 +1159,7 @@ const COOKIES: Record<SupportedLocale, LegalPolicyDocument> = {
       { title: "3. Gestione del consenso", paragraphs: ["Alla prima visita su Runoot, un banner cookie ti chiedera il consenso riguardo ai cookie opzionali. Puoi accettare o rifiutare i cookie opzionali in qualsiasi momento.", "I cookie essenziali restano attivi perche strettamente necessari al funzionamento della piattaforma. Non puoi disattivarli durante l'uso della piattaforma.", "Puoi inoltre gestire i cookie tramite le impostazioni del tuo browser. La maggior parte dei browser consente di bloccare o eliminare i cookie, anche se cio potrebbe influire sulla funzionalita della piattaforma."] },
       { title: "4. Cookie di terze parti", paragraphs: ["Alcuni cookie possono essere impostati da fornitori terzi di fiducia utilizzati per autenticazione, hosting o analytics.", "Per gli analytics opzionali, Runoot usa PostHog. Le richieste di analytics sono instradate tramite un endpoint proxy first-party /ph sul dominio Runoot per minimizzare il tracciamento di terze parti."] },
       { title: "5. Durata dei cookie", paragraphs: ["I cookie di sessione vengono eliminati alla chiusura del browser. I cookie persistenti rimangono sul tuo dispositivo per un periodo definito o fino alla cancellazione manuale.", "I cookie di autenticazione (sb-*) persistono per la durata della sessione di login. Il cookie di consenso (cookie_consent) persiste per 12 mesi."] },
-      { title: "6. Contatti", paragraphs: ["Per domande sui cookie, contattare: legal@runoot.com."] },
+      { title: "6. Contatti", paragraphs: ["Per domande sui cookie, contattare: support@runoot.com."] },
     ],
   },
   es: {
@@ -1174,7 +1174,7 @@ const COOKIES: Record<SupportedLocale, LegalPolicyDocument> = {
       { title: "3. Gestion del consentimiento", paragraphs: ["Al visitar Runoot por primera vez, un banner de cookies solicitara tu consentimiento respecto a las cookies opcionales. Puedes aceptar o rechazar las cookies opcionales en cualquier momento.", "Las cookies esenciales permanecen activas porque son estrictamente necesarias para el funcionamiento de la plataforma. No puedes desactivarlas mientras usas la plataforma.", "Tambien puedes gestionar las cookies a traves de la configuracion de tu navegador. La mayoria de los navegadores permiten bloquear o eliminar cookies, aunque esto puede afectar la funcionalidad de la plataforma."] },
       { title: "4. Cookies de terceros", paragraphs: ["Algunas cookies pueden ser configuradas por proveedores de servicios terceros de confianza utilizados para autenticacion, alojamiento o analitica.", "Para analitica opcional, Runoot usa PostHog. Las solicitudes de analitica se enrutan a traves de un endpoint proxy de primera parte en /ph en el dominio Runoot para minimizar el rastreo de terceros."] },
       { title: "5. Duracion de las cookies", paragraphs: ["Las cookies de sesion se eliminan al cerrar el navegador. Las cookies persistentes permanecen en tu dispositivo durante un periodo definido o hasta que las elimines manualmente.", "Las cookies de autenticacion (sb-*) persisten durante la sesion de inicio de sesion. La cookie de consentimiento (cookie_consent) persiste durante 12 meses."] },
-      { title: "6. Contacto", paragraphs: ["Para consultas sobre cookies, contactar: legal@runoot.com."] },
+      { title: "6. Contacto", paragraphs: ["Para consultas sobre cookies, contactar: support@runoot.com."] },
     ],
   },
   fr: {
@@ -1189,7 +1189,7 @@ const COOKIES: Record<SupportedLocale, LegalPolicyDocument> = {
       { title: "3. Gestion du consentement", paragraphs: ["Lors de votre premiere visite sur Runoot, un bandeau cookies sollicitera votre consentement concernant les cookies optionnels. Vous pouvez accepter ou refuser les cookies optionnels a tout moment.", "Les cookies essentiels restent actifs car ils sont strictement necessaires au fonctionnement de la plateforme. Vous ne pouvez pas les desactiver pendant l'utilisation de la plateforme.", "Vous pouvez egalement gerer les cookies via les parametres de votre navigateur. La plupart des navigateurs permettent de bloquer ou supprimer les cookies, bien que cela puisse affecter la fonctionnalite de la plateforme."] },
       { title: "4. Cookies tiers", paragraphs: ["Certains cookies peuvent etre places par des prestataires tiers de confiance utilises pour l'authentification, l'hebergement ou l'analyse.", "Pour l'analyse optionnelle, Runoot utilise PostHog. Les requetes d'analyse sont acheminees via un endpoint proxy first-party /ph sur le domaine Runoot pour minimiser le pistage tiers."] },
       { title: "5. Duree des cookies", paragraphs: ["Les cookies de session sont supprimes a la fermeture du navigateur. Les cookies persistants restent sur votre appareil pendant une duree definie ou jusqu'a ce que vous les supprimiez manuellement.", "Les cookies d'authentification (sb-*) persistent pendant la duree de votre session de connexion. Le cookie de consentement (cookie_consent) persiste pendant 12 mois."] },
-      { title: "6. Contact", paragraphs: ["Pour les questions relatives aux cookies, contacter : legal@runoot.com."] },
+      { title: "6. Contact", paragraphs: ["Pour les questions relatives aux cookies, contacter : support@runoot.com."] },
     ],
   },
   de: {
@@ -1204,7 +1204,7 @@ const COOKIES: Record<SupportedLocale, LegalPolicyDocument> = {
       { title: "3. Einwilligungsverwaltung", paragraphs: ["Bei Ihrem ersten Besuch auf Runoot werden Sie ueber ein Cookie-Banner um Ihre Einwilligung zu optionalen Cookies gebeten. Sie koennen optionale Cookies jederzeit akzeptieren oder ablehnen.", "Essenzielle Cookies bleiben aktiv, da sie fuer den Betrieb der Plattform streng notwendig sind. Sie koennen sie waehrend der Nutzung der Plattform nicht deaktivieren.", "Sie koennen Cookies auch ueber Ihre Browsereinstellungen verwalten. Die meisten Browser ermoeglichen das Blockieren oder Loeschen von Cookies, wobei dies die Funktionalitaet der Plattform beeintraechtigen kann."] },
       { title: "4. Drittanbieter-Cookies", paragraphs: ["Einige Cookies koennen von vertrauenswuerdigen Drittanbietern fuer Authentifizierung, Hosting oder Analyse gesetzt werden.", "Fuer optionale Analysen verwendet Runoot PostHog. Analyse-Anfragen werden ueber einen First-Party-Proxy-Endpunkt unter /ph auf der Runoot-Domain geleitet, um Drittanbieter-Tracking zu minimieren."] },
       { title: "5. Cookie-Dauer", paragraphs: ["Sitzungscookies werden beim Schliessen des Browsers geloescht. Persistente Cookies verbleiben auf Ihrem Geraet fuer einen definierten Zeitraum oder bis Sie sie manuell loeschen.", "Authentifizierungscookies (sb-*) bestehen fuer die Dauer Ihrer Anmeldesitzung. Das Einwilligungscookie (cookie_consent) besteht fuer 12 Monate."] },
-      { title: "6. Kontakt", paragraphs: ["Fuer Fragen zu Cookies: legal@runoot.com."] },
+      { title: "6. Kontakt", paragraphs: ["Fuer Fragen zu Cookies: support@runoot.com."] },
     ],
   },
   nl: {
@@ -1219,7 +1219,7 @@ const COOKIES: Record<SupportedLocale, LegalPolicyDocument> = {
       { title: "3. Toestemmingsbeheer", paragraphs: ["Bij uw eerste bezoek aan Runoot vraagt een cookiebanner om uw toestemming voor optionele cookies. U kunt optionele cookies op elk moment accepteren of weigeren.", "Essentiele cookies blijven actief omdat ze strikt noodzakelijk zijn voor de werking van het platform. U kunt ze niet uitschakelen tijdens het gebruik van het platform.", "U kunt cookies ook beheren via uw browserinstellingen. De meeste browsers staan het blokkeren of verwijderen van cookies toe, hoewel dit de functionaliteit van het platform kan beinvloeden."] },
       { title: "4. Cookies van derden", paragraphs: ["Sommige cookies kunnen worden geplaatst door vertrouwde externe dienstverleners die worden gebruikt voor authenticatie, hosting of analyse.", "Voor optionele analyse gebruikt Runoot PostHog. Analyseverzoeken worden geleid via een first-party proxy-endpoint op /ph op het Runoot-domein om tracking door derden te minimaliseren."] },
       { title: "5. Cookieduur", paragraphs: ["Sessiecookies worden verwijderd wanneer u uw browser sluit. Persistente cookies blijven op uw apparaat voor een bepaalde periode of totdat u ze handmatig verwijdert.", "Authenticatiecookies (sb-*) blijven bestaan voor de duur van uw inlogsessie. De toestemmingscookie (cookie_consent) blijft 12 maanden bestaan."] },
-      { title: "6. Contact", paragraphs: ["Voor vragen over cookies: legal@runoot.com."] },
+      { title: "6. Contact", paragraphs: ["Voor vragen over cookies: support@runoot.com."] },
     ],
   },
   pt: {
@@ -1234,7 +1234,7 @@ const COOKIES: Record<SupportedLocale, LegalPolicyDocument> = {
       { title: "3. Gestao de consentimento", paragraphs: ["Em sua primeira visita a Runoot, um banner de cookies solicitara seu consentimento em relacao aos cookies opcionais. Voce pode aceitar ou recusar cookies opcionais a qualquer momento.", "Os cookies essenciais permanecem ativos porque sao estritamente necessarios para o funcionamento da plataforma. Voce nao pode desativa-los durante o uso da plataforma.", "Voce tambem pode gerenciar cookies atraves das configuracoes do seu navegador. A maioria dos navegadores permite bloquear ou excluir cookies, embora isso possa afetar a funcionalidade da plataforma."] },
       { title: "4. Cookies de terceiros", paragraphs: ["Alguns cookies podem ser definidos por provedores de servicos terceiros confiaveis utilizados para autenticacao, hospedagem ou analise.", "Para analise opcional, a Runoot usa o PostHog. As solicitacoes de analise sao roteadas atraves de um endpoint proxy de primeira parte em /ph no dominio Runoot para minimizar o rastreamento de terceiros."] },
       { title: "5. Duracao dos cookies", paragraphs: ["Cookies de sessao sao excluidos ao fechar o navegador. Cookies persistentes permanecem em seu dispositivo por um periodo definido ou ate voce exclui-los manualmente.", "Os cookies de autenticacao (sb-*) persistem durante a sessao de login. O cookie de consentimento (cookie_consent) persiste por 12 meses."] },
-      { title: "6. Contato", paragraphs: ["Para duvidas sobre cookies, contatar: legal@runoot.com."] },
+      { title: "6. Contato", paragraphs: ["Para duvidas sobre cookies, contatar: support@runoot.com."] },
     ],
   },
 };
