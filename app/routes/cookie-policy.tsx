@@ -1,5 +1,6 @@
 import type { MetaFunction } from "react-router";
 import { useI18n } from "~/hooks/useI18n";
+import { reopenCookieBanner } from "~/lib/analytics/consent";
 import { getLegalPolicyDocument } from "~/lib/legalPolicies";
 
 export const meta: MetaFunction = () => {
@@ -28,6 +29,12 @@ export default function CookiePolicy() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="space-y-8 rounded-lg bg-white p-8 shadow-sm">
           <p className="text-gray-700">{doc.summary}</p>
+          <button type="button" onClick={reopenCookieBanner} className="font-semibold text-brand-700 underline">Cookie settings / Preferenze cookie</button>
+          <section lang="en" className="rounded-lg bg-blue-50 p-5 text-gray-700">
+            <h2 className="mb-2 text-xl font-semibold">Google Analytics 4</h2>
+            <p>Google Analytics is loaded only if you accept optional analytics. It measures public-page visits and successful race requests, including QR/homepage source, selected race category and bib/package preference. We do not send the form’s name, email or custom race text to Google Analytics. Advertising features and Google signals are disabled in our tag configuration.</p>
+            <p className="mt-3">Analytics cookies (_ga and _ga_*) and your consent choice last up to 180 days. You can change your choice using Cookie settings. Rejecting analytics does not prevent you from submitting a race request. Google processes analytics data according to its <a className="underline" href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p>
+          </section>
 
           {doc.sections.map((section) => (
             <section key={section.title}>

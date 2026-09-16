@@ -1,314 +1,138 @@
 import type { AnalyticsEventName } from "~/lib/analytics/events";
-
-type AnalyticsProvider = "none" | "debug" | "posthog" | "plausible" | "ga4";
-type CookielessMode = "always" | "on_reject";
+import { CONSENT_CHANGED, CONSENT_KEY, readConsent } from "./consent";
 
 type AnalyticsProps = Record<string, string | number | boolean | null | undefined>;
-
-type AnalyticsConfig = {
-  provider: AnalyticsProvider;
-  key?: string;
-  host?: string;
-  uiHost?: string;
-  debug?: boolean;
-  plausibleDomain?: string;
-  gaMeasurementId?: string;
-  cookielessMode?: CookielessMode;
-};
-
-type AnalyticsAdapter = {
-  init: () => void;
-  page: (path: string, props?: AnalyticsProps) => void;
-  track: (event: string, props?: AnalyticsProps) => void;
-  identify: (userId: string, traits?: AnalyticsProps) => void;
-  reset: () => void;
-};
-
 declare global {
   interface Window {
-    posthog?: PosthogClient;
-    plausible?: (event: string, options?: { props?: Record<string, unknown> }) => void;
-    dataLayer?: Array<Record<string, unknown>>;
+    dataLayer?: IArguments[];
     gtag?: (...args: unknown[]) => void;
-    __runoot_analytics_loaded__?: boolean;
   }
 }
-
-type PosthogClient = {
-  init: (key: string, options: Record<string, unknown>) => void;
-  capture: (event: string, props?: AnalyticsProps) => void;
-  identify: (userId: string, traits?: AnalyticsProps) => void;
-  reset: () => void;
-  opt_in_capturing: () => void;
-  opt_out_capturing: () => void;
-};
 
 let initialized = false;
-let adapter: AnalyticsAdapter = createNoopAdapter();
-let posthogClient: PosthogClient | null = null;
-let posthogLoadPromise: Promise<PosthogClient | null> | null = null;
+let previousPage = "";
+let lastPageKey = "";
+let currentPage: { path: string; props?: AnalyticsProps } | null = null;
+const adConsent = { ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied" };
 
-async function loadPosthogClient(): Promise<PosthogClient | null> {
-  if (posthogClient) return posthogClient;
-  if (typeof window !== "undefined" && window.posthog) {
-    posthogClient = window.posthog;
-    return posthogClient;
+export function measurementId() {
+  const id = typeof window !== "undefined" ? window.ENV?.ANALYTICS_GA_MEASUREMENT_ID || "" : "";
+  return /^G-[A-Z0-9]+$/.test(id) ? id : "";
+}
+
+// Free-text fields, user IDs, names, email addresses and search terms never leave the app.
+export function safeAnalyticsProps(props: AnalyticsProps = {}): AnalyticsProps {
+  const allowed = new Set(["locale", "has_user", "landing_source", "phase", "authenticated", "type_filter", "has_search", "sort", "preference", "race"]);
+  return Object.fromEntries(Object.entries(props).filter(([key, value]) => allowed.has(key) && value != null && (typeof value !== "string" || /^[\w .+-]{1,60}$/.test(value))));
+}
+
+export function publicPage(path: string, origin: string): string | null {
+  const url = new URL(path, origin);
+  // Private routes can contain invitation/recovery tokens or other personal identifiers.
+  const pathname = url.pathname.replace(/^\/(?:en|de|fr|it|es|nl|pt)(?=\/|$)/, "") || "/";
+  if (url.origin !== origin || !/^\/(?:go|contact|privacy-policy|cookie-policy|terms|listings|events|about|professional-access)?\/?$/.test(pathname)) return null;
+  const safe = new URL(url.pathname, origin);
+  for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
+    const value = url.searchParams.get(key);
+    if (value && /^[\w .+-]{1,100}$/.test(value)) safe.searchParams.set(key, value);
   }
-  if (!posthogLoadPromise) {
-    posthogLoadPromise = import("posthog-js")
-      .then((mod) => {
-        posthogClient = mod.default as unknown as PosthogClient;
-        if (typeof window !== "undefined") {
-          window.posthog = posthogClient;
-        }
-        return posthogClient;
-      })
-      .catch(() => null);
-  }
-  return posthogLoadPromise;
+  return safe.href;
 }
 
-function getAnalyticsConsentStatus(): "granted" | "denied" | "unknown" {
-  if (typeof window === "undefined") return "unknown";
-  try {
-    const raw = window.localStorage.getItem("cookie_consent");
-    if (!raw) return "unknown";
-    const parsed = JSON.parse(raw) as {
-      type?: "all" | "necessary" | "custom";
-      preferences?: { analytics?: boolean };
-    };
-    if (typeof parsed?.preferences?.analytics === "boolean") {
-      return parsed.preferences.analytics ? "granted" : "denied";
-    }
-    if (parsed?.type === "all") return "granted";
-    if (parsed?.type === "necessary") return "denied";
-    return "unknown";
-  } catch {
-    return "unknown";
+function canTrack() { return !!measurementId() && readConsent()?.preferences.analytics === true; }
+function disableGoogle(disabled: boolean) {
+  const id = measurementId();
+  if (id) Object.assign(window, { [`ga-disable-${id}`]: disabled });
+}
+
+function deleteCookies(matcher: (name: string) => boolean) {
+  const parts = window.location.hostname.split(".");
+  const domains = ["", ...parts.map((_, i) => `;Domain=.${parts.slice(i).join(".")}`)];
+  for (const cookie of document.cookie.split(";")) {
+    const name = cookie.split("=")[0].trim();
+    if (matcher(name)) for (const domain of domains) document.cookie = `${name}=;Max-Age=0;Path=/${domain};SameSite=Lax`;
   }
 }
 
-function safeProvider(value?: string): AnalyticsProvider {
-  if (value === "debug" || value === "posthog" || value === "plausible" || value === "ga4") {
-    return value;
-  }
-  return "none";
-}
-
-function safeCookielessMode(value?: string): CookielessMode | undefined {
-  if (value === "always" || value === "on_reject") return value;
-  return undefined;
-}
-
-function shouldCaptureEvents(config: AnalyticsConfig): boolean {
-  const consent = getAnalyticsConsentStatus();
-  if (consent === "granted") return true;
-  if (config.provider === "posthog" && config.cookielessMode === "always") return true;
-  if (config.provider === "posthog" && config.cookielessMode === "on_reject" && consent === "denied") return true;
-  return false;
-}
-
-function shouldIdentifyUsers(): boolean {
-  return getAnalyticsConsentStatus() === "granted";
-}
-
-function getConfig(): AnalyticsConfig {
-  if (typeof window === "undefined") return { provider: "none" };
-  const env = window.ENV;
-  return {
-    provider: safeProvider(env?.ANALYTICS_PROVIDER),
-    key: env?.ANALYTICS_WRITE_KEY,
-    host: env?.ANALYTICS_HOST,
-    uiHost: env?.ANALYTICS_UI_HOST,
-    debug: env?.ANALYTICS_DEBUG === "true",
-    plausibleDomain: env?.ANALYTICS_PLAUSIBLE_DOMAIN,
-    gaMeasurementId: env?.ANALYTICS_GA_MEASUREMENT_ID,
-    cookielessMode: safeCookielessMode(env?.ANALYTICS_COOKIELESS_MODE),
-  };
-}
-
-function ensureScript(src: string, attrs?: Record<string, string>): void {
-  if (typeof document === "undefined") return;
-  const existing = document.querySelector(`script[src="${src}"]`);
-  if (existing) return;
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = src;
-  Object.entries(attrs || {}).forEach(([k, v]) => script.setAttribute(k, v));
-  document.head.appendChild(script);
-}
-
-function createNoopAdapter(): AnalyticsAdapter {
-  return {
-    init: () => undefined,
-    page: () => undefined,
-    track: () => undefined,
-    identify: () => undefined,
-    reset: () => undefined,
-  };
-}
-
-function createDebugAdapter(config: AnalyticsConfig): AnalyticsAdapter {
-  return {
-    init: () => {
-      if (config.debug) console.info("[analytics] debug adapter initialized");
-    },
-    page: (path, props) => console.info("[analytics] page", path, props || {}),
-    track: (event, props) => console.info("[analytics] track", event, props || {}),
-    identify: (userId, traits) => console.info("[analytics] identify", userId, traits || {}),
-    reset: () => console.info("[analytics] reset"),
-  };
-}
-
-function createPosthogAdapter(config: AnalyticsConfig): AnalyticsAdapter {
-  let posthogInitialized = false;
-
-  const withPosthog = (callback: (client: PosthogClient) => void): void => {
-    if (posthogClient) {
-      callback(posthogClient);
-      return;
-    }
-    void loadPosthogClient().then((client) => {
-      if (!client) return;
-      callback(client);
-    });
-  };
-
-  const resolvePosthogApiHost = (): string => {
-    const configured = (config.host || "/ph").trim();
-    if (typeof window === "undefined") return configured;
-
+function clearLegacyAnalytics() {
+  deleteCookies(name => /^ph_.*_posthog$|^__ph_opt_in_out_/.test(name));
+  for (const storageName of ["localStorage", "sessionStorage"] as const) {
     try {
-      return new URL(configured, window.location.origin).toString().replace(/\/$/, "");
-    } catch {
-      return `${window.location.origin}/ph`;
-    }
-  };
-
-  return {
-    init: () => {
-      if (!config.key) return;
-      if (posthogInitialized) return;
-      posthogInitialized = true;
-      void loadPosthogClient().then((client) => {
-        if (!client) return;
-        client.init(config.key!, {
-          api_host: resolvePosthogApiHost(),
-          ui_host: config.uiHost || "https://us.posthog.com",
-          cookieless_mode: config.cookielessMode,
-          autocapture: false,
-          capture_pageview: false,
-          persistence: "localStorage+cookie",
-          loaded: () => {
-            // Keep analytics state aligned with current cookie consent/cookieless mode.
-            const consent = getAnalyticsConsentStatus();
-            if (consent === "granted") {
-              client.opt_in_capturing();
-            } else if (consent === "denied") {
-              client.opt_out_capturing();
-            }
-            if (config.debug) {
-              console.info("[analytics] posthog initialized");
-            }
-          },
-        });
-      });
-    },
-    page: (path, props) => {
-      withPosthog((client) => client.capture("page_view", { path, ...(props || {}) }));
-    },
-    track: (event, props) => {
-      withPosthog((client) => client.capture(event, props || {}));
-    },
-    identify: (userId, traits) => withPosthog((client) => client.identify(userId, traits || {})),
-    reset: () => withPosthog((client) => client.reset()),
-  };
-}
-
-function createPlausibleAdapter(config: AnalyticsConfig): AnalyticsAdapter {
-  return {
-    init: () => {
-      const domain = config.plausibleDomain;
-      if (!domain) return;
-      ensureScript("https://plausible.io/js/script.js", { "data-domain": domain });
-    },
-    page: (path, props) => window.plausible?.("pageview", { props: { path, ...(props || {}) } }),
-    track: (event, props) => window.plausible?.(event, { props: props || {} }),
-    identify: () => undefined,
-    reset: () => undefined,
-  };
-}
-
-function createGa4Adapter(config: AnalyticsConfig): AnalyticsAdapter {
-  return {
-    init: () => {
-      const id = config.gaMeasurementId;
-      if (!id || typeof window === "undefined") return;
-      ensureScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`);
-      if (!window.dataLayer) window.dataLayer = [];
-      if (!window.gtag) {
-        window.gtag = function gtagShim(...args: unknown[]) {
-          window.dataLayer?.push(args as unknown as Record<string, unknown>);
-        };
+      const storage = window[storageName];
+      for (let i = storage.length - 1; i >= 0; i--) {
+        const key = storage.key(i);
+        if (key && /^ph_.*_posthog$|^__ph_opt_in_out_/.test(key)) storage.removeItem(key);
       }
-      window.gtag("js", new Date());
-      window.gtag("config", id, { send_page_view: false });
-    },
-    page: (path, props) => window.gtag?.("event", "page_view", { page_path: path, ...(props || {}) }),
-    track: (event, props) => window.gtag?.("event", event, props || {}),
-    identify: () => undefined,
-    reset: () => undefined,
-  };
-}
-
-function buildAdapter(config: AnalyticsConfig): AnalyticsAdapter {
-  switch (config.provider) {
-    case "debug":
-      return createDebugAdapter(config);
-    case "posthog":
-      return createPosthogAdapter(config);
-    case "plausible":
-      return createPlausibleAdapter(config);
-    case "ga4":
-      return createGa4Adapter(config);
-    default:
-      return createNoopAdapter();
+    } catch { /* Storage may be disabled. */ }
   }
 }
 
 export function initAnalytics(): void {
-  if (typeof window === "undefined") return;
-  if (initialized) return;
+  if (typeof window === "undefined" || initialized || !canTrack()) return;
   initialized = true;
-  const config = getConfig();
-  adapter = buildAdapter(config);
-  adapter.init();
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { window.dataLayer!.push(arguments); };
+  window.gtag("consent", "default", { ...adConsent, analytics_storage: "denied" });
+  window.gtag("consent", "update", { ...adConsent, analytics_storage: "granted" });
+  window.gtag("js", new Date());
+  window.gtag("config", measurementId(), {
+    send_page_view: false,
+    allow_google_signals: false,
+    allow_ad_personalization_signals: false,
+    cookie_expires: 180 * 24 * 60 * 60,
+    cookie_update: false,
+    page_location: publicPage(location.pathname + location.search, location.origin) || location.origin,
+    page_referrer: safeReferrer(document.referrer),
+  });
+  const script = document.createElement("script");
+  script.id = "runoot-ga4";
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId()}`;
+  document.head.appendChild(script);
 }
 
-export function trackEvent(event: AnalyticsEventName, props?: AnalyticsProps): void {
-  if (typeof window === "undefined") return;
-  const config = getConfig();
-  if (!shouldCaptureEvents(config)) return;
-  initAnalytics();
-  adapter.track(event, props);
+function safeReferrer(referrer: string) {
+  try { return new URL(referrer).origin + "/"; } catch { return ""; }
 }
 
 export function trackPage(path: string, props?: AnalyticsProps): void {
   if (typeof window === "undefined") return;
-  const config = getConfig();
-  if (!shouldCaptureEvents(config)) return;
+  currentPage = { path, props };
+  const page = publicPage(path, window.location.origin);
+  disableGoogle(!canTrack() || !page);
+  if (!page || !canTrack()) { lastPageKey = ""; return; }
+  if (page === lastPageKey) return;
   initAnalytics();
-  adapter.page(path, props);
+  window.gtag?.("config", measurementId(), { send_page_view: false, page_location: page, page_referrer: previousPage || safeReferrer(document.referrer) });
+  window.gtag?.("event", "page_view", {
+    page_location: page,
+    page_referrer: previousPage || safeReferrer(document.referrer),
+    ...safeAnalyticsProps(props),
+  });
+  previousPage = page;
+  lastPageKey = page;
 }
 
-export function identifyUser(userId: string, traits?: AnalyticsProps): void {
-  if (typeof window === "undefined") return;
-  if (!shouldIdentifyUsers()) return;
+export function trackEvent(event: AnalyticsEventName, props?: AnalyticsProps): void {
+  if (typeof window === "undefined" || !canTrack() || !publicPage(location.pathname, location.origin)) return;
   initAnalytics();
-  adapter.identify(userId, traits);
+  window.gtag?.("event", event, { page_location: publicPage(location.pathname + location.search, location.origin), ...safeAnalyticsProps(props) });
 }
 
-export function resetAnalytics(): void {
-  if (typeof window === "undefined") return;
-  adapter.reset();
+export function startAnalytics() {
+  clearLegacyAnalytics();
+  const onConsent = () => {
+    const granted = canTrack();
+    disableGoogle(!granted);
+    if (initialized) window.gtag?.("consent", "update", { ...adConsent, analytics_storage: granted ? "granted" : "denied" });
+    if (!granted) {
+      lastPageKey = "";
+      deleteCookies(name => name === "_ga" || name.startsWith("_ga_") || name === "_gid" || name.startsWith("_gat"));
+    } else if (currentPage) trackPage(currentPage.path, currentPage.props);
+  };
+  const onStorage = (event: StorageEvent) => { if (event.key === CONSENT_KEY || event.key === null) onConsent(); };
+  onConsent();
+  window.addEventListener(CONSENT_CHANGED, onConsent);
+  window.addEventListener("storage", onStorage);
+  return () => { window.removeEventListener(CONSENT_CHANGED, onConsent); window.removeEventListener("storage", onStorage); };
 }

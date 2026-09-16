@@ -17,19 +17,5 @@
       "destination": "https://www.runoot.com/:path*",
       "permanent": true
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/ph/static/:path*",
-      "destination": "https://eu-assets.i.posthog.com/static/:path*"
-    },
-    {
-      "source": "/ph/:path*",
-      "destination": "https://eu.i.posthog.com/:path*"
-    },
-    {
-      "source": "/ph/decide",
-      "destination": "https://eu.i.posthog.com/decide"
-    }
   ]
 }

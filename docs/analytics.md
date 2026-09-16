@@ -1,69 +1,25 @@
-# Analytics Architecture
+# Google Analytics 4
 
-This project now uses a vendor-agnostic client analytics layer.
+Runoot uses GA4 only. The PostHog SDK, proxy and public configuration have been removed. Historical PostHog data is not imported into Google Analytics and the external PostHog account is not deleted.
 
-## Core design
+## Setup
 
-- Single API surface: `trackEvent`, `trackPage`, `identifyUser`, `resetAnalytics`
-- Provider selected by env var, no app-wide refactor needed to switch
-- Consent-aware: analytics events are sent only when `cookie_consent.preferences.analytics === true`
+The Runoot Web stream uses the public measurement ID `G-JGXDVBTR9E`, supplied by the owner. It is the default in the root loader; `ANALYTICS_GA_MEASUREMENT_ID` can override it for other deployments. Use `disabled` as an override to disable analytics locally. Without a valid ID no Google script loads. Old PostHog environment variables have no effect and may be removed from hosting settings.
 
-## Files
+In the Web stream, disable Enhanced Measurement (especially automatic page views/history changes and form interactions). The application emits manual SPA `page_view` and `generate_lead` events. This avoids double counting and collection of form-related data. Leave Google signals, advertising features and user-provided data collection off. Set event data retention to 2 months and turn off renewal on new activity.
 
-- `app/lib/analytics/client.ts`: provider adapters and runtime dispatch
-- `app/lib/analytics/events.ts`: canonical event names
+Register event-scoped custom dimensions `landing_source`, `race` and `preference` to use them in reports. Mark `generate_lead` as a key event. Verify actual arrivals in Realtime/DebugView after deployment; an inserted tag alone does not prove ingestion.
 
-## Environment variables
+## Consent and coverage
 
-- `ANALYTICS_PROVIDER`: `none` | `debug` | `posthog` | `plausible` | `ga4`
-- `ANALYTICS_WRITE_KEY`: write key (used by PostHog)
-- `ANALYTICS_HOST`: API host (optional, used by PostHog)
-- `ANALYTICS_UI_HOST`: PostHog app host for toolbar/session links (for example `https://eu.posthog.com`)
-- `ANALYTICS_DEBUG`: `true` or `false`
-- `ANALYTICS_PLAUSIBLE_DOMAIN`: Plausible domain (required for Plausible)
-- `ANALYTICS_GA_MEASUREMENT_ID`: GA4 measurement ID (required for GA4)
-- `ANALYTICS_COOKIELESS_MODE`: PostHog only, optional (`always` | `on_reject`)
+Basic consent mode: Google is not loaded until the visitor explicitly accepts analytics. All advertising consent types stay denied. Rejecting or leaving the banner unanswered sends no application analytics events. A returning visitor must consent again when the saved choice is older than 180 days, invalid, or from the previous PostHog version. Consent changes apply immediately; revocation disables Google measurement and removes accessible GA cookies. Cookie settings are available in the landing footer and cookie policy.
 
-## Switching provider
+GA4 cannot count all visitors: refusals, blocked scripts and network failures reduce coverage. The database remains the source of truth for saved requests and QR/site attribution regardless of analytics consent. Request email consent is independent from cookie consent.
 
-1. Keep event names stable in `events.ts`
-2. Change only env vars
-3. Verify dashboards and custom props mapping
+Only public pages are measured; account, administration and token-bearing routes are excluded. Names, emails, custom race text, free-text search, account IDs, URL fragments and arbitrary query parameters are not sent. Safe UTM parameters are retained. A custom race is reported as `Another race`. A confirmed successful form submission emits `generate_lead`; repeat successful submissions can appear as repeat conversions while the database deduplicates email + race.
 
-No route/component-level rewrites should be needed.
+`landing_source=qr` means the current landing path is `/go`; `site` means home or a language homepage. A shared `/go` link also counts as QR. Register these as custom dimensions before building source reports. Previous PostHog cookies/storage are cleared on page initialization where accessible.
 
-## PostHog proxy on Vercel (recommended)
+## Verification
 
-- `vercel.json` rewrites `/ph/*` to PostHog ingest.
-- A server route proxy `app/routes/ph.$.tsx` is also present to prevent locale catch-all routes from intercepting `/ph/*` POST requests.
-- Set:
-  - `ANALYTICS_PROVIDER=posthog`
-  - `ANALYTICS_WRITE_KEY=phc_...`
-  - `ANALYTICS_HOST=/ph`
-  - `ANALYTICS_UI_HOST=https://eu.posthog.com` (EU project) or `https://us.posthog.com` (US project)
-  - Optional: `ANALYTICS_COOKIELESS_MODE=on_reject` (or `always`)
-
-Important: when using cookieless mode, you must also enable it in PostHog project settings, otherwise cookieless events are ignored.
-
-## PostHog setup checklist
-
-1. Create dashboard cards for:
-   - `page_view`
-   - `home_search_submitted`
-   - `home_search_suggestion_clicked`
-   - `home_view_all_listings_clicked`
-   - `home_view_all_events_clicked`
-   - `listings_search_submitted`
-   - `listings_search_suggestion_clicked`
-   - `listings_sort_changed`
-   - `contact_form_submitted`
-2. Build conversion funnel:
-   - `page_view` (home)
-   - `home_view_all_listings_clicked` or `home_search_submitted`
-   - `listings_search_submitted` or `listings_search_suggestion_clicked`
-   - `contact_form_submitted` (`phase=success`)
-3. Useful properties already sent:
-   - common: `locale`, `has_user`
-   - search/listings: `query`, `event_name`, `type_filter`, `has_search`
-   - contact: `phase`, `subject`, `authenticated`
-   - person properties on identify: `user_type`, `preferred_language`, `country`, `verified`
+Run `node --import tsx scripts/test-analytics.ts`, `npm run typecheck` and `npm run build`. Verify unknown/accepted/rejected consent, immediate activation after acceptance, revocation, navigation deduplication, private-route exclusion and no personal form fields in Google events. Verify a real successful request still saves when analytics is rejected.

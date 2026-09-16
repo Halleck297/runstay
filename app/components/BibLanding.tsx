@@ -3,6 +3,9 @@ import { Link, useFetcher, useActionData } from "react-router";
 import type { submitBibRequest } from "~/lib/bib-requests.server";
 import { bibRaces, BIB_CONSENT_TEXT } from "~/lib/bib-requests";
 import "~/styles/bib-landing.css";
+import { trackEvent } from "~/lib/analytics/client";
+import { reopenCookieBanner } from "~/lib/analytics/consent";
+import { bibRequestSource } from "~/lib/bib-requests";
 
 export default function BibLanding() {
   const [race, setRace] = useState("");
@@ -14,6 +17,17 @@ export default function BibLanding() {
   const [dismissed, setDismissed] = useState(false);
   const complete = !dismissed && fetcher.state === "idle" && result?.success === true;
   const submitting = fetcher.state !== "idle";
+  const trackedResult = useRef<unknown>(null);
+  useEffect(() => {
+    if (complete && result !== trackedResult.current) {
+      trackedResult.current = result;
+      trackEvent("generate_lead", {
+        landing_source: bibRequestSource(window.location.pathname),
+        race: bibRaces.some(item => item.name === result?.race) ? result?.race : "Another race",
+        preference,
+      });
+    }
+  }, [complete, result, preference]);
   const confirmation = useRef<HTMLDivElement>(null);
   const selectedRace = result?.success ? result.race : (race === "Another race" ? otherRace : race);
   useEffect(() => {
@@ -78,7 +92,7 @@ export default function BibLanding() {
           {[{ q: "Does a request guarantee an entry?", a: "No. You’re expressing interest, not reserving a place or joining an official event waiting list. Availability depends on the event, entry conditions and the opportunities we can source." }, { q: "Will I have to buy a hotel package?", a: "Only if you choose an offer that includes one. Select ‘Bib only’ if you don’t want package offers. Some entries are available only as part of a package." }, { q: "Do I pay anything now?", a: "No. Leaving a request is free. If an opportunity becomes available, you’ll see its price and conditions before making a decision." }].map(item => <details key={item.q}><summary>{item.q}<span aria-hidden="true">+</span></summary><p>{item.a}</p></details>)}
         </div></section>
       </main>
-      <footer className="bib-footer"><a href="#" className="bib-wordmark">bibexchange<span>by <strong>runoot</strong></span></a><p>More start lines. More possibilities.</p><div><Link to="/privacy-policy">Privacy</Link><Link to="/contact">Contact</Link></div><small>Independent service. Not affiliated with or endorsed by the featured races.</small></footer>
+      <footer className="bib-footer"><a href="#" className="bib-wordmark">bibexchange<span>by <strong>runoot</strong></span></a><p>More start lines. More possibilities.</p><div><Link to="/privacy-policy">Privacy</Link><Link to="/contact">Contact</Link><button type="button" onClick={reopenCookieBanner}>Cookie settings</button></div><small>Independent service. Not affiliated with or endorsed by the featured races.</small></footer>
     </div>
   );
 }

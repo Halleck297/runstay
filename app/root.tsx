@@ -14,7 +14,7 @@ import {
 import { bibRequestSource, isBibLandingPath } from "~/lib/bib-requests";
 import CookieBanner from "~/components/CookieBanner";
 import { MobileNav } from "~/components/MobileNav";
-import { identifyUser, resetAnalytics, trackPage } from "~/lib/analytics/client";
+import { startAnalytics, trackPage } from "~/lib/analytics/client";
 import { needsAdminPhoneVerification } from "~/lib/user-access";
 import "./styles/tailwind.css";
 
@@ -86,27 +86,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         SUPABASE_URL: process.env.SUPABASE_URL!,
         SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY!,
         ACCESS_TOKEN: accessToken,
-        ANALYTICS_PROVIDER:
-          process.env.ANALYTICS_PROVIDER ||
-          (process.env.ANALYTICS_WRITE_KEY || process.env.VITE_PUBLIC_POSTHOG_KEY ? "posthog" : "none"),
-        ANALYTICS_WRITE_KEY:
-          process.env.ANALYTICS_WRITE_KEY ||
-          process.env.VITE_PUBLIC_POSTHOG_KEY ||
-          "",
-        ANALYTICS_HOST:
-          process.env.ANALYTICS_HOST ||
-          process.env.VITE_PUBLIC_POSTHOG_HOST ||
-          (process.env.ANALYTICS_PROVIDER === "posthog" || process.env.ANALYTICS_WRITE_KEY || process.env.VITE_PUBLIC_POSTHOG_KEY ? "/ph" : ""),
-        ANALYTICS_UI_HOST:
-          process.env.ANALYTICS_UI_HOST ||
-          process.env.VITE_PUBLIC_POSTHOG_UI_HOST ||
-          (process.env.ANALYTICS_HOST?.includes("eu") || process.env.VITE_PUBLIC_POSTHOG_HOST?.includes("eu")
-            ? "https://eu.posthog.com"
-            : "https://us.posthog.com"),
-        ANALYTICS_DEBUG: process.env.ANALYTICS_DEBUG || "false",
-        ANALYTICS_PLAUSIBLE_DOMAIN: process.env.ANALYTICS_PLAUSIBLE_DOMAIN || "",
-        ANALYTICS_GA_MEASUREMENT_ID: process.env.ANALYTICS_GA_MEASUREMENT_ID || "",
-        ANALYTICS_COOKIELESS_MODE: process.env.ANALYTICS_COOKIELESS_MODE || "",
+        // Public measurement ID; an environment override supports other deployments.
+        ANALYTICS_GA_MEASUREMENT_ID: process.env.ANALYTICS_GA_MEASUREMENT_ID || "G-JGXDVBTR9E",
         SENTRY_DSN: process.env.SENTRY_DSN || "",
       },
     },
@@ -219,6 +200,8 @@ export default function App() {
     navigate(`/reset-password${window.location.hash}`, { replace: true });
   }, [location.pathname, navigate]);
 
+  useEffect(() => startAnalytics(), []);
+
   useEffect(() => {
     trackPage(`${location.pathname}${location.search}`, {
       locale,
@@ -226,19 +209,6 @@ export default function App() {
       ...(isBibLandingPath(location.pathname) ? { landing_source: bibRequestSource(location.pathname) } : {}),
     });
   }, [location.pathname, location.search, locale, user]);
-
-  useEffect(() => {
-    if (user?.id) {
-      identifyUser(user.id, {
-        user_type: (user as any)?.user_type || null,
-        preferred_language: (user as any)?.preferred_language || null,
-        country: (user as any)?.country || null,
-        verified: !!(user as any)?.is_verified,
-      });
-      return;
-    }
-    resetAnalytics();
-  }, [user]);
 
   // Tawk.to live chat — only for logged-in users, hidden on excluded routes
   useEffect(() => {
