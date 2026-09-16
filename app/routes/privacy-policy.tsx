@@ -28,6 +28,10 @@ export default function PrivacyPolicy() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="space-y-8 rounded-lg bg-white p-8 shadow-sm">
           <p className="text-gray-700">{doc.summary}</p>
+          <section lang="en" className="rounded-lg border border-blue-100 bg-blue-50 p-5">
+            <h2 className="mb-3 text-xl font-semibold text-gray-900">BibExchange race requests</h2>
+            <p className="text-gray-700">When you request race opportunities, we save your first and last name, email address, chosen race, bib or package preference, request date, consent, and whether you used the QR landing (/go) or the homepage. We use these details to manage your request and contact you about matching opportunities with your consent. No account is created. Your request is available only to authorized Runoot administrators; your contact details are not automatically shared with tour operators. You can withdraw consent or request deletion by emailing support@runoot.com.</p>
+          </section>
 
           {doc.sections.map((section) => (
             <section key={section.title}>

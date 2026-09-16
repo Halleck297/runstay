@@ -48,6 +48,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 const baseNavItems = [
   {
+    to: "/admin/bib-requests",
+    label: "Bib requests",
+    icon: <span className="w-5 h-5 text-center" aria-hidden="true">↗</span>,
+  },
+  {
     to: "/admin",
     label: "Dashboard",
     icon: (

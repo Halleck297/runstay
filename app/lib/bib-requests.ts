@@ -1,0 +1,55 @@
+import type { MetaFunction } from "react-router";
+
+export const landingMeta: MetaFunction = () => [
+  { title: "Your next start line | BibExchange by Runoot" },
+  { name: "description", content: "Tell us which marathon you want to run. Get notified when a matching race entry becomes available." },
+  { tagName: "link", rel: "canonical", href: "https://www.runoot.com/" },
+];
+
+export const BIB_CONSENT_VERSION = "2026-09-16";
+export const BIB_CONSENT_TEXT = "I’d like email updates about matching race opportunities. I can withdraw my request by contacting support@runoot.com.";
+
+export const bibRaces = [
+  { name: "Tokyo", country: "Japan", code: "TYO" },
+  { name: "Boston", country: "United States", code: "BOS" },
+  { name: "London", country: "United Kingdom", code: "LON" },
+  { name: "Cape Town", country: "South Africa", code: "CPT" },
+  { name: "Chicago", country: "United States", code: "CHI" },
+  { name: "New York", country: "United States", code: "NYC" },
+  { name: "Sydney", country: "Australia", code: "SYD" },
+  { name: "Another race", country: "Your next adventure", code: "+" },
+];
+
+export function isBibLandingPath(path: string) {
+  return /^\/(?:go\/?|(?:en|de|fr|it|es|nl|pt)\/?)?$/.test(path);
+}
+
+export function bibRequestSource(path: string): "qr" | "site" {
+  return /^\/go\/?$/.test(path) ? "qr" : "site";
+}
+
+export function validateBibRequest(form: FormData) {
+  const read = (key: string) => String(form.get(key) ?? "").normalize("NFKC").trim();
+  const firstName = read("firstName");
+  const lastName = read("lastName");
+  const email = read("email").toLowerCase();
+  const selected = read("race");
+  const race = selected === "Another race" ? read("otherRace").replace(/\s+/g, " ") : selected;
+  const preference = read("preference");
+  if (!bibRaces.some(item => item.name === selected) || race.length < 2 || race.length > 120 || /[\u0000-\u001f]/.test(race)) {
+    return { error: "Please choose a race, or enter the race you’re looking for." } as const;
+  }
+  if (!firstName || !lastName || firstName.length > 100 || lastName.length > 100 || /[\u0000-\u001f]/.test(firstName + lastName)) {
+    return { error: "Please enter your first and last name (up to 100 characters each)." } as const;
+  }
+  if (email.length > 254 || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) {
+    return { error: "Please enter a valid email address." } as const;
+  }
+  if (preference !== "bib" && preference !== "package") {
+    return { error: "Please choose a bib or a full package." } as const;
+  }
+  if (form.get("consent") !== "on") {
+    return { error: "Please agree to receive updates about your request." } as const;
+  }
+  return { value: { first_name: firstName, last_name: lastName, email, race, race_key: race.toLowerCase(), preference } } as const;
+}

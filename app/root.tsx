@@ -11,6 +11,7 @@ import {
   LOCALE_COOKIE_NAME,
   resolveLocaleForRequest,
 } from "~/lib/locale";
+import { bibRequestSource, isBibLandingPath } from "~/lib/bib-requests";
 import CookieBanner from "~/components/CookieBanner";
 import { MobileNav } from "~/components/MobileNav";
 import { identifyUser, resetAnalytics, trackPage } from "~/lib/analytics/client";
@@ -26,7 +27,7 @@ export const links: LinksFunction = () => [
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const user = await getUser(request);
-  const locale = resolveLocaleForRequest(request, (user as any)?.preferred_language);
+  const locale = isBibLandingPath(url.pathname) ? "en" : resolveLocaleForRequest(request, (user as any)?.preferred_language);
   const currentCookieLocale = getLocaleFromCookie(request.headers.get("Cookie"));
   const shouldSetLocaleCookie = currentCookieLocale !== locale;
 
@@ -47,15 +48,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
         headers,
       });
     }
-  }
-
-  if (url.pathname === "/") {
-    return redirect(`/${locale}${url.search}`, {
-      status: 302,
-      headers: {
-        "Set-Cookie": buildLocaleCookie(locale),
-      },
-    });
   }
 
   const accessTokenResult = await getAccessTokenWithRefresh(request);
@@ -171,6 +163,7 @@ export default function App() {
   const navigate = useNavigate();
   const [hydrated, setHydrated] = useState(false);
   const hideMobileNav =
+    isBibLandingPath(location.pathname) ||
     /(^|\/)(login|register)(\/|$)/.test(location.pathname) ||
     location.pathname.includes("/join-team/");
 
@@ -230,6 +223,7 @@ export default function App() {
     trackPage(`${location.pathname}${location.search}`, {
       locale,
       has_user: !!user,
+      ...(isBibLandingPath(location.pathname) ? { landing_source: bibRequestSource(location.pathname) } : {}),
     });
   }, [location.pathname, location.search, locale, user]);
 
@@ -249,6 +243,7 @@ export default function App() {
   // Tawk.to live chat — only for logged-in users, hidden on excluded routes
   useEffect(() => {
     const hideTawkPatterns = [
+      /^\/go\/?$/,
       /\/(login|register|forgot-password|reset-password|logout|verify-phone|contact|report)(\/|$)/,
       /\/admin(\/|$)/,
       /\/api\//,
@@ -258,7 +253,7 @@ export default function App() {
       /\/become-tl\//,
       /\/(terms|terms-tour-operator|privacy-policy|cookie-policy|legal|legal-notes|note-legali|mentions-legales|aviso-legal|impressum)(\/|$)/,
     ];
-    const shouldHide = !user || hideTawkPatterns.some((re) => re.test(location.pathname));
+    const shouldHide = isBibLandingPath(location.pathname) || !user || hideTawkPatterns.some((re) => re.test(location.pathname));
 
     // If we should hide, remove any existing widget and bail
     if (shouldHide) {
@@ -340,7 +335,7 @@ export default function App() {
       )}
       <Outlet />
       <CookieBanner />
-      <MobileNav user={user} />
+      {!isBibLandingPath(location.pathname) && <MobileNav user={user} />}
     </>
   );
 }

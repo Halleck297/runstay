@@ -25,6 +25,40 @@ export type ProfileWithUnread = Profile & {
 export interface Database {
   public: {
     Tables: {
+      bib_requests: {
+        Row: {
+          id: string;
+          created_at: string;
+          first_name: string;
+          last_name: string;
+          email: string;
+          race: string;
+          race_key: string;
+          preference: "bib" | "package";
+          source: "qr" | "site";
+          landing_path: string;
+          consent_version: string;
+          consent_text: string;
+          email_verified: boolean;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          first_name: string;
+          last_name: string;
+          email: string;
+          race: string;
+          race_key: string;
+          preference: "bib" | "package";
+          source: "qr" | "site";
+          landing_path: string;
+          consent_version: string;
+          consent_text: string;
+          email_verified?: boolean;
+        };
+        Update: Partial<Database["public"]["Tables"]["bib_requests"]["Insert"]>;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;

@@ -1,5 +1,5 @@
 import { data, useLoaderData, type ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "react-router";
-import HomePage, { loader as homeLoader, meta as homeMeta } from "./_index";
+import HomePage, { loader as homeLoader, meta as homeMeta, action as homeAction } from "./_index";
 import { buildLocaleCookie, isSupportedLocale } from "~/lib/locale";
 import ReferralFallbackPage, {
   loader as referralLoader,
@@ -20,7 +20,7 @@ export async function loader(args: LoaderFunctionArgs) {
     return referralLoader(args);
   }
 
-  const payload = await homeLoader(args);
+  const payload = await homeLoader();
   const localeCookie = buildLocaleCookie(localeParam);
 
   if (payload instanceof Response) {
@@ -51,7 +51,7 @@ export async function action(args: ActionFunctionArgs) {
   if (!isSupportedLocale(localeParam)) {
     return referralAction(args);
   }
-  throw new Response("Method Not Allowed", { status: 405 });
+  return homeAction(args);
 }
 
 export default function LocaleIndexRoute() {
