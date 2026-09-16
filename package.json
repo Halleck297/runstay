@@ -4,9 +4,10 @@
   "sideEffects": false,
   "type": "module",
   "overrides": {
-    "esbuild": "^0.27.2",
+    "esbuild": "0.27.2",
     "estree-util-value-to-estree": "^3.3.3",
-    "dompurify": "3.4.0"
+    "dompurify": "3.4.15",
+    "qs": "6.16.0"
   },
   "scripts": {
     "build": "react-router build",
@@ -24,8 +25,8 @@
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.0.2",
-    "@react-router/node": "7.13.0",
-    "@react-router/serve": "7.13.0",
+    "@react-router/node": "7.18.4",
+    "@react-router/serve": "7.18.4",
     "@sentry/react": "^10.46.0",
     "@supabase/supabase-js": "^2.47.0",
     "isbot": "^4.1.0",
@@ -33,11 +34,11 @@
     "react": "^18.2.0",
     "react-datepicker": "^9.1.0",
     "react-dom": "^18.2.0",
-    "react-router": "7.13.0"
+    "react-router": "7.18.4"
   },
   "devDependencies": {
-    "@react-router/dev": "7.13.0",
-    "@react-router/fs-routes": "7.13.0",
+    "@react-router/dev": "7.18.4",
+    "@react-router/fs-routes": "7.18.4",
     "@types/google.maps": "^3.58.1",
     "@types/react": "^18.2.20",
     "@types/react-datepicker": "^6.2.0",

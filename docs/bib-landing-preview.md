@@ -16,6 +16,8 @@ Apply `migrations/20260916_bib_requests.sql` to the project's Supabase database 
 
 Checks: `npm run typecheck`, `node --import tsx scripts/test-bib-requests.ts`, `npm run build`. Verify a real disposable submission through both paths, attribution, deduplication and anonymous-access denial, then delete only the test records. Existing `npm run check` also runs an i18n audit that reports missing translation keys in the pre-existing dashboard.
 
+`node --env-file=.env scripts/smoke-bib-landing.mjs https://www.runoot.com` checks real submissions and deletes only its uniquely identified disposable records. Production publication and this check succeeded on 2026-09-16. The dependency audit found pre-existing advisories, addressed with React Router 7.18.4, patched DOMPurify/qs/esbuild overrides and compatible lockfile updates. The resulting npm audit reports zero vulnerabilities.
+
 ## Preserved project
 
 The previous home remains byte-for-byte in `app/routes/_index.backup.tsx`, ignored by the filesystem router. Existing marketplace and account routes remain available at their existing URLs. Landing markup lives in `app/components/BibLanding.tsx`; styling is scoped in `app/styles/bib-landing.css`.
