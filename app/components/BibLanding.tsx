@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useFetcher, useActionData } from "react-router";
+import { Link, useFetcher, useActionData, useLocation } from "react-router";
 import type { submitBibRequest } from "~/lib/bib-requests.server";
 import { bibRaces, BIB_CONSENT_TEXT } from "~/lib/bib-requests";
 import landingStyles from "~/styles/bib-landing.css?url";
@@ -10,6 +10,8 @@ import { bibRequestSource } from "~/lib/bib-requests";
 export const links = () => [{ rel: "stylesheet", href: landingStyles }];
 
 export default function BibLanding() {
+  const { pathname } = useLocation();
+  const showOfferLink = !/^\/go\/?$/.test(pathname);
   const [races, setRaces] = useState<string[]>([]);
   const [otherRace, setOtherRace] = useState("");
   const [preferences, setPreferences] = useState<string[]>(["bib"]);
@@ -40,8 +42,9 @@ export default function BibLanding() {
 
   return (
     <div className="bib-page" lang="en">
-      <header className="bib-header">
+      <header className={`bib-header${showOfferLink ? " bib-header-with-offer" : ""}`}>
         <a href="#" className="bib-wordmark" aria-label="BibExchange by Runoot">bibexchange<span>by <strong>runoot</strong></span></a>
+        {showOfferLink && <Link className="bib-offer-link" to="/offer-entry">Sell your bib</Link>}
       </header>
 
       <main>

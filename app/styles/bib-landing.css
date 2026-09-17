@@ -50,3 +50,23 @@
 .bib-contact-topics p{margin:0}
 @media(max-width:1050px){.bib-info-main{padding-left:30px;padding-right:30px}.bib-info-page .bib-footer{width:calc(100% - 60px)}.bib-privacy-layout{grid-template-columns:210px minmax(0,1fr);gap:28px}.bib-contact-layout{gap:30px}}
 @media(max-width:760px){.bib-info-main{padding:22px 20px 42px}.bib-info-intro{margin-bottom:28px}.bib-info-intro h1{font-size:35px;letter-spacing:-1.3px}.bib-info-lead{font-size:14px}.bib-info-back{font-size:11px}.bib-privacy-layout,.bib-contact-layout{grid-template-columns:1fr;gap:28px}.bib-info-card{padding:24px 20px;border-radius:16px}.bib-info-page .bib-footer{width:calc(100% - 48px)}.bib-privacy-summary nav{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:18px}.bib-privacy-summary ul{margin-bottom:18px}.bib-contact-primary .bib-contact-email{font-size:25px}}
+
+.bib-offer-link{display:inline-flex;justify-content:center;align-items:center;min-height:38px;padding:9px 16px;border:1px solid var(--bib-blue);border-radius:9px;background:var(--bib-blue);color:#fff;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap;box-shadow:0 2px 6px #0759ed14;transition:background .15s,box-shadow .15s}
+.bib-offer-link:hover{background:#084cc5;border-color:#084cc5;box-shadow:0 3px 8px #0759ed26}
+.bib-offer-layout{display:grid;grid-template-columns:minmax(0,.75fr) minmax(0,1.25fr);gap:56px;align-items:start}
+.bib-offer-explainer>.bib-eyebrow{color:var(--bib-blue)}
+.bib-offer-explainer h2{font-size:28px;font-weight:700;letter-spacing:-.8px;line-height:1.3;margin:14px 0 24px}
+.bib-offer-explainer ol{list-style:decimal;padding-left:20px;margin:0 0 28px}
+.bib-offer-explainer li{padding-left:8px;margin-bottom:22px;font-size:14px;color:var(--bib-blue)}
+.bib-offer-explainer strong{display:block;color:var(--bib-ink);margin-bottom:5px}
+.bib-offer-explainer span,.bib-offer-explainer>p:not(.bib-eyebrow){font-size:13px;line-height:1.8;color:var(--bib-muted)}
+.bib-offer-form .bib-offer-required{font-size:11px;margin-bottom:20px}
+.bib-offer-form .bib-field select,.bib-offer-form .bib-field textarea{width:100%;min-width:0;padding:12px;border:1px solid #dce3ec;background:#fafbfd;border-radius:8px;font-family:inherit;font-size:12px;font-weight:400;color:var(--bib-ink)}
+.bib-offer-form textarea{resize:vertical}
+.bib-field-optional{font-size:10px;font-weight:400;color:var(--bib-muted)}
+.bib-offer-contact{border-top:1px solid #e4e9f0;padding-top:24px;margin-top:24px}
+.bib-offer-form .bib-consent span{font-size:11px;line-height:1.7;color:var(--bib-muted)}
+.bib-offer-form a.bib-submit{color:#fff;text-decoration:none}
+@media(max-width:760px){.bib-header.bib-header-with-offer{flex-wrap:nowrap;gap:12px}.bib-header-with-offer .bib-wordmark{font-size:21px;display:block}.bib-header-with-offer .bib-wordmark>span{display:block;margin-top:2px;font-size:10px}.bib-header-with-offer .bib-wordmark strong{font-size:12px}.bib-offer-link{padding:8px 12px;font-size:12px}.bib-offer-layout{grid-template-columns:1fr;gap:24px}.bib-offer-explainer h2{font-size:25px}.bib-offer-form .bib-field select,.bib-offer-form .bib-field textarea{font-size:16px}}
+
+.bib-offer-form .bib-form-note{margin-top:22px}

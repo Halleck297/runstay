@@ -225,7 +225,7 @@ export default function App() {
       /\/become-tl\//,
       /\/(terms|terms-tour-operator|privacy-policy|cookie-policy|legal|legal-notes|note-legali|mentions-legales|aviso-legal|impressum)(\/|$)/,
     ];
-    const shouldHide = isBibLandingPath(location.pathname) || !user || hideTawkPatterns.some((re) => re.test(location.pathname));
+    const shouldHide = isBibPublicPage(location.pathname) || !user || hideTawkPatterns.some((re) => re.test(location.pathname));
 
     // If we should hide, remove any existing widget and bail
     if (shouldHide) {

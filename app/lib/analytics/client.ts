@@ -30,7 +30,7 @@ export function publicPage(path: string, origin: string): string | null {
   const url = new URL(path, origin);
   // Private routes can contain invitation/recovery tokens or other personal identifiers.
   const pathname = url.pathname.replace(/^\/(?:en|de|fr|it|es|nl|pt)(?=\/|$)/, "") || "/";
-  if (url.origin !== origin || !/^\/(?:go|contact|privacy-policy|cookie-policy|terms|listings|events|about|professional-access)?\/?$/.test(pathname)) return null;
+  if (url.origin !== origin || !/^\/(?:go|offer-entry|contact|privacy-policy|cookie-policy|terms|listings|events|about|professional-access)?\/?$/.test(pathname)) return null;
   const safe = new URL(url.pathname, origin);
   for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
     const value = url.searchParams.get(key);

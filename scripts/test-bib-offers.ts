@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import { validateBibOffer } from "../app/lib/bib-offers";
+const form = (overrides: Record<string, string> = {}) => {
+  const result = new FormData();
+  for (const [key, value] of Object.entries({ firstName: "QA", lastName: "Runner", phone: "+44 7700 900123", email: " QA@EXAMPLE.COM ", race: "São Paulo Trail / 50K", raceDate: "2027-06-10", entryType: "bib", transferStatus: "unknown", price: "150,50", currency: "EUR", consent: "on", ...overrides })) result.set(key, value);
+  return result;
+};
+assert.equal(validateBibOffer(form()).value?.email, "qa@example.com");
+assert.equal(validateBibOffer(form()).value?.price, 150.5);
+assert.equal(validateBibOffer(form({ price: "0" })).value?.price, 0);
+assert.equal(validateBibOffer(form({ price: "" })).value?.price, null);
+assert.equal(validateBibOffer(form({ transferStatus: "official_transfer", entryType: "package" })).value?.entry_type, "package");
+assert.equal(validateBibOffer(form({ phone: "+44 7700 900123" })).value?.phone, "+44 7700 900123");
+assert.ok(validateBibOffer(form({ phone: "" })).error);
+assert.ok(validateBibOffer(form({ phone: "   " })).error);
+const missingPhone = form();
+missingPhone.delete("phone");
+assert.ok(validateBibOffer(missingPhone).error);
+assert.ok(validateBibOffer(form({ phone: "invalid" })).error);
+const invalidCases: Record<string, string>[] = [{ race: "" }, { raceDate: "2027-02-30" }, { deadline: "2027-06-11" }, { transferStatus: "unassigned" }, { transferStatus: "" }, { price: "-1" }, { price: "NaN" }, { currency: "invalid" }, { email: "invalid" }, { consent: "" }, { notes: "x".repeat(2001) }];
+for (const invalid of invalidCases) assert.ok(validateBibOffer(form(invalid)).error, JSON.stringify(invalid));
+console.log("PASS: bib offer validation, free-text race names, pricing, dates, consent and runner-only transfers.");
