@@ -26,18 +26,20 @@ export async function submitBibRequest({ request }: ActionFunctionArgs) {
   }
 
   try {
-    const { error } = await supabaseAdmin.from("bib_requests").upsert({
-      ...parsed.value,
+    const { races, ...contact } = parsed.value;
+    const { error } = await supabaseAdmin.from("bib_requests").upsert(races.map(race => ({
+      ...contact,
+      ...race,
       source: bibRequestSource(url.pathname),
       landing_path: url.pathname,
       consent_version: BIB_CONSENT_VERSION,
       consent_text: BIB_CONSENT_TEXT,
-    }, { onConflict: "email,race_key", ignoreDuplicates: true });
+    })), { onConflict: "email,race_key", ignoreDuplicates: true });
     if (error) {
       console.error("bib_request_save_failed", { code: error.code });
       return fail("We couldn’t save your request. Please try again in a moment.", 503);
     }
-    return data({ success: true as const, race: parsed.value.race, error: "" }, { headers });
+    return data({ success: true as const, races: races.map(item => item.race), preference: contact.preference, error: "" }, { headers });
   } catch {
     return fail("We couldn’t save your request. Please try again in a moment.", 503);
   }

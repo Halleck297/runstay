@@ -673,7 +673,7 @@ create table if not exists public.bib_requests (
   email text not null check (char_length(email) between 3 and 254 and email = lower(email)),
   race text not null check (char_length(race) between 2 and 120),
   race_key text not null check (race_key = lower(race)),
-  preference text not null check (preference in ('bib', 'package')),
+  preference text not null check (preference in ('bib', 'package', 'both')),
   source text not null check (source in ('qr', 'site')),
   landing_path text not null,
   consent_version text not null,

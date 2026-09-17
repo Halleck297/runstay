@@ -7,7 +7,11 @@ const anon = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KE
 const email = `runoot-qa-${Date.now()}@example.com`;
 const fields = { race: 'Tokyo', firstName: 'Runoot QA', lastName: 'Temporary', email, preference: 'bib', consent: 'on' };
 async function post(path, overrides = {}, origin = base.origin) {
-  return fetch(new URL(path, base), { method: 'POST', headers: { Origin: origin }, body: new URLSearchParams({ ...fields, ...overrides }) });
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries({ ...fields, ...overrides })) {
+    for (const item of Array.isArray(value) ? value : [value]) body.append(key, item);
+  }
+  return fetch(new URL(path, base), { method: 'POST', headers: { Origin: origin }, body });
 }
 try {
   for (const path of ['/', '/go', '/en']) {
@@ -22,9 +26,13 @@ try {
   assert.equal((await post('/?index', { preference: 'package' })).status, 200);
   assert.equal((await post('/?index', { race: 'Chicago' })).status, 200);
   assert.equal((await post('/en?index', { race: 'Another race', otherRace: 'Valencia Marathon' })).status, 200);
+  assert.equal((await post('/go', { race: ['Tokyo', 'Boston', 'Another race'], otherRace: 'São Paulo Trail / 50K', preference: ['bib', 'package'] })).status, 200);
+  assert.equal((await post('/go', { race: ['London', 'Another race'], otherRace: '', preference: ['bib', 'package'] })).status, 400);
+  assert.equal((await post('/go', { race: [] })).status, 400);
+  assert.equal((await post('/go', { preference: [] })).status, 400);
   const { data, error } = await admin.from('bib_requests').select('*').eq('email', email);
   assert.ifError(error);
-  assert.equal(data.length, 3);
+  assert.equal(data.length, 5);
   const tokyo = data.find(row => row.race === 'Tokyo');
   assert.equal(tokyo.source, 'qr');
   assert.equal(tokyo.preference, 'bib');
@@ -33,6 +41,10 @@ try {
   assert.ok(tokyo.consent_text && tokyo.consent_version);
   assert.equal(data.find(row => row.race === 'Chicago').source, 'site');
   assert.equal(data.find(row => row.race === 'Valencia Marathon').source, 'site');
+  assert.equal(data.find(row => row.race === 'Boston').preference, 'both');
+  assert.equal(data.find(row => row.race === 'São Paulo Trail / 50K').preference, 'both');
+  assert.equal(data.find(row => row.race === 'São Paulo Trail / 50K').source, 'qr');
+  assert.equal(data.some(row => row.race === 'London'), false, 'Invalid batches must not partially save');
   const denied = await anon.from('bib_requests').select('id').eq('email', email);
   assert.ok(denied.error || denied.data.length === 0);
   const restricted = await fetch(new URL('/admin/bib-requests', base), { redirect: 'manual' });

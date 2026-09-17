@@ -33,11 +33,11 @@ export function validateBibRequest(form: FormData) {
   const firstName = read("firstName");
   const lastName = read("lastName");
   const email = read("email").toLowerCase();
-  const selected = read("race");
-  const race = selected === "Another race" ? read("otherRace").replace(/\s+/g, " ") : selected;
-  const preference = read("preference");
-  if (!bibRaces.some(item => item.name === selected) || race.length < 2 || race.length > 120 || /[\u0000-\u001f]/.test(race)) {
-    return { error: "Please choose a race, or enter the race you’re looking for." } as const;
+  const selected = [...new Set(form.getAll("race").map(value => String(value).normalize("NFKC").trim()))];
+  const races = selected.map(value => value === "Another race" ? read("otherRace").replace(/\s+/g, " ") : value);
+  const preferences = [...new Set(form.getAll("preference").map(value => String(value)))];
+  if (!selected.length || selected.some(value => !bibRaces.some(item => item.name === value)) || races.some(race => race.length < 2 || race.length > 120 || /[\u0000-\u001f]/.test(race))) {
+    return { error: "Please choose at least one race and enter a name if you select Another race." } as const;
   }
   if (!firstName || !lastName || firstName.length > 100 || lastName.length > 100 || /[\u0000-\u001f]/.test(firstName + lastName)) {
     return { error: "Please enter your first and last name (up to 100 characters each)." } as const;
@@ -45,11 +45,14 @@ export function validateBibRequest(form: FormData) {
   if (email.length > 254 || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) {
     return { error: "Please enter a valid email address." } as const;
   }
-  if (preference !== "bib" && preference !== "package") {
-    return { error: "Please choose a bib or a full package." } as const;
+  if (!preferences.length || preferences.some(value => value !== "bib" && value !== "package")) {
+    return { error: "Please select Bib only, Full package, or both." } as const;
   }
   if (form.get("consent") !== "on") {
     return { error: "Please agree to receive updates about your request." } as const;
   }
-  return { value: { first_name: firstName, last_name: lastName, email, race, race_key: race.toLowerCase(), preference } } as const;
+  // A custom name may match a listed race; save each race only once.
+  const uniqueRaces = [...new Map(races.map(race => [race.toLowerCase(), { race, race_key: race.toLowerCase() }])).values()];
+  const preference = preferences.length === 2 ? "both" : preferences[0] as "bib" | "package";
+  return { value: { first_name: firstName, last_name: lastName, email, races: uniqueRaces, preference } } as const;
 }

@@ -4,6 +4,8 @@ The English landing is shared by `/`, `/go` and existing language homepages. `/g
 
 ## Requests
 
+Races and offer types allow multiple selections: click to select, click again to deselect. At least one race and one offer type are required; custom race names remain free text. One submission saves one row per distinct race in a single database operation, with `both` for interest in either offer type. The admin table counts race requests, not unique people.
+
 The form saves first name, last name, email, race (including a custom race), bib/package preference, creation time, source, landing path and consent text/version in `public.bib_requests`. Confirmation appears only after a successful database write. Email addresses are self-reported, not verified. No confirmation or opportunity emails are sent automatically; matching and communication are currently manual.
 
 Only authorized administrators can read requests at `/admin/bib-requests`, with QR/site filters and pagination. A repeated email + race preserves the original request, timestamp, preference and source. A different race creates a new request. Withdrawal/deletion requests go to support@runoot.com and need to be handled by an administrator in Supabase. No personal information is automatically shared with tour operators.
@@ -12,7 +14,7 @@ The server validates input and consent, checks request origin, and includes a ho
 
 ## Deployment
 
-Apply `migrations/20260916_bib_requests.sql` to the project's Supabase database before deploying. It is also included in `supabase-schema.sql` for fresh setup. Existing production environment variables `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are required. No new third-party service is needed. Deployment follows the existing GitHub main → Vercel pipeline.
+Apply `migrations/20260916_bib_requests.sql` and `migrations/20260917_bib_requests_both_preference.sql` to the project's Supabase database before deploying. It is also included in `supabase-schema.sql` for fresh setup. Existing production environment variables `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are required. No new third-party service is needed. Deployment follows the existing GitHub main → Vercel pipeline.
 
 Checks: `npm run typecheck`, `node --import tsx scripts/test-bib-requests.ts`, `npm run build`. Verify a real disposable submission through both paths, attribution, deduplication and anonymous-access denial, then delete only the test records. Existing `npm run check` also runs an i18n audit that reports missing translation keys in the pre-existing dashboard.
 

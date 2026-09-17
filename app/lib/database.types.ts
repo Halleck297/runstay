@@ -34,7 +34,7 @@ export interface Database {
           email: string;
           race: string;
           race_key: string;
-          preference: "bib" | "package";
+          preference: "bib" | "package" | "both";
           source: "qr" | "site";
           landing_path: string;
           consent_version: string;
@@ -49,7 +49,7 @@ export interface Database {
           email: string;
           race: string;
           race_key: string;
-          preference: "bib" | "package";
+          preference: "bib" | "package" | "both";
           source: "qr" | "site";
           landing_path: string;
           consent_version: string;
