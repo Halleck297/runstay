@@ -26,7 +26,7 @@ try {
   assert.equal((await post('/?index', { preference: 'package' })).status, 200);
   assert.equal((await post('/?index', { race: 'Chicago' })).status, 200);
   assert.equal((await post('/en?index', { race: 'Another race', otherRace: 'Valencia Marathon' })).status, 200);
-  assert.equal((await post('/go', { race: ['Tokyo', 'Boston', 'Another race'], otherRace: 'São Paulo Trail / 50K', preference: ['bib', 'package'] })).status, 200);
+  assert.equal((await post('/go', { race: ['Tokyo', 'Cardiff', 'Another race'], otherRace: 'São Paulo Trail / 50K', preference: ['bib', 'package'] })).status, 200);
   assert.equal((await post('/go', { race: ['London', 'Another race'], otherRace: '', preference: ['bib', 'package'] })).status, 400);
   assert.equal((await post('/go', { race: [] })).status, 400);
   assert.equal((await post('/go', { preference: [] })).status, 400);
@@ -41,7 +41,7 @@ try {
   assert.ok(tokyo.consent_text && tokyo.consent_version);
   assert.equal(data.find(row => row.race === 'Chicago').source, 'site');
   assert.equal(data.find(row => row.race === 'Valencia Marathon').source, 'site');
-  assert.equal(data.find(row => row.race === 'Boston').preference, 'both');
+  assert.equal(data.find(row => row.race === 'Cardiff').preference, 'both');
   assert.equal(data.find(row => row.race === 'São Paulo Trail / 50K').preference, 'both');
   assert.equal(data.find(row => row.race === 'São Paulo Trail / 50K').source, 'qr');
   assert.equal(data.some(row => row.race === 'London'), false, 'Invalid batches must not partially save');
@@ -51,7 +51,7 @@ try {
   assert.ok([302, 303, 401, 403].includes(restricted.status));
   const privacy = await fetch(new URL('/privacy-policy', base));
   assert.equal(privacy.status, 200);
-  assert.ok((await privacy.text()).includes('BibExchange race requests'));
+  assert.ok((await privacy.text()).includes('Privacy, in plain language.'));
   console.log(`PASS ${base.origin}: real submissions, source, deduplication, custom race, validation, privacy, access controls.`);
 } finally {
   const { error } = await admin.from('bib_requests').delete().eq('email', email).eq('first_name', 'Runoot QA').eq('last_name', 'Temporary');

@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useFetcher, useActionData } from "react-router";
 import type { submitBibRequest } from "~/lib/bib-requests.server";
 import { bibRaces, BIB_CONSENT_TEXT } from "~/lib/bib-requests";
-import "~/styles/bib-landing.css";
+import landingStyles from "~/styles/bib-landing.css?url";
 import { trackEvent } from "~/lib/analytics/client";
 import { reopenCookieBanner } from "~/lib/analytics/consent";
 import { bibRequestSource } from "~/lib/bib-requests";
+
+export const links = () => [{ rel: "stylesheet", href: landingStyles }];
 
 export default function BibLanding() {
   const [races, setRaces] = useState<string[]>([]);
@@ -40,15 +42,14 @@ export default function BibLanding() {
     <div className="bib-page" lang="en">
       <header className="bib-header">
         <a href="#" className="bib-wordmark" aria-label="BibExchange by Runoot">bibexchange<span>by <strong>runoot</strong></span></a>
-        <div className="bib-header-note"><span aria-hidden="true">→</span><p>Your next race starts with a request.<br /><strong>No account. No commitment.</strong></p></div>
       </header>
 
       <main>
         <section className="bib-main" aria-labelledby="bib-title">
           <div className="bib-intro">
-            <p className="bib-eyebrow"><span /> YOUR NEXT START LINE</p>
+            <p className="bib-eyebrow"><span aria-hidden="true" /> Your next race starts with a request.</p>
             <h1 id="bib-title">The race is<br /> on your list.<br /><em>Let’s find<br className="bib-desktop-break" /> your bib.</em></h1>
-            <p className="bib-lead">Tokyo on your mind? Boston on your bucket list? Tell us where you want to run. We’ll contact you when a matching opportunity becomes available.</p>
+            <p className="bib-lead">Tokyo on your mind? New York on your bucket list? Tell us where you want to run. We’ll contact you when a matching opportunity becomes available.</p>
             <div className="bib-ticket" aria-hidden="true">
               <div><span>DESTINATION</span><strong>YOUR NEXT RACE</strong></div>
               <div className="bib-ticket-bottom"><span>ONE MORE<br />START LINE.</span><span className="bib-barcode" /></div>
@@ -63,7 +64,7 @@ export default function BibLanding() {
                 <h2>{selectedRaces.join(", ")}.<br />Got it.</h2>
                 <p>Your request is on our list. We’ll contact you by email when a matching opportunity becomes available, with the price and conditions before you decide.</p>
                 <div className="bib-demo-note">An entry is not reserved or guaranteed. To withdraw your request, contact <a href="mailto:support@runoot.com">support@runoot.com</a>.</div>
-                <button className="bib-submit" type="button" onClick={() => { setDismissed(true); setRaces([]); setOtherRace(""); setSelectionError(""); }}>Request another race <span aria-hidden="true">↗</span></button>
+                <button className="bib-submit" type="button" onClick={() => { setDismissed(true); setRaces([]); setOtherRace(""); setSelectionError(""); }}>Request another race</button>
               </div>
             ) : (
               <fetcher.Form method="post" onSubmit={(event) => {
@@ -87,9 +88,9 @@ export default function BibLanding() {
                 {races.includes("Another race") && <label className="bib-field">Race name<input name="otherRace" value={otherRace} onChange={(event) => setOtherRace(event.target.value)} placeholder="e.g. Valencia" required maxLength={120} /></label>}
                 <fieldset className="bib-preference"><legend>I’m looking for <span className="bib-preference-hint">Select one or both.</span></legend><div>{[{ value: "bib", text: "Bib only" }, { value: "package", text: "Full package (bib + hotel)" }].map(item => <label key={item.value}><input type="checkbox" name="preference" checked={preferences.includes(item.value)} onChange={() => { setPreferences(current => toggle(current, item.value)); setSelectionError(""); }} value={item.value} /><span>{item.text}</span></label>)}</div></fieldset>
                 <div className="bib-contact-grid"><label className="bib-field">First name<input name="firstName" autoComplete="given-name" placeholder="First name" required maxLength={100} /></label><label className="bib-field">Last name<input name="lastName" autoComplete="family-name" placeholder="Last name" required maxLength={100} /></label><label className="bib-field bib-email-field">Email address<input type="email" name="email" autoComplete="email" placeholder="you@example.com" required maxLength={254} /></label></div>
-                <label className="bib-consent"><input type="checkbox" name="consent" required /><span>{BIB_CONSENT_TEXT} <Link to="/privacy-policy" target="_blank" rel="noreferrer">Privacy policy</Link></span></label>
+                <label className="bib-consent"><input type="checkbox" name="consent" required /><span>{BIB_CONSENT_TEXT} <Link to="/privacy-policy">Privacy policy</Link></span></label>
                 {(selectionError || (!dismissed && result?.error)) && <p role="alert" className="bib-error">{selectionError || result?.error}</p>}
-                <button className="bib-submit" type="submit" disabled={submitting}>{submitting ? "Saving your request…" : races.length > 1 ? "Notify me about my races" : races.length === 1 && races[0] !== "Another race" ? `Notify me about ${races[0]}` : "Notify me about my race"}<span aria-hidden="true">↗</span></button>
+                <button className="bib-submit" type="submit" disabled={submitting}>{submitting ? "Saving your request…" : races.length > 1 ? "Notify me about my races" : races.length === 1 && races[0] !== "Another race" ? `Notify me about ${races[0]}` : "Notify me about my race"}</button>
                 <p className="bib-form-note">Free to request. An entry is not reserved or guaranteed.</p>
               </fetcher.Form>
             )}

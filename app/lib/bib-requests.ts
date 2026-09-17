@@ -11,7 +11,7 @@ export const BIB_CONSENT_TEXT = "I’d like email updates about matching race op
 
 export const bibRaces = [
   { name: "Tokyo", country: "Japan", code: "TYO" },
-  { name: "Boston", country: "United States", code: "BOS" },
+  { name: "Cardiff", country: "United Kingdom", code: "CDF" },
   { name: "London", country: "United Kingdom", code: "LON" },
   { name: "Cape Town", country: "South Africa", code: "CPT" },
   { name: "Chicago", country: "United States", code: "CHI" },

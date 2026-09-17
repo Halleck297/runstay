@@ -25,3 +25,9 @@ Checks: `npm run typecheck`, `node --import tsx scripts/test-bib-requests.ts`, `
 The previous home remains byte-for-byte in `app/routes/_index.backup.tsx`, ignored by the filesystem router. Existing marketplace and account routes remain available at their existing URLs. Landing markup lives in `app/components/BibLanding.tsx`; styling is scoped in `app/styles/bib-landing.css`.
 
 To restore the marketplace home, restore `_index.tsx` from the backup and revert the locale-home delegation and homepage changes in `root.tsx`. Keep `/go` and request data if the campaign should remain active. The deployment commit records all changes for a precise rollback.
+
+## Landing support pages (local draft, 17 September 2026)
+
+`/privacy-policy` and `/contact` now use `BibInfoLayout` and the landing stylesheet. The previous pages are preserved as ignored `.backup.tsx` files. Contact is a direct mailto link to support@runoot.com, not an in-site message form. The cookie banner links to the new privacy page’s cookie section.
+
+Before publication, complete the controller’s legal identity and address: the prior policy only identified “Runoot, Italy”; no legal entity details have been supplied. The owner selected a retention limit of 24 months from the last request, with earlier withdrawal/deletion on request. The policy now states that limit. Deletion is currently an administrator task, not an implemented automatic retention job. A reliable expiry workflow, including how repeat submissions renew the last-request date (duplicates currently preserve original records), remains to be finalized before relying on automatic expiry. Confirm the GA property’s server-side retention independently of the tag’s 180-day cookie duration.

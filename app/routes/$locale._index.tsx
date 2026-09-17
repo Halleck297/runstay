@@ -1,5 +1,6 @@
 import { data, useLoaderData, type ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "react-router";
 import HomePage, { loader as homeLoader, meta as homeMeta, action as homeAction } from "./_index";
+export { links } from "./_index";
 import { buildLocaleCookie, isSupportedLocale } from "~/lib/locale";
 import ReferralFallbackPage, {
   loader as referralLoader,

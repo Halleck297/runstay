@@ -1,70 +1,34 @@
 import type { MetaFunction } from "react-router";
-import { useI18n } from "~/hooks/useI18n";
-import { getLegalPolicyDocument } from "~/lib/legalPolicies";
+import { Link } from "react-router";
+import BibInfoLayout from "~/components/BibInfoLayout";
+import { reopenCookieBanner } from "~/lib/analytics/consent";
+export { links } from "~/components/BibInfoLayout";
 
-export const meta: MetaFunction = () => {
-  return [
-    { title: "Privacy Policy | Runoot" },
-    { name: "description", content: "How Runoot collects, uses, and protects personal data." },
-  ];
-};
+export const meta: MetaFunction = () => [
+  { title: "Privacy | BibExchange by Runoot" },
+  { name: "description", content: "How Runoot uses your race request details, manages optional analytics and respects your privacy choices." },
+];
 
 export default function PrivacyPolicy() {
-  const { locale, t } = useI18n();
-  const doc = getLegalPolicyDocument("privacy", locale);
-
-  return (
-    <div className="min-h-screen bg-[#ECF4FE]">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <a href="/" className="text-brand-600 hover:text-brand-700 text-sm">
-            ← {t("legal.back_home")}
-          </a>
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">{doc.title}</h1>
-          <p className="mt-2 text-gray-500">{t("legal.last_updated")}: {doc.updatedAt}</p>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="space-y-8 rounded-lg bg-white p-8 shadow-sm">
-          <p className="text-gray-700">{doc.summary}</p>
-          <section lang="en" className="rounded-lg border border-blue-100 bg-blue-50 p-5">
-            <h2 className="mb-3 text-xl font-semibold text-gray-900">BibExchange race requests</h2>
-            <p className="text-gray-700">When you request race opportunities, we save your first and last name, email address, chosen race, bib or package preference, request date, consent, and whether you used the QR landing (/go) or the homepage. We use these details to manage your request and contact you about matching opportunities with your consent. No account is created. Your request is available only to authorized Runoot administrators; your contact details are not automatically shared with tour operators. You can withdraw consent or request deletion by emailing support@runoot.com.</p>
-          </section>
-
-          {doc.sections.map((section) => (
-            <section key={section.title}>
-              <h2 className="mb-4 text-xl font-semibold text-gray-900">{section.title}</h2>
-              <div className="space-y-3">
-                {section.paragraphs.map((paragraph) => (
-                  <p key={paragraph} className="leading-relaxed text-gray-700">
-                    {paragraph}
-                  </p>
-                ))}
-                {section.bullets ? (
-                  <ul className="space-y-2 text-gray-700">
-                    {section.bullets.map((item) => (
-                      <li key={item} className="flex items-start">
-                        <span className="mr-2 text-brand-600">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <a href="/cookie-policy" className="hover:text-brand-600">{t("legal.cookie_policy")}</a>
-          <span className="mx-2">•</span>
-          <a href="/terms" className="hover:text-brand-600">{t("legal.terms_of_service")}</a>
-          <span className="mx-2">•</span>
-          <a href="/" className="hover:text-brand-600">{t("legal.back_home")}</a>
-        </div>
-      </main>
+  return <BibInfoLayout eyebrow="YOUR DATA. YOUR CHOICE." title="Privacy, in plain language." intro="This notice covers BibExchange race requests and enquiries to Runoot. You can browse without an account and choose whether to allow optional analytics.">
+    <div className="bib-privacy-layout">
+      <aside className="bib-privacy-summary">
+        <p className="bib-eyebrow">AT A GLANCE</p>
+        <ul><li>No account is created.</li><li>Your request is not a public listing.</li><li>Analytics is optional.</li><li>You can withdraw your request.</li></ul>
+        <p>Last updated: 17 September 2026</p>
+        <a href="mailto:support@runoot.com">A privacy question? Email us.</a>
+        <nav aria-label="Privacy sections"><a href="#your-data">The data we collect</a><a href="#how-we-use-it">How we use it</a><a href="#cookies">Cookies and analytics</a><a href="#your-rights">Your rights</a></nav>
+      </aside>
+      <article className="bib-info-card bib-policy-content">
+        <section id="controller"><h2>Who handles your data</h2><p>BibExchange is operated by Runoot, Italy. Runoot is responsible for the personal data collected through this service. For privacy enquiries, contact <a href="mailto:support@runoot.com">support@runoot.com</a>.</p></section>
+        <section id="your-data"><h2>The data we collect</h2><p>When you submit a request, we collect your first name, last name, email address, selected races (including any name you enter), and whether you want a bib, a full package, or either.</p><p>We also store the date of your request, the page it came from and the consent wording you accepted. Requests from /go are labelled QR; homepage requests are labelled Site. This describes the page used, not your physical location.</p><p>If you email us, we receive your email address, message and any information you choose to include. Our hosting and security systems may process technical information such as IP addresses and access or error logs.</p></section>
+        <section id="how-we-use-it"><h2>How and why we use it</h2><ul><li><strong>Race opportunities:</strong> to manage your request and email you about matching opportunities, based on your consent (Article 6(1)(a) GDPR).</li><li><strong>Enquiries and support:</strong> to respond to messages and help manage your request, based on our legitimate interest in providing support (Article 6(1)(f)).</li><li><strong>Security:</strong> to keep the service working and prevent abuse, based on our legitimate interest in protecting it (Article 6(1)(f)).</li><li><strong>Optional analytics:</strong> to understand visits and use of the request form, only with your separate consent (Article 6(1)(a)).</li></ul><p>Submitting a request is voluntary. The fields marked as required are needed to manage it and contact you. Refusing analytics does not affect your ability to send a request. We do not use automated decisions that produce legal or similarly significant effects.</p></section>
+        <section id="sharing"><h2>Who can receive your data</h2><p>Authorized Runoot administrators can access requests. We use service providers for hosting (Vercel), database storage (Supabase), email and, if you agree, analytics (Google). They process information as needed to provide their services.</p><p>Your request is not published, and your contact details are not automatically shared with race organizers or tour operators. If an opportunity requires details to be passed to a provider, we will explain that next step before you proceed.</p><p>Some providers may process information outside the European Economic Area. Applicable transfers require a lawful transfer mechanism, such as an adequacy decision or Standard Contractual Clauses. Contact us for details of the providers and safeguards relevant to your request.</p></section>
+        <section id="retention"><h2>How long we keep it</h2><p>We keep your race request details for up to 24 months from your last request, unless you withdraw your consent or ask for deletion earlier. Support correspondence is kept as needed to resolve your enquiry and handle related follow-up. Limited records may need to be retained where required by law or to establish, exercise or defend legal claims.</p><p>Cookie and analytics retention is separate from the retention of your request, as described below.</p></section>
+        <section id="cookies"><h2>Cookies and Google Analytics</h2><p>Essential storage supports functions such as saving your cookie choice. Your choice is saved in a cookie and browser storage for up to 180 days.</p><p>Google Analytics loads only after you accept it. It measures public-page visits and successful requests, with the page source, race category and bib/package preference. We do not send your form name, email address or custom race text to Google Analytics. Advertising features and Google signals are disabled in our tag configuration.</p><p>Analytics cookies (_ga and _ga_*) are configured to last up to 180 days. This cookie lifetime is separate from Google’s retention of analytics data. Google explains its processing in its <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</p><p>Choose Accept to allow analytics, use Preferences to customize your choice, or close the banner with × to use essential cookies only. You can change your choice later; withdrawing consent stops future analytics collection.</p><button className="bib-inline-button" type="button" onClick={reopenCookieBanner}>Manage cookie preferences</button></section>
+        <section id="your-rights"><h2>Your rights and choices</h2><p>You can withdraw consent to opportunity emails, request access to or correction of your data, ask for erasure or restriction, and exercise applicable rights to portability and to object to processing based on legitimate interests. Withdrawing consent does not affect processing that was lawful before withdrawal.</p><p>Email <a href="mailto:support@runoot.com">support@runoot.com</a>, preferably from the address used for your request. We may need to confirm your identity before acting. You also have the right to lodge a complaint with your local data protection authority, including the <a href="https://www.garanteprivacy.it/" target="_blank" rel="noreferrer">Italian Garante</a>.</p></section>
+        <section><h2>Questions or updates</h2><p>For help, visit <Link to="/contact">Contact</Link>. If this notice changes, we will update the date above and provide further notice where required.</p></section>
+      </article>
     </div>
-  );
+  </BibInfoLayout>;
 }

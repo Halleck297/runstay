@@ -12,13 +12,15 @@ import {
   resolveLocaleForRequest,
 } from "~/lib/locale";
 import { bibRequestSource, isBibLandingPath } from "~/lib/bib-requests";
+import { isBibPublicPage } from "~/lib/bib-info";
 import CookieBanner from "~/components/CookieBanner";
 import { MobileNav } from "~/components/MobileNav";
 import { startAnalytics, trackPage } from "~/lib/analytics/client";
 import { needsAdminPhoneVerification } from "~/lib/user-access";
-import "./styles/tailwind.css";
+import tailwindStyles from "./styles/tailwind.css?url";
 
 export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: tailwindStyles },
   { rel: "icon", href: "/favicon.ico" },
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
   { rel: "apple-touch-icon-precomposed", href: "/apple-touch-icon-precomposed.png" },
@@ -27,7 +29,7 @@ export const links: LinksFunction = () => [
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const user = await getUser(request);
-  const locale = isBibLandingPath(url.pathname) ? "en" : resolveLocaleForRequest(request, (user as any)?.preferred_language);
+  const locale = isBibPublicPage(url.pathname) ? "en" : resolveLocaleForRequest(request, (user as any)?.preferred_language);
   const currentCookieLocale = getLocaleFromCookie(request.headers.get("Cookie"));
   const shouldSetLocaleCookie = currentCookieLocale !== locale;
 
@@ -144,7 +146,7 @@ export default function App() {
   const navigate = useNavigate();
   const [hydrated, setHydrated] = useState(false);
   const hideMobileNav =
-    isBibLandingPath(location.pathname) ||
+    isBibPublicPage(location.pathname) ||
     /(^|\/)(login|register)(\/|$)/.test(location.pathname) ||
     location.pathname.includes("/join-team/");
 
@@ -305,7 +307,7 @@ export default function App() {
       )}
       <Outlet />
       <CookieBanner />
-      {!isBibLandingPath(location.pathname) && <MobileNav user={user} />}
+      {!isBibPublicPage(location.pathname) && <MobileNav user={user} />}
     </>
   );
 }
