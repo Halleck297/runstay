@@ -14,7 +14,7 @@ export default function BibLanding() {
   const showOfferLink = !/^\/go\/?$/.test(pathname);
   const [races, setRaces] = useState<string[]>([]);
   const [otherRace, setOtherRace] = useState("");
-  const [preferences, setPreferences] = useState<string[]>(["bib"]);
+  const [preferences, setPreferences] = useState<string[]>(["package"]);
   const [selectionError, setSelectionError] = useState("");
   const toggle = (values: string[], value: string) => values.includes(value) ? values.filter(item => item !== value) : [...values, value];
   const fetcher = useFetcher<typeof submitBibRequest>();
@@ -66,6 +66,8 @@ export default function BibLanding() {
                 <p className="bib-eyebrow">YOU’RE AT THE NEXT STEP</p>
                 <h2>{selectedRaces.join(", ")}.<br />Got it.</h2>
                 <p>Your request is on our list. We’ll contact you by email when a matching opportunity becomes available, with the price and conditions before you decide.</p>
+                {result?.success && result.confirmationEmail === "sent" && <p role="status">We’ve also sent you a confirmation email. If you don’t see it, check your spam folder.</p>}
+                {result?.success && result.confirmationEmail === "failed" && <p role="status">Your request is saved, but we couldn’t send the confirmation email. You don’t need to submit it again.</p>}
                 <div className="bib-demo-note">An entry is not reserved or guaranteed. To withdraw your request, contact <a href="mailto:support@runoot.com">support@runoot.com</a>.</div>
                 <button className="bib-submit" type="button" onClick={() => { setDismissed(true); setRaces([]); setOtherRace(""); setSelectionError(""); }}>Request another race</button>
               </div>
@@ -89,7 +91,7 @@ export default function BibLanding() {
                   </label>)}
                 </div></fieldset>
                 {races.includes("Another race") && <label className="bib-field">Race name<input name="otherRace" value={otherRace} onChange={(event) => setOtherRace(event.target.value)} placeholder="e.g. Valencia" required maxLength={120} /></label>}
-                <fieldset className="bib-preference"><legend>I’m looking for <span className="bib-preference-hint">Select one or both.</span></legend><div>{[{ value: "bib", text: "Bib only" }, { value: "package", text: "Full package (bib + hotel)" }].map(item => <label key={item.value}><input type="checkbox" name="preference" checked={preferences.includes(item.value)} onChange={() => { setPreferences(current => toggle(current, item.value)); setSelectionError(""); }} value={item.value} /><span>{item.text}</span></label>)}</div></fieldset>
+                <fieldset className="bib-preference"><legend>I’m looking for <span className="bib-preference-hint">Select one or both.</span></legend><div>{[{ value: "package", text: "Full package (bib + hotel)" }, { value: "bib", text: "Bib only" }].map(item => <label key={item.value}><input type="checkbox" name="preference" checked={preferences.includes(item.value)} onChange={() => { setPreferences(current => toggle(current, item.value)); setSelectionError(""); }} value={item.value} /><span>{item.text}</span></label>)}</div></fieldset>
                 <div className="bib-contact-grid"><label className="bib-field">First name<input name="firstName" autoComplete="given-name" placeholder="First name" required maxLength={100} /></label><label className="bib-field">Last name<input name="lastName" autoComplete="family-name" placeholder="Last name" required maxLength={100} /></label><label className="bib-field bib-email-field">Email address<input type="email" name="email" autoComplete="email" placeholder="you@example.com" required maxLength={254} /></label></div>
                 <label className="bib-consent"><input type="checkbox" name="consent" required /><span>{BIB_CONSENT_TEXT} <Link to="/privacy-policy">Privacy policy</Link></span></label>
                 {(selectionError || (!dismissed && result?.error)) && <p role="alert" className="bib-error">{selectionError || result?.error}</p>}

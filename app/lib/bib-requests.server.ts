@@ -2,6 +2,7 @@ import { data, type ActionFunctionArgs } from "react-router";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { checkRateLimit, getClientIp } from "~/lib/rate-limit.server";
 import { BIB_CONSENT_TEXT, BIB_CONSENT_VERSION, bibRequestSource, validateBibRequest } from "~/lib/bib-requests";
+import { sendTemplatedEmail } from "~/lib/email/service.server";
 
 export function landingLoader() { return { mode: "landing" as const }; }
 
@@ -27,19 +28,42 @@ export async function submitBibRequest({ request }: ActionFunctionArgs) {
 
   try {
     const { races, ...contact } = parsed.value;
-    const { error } = await supabaseAdmin.from("bib_requests").upsert(races.map(race => ({
+    const { data: savedRequests, error } = await supabaseAdmin.from("bib_requests").upsert(races.map(race => ({
       ...contact,
       ...race,
       source: bibRequestSource(url.pathname),
       landing_path: url.pathname,
       consent_version: BIB_CONSENT_VERSION,
       consent_text: BIB_CONSENT_TEXT,
-    })), { onConflict: "email,race_key", ignoreDuplicates: true });
+    })), { onConflict: "email,race_key", ignoreDuplicates: true }).select("race,race_key");
     if (error) {
       console.error("bib_request_save_failed", { code: error.code });
       return fail("We couldn’t save your request. Please try again in a moment.", 503);
     }
-    return data({ success: true as const, races: races.map(item => item.race), preference: contact.preference, error: "" }, { headers });
+    let confirmationEmail: "sent" | "failed" | "not_needed" = "not_needed";
+    // Only newly saved races trigger an email. Repeated submissions retain the
+    // original preferences and must not send duplicate or inaccurate summaries.
+    if (savedRequests?.length) {
+      confirmationEmail = "failed";
+      try {
+        const savedKeys = new Set(savedRequests.map(item => item.race_key));
+        const emailResult = await sendTemplatedEmail({
+          to: contact.email,
+          templateId: "bib_request_confirmation",
+          locale: "en",
+          payload: {
+            firstName: contact.first_name,
+            races: races.filter(item => savedKeys.has(item.race_key)).map(item => item.race),
+            preference: contact.preference,
+          },
+        });
+        confirmationEmail = emailResult.ok ? "sent" : "failed";
+      } catch {
+        // Sending or logging an email failure must never undo a saved request.
+        console.error("bib_request_confirmation_failed");
+      }
+    }
+    return data({ success: true as const, races: races.map(item => item.race), preference: contact.preference, confirmationEmail, error: "" }, { headers });
   } catch {
     return fail("We couldn’t save your request. Please try again in a moment.", 503);
   }

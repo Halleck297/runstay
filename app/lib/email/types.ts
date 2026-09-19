@@ -1,6 +1,7 @@
 export type EmailLocale = "en" | "it" | "de" | "fr" | "es" | "nl" | "pt";
 
 export type EmailTemplateId =
+  | "bib_request_confirmation"
   | "referral_invite"
   | "ambassador_invite"
   | "password_reset"

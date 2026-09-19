@@ -4,7 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 const base = new URL(process.argv[2] || 'http://localhost:3000');
 const admin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const anon = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
-const email = `runoot-qa-${Date.now()}@example.com`;
+const email = process.env.BIB_SMOKE_EMAIL?.trim().toLowerCase();
+assert.ok(email, 'Set BIB_SMOKE_EMAIL to a disposable inbox you control. This test sends real confirmation emails.');
+const { data: existing, error: existingError } = await admin.from('bib_requests').select('id').eq('email', email).limit(1);
+assert.ifError(existingError);
+assert.equal(existing.length, 0, 'Use a test inbox with no existing bib requests.');
 const fields = { race: 'Tokyo', firstName: 'Runoot QA', lastName: 'Temporary', email, preference: 'bib', consent: 'on' };
 async function post(path, overrides = {}, origin = base.origin) {
   const body = new URLSearchParams();
