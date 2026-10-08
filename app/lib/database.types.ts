@@ -25,6 +25,28 @@ export type ProfileWithUnread = Profile & {
 export interface Database {
   public: {
     Tables: {
+      mailing_list_signups: {
+        Row: {
+          id: string; email: string; first_name: string; last_name: string;
+          source: "popup" | "admin"; consent_text: string; consent_version: string;
+          requested_at: string; confirmed_at: string | null; token_hash: string | null;
+          token_expires_at: string | null; added_by: string | null; resend_contact_id: string | null;
+        };
+        Insert: Pick<Database["public"]["Tables"]["mailing_list_signups"]["Row"], "email" | "source" | "consent_text" | "consent_version"> & Partial<Database["public"]["Tables"]["mailing_list_signups"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["mailing_list_signups"]["Row"]>;
+        Relationships: [];
+      };
+      mailing_list_campaigns: {
+        Row: {
+          id: string; subject: string; preview_text: string; body: string; button_label: string; button_url: string;
+          state: "draft" | "preparing" | "ready" | "sending" | "submitted";
+          resend_broadcast_id: string | null; last_error: string | null; created_by: string | null;
+          created_at: string; updated_at: string; send_requested_at: string | null;
+        };
+        Insert: Pick<Database["public"]["Tables"]["mailing_list_campaigns"]["Row"], "subject" | "body"> & Partial<Database["public"]["Tables"]["mailing_list_campaigns"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["mailing_list_campaigns"]["Row"]>;
+        Relationships: [];
+      };
       bib_offers: {
         Row: {
           phone: string | null;

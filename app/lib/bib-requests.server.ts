@@ -3,6 +3,8 @@ import { supabaseAdmin } from "~/lib/supabase.server";
 import { checkRateLimit, getClientIp } from "~/lib/rate-limit.server";
 import { BIB_CONSENT_TEXT, BIB_CONSENT_VERSION, bibRequestSource, validateBibRequest } from "~/lib/bib-requests";
 import { sendTemplatedEmail } from "~/lib/email/service.server";
+import { createMailingOffer } from "~/lib/mailing-list.server";
+import { mailingIsConfigured } from "~/lib/mailing-provider.server";
 
 export function landingLoader() { return { mode: "landing" as const }; }
 
@@ -63,7 +65,8 @@ export async function submitBibRequest({ request }: ActionFunctionArgs) {
         console.error("bib_request_confirmation_failed");
       }
     }
-    return data({ success: true as const, races: races.map(item => item.race), preference: contact.preference, confirmationEmail, error: "" }, { headers });
+    const mailingOffer = mailingIsConfigured() ? createMailingOffer(contact) : null;
+    return data({ success: true as const, races: races.map(item => item.race), preference: contact.preference, confirmationEmail, mailingOffer, error: "" }, { headers });
   } catch {
     return fail("We couldn’t save your request. Please try again in a moment.", 503);
   }

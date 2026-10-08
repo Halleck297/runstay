@@ -6,6 +6,7 @@ import landingStyles from "~/styles/bib-landing.css?url";
 import { trackEvent } from "~/lib/analytics/client";
 import { reopenCookieBanner } from "~/lib/analytics/consent";
 import { bibRequestSource } from "~/lib/bib-requests";
+import MailingListOffer from "./MailingListOffer";
 
 export const links = () => [{ rel: "stylesheet", href: landingStyles }];
 
@@ -70,6 +71,7 @@ export default function BibLanding() {
                 {result?.success && result.confirmationEmail === "failed" && <p role="status">Your request is saved, but we couldn’t send the confirmation email. You don’t need to submit it again.</p>}
                 <div className="bib-demo-note">An entry is not reserved or guaranteed. To withdraw your request, contact <a href="mailto:support@runoot.com">support@runoot.com</a>.</div>
                 <button className="bib-submit" type="button" onClick={() => { setDismissed(true); setRaces([]); setOtherRace(""); setSelectionError(""); }}>Request another race</button>
+                {result?.success && result.mailingOffer && <MailingListOffer offer={result.mailingOffer} />}
               </div>
             ) : (
               <fetcher.Form method="post" onSubmit={(event) => {

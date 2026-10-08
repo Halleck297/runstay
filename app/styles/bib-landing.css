@@ -10,6 +10,14 @@
 .bib-error{color:#b42318;background:#fff1f0;padding:12px;border-radius:8px;font-size:13px;margin:12px 0}
 .bib-submit:disabled{opacity:.6;cursor:wait}
 
+.bib-mailing-dialog{position:fixed;inset:0;margin:auto;width:min(480px,calc(100% - 32px));max-height:calc(100dvh - 48px);overflow:auto;padding:40px 32px 28px;border:1px solid #dce3ec;border-radius:22px;background:#fff;color:var(--bib-ink);box-shadow:0 24px 90px #15294240}
+.bib-mailing-dialog::backdrop{background:#15294288;backdrop-filter:blur(3px)}
+.bib-mailing-dialog h2{font-family:Sora,sans-serif;font-size:29px;font-weight:700;letter-spacing:-1px;line-height:1.2;margin:14px 0}
+.bib-mailing-dialog>p:not(.bib-eyebrow){font-size:15px;color:var(--bib-muted);line-height:1.75;margin:0 0 24px}
+.bib-mailing-close{position:absolute;right:14px;top:10px;width:36px;height:36px;border:0;background:transparent;color:var(--bib-muted);font-size:27px!important;cursor:pointer}
+.bib-mailing-decline{display:block;width:100%;padding:13px;border:0;background:transparent;color:var(--bib-muted);cursor:pointer}
+@media(max-width:480px){.bib-mailing-dialog{padding:34px 22px 22px}.bib-mailing-dialog h2{font-size:26px}}
+
 /* Landing support pages */
 .bib-info-page{display:flex;flex-direction:column}
 .bib-info-page .bib-header{width:100%}

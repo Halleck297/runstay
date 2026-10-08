@@ -37,6 +37,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const pathname = url.pathname;
     const isAllowedPath =
       pathname === "/verify-phone" ||
+      pathname === "/mailing-list/confirm" ||
       pathname === "/logout" ||
       pathname.startsWith("/api/") ||
       pathname === "/auth/session/bootstrap";
@@ -166,7 +167,7 @@ export default function App() {
       beforeSend(event) {
         // Strip PII from URLs (access tokens, etc.)
         if (event.request?.url) {
-          event.request.url = event.request.url.replace(/access_token=[^&]+/g, "access_token=[REDACTED]");
+          event.request.url = event.request.url.replace(/(access_token|token)=[^&#]+/g, "$1=[REDACTED]");
         }
         return event;
       },
@@ -205,7 +206,7 @@ export default function App() {
   useEffect(() => startAnalytics(), []);
 
   useEffect(() => {
-    trackPage(`${location.pathname}${location.search}`, {
+    trackPage(`${location.pathname}${location.pathname.startsWith("/mailing-list/") ? "" : location.search}`, {
       locale,
       has_user: !!user,
       ...(isBibLandingPath(location.pathname) ? { landing_source: bibRequestSource(location.pathname) } : {}),

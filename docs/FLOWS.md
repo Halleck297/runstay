@@ -206,4 +206,4 @@ The root loader runs on every request and:
 - **Mock users — phone verification:** Mock accounts (impersonate-only) skip phone verification
   entirely. Document and enforce a clear policy on what mock accounts can and cannot do.
 
-- **Listing expiration / sold status:** See CLAUDE.md — deferred product decisions section.
+- **Listing expiration / sold status:** See [agent.md](../agent.md) — deferred product decisions section.

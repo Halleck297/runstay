@@ -10,8 +10,10 @@ import { renderNewMessageNotificationTemplate, type NewMessageNotificationPayloa
 import { renderListingDeletedNotificationTemplate, type ListingDeletedNotificationPayload } from "./templates/listingDeletedNotification";
 import type { EmailLocale, EmailTemplateId, RenderedEmailTemplate } from "./types";
 import { renderBibRequestConfirmationTemplate, type BibRequestConfirmationPayload } from "./templates/bibRequestConfirmation";
+import { renderMailingConfirmation, type MailingConfirmationPayload } from "./templates/mailingList";
 
 export interface EmailTemplatePayloadMap {
+  mailing_list_confirmation: MailingConfirmationPayload;
   bib_request_confirmation: BibRequestConfirmationPayload;
   referral_invite: ReferralInvitePayload;
   ambassador_invite: AmbassadorInvitePayload;
@@ -31,6 +33,8 @@ export function renderEmailTemplate<T extends EmailTemplateId>(args: {
   locale: EmailLocale;
 }): RenderedEmailTemplate {
   switch (args.templateId) {
+    case "mailing_list_confirmation":
+      return renderMailingConfirmation(args.payload as MailingConfirmationPayload);
     case "bib_request_confirmation":
       return renderBibRequestConfirmationTemplate(args.payload as BibRequestConfirmationPayload);
     case "referral_invite":
