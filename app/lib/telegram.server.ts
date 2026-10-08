@@ -1,10 +1,10 @@
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-export async function sendTelegram(text: string): Promise<void> {
+export async function sendTelegram(text: string): Promise<boolean> {
   if (!BOT_TOKEN || !CHAT_ID) {
     console.warn("[Telegram] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set, skipping.");
-    return;
+    return false;
   }
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
@@ -14,7 +14,9 @@ export async function sendTelegram(text: string): Promise<void> {
   if (!res.ok) {
     const body = await res.text();
     console.error("[Telegram] Failed to send message:", body);
+    return false;
   }
+  return true;
 }
 
 export function verifyWebhookSecret(request: Request): boolean {
