@@ -47,13 +47,14 @@ globalThis.fetch = async (input, init) => {
   }
   assert.equal(url.hostname, 'api.resend.com', 'Unexpected external request');
   if (url.pathname === '/emails') { emails.push(body); return json(failEmail ? { message: 'test failure' } : { id: randomUUID() }, failEmail ? 500 : 200); }
+  assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer fake-marketing');
   if (url.pathname === '/contacts' && method === 'POST') {
     assert.deepEqual(Object.keys(body).sort(), ['email', 'first_name', 'last_name', 'segments', 'unsubscribed'], 'Local consent/token metadata must not be sent to the provider');
     if (failActivation) return json({}, 503);
     const member = { id: randomUUID(), created_at: new Date().toISOString(), ...body };
     members.push(member); return json({ id: member.id });
   }
-  if (url.pathname.startsWith('/segments/')) return json({ data: members, has_more: false });
+  if (url.pathname.startsWith('/segments/')) { assert.equal(url.pathname, '/segments/test-segment/contacts'); return json({ data: members, has_more: false }); }
   if (url.pathname.startsWith('/contacts/')) {
     const parts = url.pathname.split('/');
     const member = members.find(row => row.email === decodeURIComponent(parts[2]) || row.id === parts[2]);
@@ -89,6 +90,13 @@ try {
   const signup = await import('../app/lib/mailing-list.server');
   const provider = await import('../app/lib/mailing-provider.server');
   const campaign = await import('../app/lib/mailing-campaigns.server');
+  process.env.RESEND_MARKETING_API_KEY = ' fake-marketing\r\n';
+  process.env.RESEND_LAST_MINUTE_SEGMENT_ID = ' test-segment\n';
+  await provider.listMailingMembers();
+  process.env.RESEND_MARKETING_API_KEY = 'fake\nmarketing';
+  await assert.rejects(async () => provider.listMailingMembers(), /unexpected characters/);
+  process.env.RESEND_MARKETING_API_KEY = 'fake-marketing';
+  process.env.RESEND_LAST_MINUTE_SEGMENT_ID = 'test-segment';
   assert.equal(parseMailingContact(form({ email: ' RUNNER@EXAMPLE.COM ' })).email, contact.email);
   assert.throws(() => parseMailingContact(form({ email: 'bad\naddress' })));
   assert.deepEqual(parseCampaign(form(content)), content);

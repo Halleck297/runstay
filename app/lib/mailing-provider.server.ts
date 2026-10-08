@@ -8,13 +8,14 @@ export class MailingProviderError extends Error {
 }
 
 export function mailingIsConfigured() {
-  return Boolean(process.env.RESEND_LAST_MINUTE_SEGMENT_ID && (process.env.RESEND_MARKETING_API_KEY || process.env.RESEND_API_KEY));
+  return Boolean(process.env.RESEND_LAST_MINUTE_SEGMENT_ID?.trim() && (process.env.RESEND_MARKETING_API_KEY?.trim() || process.env.RESEND_API_KEY?.trim()));
 }
 
 function config() {
-  const key = process.env.RESEND_MARKETING_API_KEY || process.env.RESEND_API_KEY;
-  const segment = process.env.RESEND_LAST_MINUTE_SEGMENT_ID;
+  const key = process.env.RESEND_MARKETING_API_KEY?.trim() || process.env.RESEND_API_KEY?.trim();
+  const segment = process.env.RESEND_LAST_MINUTE_SEGMENT_ID?.trim();
   if (!key || !segment) throw new Error("The mailing list is not configured. Set the marketing API key and last-minute segment in the server configuration.");
+  if (!/^[A-Za-z0-9_-]+$/.test(key)) throw new Error("The marketing API key contains unexpected characters. Check the value saved in the server configuration.");
   return { key, segment };
 }
 
@@ -26,7 +27,12 @@ export async function mailingApi<T>(path: string, method = "GET", body?: unknown
     let response: Response;
     try {
       response = await fetch(`https://api.resend.com${path}`, { method, headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal });
-    } catch {
+    } catch (error) {
+      // Never log the request, headers or raw error: malformed credentials may
+      // be included in fetch error messages. Only retain safe diagnostic codes.
+      const causeCode = (error as { cause?: { code?: unknown } })?.cause?.code;
+      const code = typeof causeCode === "string" && ["ENOTFOUND", "ECONNRESET", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT"].includes(causeCode) ? causeCode : "FETCH_FAILED";
+      console.error("[mailing:resend]", controller.signal.aborted ? "TIMEOUT" : code);
       throw new MailingProviderError(0, "The mailing service did not respond. Refresh to check the current state before retrying.");
     } finally { clearTimeout(timeout); }
     if (response.status === 429 && attempt < 2) {
