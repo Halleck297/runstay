@@ -233,7 +233,7 @@ Fonts:
 - Production uses `CRON_SECRET` for authorization. Telegram credentials remain server-side.
 - Relevant commits: `23e4975` (new alert flow), `0845654` (Node.js 24 runtime).
 
-### Runoot Last Minute mailing list — infrastructure configured, release verification required
+### Runoot Last Minute mailing list — published, provider connection verified
 
 - Covers all last-minute opportunities: bibs, hotels, race packages and destinations, independently of the races selected in the original request.
 - After a successful race request, the popup asks **“Want last-minute updates?”** and reuses the submitted email. It opens once per browser session; a button in the success screen lets the visitor reopen it.
@@ -248,11 +248,13 @@ Fonts:
 
 **Database activation completed on 9 October 2026:** `migrations/20261008_mailing_list.sql` was applied in the Runoot production SQL Editor. Both tables have RLS enabled; `anon` and `authenticated` cannot read them, and the service role has read/write access. Direct API checks returned HTTP 200 for every expected column using the service role and denied anonymous reads.
 
-**Resend configuration completed on 9 October 2026:** the owner created a dedicated Full access key and saved it as sensitive `RESEND_MARKETING_API_KEY` in Vercel Production. The empty **Runoot Last Minute** segment (`615bc712-53ec-4d9d-9dd4-c137b9192e51`) was created and configured as `RESEND_LAST_MINUTE_SEGMENT_ID`. The key value is not retrievable from Vercel; verify its use through the deployed admin subscriber loader.
+**Resend configuration completed on 9 October 2026:** the owner created a dedicated Full access key and saved it as sensitive `RESEND_MARKETING_API_KEY` in Vercel Production. The empty **Runoot Last Minute** segment (`615bc712-53ec-4d9d-9dd4-c137b9192e51`) was created and configured as `RESEND_LAST_MINUTE_SEGMENT_ID`. The key value is not retrievable from Vercel. Its use was verified through the deployed admin subscriber loader, which successfully loaded the empty segment. Provider configuration trims surrounding whitespace; malformed values are rejected without exposing credentials.
 
-**Release checks:** publish the new source, verify the production admin reads the segment successfully, and verify real confirmation/delivery/unsubscribe using controlled test addresses with the owner's authorization. Source changes and simulated tests do not establish production activation. See [the mailing list guide](docs/MAILING_LIST.md).
+**Published on 9 October 2026:** feature commit `95dd1c3` and configuration fix `1e479e8` were pushed to `main` and deployed by Vercel. The production admin loads subscribers without errors, the homepage and confirmation route respond, unauthenticated admin access redirects to login, and an invalid opt-in invitation is rejected without sending an email. No subscribers or campaigns were created during production verification.
 
-Keep the segment setting unset until setup is ready; the public popup stays hidden without the mailing provider configuration. Never import existing race requests or account registrations into the mailing list without separate consent.
+**Remaining delivery check:** real inbox confirmation, campaign delivery and hosted unsubscribe still require controlled addresses and the owner's authorization. Use an isolated test segment for campaign checks. See [the mailing list guide](docs/MAILING_LIST.md).
+
+For new environments, keep the segment setting unset until setup is ready; the public popup stays hidden without the mailing provider configuration. Never import existing race requests or account registrations into the mailing list without separate consent.
 
 ## Existing Platform Capabilities
 
