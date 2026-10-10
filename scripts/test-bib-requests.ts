@@ -3,7 +3,7 @@ import { bibRequestSource, isBibLandingPath, validateBibRequest } from "../app/l
 
 function form(overrides: Record<string, string> = {}) {
   const value = new FormData();
-  Object.entries({ race: "Tokyo", firstName: "Test", lastName: "Runner", email: " TEST@EXAMPLE.COM ", preference: "bib", consent: "on", ...overrides }).forEach(([k, v]) => value.set(k, v));
+  Object.entries({ race: "Tokyo", firstName: "Test", lastName: "Runner", email: " TEST@EXAMPLE.COM ", preference: "bib", ...overrides }).forEach(([k, v]) => value.set(k, v));
   return value;
 }
 
@@ -39,7 +39,7 @@ const extraPreference = form();
 extraPreference.append("preference", "invalid");
 assert.ok(validateBibRequest(extraPreference).error);
 assert.equal(validateBibRequest(form({ preference: "package" })).value?.preference, "package");
-const invalidForms: Record<string, string>[] = [{ race: "Berlin" }, { race: "Another race", otherRace: " " }, { email: "wrong" }, { firstName: " " }, { lastName: "" }, { consent: "" }, { preference: "invalid" }, { race: "Another race", otherRace: "x".repeat(121) }];
+const invalidForms: Record<string, string>[] = [{ race: "Berlin" }, { race: "Another race", otherRace: " " }, { email: "wrong" }, { firstName: " " }, { lastName: "" }, { preference: "invalid" }, { race: "Another race", otherRace: "x".repeat(121) }];
 for (const fields of invalidForms) {
   assert.ok(validateBibRequest(form(fields)).error);
 }

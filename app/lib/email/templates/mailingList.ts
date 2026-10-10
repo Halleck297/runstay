@@ -1,18 +1,6 @@
 import { escapeHtml, renderBaseEmailLayout } from "../baseLayout";
 import type { CampaignContent } from "../../mailing-list";
 
-export type MailingConfirmationPayload = { confirmUrl: string };
-export function renderMailingConfirmation(payload: MailingConfirmationPayload) {
-  const subject = "Confirm your subscription to Runoot Last Minute";
-  const explanation = "Confirm that you want email updates about bibs, hotels, race packages and last-minute opportunities across all races and destinations. You can unsubscribe at any time.";
-  const note = "This link expires in 72 hours. If you didn’t request this, simply ignore this email. Your race requests are separate.";
-  return {
-    subject,
-    html: renderBaseEmailLayout({ locale: "en", title: "Confirm your subscription", bodyHtml: `<p>${explanation}</p><p style="color:#627083;font-size:13px">${note}</p>`, ctaLabel: "Confirm my subscription", ctaUrl: payload.confirmUrl, footerText: "You received this email because someone requested to subscribe this address to Runoot Last Minute." }),
-    text: `${explanation}\n\nConfirm your subscription: ${payload.confirmUrl}\n\n${note}`,
-  };
-}
-
 export function renderMailingCampaign(content: CampaignContent, preview = false) {
   const unsubscribe = preview ? "#unsubscribe-preview" : "{{{RESEND_UNSUBSCRIBE_URL}}}";
   const html = renderBaseEmailLayout({

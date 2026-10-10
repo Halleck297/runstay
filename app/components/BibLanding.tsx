@@ -11,8 +11,9 @@ import MailingListOffer from "./MailingListOffer";
 export const links = () => [{ rel: "stylesheet", href: landingStyles }];
 
 export default function BibLanding() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const showOfferLink = !/^\/go\/?$/.test(pathname);
+  const oldMailingLink = new URLSearchParams(search).get("mailing") === "old-link";
   const [races, setRaces] = useState<string[]>([]);
   const [otherRace, setOtherRace] = useState("");
   const [preferences, setPreferences] = useState<string[]>(["package"]);
@@ -86,6 +87,7 @@ export default function BibLanding() {
               }}>
                 <div className="bib-honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
                 <div className="bib-form-heading"><p className="bib-eyebrow">LET’S MAKE IT HAPPEN</p><h2>Where do you want to run?</h2><p>Select one or more races. We’ll keep an eye out.</p></div>
+                {oldMailingLink && <p role="status" className="bib-demo-note">This older subscription link is no longer used. Runoot Last Minute is now activated in the popup after a race request.</p>}
                 <fieldset className="bib-race-fieldset"><legend className="bib-sr-only">Choose your races. Select one or more.</legend><div className="bib-race-grid">
                   {bibRaces.map((item) => <label className={`bib-race ${races.includes(item.name) ? "is-selected" : ""}`} key={item.name}>
                     <input type="checkbox" name="race" value={item.name} checked={races.includes(item.name)} onChange={() => { setRaces(current => toggle(current, item.name)); setSelectionError(""); }} />
@@ -95,7 +97,7 @@ export default function BibLanding() {
                 {races.includes("Another race") && <label className="bib-field">Race name<input name="otherRace" value={otherRace} onChange={(event) => setOtherRace(event.target.value)} placeholder="e.g. Valencia" required maxLength={120} /></label>}
                 <fieldset className="bib-preference"><legend>I’m looking for <span className="bib-preference-hint">Select one or both.</span></legend><div>{[{ value: "package", text: "Full package (bib + hotel)" }, { value: "bib", text: "Bib only" }].map(item => <label key={item.value}><input type="checkbox" name="preference" checked={preferences.includes(item.value)} onChange={() => { setPreferences(current => toggle(current, item.value)); setSelectionError(""); }} value={item.value} /><span>{item.text}</span></label>)}</div></fieldset>
                 <div className="bib-contact-grid"><label className="bib-field">First name<input name="firstName" autoComplete="given-name" placeholder="First name" required maxLength={100} /></label><label className="bib-field">Last name<input name="lastName" autoComplete="family-name" placeholder="Last name" required maxLength={100} /></label><label className="bib-field bib-email-field">Email address<input type="email" name="email" autoComplete="email" placeholder="you@example.com" required maxLength={254} /></label></div>
-                <label className="bib-consent"><input type="checkbox" name="consent" required /><span>{BIB_CONSENT_TEXT} <Link to="/privacy-policy">Privacy policy</Link></span></label>
+                <p className="bib-request-notice">{BIB_CONSENT_TEXT} <Link to="/privacy-policy">Privacy policy</Link></p>
                 {(selectionError || (!dismissed && result?.error)) && <p role="alert" className="bib-error">{selectionError || result?.error}</p>}
                 <button className="bib-submit" type="submit" disabled={submitting}>{submitting ? "Saving your request…" : races.length > 1 ? "Notify me about my races" : races.length === 1 && races[0] !== "Another race" ? `Notify me about ${races[0]}` : "Notify me about my race"}</button>
                 <p className="bib-form-note">Free to request. An entry is not reserved or guaranteed.</p>

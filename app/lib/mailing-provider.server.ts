@@ -60,15 +60,14 @@ export async function getMailingMember(emailOrId: string) {
   catch (error) { if (error instanceof MailingProviderError && error.status === 404) return null; throw error; }
 }
 
-export async function subscribeMailingMember(contact: MailingContact, verifiedByRecipient: boolean) {
+export async function subscribeMailingMember(contact: MailingContact) {
   const { segment } = config();
   const existing = await getMailingMember(contact.email);
-  if (existing?.unsubscribed && !verifiedByRecipient) {
+  if (existing?.unsubscribed) {
     throw new Error("This address previously unsubscribed. Contact support@runoot.com if you want to join again.");
   }
   if (!existing) {
-    // Confirmation callers also hold the local consent/token record. Send only
-    // the contact fields the provider needs, never database or token metadata.
+    // Send only the contact fields the provider needs, never local consent metadata.
     return await mailingApi<{ id: string }>("/contacts", "POST", { email: contact.email, first_name: contact.first_name, last_name: contact.last_name, unsubscribed: false, segments: [{ id: segment }] });
   }
   // A previous attempt may have reached Resend before its response was lost.
@@ -77,7 +76,6 @@ export async function subscribeMailingMember(contact: MailingContact, verifiedBy
   if (!segments.data.some(item => item.id === segment)) {
     await mailingApi(`/contacts/${encodeURIComponent(existing.id)}/segments/${encodeURIComponent(segment)}`, "POST");
   }
-  if (existing.unsubscribed) await mailingApi(`/contacts/${encodeURIComponent(existing.id)}`, "PATCH", { unsubscribed: false });
   return { id: existing.id };
 }
 

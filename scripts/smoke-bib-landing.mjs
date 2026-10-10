@@ -9,7 +9,7 @@ assert.ok(email, 'Set BIB_SMOKE_EMAIL to a disposable inbox you control. This te
 const { data: existing, error: existingError } = await admin.from('bib_requests').select('id').eq('email', email).limit(1);
 assert.ifError(existingError);
 assert.equal(existing.length, 0, 'Use a test inbox with no existing bib requests.');
-const fields = { race: 'Tokyo', firstName: 'Runoot QA', lastName: 'Temporary', email, preference: 'bib', consent: 'on' };
+const fields = { race: 'Tokyo', firstName: 'Runoot QA', lastName: 'Temporary', email, preference: 'bib' };
 async function post(path, overrides = {}, origin = base.origin) {
   const body = new URLSearchParams();
   for (const [key, value] of Object.entries({ ...fields, ...overrides })) {
@@ -23,7 +23,7 @@ try {
     assert.equal(response.status, 200, path);
     assert.ok((await response.text()).includes('Where do you want to run?'), path);
   }
-  assert.equal((await post('/go', { consent: '' })).status, 400);
+  assert.equal((await post('/go', { email: 'invalid' })).status, 400);
   // React Router can reject cross-origin form posts before the route action.
   assert.ok([400, 403].includes((await post('/go', {}, 'https://example.com')).status));
   assert.equal((await post('/go')).status, 200);

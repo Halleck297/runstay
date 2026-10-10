@@ -4,7 +4,7 @@
 
 - A successful race request offers a separate, optional subscription for all last-minute updates (bibs, hotels, packages and destinations).
 - The invitation opens after the race request. The success card also has a button to reopen it.
-- The popup's **“Yes, keep me updated”** button records consent and activates the subscription immediately. The popup then shows **“OK, accepted”** with support@runoot.com as the contact for leaving the list. It sends no subscription confirmation email and opens no second confirmation page. Already issued links retain their original expiry and confirmation route.
+- The popup's **“Yes, keep me updated”** button records consent and activates the subscription immediately. The popup then shows **“OK, accepted”** with support@runoot.com as the contact for leaving the list. It sends no subscription confirmation email. Old confirmation links redirect to the race form with an explanation; the old confirmation page and sender are removed.
 - `/admin/mailing-list` lists contacts and supports manual additions with a required declaration of existing consent. Manual additions activate immediately. Previously unsubscribed contacts must contact support before rejoining.
 - `/admin/mailing-list/campaigns` supports drafts, a live preview, a link button and an explicit send confirmation. Campaigns go to active members of the dedicated Resend segment.
 - Resend stores the current subscription status and processes campaign delivery. Every campaign includes its hosted unsubscribe link; recipients can also contact support@runoot.com. No webhook is needed to exclude opt-outs; the admin reads current provider state. Race-request emails remain transactional and independent. Every successful race request, including a repeat, updates the saved selection and sends its own confirmation email.
@@ -65,6 +65,6 @@ npm run typecheck
 npm run build
 ```
 
-The mailing test intercepts all network requests and uses fake credentials. It covers consent, signed invitations, token expiry/replay, opt-out, recipient resubscription, manual activation, admin authorization, content escaping, concurrent sends and uncertain delivery recovery.
+The mailing test intercepts all network requests and uses fake credentials. It covers consent, signed invitations, direct activation, old-link redirection, opt-out protection, manual activation, admin authorization, content escaping, concurrent sends and uncertain delivery recovery.
 
 Provider documentation: [Contacts](https://resend.com/docs/api-reference/contacts/create-contact), [Segments](https://resend.com/docs/api-reference/segments/list-segment-contacts), [Broadcasts](https://resend.com/docs/api-reference/broadcasts/create-broadcast).

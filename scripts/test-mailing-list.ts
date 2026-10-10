@@ -12,7 +12,7 @@ Object.assign(process.env, { SUPABASE_URL: "https://mailing-test.invalid", SUPAB
 type Row = Record<string, any>;
 const tables: Record<string, Row[]> = { mailing_list_signups: [], mailing_list_campaigns: [], email_logs: [] };
 const members: Row[] = [], broadcasts: Row[] = [], emails: Row[] = [];
-let postSends = 0, ambiguousSend = false, failCreate = false, failActivation = false, failEmail = false;
+let postSends = 0, ambiguousSend = false, failCreate = false, failActivation = false;
 const originalFetch = globalThis.fetch;
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 globalThis.fetch = async (input, init) => {
@@ -46,7 +46,7 @@ globalThis.fetch = async (input, init) => {
     return json(selected);
   }
   assert.equal(url.hostname, 'api.resend.com', 'Unexpected external request');
-  if (url.pathname === '/emails') { emails.push(body); return json(failEmail ? { message: 'test failure' } : { id: randomUUID() }, failEmail ? 500 : 200); }
+  if (url.pathname === '/emails') { emails.push(body); return json({ id: randomUUID() }); }
   assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer fake-marketing');
   if (url.pathname === '/contacts' && method === 'POST') {
     assert.deepEqual(Object.keys(body).sort(), ['email', 'first_name', 'last_name', 'segments', 'unsubscribed'], 'Local consent/token metadata must not be sent to the provider');
@@ -115,39 +115,6 @@ try {
   assert.equal(signup.readMailingOffer(offer, 1801000), null);
   assert.equal(signup.readMailingOffer(offer + 'tampered', 2000), null);
 
-  await Promise.all([signup.requestMailingConfirmation(client, contact, 'https://www.runoot.com'), signup.requestMailingConfirmation(client, contact, 'https://www.runoot.com')]);
-  assert.equal(emails.length, 1, 'Concurrent opt-ins send one confirmation');
-  assert.equal(members.length, 0, 'Requesting alone does not activate');
-  const token = emails[0].text.match(/token=([\w-]+)/)[1];
-  assert.notEqual(tables.mailing_list_signups[0].token_hash, token, 'Never store the raw confirmation token');
-  assert.ok(await signup.confirmationIsValid(client, token));
-  assert.equal(members.length, 0, 'Opening confirmation is read-only');
-  const confirmed = await Promise.allSettled([signup.confirmMailingSubscription(client, token), signup.confirmMailingSubscription(client, token)]);
-  assert.equal(confirmed.filter(result => result.status === 'fulfilled').length, 1);
-  assert.equal(members.length, 1);
-  await provider.unsubscribeMailingMember(members[0].id);
-  assert.equal(members[0].unsubscribed, true);
-  await assert.rejects(() => signup.confirmMailingSubscription(client, token));
-  await assert.rejects(() => signup.addMailingMemberManually(client, contact, randomUUID()), /previously unsubscribed/);
-  assert.equal(members[0].unsubscribed, true, 'Manual addition and replay cannot undo an opt-out');
-  tables.mailing_list_signups[0].requested_at = new Date(0).toISOString();
-  await signup.requestMailingConfirmation(client, contact, 'https://www.runoot.com');
-  await signup.confirmMailingSubscription(client, emails.at(-1)!.text.match(/token=([\w-]+)/)[1]);
-  assert.equal(members[0].unsubscribed, false, 'Fresh recipient confirmation allows resubscription');
-  await signup.addMailingMemberManually(client, { ...contact, email: 'manual@example.com' }, randomUUID());
-  assert.equal(members.length, 2);
-  assert.equal(tables.mailing_list_signups[1].source, 'admin');
-  assert.ok(tables.mailing_list_signups[1].confirmed_at);
-
-  failActivation = true;
-  await signup.requestMailingConfirmation(client, { ...contact, email: 'failure@example.com' }, 'https://www.runoot.com');
-  const failedToken = emails.at(-1)!.text.match(/token=([\w-]+)/)[1];
-  await assert.rejects(() => signup.confirmMailingSubscription(client, failedToken), /try again shortly/);
-  assert.equal(await signup.confirmationIsValid(client, failedToken), true, 'Provider failure preserves the original link');
-  failActivation = false;
-  await signup.confirmMailingSubscription(client, failedToken);
-  assert.equal(await signup.confirmationIsValid(client, failedToken), false, 'Successful activation consumes the link');
-
   const popupContact = { ...contact, email: 'popup@example.com' };
   const emailCount = emails.length;
   await signup.activateMailingFromPopup(client, popupContact);
@@ -170,6 +137,13 @@ try {
   await signup.activateMailingFromPopup(client, { ...contact, email: 'popup-failure@example.com' });
   assert.ok(tables.mailing_list_signups.find(row => row.email === 'popup-failure@example.com')?.confirmed_at);
   assert.equal(emails.length, emailCount, 'Retries also send no confirmation email');
+
+  await signup.addMailingMemberManually(client, { ...contact, email: 'manual@example.com' }, randomUUID());
+  const manualConsent = tables.mailing_list_signups.find(row => row.email === 'manual@example.com')!;
+  assert.equal(manualConsent.source, 'admin');
+  assert.ok(manualConsent.confirmed_at);
+  await assert.rejects(() => signup.addMailingMemberManually(client, popupContact, randomUUID()), /previously unsubscribed/);
+  assert.equal(popupMember.unsubscribed, true, 'Manual addition cannot reverse an opt-out');
 
   const adminId = randomUUID();
   const id = await campaign.saveMailingDraft(client, content, adminId);
@@ -213,10 +187,14 @@ try {
   assert.equal((await subscribeRoute.action(requestArgs('https://www.runoot.com', { consent: 'yes', offer: routeOffer }))).data.success, true);
   assert.ok(members.some(row => row.email === routeContact.email), 'The public endpoint activates the member');
   assert.equal(emails.length, emailCount, 'The public endpoint sends no confirmation email');
+  const oldRoute = await import('../app/routes/mailing-list.confirm');
+  const redirected = oldRoute.loader();
+  assert.equal(redirected.status, 302);
+  assert.equal(redirected.headers.get('location'), '/?mailing=old-link#request');
   for (const route of [await import('../app/routes/admin.mailing-list._index'), await import('../app/routes/admin.mailing-list.campaigns'), await import('../app/routes/admin.mailing-list.campaigns.$id')]) {
     const args = { request: new Request('https://www.runoot.com/admin/mailing-list'), params: {}, context: {} };
     await assert.rejects(() => route.loader(args as LoaderFunctionArgs), error => error instanceof Response && error.status === 302);
     await assert.rejects(() => route.action(args as ActionFunctionArgs), error => error instanceof Response && error.status === 302);
   }
-  console.log('Mailing list checks passed: signed offers, single-click activation, no extra confirmation email, validation, opt-out, legacy links, manual consent, admin guards, draft locking and ambiguous delivery. No real emails sent.');
+  console.log('Mailing list checks passed: signed offers, single-click activation, no extra confirmation email, old-link redirect, opt-out, manual consent, admin guards, draft locking and ambiguous delivery. No real emails sent.');
 } finally { globalThis.fetch = originalFetch; }

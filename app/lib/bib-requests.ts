@@ -6,8 +6,8 @@ export const landingMeta: MetaFunction = () => [
   { tagName: "link", rel: "canonical", href: "https://www.runoot.com/" },
 ];
 
-export const BIB_CONSENT_VERSION = "2026-09-16";
-export const BIB_CONSENT_TEXT = "I’d like email updates about matching race opportunities. I can withdraw my request by contacting support@runoot.com.";
+export const BIB_CONSENT_VERSION = "2026-10-10";
+export const BIB_CONSENT_TEXT = "By submitting this request, you ask Runoot to email you about matching opportunities for your selected races. You can withdraw your request by contacting support@runoot.com.";
 
 export const bibRaces = [
   { name: "Tokyo", country: "Japan", code: "TYO" },
@@ -47,9 +47,6 @@ export function validateBibRequest(form: FormData) {
   }
   if (!preferences.length || preferences.some(value => value !== "bib" && value !== "package")) {
     return { error: "Please select Bib only, Full package, or both." } as const;
-  }
-  if (form.get("consent") !== "on") {
-    return { error: "Please agree to receive updates about your request." } as const;
   }
   // A custom name may match a listed race; save each race only once.
   const uniqueRaces = [...new Map(races.map(race => [race.toLowerCase(), { race, race_key: race.toLowerCase() }])).values()];

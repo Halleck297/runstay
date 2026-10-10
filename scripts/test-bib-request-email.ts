@@ -70,14 +70,14 @@ try {
   const { submitBibRequest } = await import("../app/lib/bib-requests.server");
   async function submit(overrides: Record<string, string | string[]> = {}, path = "/go", origin = "https://www.runoot.com") {
     const body = new FormData();
-    const values = { firstName: "Alex", lastName: "Runner", email: " ALEX@EXAMPLE.COM ", race: ["Tokyo", "New York"], preference: "package", consent: "on", ...overrides };
+    const values = { firstName: "Alex", lastName: "Runner", email: " ALEX@EXAMPLE.COM ", race: ["Tokyo", "New York"], preference: "package", ...overrides };
     for (const [key, value] of Object.entries(values)) {
       for (const item of Array.isArray(value) ? value : [value]) body.append(key, item);
     }
     return (await submitBibRequest({ request: new Request(`https://www.runoot.com${path}`, { method: "POST", headers: { origin }, body }), params: {}, context: {} } as ActionFunctionArgs)).data;
   }
 
-  assert.equal((await submit({ consent: "" })).success, false);
+  assert.equal((await submit({ email: "invalid" })).success, false);
   assert.equal((await submit({ website: "spam" })).success, false);
   assert.equal((await submit({}, "/go", "https://untrusted.invalid")).success, false);
   assert.equal(saveAttempts, 0);

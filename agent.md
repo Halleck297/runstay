@@ -73,8 +73,8 @@ runoot-exchange/
 - `app/lib/bib-requests.server.ts`: race request persistence and transactional confirmation.
 - `app/components/MailingListOffer.tsx`: optional last-minute subscription popup after a successful request.
 - `app/routes/api.mailing-list.subscribe.tsx`: signed invitation validation and immediate subscription activation.
-- `app/routes/mailing-list.confirm.tsx`: explicit recipient confirmation; GET does not activate the subscription.
-- `app/lib/mailing-list.server.ts`: consent records, signed invitations, confirmation tokens and manual additions.
+- `app/routes/mailing-list.confirm.tsx`: legacy confirmation links redirect to the current race form; no confirmation page remains.
+- `app/lib/mailing-list.server.ts`: consent records, signed invitations and manual additions.
 - `app/lib/mailing-provider.server.ts`: server-only Resend contacts, segment membership and broadcasts.
 - `app/lib/mailing-campaigns.server.ts`: campaign drafts, send locking and interrupted-send recovery.
 - `app/routes/admin.mailing-list*.tsx`: subscriber management and campaign editor.
@@ -94,7 +94,7 @@ runoot-exchange/
 - **access_requests**: Requests for platform access, including `public_signup` requests awaiting approval
 - **bib_requests**: Public race preferences and contact details; these do not imply mailing list consent
 - **bib_offers**: Private entry offers submitted for review
-- **mailing_list_signups**: Latest mailing consent request, historical confirmation, manual administrator reference and hashed single-use token; migration applied to production on 9 October 2026
+- **mailing_list_signups**: Latest mailing consent request, historical activation, manual administrator reference and legacy token columns; migration applied to production on 9 October 2026
 - **mailing_list_campaigns**: Campaign content, author, delivery state and unique Resend broadcast ID; migration applied to production on 9 October 2026
 
 The mailing tables have RLS enabled and access restricted to the service role. Resend is authoritative for current subscription status: `confirmed_at` records a past confirmation and must not be treated as proof that a contact is still subscribed.
@@ -238,12 +238,12 @@ Fonts:
 - Covers all last-minute opportunities: bibs, hotels, race packages and destinations, independently of the races selected in the original request.
 - After a successful race request, the popup asks **“Want last-minute updates?”** and reuses the submitted email. A button in the success screen lets the visitor reopen it.
 - Subscription is optional. Declining does not change the saved race request.
-- A click on **“Yes, keep me updated”** records consent and activates the website subscription immediately; the popup then shows **“OK, accepted”** and the support address for leaving the list. No extra confirmation email or page is sent. Already issued confirmation links remain valid until expiry.
+- A click on **“Yes, keep me updated”** records consent and activates the website subscription immediately; the popup then shows **“OK, accepted”** and the support address for leaving the list. No extra confirmation email or page is sent. Old confirmation links redirect to the current form.
 - `/admin/mailing-list` supports direct manual additions with a required declaration that the person already gave consent. Previously unsubscribed addresses cannot be reactivated through a new popup click; direct them to support.
 - `/admin/mailing-list/campaigns` supports drafts, subject, inbox preview, plain-text message, optional HTTPS button, live email preview and explicit confirmation before sending to all active subscribers.
 - Every campaign includes Resend's personalized unsubscribe link. Current opt-outs are read from Resend and excluded by its broadcast delivery system.
 - Persist the provider broadcast ID before sending. Concurrent send requests are locked; ambiguous responses must be checked against the same broadcast instead of automatically resending or creating a copy.
-- The privacy policy describes the separate mailing consent, provider and unsubscribe flow. Each successful race request, including a repeat for the same race, sends a transactional confirmation summarizing the latest selected races and preference.
+- The privacy policy describes the separate mailing consent, provider and unsubscribe flow. The race-request form uses its **Notify me** button with an adjacent notice, without a checkbox; its consent wording is recorded separately from mailing-list consent. Each successful race request, including a repeat for the same race, sends a transactional confirmation summarizing the latest selected races and preference.
 - Local checks passed: mailing list and existing race-confirmation tests, TypeScript, targeted lint, production build, and desktop/mobile browser checks with fake provider responses. No real campaign emails were sent during these checks.
 
 **Database activation completed on 9 October 2026:** `migrations/20261008_mailing_list.sql` was applied in the Runoot production SQL Editor. Both tables have RLS enabled; `anon` and `authenticated` cannot read them, and the service role has read/write access. Direct API checks returned HTTP 200 for every expected column using the service role and denied anonymous reads.
@@ -283,7 +283,7 @@ For new environments, keep the segment setting unset until setup is ready; the p
   - Template registry + typed payloads
   - Shared base email layout
   - Template IDs and payloads are defined in `app/lib/email/types.ts` and `registry.ts`
-  - Recent additions include `bib_request_confirmation` and `mailing_list_confirmation`
+  - Recent additions include `bib_request_confirmation`
 
 ### Earlier Backlog — Recheck Before Starting Work
 

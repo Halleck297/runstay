@@ -78,3 +78,5 @@
 @media(max-width:760px){.bib-header.bib-header-with-offer{flex-wrap:nowrap;gap:12px}.bib-header-with-offer .bib-wordmark{font-size:21px;display:block}.bib-header-with-offer .bib-wordmark>span{display:block;margin-top:2px;font-size:10px}.bib-header-with-offer .bib-wordmark strong{font-size:12px}.bib-offer-link{padding:8px 12px;font-size:12px}.bib-offer-layout{grid-template-columns:1fr;gap:24px}.bib-offer-explainer h2{font-size:25px}.bib-offer-form .bib-field select,.bib-offer-form .bib-field textarea{font-size:16px}}
 
 .bib-offer-form .bib-form-note{margin-top:22px}
+.bib-request-notice{margin:17px 0;color:var(--bib-muted);font-size:11px;line-height:1.6}
+.bib-request-notice a{text-decoration:underline}

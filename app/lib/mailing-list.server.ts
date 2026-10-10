@@ -1,15 +1,11 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 import { MAILING_CONSENT_TEXT, MAILING_CONSENT_VERSION, type MailingContact } from "./mailing-list";
-import { getMailingMember, MailingProviderError, subscribeMailingMember } from "./mailing-provider.server";
-import { sendTemplatedEmail } from "./email/service.server";
+import { getMailingMember, subscribeMailingMember } from "./mailing-provider.server";
 
-const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const table = "mailing_list_signups";
 type Client = SupabaseClient<Database>;
-
-export class MailingActivationRetryError extends Error {}
 
 export function createMailingOffer(contact: MailingContact, now = Date.now()) {
   const secret = process.env.SESSION_SECRET;
@@ -50,72 +46,9 @@ export async function activateMailingFromPopup(client: Client, contact: MailingC
     token_expires_at: null,
   }, { onConflict: "email" }).select("id").single();
   if (saved.error) throw new Error("We couldn’t save your subscription. Please try again.");
-  const member = await subscribeMailingMember(contact, false);
+  const member = await subscribeMailingMember(contact);
   const confirmed = await client.from(table).update({ confirmed_at: new Date().toISOString(), resend_contact_id: member.id }).eq("id", saved.data.id);
   if (confirmed.error) console.error("mailing_consent_confirmation_audit_failed", { id: saved.data.id });
-}
-
-export async function requestMailingConfirmation(client: Client, contact: MailingContact, appUrl: string) {
-  const now = new Date();
-  const rawToken = randomBytes(32).toString("base64url");
-  const values = { ...contact, source: "popup" as const, consent_text: MAILING_CONSENT_TEXT, consent_version: MAILING_CONSENT_VERSION, requested_at: now.toISOString(), token_hash: hash(rawToken), token_expires_at: new Date(now.getTime() + 72 * 60 * 60 * 1000).toISOString() };
-  // Ignore repeated clicks, then atomically allow a new link after ten minutes.
-  const inserted = await client.from(table).upsert(values, { onConflict: "email", ignoreDuplicates: true }).select("id").maybeSingle();
-  if (inserted.error) throw new Error("We couldn’t save your subscription request. Please try again.");
-  let signup = inserted.data;
-  if (!signup) {
-    const updated = await client.from(table).update(values).eq("email", contact.email)
-      .lt("requested_at", new Date(now.getTime() - 10 * 60 * 1000).toISOString()).select("id").maybeSingle();
-    if (updated.error) throw new Error("We couldn’t save your subscription request. Please try again.");
-    signup = updated.data;
-  }
-  if (!signup) return;
-  const result = await sendTemplatedEmail({ to: contact.email, templateId: "mailing_list_confirmation", locale: "en", payload: { confirmUrl: `${appUrl}/mailing-list/confirm?token=${rawToken}` } });
-  if (!result.ok) {
-    // Permit a retry after a failed send, without affecting a newer request.
-    await client.from(table).update({ requested_at: new Date(0).toISOString() }).eq("id", signup.id).eq("token_hash", values.token_hash);
-    throw new Error("We couldn’t send the confirmation email. Please try again.");
-  }
-}
-
-export async function confirmationIsValid(client: Client, token: string) {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return false;
-  const result = await client.from(table).select("id").eq("token_hash", hash(token)).gt("token_expires_at", new Date().toISOString()).maybeSingle();
-  if (result.error) throw new Error("We couldn’t check this link. Please try again shortly.");
-  return Boolean(result.data);
-}
-
-export async function confirmMailingSubscription(client: Client, token: string) {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new Error("This confirmation link is invalid or has expired.");
-  const original = await client.from(table).select("id, requested_at, token_expires_at")
-    .eq("token_hash", hash(token)).gt("token_expires_at", new Date().toISOString()).maybeSingle();
-  if (original.error) throw new Error("We couldn’t confirm your subscription. Please try again.");
-  if (!original.data) throw new Error("This link has expired or has already been used. Submit a new race request to get a fresh subscription invitation.");
-  // Consume first: scanners only GET, and an old link can never undo a later opt-out.
-  const claimed = await client.from(table).update({ token_hash: null, token_expires_at: null })
-    .eq("token_hash", hash(token)).gt("token_expires_at", new Date().toISOString()).select("*").maybeSingle();
-  if (claimed.error) throw new Error("We couldn’t confirm your subscription. Please try again.");
-  if (!claimed.data) throw new Error("This link has expired or has already been used. Submit a new race request to get a fresh subscription invitation.");
-  try {
-    const member = await subscribeMailingMember(claimed.data, true);
-    const saved = await client.from(table).update({ confirmed_at: new Date().toISOString(), resend_contact_id: member.id }).eq("id", claimed.data.id);
-    if (saved.error) console.error("mailing_consent_confirmation_audit_failed", { id: claimed.data.id });
-  } catch (error) {
-    console.error("mailing_activation_failed", {
-      id: claimed.data.id,
-      provider_status: error instanceof MailingProviderError ? error.status : null,
-      provider_code: error instanceof MailingProviderError ? error.code : null,
-      reason: error instanceof MailingProviderError ? "provider_rejected" : "unexpected_failure",
-    });
-    // Keep the same confirmation link usable if activation failed. A newer
-    // request cannot be overwritten, and the original 72-hour expiry remains.
-    const restored = await client.from(table).update({ token_hash: hash(token), token_expires_at: original.data.token_expires_at })
-      .eq("id", claimed.data.id).eq("requested_at", original.data.requested_at).is("token_hash", null).select("id").maybeSingle();
-    if (restored.error || !restored.data) {
-      throw new Error("We couldn’t activate your subscription. Please return to the website and use a new subscription invitation.");
-    }
-    throw new MailingActivationRetryError("We couldn’t activate your subscription. Please try again shortly.");
-  }
 }
 
 export async function addMailingMemberManually(client: Client, contact: MailingContact, adminId: string) {
@@ -124,7 +57,7 @@ export async function addMailingMemberManually(client: Client, contact: MailingC
   // Record the administrator's consent declaration before activating the address.
   const saved = await client.from(table).upsert({ ...contact, source: "admin", consent_text: `Administrator confirms prior permission for: ${MAILING_CONSENT_TEXT}`, consent_version: MAILING_CONSENT_VERSION, added_by: adminId, requested_at: new Date().toISOString(), token_hash: null, token_expires_at: null }, { onConflict: "email" }).select("id").single();
   if (saved.error) throw new Error("Could not save the consent record. The address has not been added.");
-  const member = await subscribeMailingMember(contact, false);
+  const member = await subscribeMailingMember(contact);
   const confirmed = await client.from(table).update({ confirmed_at: new Date().toISOString(), resend_contact_id: member.id }).eq("id", saved.data.id);
   if (confirmed.error) throw new Error("The address was added, but its confirmation record could not be updated. Refresh the list before retrying.");
 }

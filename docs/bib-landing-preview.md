@@ -14,7 +14,7 @@ Only authorized administrators can read and delete requests at `/admin/bib-reque
 
 The grouped dashboard works with existing data and needs no database migration. It reads email-only batches to count and paginate runners, then fetches details for the selected page. This scans all matching email records on each load; if the list grows substantially, move grouping and pagination into a database view/RPC. Checks: `node --import tsx scripts/test-admin-bib-requests.ts`, `npm run typecheck`, `npm run build`.
 
-The server validates input and consent, checks request origin, and includes a honeypot and process-local rate limits. The IP allowance accommodates shared hotel Wi-Fi; a separate email limit restricts repeated submissions. Rate limits reset on restart and are not shared across server instances. Supabase RLS blocks direct public access; only the server service role can access the table.
+The server validates the request fields and records the wording shown beside the submit button, checks request origin, and includes a honeypot and process-local rate limits. The form has no separate checkbox for race alerts: selecting **Notify me** submits the request. Runoot Last Minute remains a separate choice in the popup. The IP allowance accommodates shared hotel Wi-Fi; a separate email limit restricts repeated submissions. Rate limits reset on restart and are not shared across server instances. Supabase RLS blocks direct public access; only the server service role can access the table.
 
 ## Deployment
 
