@@ -2,12 +2,14 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 import { MAILING_CONSENT_TEXT, MAILING_CONSENT_VERSION, type MailingContact } from "./mailing-list";
-import { getMailingMember, subscribeMailingMember } from "./mailing-provider.server";
+import { getMailingMember, MailingProviderError, subscribeMailingMember } from "./mailing-provider.server";
 import { sendTemplatedEmail } from "./email/service.server";
 
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const table = "mailing_list_signups";
 type Client = SupabaseClient<Database>;
+
+export class MailingActivationRetryError extends Error {}
 
 export function createMailingOffer(contact: MailingContact, now = Date.now()) {
   const secret = process.env.SESSION_SECRET;
@@ -64,6 +66,10 @@ export async function confirmationIsValid(client: Client, token: string) {
 
 export async function confirmMailingSubscription(client: Client, token: string) {
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new Error("This confirmation link is invalid or has expired.");
+  const original = await client.from(table).select("id, requested_at, token_expires_at")
+    .eq("token_hash", hash(token)).gt("token_expires_at", new Date().toISOString()).maybeSingle();
+  if (original.error) throw new Error("We couldn’t confirm your subscription. Please try again.");
+  if (!original.data) throw new Error("This link has expired or has already been used. Request a new confirmation email from the website.");
   // Consume first: scanners only GET, and an old link can never undo a later opt-out.
   const claimed = await client.from(table).update({ token_hash: null, token_expires_at: null })
     .eq("token_hash", hash(token)).gt("token_expires_at", new Date().toISOString()).select("*").maybeSingle();
@@ -73,9 +79,21 @@ export async function confirmMailingSubscription(client: Client, token: string) 
     const member = await subscribeMailingMember(claimed.data, true);
     const saved = await client.from(table).update({ confirmed_at: new Date().toISOString(), resend_contact_id: member.id }).eq("id", claimed.data.id);
     if (saved.error) console.error("mailing_consent_confirmation_audit_failed", { id: claimed.data.id });
-  } catch {
-    await client.from(table).update({ requested_at: new Date(0).toISOString() }).eq("id", claimed.data.id).is("token_hash", null);
-    throw new Error("We couldn’t activate your subscription. Please return to the website and request a new confirmation email.");
+  } catch (error) {
+    console.error("mailing_activation_failed", {
+      id: claimed.data.id,
+      provider_status: error instanceof MailingProviderError ? error.status : null,
+      provider_code: error instanceof MailingProviderError ? error.code : null,
+      reason: error instanceof MailingProviderError ? "provider_rejected" : "unexpected_failure",
+    });
+    // Keep the same confirmation link usable if activation failed. A newer
+    // request cannot be overwritten, and the original 72-hour expiry remains.
+    const restored = await client.from(table).update({ token_hash: hash(token), token_expires_at: original.data.token_expires_at })
+      .eq("id", claimed.data.id).eq("requested_at", original.data.requested_at).is("token_hash", null).select("id").maybeSingle();
+    if (restored.error || !restored.data) {
+      throw new Error("We couldn’t activate your subscription. Please return to the website and request a new confirmation email.");
+    }
+    throw new MailingActivationRetryError("We couldn’t activate your subscription. Please try again shortly.");
   }
 }
 

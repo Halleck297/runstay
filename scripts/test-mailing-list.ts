@@ -60,7 +60,11 @@ globalThis.fetch = async (input, init) => {
     const member = members.find(row => row.email === decodeURIComponent(parts[2]) || row.id === parts[2]);
     if (!member) return json({}, 404);
     if (method === 'PATCH') Object.assign(member, body);
-    if (parts[3] === 'segments') assert.equal(method, 'POST');
+    if (parts[3] === 'segments') {
+      if (method === 'GET') return json({ data: member.segments || [], has_more: false });
+      assert.equal(method, 'POST');
+      if (!(member.segments || []).some((item: { id: string }) => item.id === parts[4])) member.segments = [...(member.segments || []), { id: parts[4] }];
+    }
     return json(member);
   }
   if (url.pathname === '/broadcasts') {
@@ -138,12 +142,11 @@ try {
   failActivation = true;
   await signup.requestMailingConfirmation(client, { ...contact, email: 'failure@example.com' }, 'https://www.runoot.com');
   const failedToken = emails.at(-1)!.text.match(/token=([\w-]+)/)[1];
-  await assert.rejects(() => signup.confirmMailingSubscription(client, failedToken));
-  assert.equal(await signup.confirmationIsValid(client, failedToken), false);
+  await assert.rejects(() => signup.confirmMailingSubscription(client, failedToken), /try again shortly/);
+  assert.equal(await signup.confirmationIsValid(client, failedToken), true, 'Provider failure preserves the original link');
   failActivation = false;
-  const beforeRetry = emails.length;
-  await signup.requestMailingConfirmation(client, { ...contact, email: 'failure@example.com' }, 'https://www.runoot.com');
-  assert.equal(emails.length, beforeRetry + 1, 'Failed activation allows a fresh link');
+  await signup.confirmMailingSubscription(client, failedToken);
+  assert.equal(await signup.confirmationIsValid(client, failedToken), false, 'Successful activation consumes the link');
 
   const adminId = randomUUID();
   const id = await campaign.saveMailingDraft(client, content, adminId);

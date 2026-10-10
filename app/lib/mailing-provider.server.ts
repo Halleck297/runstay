@@ -4,7 +4,7 @@ import { renderMailingCampaign } from "./email/templates/mailingList";
 export type MailingMember = MailingContact & { id: string; unsubscribed: boolean; created_at: string };
 export type Broadcast = { id: string; segment_id: string; status: string; subject: string; sent_at: string | null };
 export class MailingProviderError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code: string | null = null) { super(message); }
 }
 
 export function mailingIsConfigured() {
@@ -40,10 +40,15 @@ export async function mailingApi<T>(path: string, method = "GET", body?: unknown
       continue;
     }
     if (!response.ok) {
+      // Resend error names are safe diagnostic codes; response messages may
+      // contain contact details and must not be logged.
+      const body = await response.json().catch(() => null);
+      const candidate = body && typeof body === "object" && "name" in body ? body.name : null;
+      const code = typeof candidate === "string" && /^[a-z_]{1,64}$/.test(candidate) ? candidate : null;
       throw new MailingProviderError(response.status, response.status === 401 || response.status === 403
         ? "The Resend key cannot manage contacts and campaigns. Configure a full-access marketing key."
         : response.status === 429 ? "The mailing service is busy. Please retry shortly."
-          : `The mailing service could not complete this operation (HTTP ${response.status}).`);
+          : `The mailing service could not complete this operation (HTTP ${response.status}).`, code);
     }
     return await response.json() as T;
   }
@@ -66,7 +71,12 @@ export async function subscribeMailingMember(contact: MailingContact, verifiedBy
     // the contact fields the provider needs, never database or token metadata.
     return await mailingApi<{ id: string }>("/contacts", "POST", { email: contact.email, first_name: contact.first_name, last_name: contact.last_name, unsubscribed: false, segments: [{ id: segment }] });
   }
-  await mailingApi(`/contacts/${encodeURIComponent(existing.id)}/segments/${encodeURIComponent(segment)}`, "POST");
+  // A previous attempt may have reached Resend before its response was lost.
+  // Avoid adding an already-present segment again when the recipient retries.
+  const segments = await mailingApi<{ data: { id: string }[]; has_more: boolean }>(`/contacts/${encodeURIComponent(existing.id)}/segments`);
+  if (!segments.data.some(item => item.id === segment)) {
+    await mailingApi(`/contacts/${encodeURIComponent(existing.id)}/segments/${encodeURIComponent(segment)}`, "POST");
+  }
   if (existing.unsubscribed) await mailingApi(`/contacts/${encodeURIComponent(existing.id)}`, "PATCH", { unsubscribed: false });
   return { id: existing.id };
 }
