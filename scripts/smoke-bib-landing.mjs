@@ -39,7 +39,7 @@ try {
   assert.equal(data.length, 5);
   const tokyo = data.find(row => row.race === 'Tokyo');
   assert.equal(tokyo.source, 'qr');
-  assert.equal(tokyo.preference, 'bib');
+  assert.equal(tokyo.preference, 'both', 'A repeat submission updates the saved preference');
   assert.equal(tokyo.landing_path, '/go');
   assert.equal(tokyo.email_verified, false);
   assert.ok(tokyo.consent_text && tokyo.consent_version);
@@ -56,7 +56,7 @@ try {
   const privacy = await fetch(new URL('/privacy-policy', base));
   assert.equal(privacy.status, 200);
   assert.ok((await privacy.text()).includes('Privacy, in plain language.'));
-  console.log(`PASS ${base.origin}: real submissions, source, deduplication, custom race, validation, privacy, access controls.`);
+  console.log(`PASS ${base.origin}: real submissions, updated repeat requests, custom race, validation, privacy, access controls.`);
 } finally {
   const { error } = await admin.from('bib_requests').delete().eq('email', email).eq('first_name', 'Runoot QA').eq('last_name', 'Temporary');
   assert.ifError(error);
