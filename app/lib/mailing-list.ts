@@ -1,5 +1,5 @@
-export const MAILING_CONSENT_VERSION = "2026-10-09";
-export const MAILING_CONSENT_TEXT = "I want email updates about bibs, hotel offers, race packages and last-minute opportunities across all races and destinations. I can unsubscribe at any time.";
+export const MAILING_CONSENT_VERSION = "2026-10-10";
+export const MAILING_CONSENT_TEXT = "I want Runoot Last Minute email updates about bibs, hotel offers, race packages and last-minute opportunities across all races and destinations. I can unsubscribe by contacting support@runoot.com or using the link in an email.";
 
 export type MailingContact = { email: string; first_name: string; last_name: string };
 export type CampaignContent = { subject: string; preview_text: string; body: string; button_label: string; button_url: string };

@@ -68,7 +68,7 @@ export default function BibLanding() {
                 <h2>{selectedRaces.join(", ")}.<br />Got it.</h2>
                 <p>Your request is on our list. We’ll contact you by email when a matching opportunity becomes available, with the price and conditions before you decide.</p>
                 {result?.success && result.confirmationEmail === "sent" && <p role="status">We’ve also sent you a confirmation email. If you don’t see it, check your spam folder.</p>}
-                {result?.success && result.confirmationEmail === "failed" && <p role="status">Your request is saved, but we couldn’t send the confirmation email. You don’t need to submit it again.</p>}
+                {result?.success && result.confirmationEmail === "failed" && <p role="status">Your request is saved, but we couldn’t send the confirmation email. If you need a copy, please try again later or contact <a href="mailto:support@runoot.com">support@runoot.com</a>.</p>}
                 <div className="bib-demo-note">An entry is not reserved or guaranteed. To withdraw your request, contact <a href="mailto:support@runoot.com">support@runoot.com</a>.</div>
                 <button className="bib-submit" type="button" onClick={() => { setDismissed(true); setRaces([]); setOtherRace(""); setSelectionError(""); }}>Request another race</button>
                 {result?.success && result.mailingOffer && <MailingListOffer offer={result.mailingOffer} />}

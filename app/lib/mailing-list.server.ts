@@ -34,6 +34,27 @@ export function readMailingOffer(value: string, now = Date.now()): MailingContac
   } catch { return null; }
 }
 
+export async function activateMailingFromPopup(client: Client, contact: MailingContact) {
+  const existing = await getMailingMember(contact.email);
+  if (existing?.unsubscribed) {
+    throw new Error("This address previously unsubscribed. Contact support@runoot.com if you want to join again.");
+  }
+  const saved = await client.from(table).upsert({
+    ...contact,
+    source: "popup",
+    consent_text: MAILING_CONSENT_TEXT,
+    consent_version: MAILING_CONSENT_VERSION,
+    requested_at: new Date().toISOString(),
+    added_by: null,
+    token_hash: null,
+    token_expires_at: null,
+  }, { onConflict: "email" }).select("id").single();
+  if (saved.error) throw new Error("We couldn’t save your subscription. Please try again.");
+  const member = await subscribeMailingMember(contact, false);
+  const confirmed = await client.from(table).update({ confirmed_at: new Date().toISOString(), resend_contact_id: member.id }).eq("id", saved.data.id);
+  if (confirmed.error) console.error("mailing_consent_confirmation_audit_failed", { id: saved.data.id });
+}
+
 export async function requestMailingConfirmation(client: Client, contact: MailingContact, appUrl: string) {
   const now = new Date();
   const rawToken = randomBytes(32).toString("base64url");
@@ -69,12 +90,12 @@ export async function confirmMailingSubscription(client: Client, token: string) 
   const original = await client.from(table).select("id, requested_at, token_expires_at")
     .eq("token_hash", hash(token)).gt("token_expires_at", new Date().toISOString()).maybeSingle();
   if (original.error) throw new Error("We couldn’t confirm your subscription. Please try again.");
-  if (!original.data) throw new Error("This link has expired or has already been used. Request a new confirmation email from the website.");
+  if (!original.data) throw new Error("This link has expired or has already been used. Submit a new race request to get a fresh subscription invitation.");
   // Consume first: scanners only GET, and an old link can never undo a later opt-out.
   const claimed = await client.from(table).update({ token_hash: null, token_expires_at: null })
     .eq("token_hash", hash(token)).gt("token_expires_at", new Date().toISOString()).select("*").maybeSingle();
   if (claimed.error) throw new Error("We couldn’t confirm your subscription. Please try again.");
-  if (!claimed.data) throw new Error("This link has expired or has already been used. Request a new confirmation email from the website.");
+  if (!claimed.data) throw new Error("This link has expired or has already been used. Submit a new race request to get a fresh subscription invitation.");
   try {
     const member = await subscribeMailingMember(claimed.data, true);
     const saved = await client.from(table).update({ confirmed_at: new Date().toISOString(), resend_contact_id: member.id }).eq("id", claimed.data.id);
@@ -91,7 +112,7 @@ export async function confirmMailingSubscription(client: Client, token: string) 
     const restored = await client.from(table).update({ token_hash: hash(token), token_expires_at: original.data.token_expires_at })
       .eq("id", claimed.data.id).eq("requested_at", original.data.requested_at).is("token_hash", null).select("id").maybeSingle();
     if (restored.error || !restored.data) {
-      throw new Error("We couldn’t activate your subscription. Please return to the website and request a new confirmation email.");
+      throw new Error("We couldn’t activate your subscription. Please return to the website and use a new subscription invitation.");
     }
     throw new MailingActivationRetryError("We couldn’t activate your subscription. Please try again shortly.");
   }
@@ -99,7 +120,7 @@ export async function confirmMailingSubscription(client: Client, token: string) 
 
 export async function addMailingMemberManually(client: Client, contact: MailingContact, adminId: string) {
   const existing = await getMailingMember(contact.email);
-  if (existing?.unsubscribed) throw new Error("This address previously unsubscribed. Ask the person to subscribe again through the website and confirm their email.");
+  if (existing?.unsubscribed) throw new Error("This address previously unsubscribed. Contact support@runoot.com if you want to join again.");
   // Record the administrator's consent declaration before activating the address.
   const saved = await client.from(table).upsert({ ...contact, source: "admin", consent_text: `Administrator confirms prior permission for: ${MAILING_CONSENT_TEXT}`, consent_version: MAILING_CONSENT_VERSION, added_by: adminId, requested_at: new Date().toISOString(), token_hash: null, token_expires_at: null }, { onConflict: "email" }).select("id").single();
   if (saved.error) throw new Error("Could not save the consent record. The address has not been added.");

@@ -44,11 +44,13 @@ globalThis.fetch = async (input, init) => {
     saveAttempts++;
     if (saveFailure) return new Response(JSON.stringify({ code: "test", message: "Save failed" }), { status: 503 });
     assert.equal(init?.method, "POST");
-    assert.equal(url.searchParams.get("select"), "race,race_key");
     const values = JSON.parse(String(init?.body)) as SavedRequest[];
-    const inserted = values.filter(value => !records.some(row => row.email === value.email && row.race_key === value.race_key));
-    records.push(...inserted);
-    return new Response(JSON.stringify(inserted.map(({ race, race_key }) => ({ race, race_key }))), { status: 201, headers: { "Content-Type": "application/json" } });
+    for (const value of values) {
+      const existing = records.find(row => row.email === value.email && row.race_key === value.race_key);
+      if (existing) Object.assign(existing, value);
+      else records.push(value);
+    }
+    return new Response(null, { status: 204 });
   }
   if (url.hostname === "api.resend.com" && url.pathname === "/emails") {
     assert.ok(records.length, "The email must only be sent after saving the request");
@@ -95,20 +97,21 @@ try {
   assert.ok(emails[0].text.includes("Full package (bib + hotel)"));
 
   const duplicate = await submit({ preference: "bib" }, "/");
-  assert.ok(duplicate.success && duplicate.confirmationEmail === "not_needed");
-  assert.equal(emails.length, 1, "Duplicate requests do not resend or misrepresent stored preferences");
-  assert.ok(records.every(row => row.preference === "package"));
+  assert.ok(duplicate.success && duplicate.confirmationEmail === "sent");
+  assert.equal(emails.length, 2, "Repeating a request sends a new confirmation");
+  assert.ok(emails[1].text.includes("Tokyo") && emails[1].text.includes("New York"));
+  assert.ok(emails[1].text.includes("You’re looking for: Bib only"));
+  assert.ok(records.every(row => row.preference === "bib"), "Saved preferences match the latest confirmation");
 
   const mixed = await submit({ race: ["Tokyo", "London"], preference: ["bib", "package"] }, "/en");
   assert.ok(mixed.success && mixed.confirmationEmail === "sent");
-  assert.equal(emails.length, 2);
-  assert.ok(emails[1].text.includes("London"));
-  assert.ok(!emails[1].text.includes("Tokyo"), "The email summarizes only newly saved races");
-  assert.ok(emails[1].text.includes("Bib only or full package"));
+  assert.equal(emails.length, 3);
+  assert.ok(emails[2].text.includes("London") && emails[2].text.includes("Tokyo"), "The email summarizes every selected race");
+  assert.ok(emails[2].text.includes("Bib only or full package"));
 
   const single = await submit({ race: "Cardiff", preference: "bib" }, "/");
   assert.ok(single.success && single.confirmationEmail === "sent");
-  assert.ok(emails[2].text.includes("You’re looking for: Bib only"));
+  assert.ok(emails[3].text.includes("You’re looking for: Bib only"));
 
   emailFailure = true;
   const failed = await submit({ race: "Chicago" });
@@ -133,4 +136,4 @@ try {
   globalThis.fetch = originalFetch;
   console.error = originalConsoleError;
 }
-console.log("Bib confirmation email: template escaping, one email per save, deduplication, validation and failure isolation passed. No real emails sent.");
+console.log("Bib confirmation email: template escaping, one email per submission including repeats, saved preference updates, validation and failure isolation passed. No real emails sent.");

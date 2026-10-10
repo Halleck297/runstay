@@ -3,11 +3,11 @@
 ## Operation
 
 - A successful race request offers a separate, optional subscription for all last-minute updates (bibs, hotels, packages and destinations).
-- The invitation opens once per browser session. The success card also has a button to reopen it.
-- Public subscriptions require an email confirmation. Opening the link does not activate anything: the recipient confirms on the page. Links expire after 72 hours and are single use.
-- `/admin/mailing-list` lists contacts and supports manual additions with a required declaration of existing consent. Manual additions activate immediately. Previously unsubscribed contacts must confirm a new website subscription themselves.
+- The invitation opens after the race request. The success card also has a button to reopen it.
+- The popup's **“Yes, keep me updated”** button records consent and activates the subscription immediately. The popup then shows **“OK, accepted”** with support@runoot.com as the contact for leaving the list. It sends no subscription confirmation email and opens no second confirmation page. Already issued links retain their original expiry and confirmation route.
+- `/admin/mailing-list` lists contacts and supports manual additions with a required declaration of existing consent. Manual additions activate immediately. Previously unsubscribed contacts must contact support before rejoining.
 - `/admin/mailing-list/campaigns` supports drafts, a live preview, a link button and an explicit send confirmation. Campaigns go to active members of the dedicated Resend segment.
-- Resend stores the current subscription status and processes campaign delivery. Every campaign includes its hosted unsubscribe link. No webhook is needed to exclude opt-outs; the admin reads current provider state. Race-request emails remain transactional and independent.
+- Resend stores the current subscription status and processes campaign delivery. Every campaign includes its hosted unsubscribe link; recipients can also contact support@runoot.com. No webhook is needed to exclude opt-outs; the admin reads current provider state. Race-request emails remain transactional and independent. Every successful race request, including a repeat, updates the saved selection and sends its own confirmation email.
 
 ## First activation
 
@@ -16,11 +16,11 @@
 3. **Configured for Vercel Production on 9 October 2026:** the owner created a Full access key, saved as a sensitive environment variable. The segment ID was added separately. Required values for each environment (never put keys in browser variables or version control):
    - `RESEND_MARKETING_API_KEY`: contacts, segments and broadcasts access.
    - `RESEND_LAST_MINUTE_SEGMENT_ID`: the dedicated segment UUID.
-   - Keep the existing `RESEND_API_KEY` for transactional confirmation emails and `RESEND_FROM_EMAIL` for the verified sender.
+   - Keep the existing `RESEND_API_KEY` for transactional race-request emails and `RESEND_FROM_EMAIL` for the verified sender.
    - `SESSION_SECRET` signs the short-lived subscription invitation; `APP_URL` must be the production HTTPS origin.
 4. Verify that the account has a marketing plan/contact allowance suitable for the list. Provider limits and billing are separate from this application.
 5. **Published and connection verified on 9 October 2026:** commits `95dd1c3` and `1e479e8` are deployed to `www.runoot.com`. The authenticated admin Subscribers page successfully reads the empty Resend segment and the new database tables. Public confirmation is available; invalid invitations are rejected, and unauthenticated admin access requires login. Configuration values tolerate surrounding whitespace; credentials are never included in connection diagnostics. With the segment unset in other environments, the homepage invitation is hidden, while existing race requests continue working.
-6. **Real delivery verification remains pending:** with the owner's authorization, use an address you control to submit a race request, opt in, receive/confirm the email, and check the active subscriber in the admin. Send a campaign to a dedicated test segment containing only controlled addresses, verify its unsubscribe link, and verify that an opted-out recipient is excluded from the next test campaign. Use a separate deployment/environment for the test segment. Never test mass sending against the live list. Production verification has not enrolled contacts or sent emails.
+6. **Live delivery after this change remains to be checked:** submit a race request using a controlled address, verify its transactional confirmation email, click the popup once and check the active subscriber in the admin. Send a campaign to a dedicated test segment containing only controlled addresses, verify its unsubscribe link, and verify that an opted-out recipient is excluded from the next test campaign. Use a separate deployment/environment for the test segment. Never test mass sending against the live list.
 
 The database migration, new environment values and production deployment are separate steps; source changes alone do not activate the feature.
 
@@ -50,7 +50,7 @@ Only one request can claim a draft for delivery. The application creates an unse
 
 ## Data
 
-`mailing_list_signups` stores the latest consent request, timestamp, consent version/text, manual administrator reference and historical confirmation. `confirmed_at` is not current subscription status. Current opt-outs live in Resend. Unsubscribe does not delete the limited consent record or cancel race requests.
+`mailing_list_signups` stores the latest consent request, timestamp, consent version/text, manual administrator reference and historical activation. `confirmed_at` is not current subscription status. Current opt-outs live in Resend. Unsubscribe does not delete the limited consent record or cancel race requests.
 
 `mailing_list_campaigns` stores drafts, author, state and the unique provider broadcast ID. Content is plain text with escaped HTML and an optional HTTPS button; recipients cannot be supplied by a client request.
 

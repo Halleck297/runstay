@@ -72,7 +72,7 @@ runoot-exchange/
 - `app/components/BibLanding.tsx`: public race request form and success screen.
 - `app/lib/bib-requests.server.ts`: race request persistence and transactional confirmation.
 - `app/components/MailingListOffer.tsx`: optional last-minute subscription popup after a successful request.
-- `app/routes/api.mailing-list.subscribe.tsx`: signed invitation validation and confirmation email request.
+- `app/routes/api.mailing-list.subscribe.tsx`: signed invitation validation and immediate subscription activation.
 - `app/routes/mailing-list.confirm.tsx`: explicit recipient confirmation; GET does not activate the subscription.
 - `app/lib/mailing-list.server.ts`: consent records, signed invitations, confirmation tokens and manual additions.
 - `app/lib/mailing-provider.server.ts`: server-only Resend contacts, segment membership and broadcasts.
@@ -236,14 +236,14 @@ Fonts:
 ### Runoot Last Minute mailing list — published, provider connection verified
 
 - Covers all last-minute opportunities: bibs, hotels, race packages and destinations, independently of the races selected in the original request.
-- After a successful race request, the popup asks **“Want last-minute updates?”** and reuses the submitted email. It opens once per browser session; a button in the success screen lets the visitor reopen it.
+- After a successful race request, the popup asks **“Want last-minute updates?”** and reuses the submitted email. A button in the success screen lets the visitor reopen it.
 - Subscription is optional. Declining does not change the saved race request.
-- Website opt-in sends an email confirmation. Confirmation links expire after 72 hours, are stored as hashes, and can be consumed only once through an explicit POST confirmation.
-- `/admin/mailing-list` supports direct manual additions with a required declaration that the person already gave consent. No confirmation email is required for these additions. Previously unsubscribed addresses must reconfirm themselves through the website.
+- A click on **“Yes, keep me updated”** records consent and activates the website subscription immediately; the popup then shows **“OK, accepted”** and the support address for leaving the list. No extra confirmation email or page is sent. Already issued confirmation links remain valid until expiry.
+- `/admin/mailing-list` supports direct manual additions with a required declaration that the person already gave consent. Previously unsubscribed addresses cannot be reactivated through a new popup click; direct them to support.
 - `/admin/mailing-list/campaigns` supports drafts, subject, inbox preview, plain-text message, optional HTTPS button, live email preview and explicit confirmation before sending to all active subscribers.
 - Every campaign includes Resend's personalized unsubscribe link. Current opt-outs are read from Resend and excluded by its broadcast delivery system.
 - Persist the provider broadcast ID before sending. Concurrent send requests are locked; ambiguous responses must be checked against the same broadcast instead of automatically resending or creating a copy.
-- The privacy policy describes the separate mailing consent, provider and unsubscribe flow.
+- The privacy policy describes the separate mailing consent, provider and unsubscribe flow. Each successful race request, including a repeat for the same race, sends a transactional confirmation summarizing the latest selected races and preference.
 - Local checks passed: mailing list and existing race-confirmation tests, TypeScript, targeted lint, production build, and desktop/mobile browser checks with fake provider responses. No real campaign emails were sent during these checks.
 
 **Database activation completed on 9 October 2026:** `migrations/20261008_mailing_list.sql` was applied in the Runoot production SQL Editor. Both tables have RLS enabled; `anon` and `authenticated` cannot read them, and the service role has read/write access. Direct API checks returned HTTP 200 for every expected column using the service role and denied anonymous reads.

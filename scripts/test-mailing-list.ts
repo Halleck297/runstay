@@ -148,6 +148,29 @@ try {
   await signup.confirmMailingSubscription(client, failedToken);
   assert.equal(await signup.confirmationIsValid(client, failedToken), false, 'Successful activation consumes the link');
 
+  const popupContact = { ...contact, email: 'popup@example.com' };
+  const emailCount = emails.length;
+  await signup.activateMailingFromPopup(client, popupContact);
+  assert.equal(emails.length, emailCount, 'The popup click sends no extra confirmation email');
+  const popupMember = members.find(row => row.email === popupContact.email)!;
+  const popupConsent = tables.mailing_list_signups.find(row => row.email === popupContact.email)!;
+  assert.ok(popupMember && !popupMember.unsubscribed, 'The popup click activates the subscriber immediately');
+  assert.equal(popupConsent.source, 'popup');
+  assert.ok(popupConsent.confirmed_at && !popupConsent.token_hash, 'Consent is recorded without an email token');
+  await signup.activateMailingFromPopup(client, popupContact);
+  assert.equal(members.filter(row => row.email === popupContact.email).length, 1, 'A repeated click remains idempotent');
+  await provider.unsubscribeMailingMember(popupMember.id);
+  await assert.rejects(() => signup.activateMailingFromPopup(client, popupContact), /support@runoot.com/);
+  assert.equal(popupMember.unsubscribed, true, 'A popup click cannot reverse an opt-out');
+
+  failActivation = true;
+  await assert.rejects(() => signup.activateMailingFromPopup(client, { ...contact, email: 'popup-failure@example.com' }));
+  assert.equal(tables.mailing_list_signups.find(row => row.email === 'popup-failure@example.com')?.confirmed_at, null);
+  failActivation = false;
+  await signup.activateMailingFromPopup(client, { ...contact, email: 'popup-failure@example.com' });
+  assert.ok(tables.mailing_list_signups.find(row => row.email === 'popup-failure@example.com')?.confirmed_at);
+  assert.equal(emails.length, emailCount, 'Retries also send no confirmation email');
+
   const adminId = randomUUID();
   const id = await campaign.saveMailingDraft(client, content, adminId);
   const saved = tables.mailing_list_campaigns.find(row => row.id === id)!;
@@ -185,10 +208,15 @@ try {
   assert.equal((await subscribeRoute.action(requestArgs('https://evil.invalid', { consent: 'yes', offer: signed }))).init?.status, 403);
   assert.equal((await subscribeRoute.action(requestArgs('https://www.runoot.com', { consent: 'no', offer: signed }))).data.success, false);
   assert.equal((await subscribeRoute.action(requestArgs('https://www.runoot.com', { consent: 'yes', offer: 'forged' }))).data.success, false);
+  const routeContact = { ...contact, email: 'popup-route@example.com' };
+  const routeOffer = signup.createMailingOffer(routeContact)!;
+  assert.equal((await subscribeRoute.action(requestArgs('https://www.runoot.com', { consent: 'yes', offer: routeOffer }))).data.success, true);
+  assert.ok(members.some(row => row.email === routeContact.email), 'The public endpoint activates the member');
+  assert.equal(emails.length, emailCount, 'The public endpoint sends no confirmation email');
   for (const route of [await import('../app/routes/admin.mailing-list._index'), await import('../app/routes/admin.mailing-list.campaigns'), await import('../app/routes/admin.mailing-list.campaigns.$id')]) {
     const args = { request: new Request('https://www.runoot.com/admin/mailing-list'), params: {}, context: {} };
     await assert.rejects(() => route.loader(args as LoaderFunctionArgs), error => error instanceof Response && error.status === 302);
     await assert.rejects(() => route.action(args as ActionFunctionArgs), error => error instanceof Response && error.status === 302);
   }
-  console.log('Mailing list checks passed: signed offers, validation, confirmation, deduplication, opt-out/resubscribe, manual consent, admin guards, draft locking and ambiguous delivery. No real emails sent.');
+  console.log('Mailing list checks passed: signed offers, single-click activation, no extra confirmation email, validation, opt-out, legacy links, manual consent, admin guards, draft locking and ambiguous delivery. No real emails sent.');
 } finally { globalThis.fetch = originalFetch; }

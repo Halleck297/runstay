@@ -64,7 +64,7 @@ export async function subscribeMailingMember(contact: MailingContact, verifiedBy
   const { segment } = config();
   const existing = await getMailingMember(contact.email);
   if (existing?.unsubscribed && !verifiedByRecipient) {
-    throw new Error("This address previously unsubscribed. Ask the person to subscribe again through the website and confirm their email.");
+    throw new Error("This address previously unsubscribed. Contact support@runoot.com if you want to join again.");
   }
   if (!existing) {
     // Confirmation callers also hold the local consent/token record. Send only

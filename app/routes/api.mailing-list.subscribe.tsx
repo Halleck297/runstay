@@ -1,8 +1,7 @@
 import { data, type ActionFunctionArgs } from "react-router";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { checkRateLimit, getClientIp } from "~/lib/rate-limit.server";
-import { getAppUrl } from "~/lib/app-url.server";
-import { readMailingOffer, requestMailingConfirmation } from "~/lib/mailing-list.server";
+import { activateMailingFromPopup, readMailingOffer } from "~/lib/mailing-list.server";
 import { mailingIsConfigured } from "~/lib/mailing-provider.server";
 
 const headers = { "Cache-Control": "private, no-store" };
@@ -18,9 +17,9 @@ export async function action({ request }: ActionFunctionArgs) {
   if (form.get("consent") !== "yes") return fail("Please choose to subscribe before continuing.");
   const contact = readMailingOffer(String(form.get("offer") || ""));
   if (!contact) return fail("This offer has expired. Submit your race request again to receive a new subscription link.");
-  if (!checkRateLimit(`mailing-email:${contact.email}`, 5, 60 * 60 * 1000).allowed) return fail("A confirmation was recently requested. Please check your inbox or try again later.", 429);
+  if (!checkRateLimit(`mailing-email:${contact.email}`, 5, 60 * 60 * 1000).allowed) return fail("Too many attempts. Please try again later.", 429);
   try {
-    await requestMailingConfirmation(supabaseAdmin, contact, getAppUrl(request));
+    await activateMailingFromPopup(supabaseAdmin, contact);
     return data({ success: true, error: "" }, { headers });
   } catch (error) { return fail(error instanceof Error ? error.message : "Please try again later.", 503); }
 }
