@@ -2,28 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import type { action } from "~/routes/api.mailing-list.subscribe";
 
-const sessionKey = "runoot-last-minute-prompt-shown";
-
 export default function MailingListOffer({ offer }: { offer: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const shown = useRef(false);
   const [closed, setClosed] = useState(false);
   const fetcher = useFetcher<typeof action>();
   const busy = fetcher.state !== "idle";
   const complete = fetcher.data?.success && !busy;
   useEffect(() => {
     if (closed) return;
-    if (!shown.current) {
-      try { if (sessionStorage.getItem(sessionKey)) return; sessionStorage.setItem(sessionKey, "1"); } catch { /* Still show once in this page when storage is unavailable. */ }
-      shown.current = true;
-    }
     const element = dialog.current;
     const previousFocus = document.activeElement as HTMLElement | null;
-    element?.showModal();
+    if (element && !element.open) element.showModal();
     return () => { element?.close(); previousFocus?.focus(); };
   }, [closed]);
   const close = () => { dialog.current?.close(); setClosed(true); };
-  return <><button type="button" className="bib-mailing-decline" onClick={() => { shown.current = true; setClosed(false); dialog.current?.showModal(); }}>Get last-minute updates by email</button><dialog ref={dialog} className="bib-mailing-dialog" aria-labelledby="last-minute-title" aria-describedby="last-minute-description" onCancel={() => setClosed(true)}>
+  return <><button type="button" className="bib-mailing-decline" onClick={() => setClosed(false)}>Get last-minute updates by email</button><dialog ref={dialog} className="bib-mailing-dialog" aria-labelledby="last-minute-title" aria-describedby="last-minute-description" onCancel={() => setClosed(true)}>
     <button type="button" className="bib-mailing-close" aria-label="Close mailing list invitation" onClick={close}>×</button>
     <p className="bib-eyebrow">YOUR REQUEST IS SAVED</p>
     <h2 id="last-minute-title">{complete ? "Check your inbox." : "Want last-minute updates?"}</h2>

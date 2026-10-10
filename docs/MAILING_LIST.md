@@ -12,7 +12,7 @@
 ## First activation
 
 1. **Completed in production on 9 October 2026:** `migrations/20261008_mailing_list.sql` was applied to the Runoot database. For another environment, apply the same migration there. The new tables are server-only: no anonymous/authenticated access.
-2. **Configured in production on 9 October 2026:** dedicated segment **Runoot Last Minute** (`615bc712-53ec-4d9d-9dd4-c137b9192e51`). It was created empty. Do not populate it from existing race requests or account registrations.
+2. **Configured in production:** dedicated segment **Runoot Last Minute** (`7f9a0f06-8723-4634-a300-d325ec187fd8`). It was created empty. Do not populate it from existing race requests or account registrations. The original production setting used an incorrect segment ID and was corrected on 10 October 2026 after Resend rejected contact creation with HTTP 422.
 3. **Configured for Vercel Production on 9 October 2026:** the owner created a Full access key, saved as a sensitive environment variable. The segment ID was added separately. Required values for each environment (never put keys in browser variables or version control):
    - `RESEND_MARKETING_API_KEY`: contacts, segments and broadcasts access.
    - `RESEND_LAST_MINUTE_SEGMENT_ID`: the dedicated segment UUID.
