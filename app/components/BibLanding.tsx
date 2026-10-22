@@ -1,21 +1,53 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useFetcher, useActionData, useLocation } from "react-router";
 import type { submitBibRequest } from "~/lib/bib-requests.server";
-import { bibRaces, BIB_CONSENT_TEXT } from "~/lib/bib-requests";
+import { bibRaces, BIB_CONSENT_TEXT, MAX_CUSTOM_RACES } from "~/lib/bib-requests";
 import landingStyles from "~/styles/bib-landing.css?url";
+import homeStyles from "~/styles/bib-home.css?url";
 import { trackEvent } from "~/lib/analytics/client";
 import { reopenCookieBanner } from "~/lib/analytics/consent";
 import { bibRequestSource } from "~/lib/bib-requests";
 import MailingListOffer from "./MailingListOffer";
 
-export const links = () => [{ rel: "stylesheet", href: landingStyles }];
+export const links = () => [
+  { rel: "stylesheet", href: landingStyles },
+  { rel: "stylesheet", href: homeStyles },
+  { rel: "preload", href: "/fonts/archivo-variable-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" as const },
+];
+
+const listedRaces = bibRaces.filter(item => item.name !== "Another race");
+const tickerCities = ["Tokyo", "London", "New York", "Chicago", "Sydney", "Cape Town", "Cardiff", "Your next race"];
+const faq = [
+  { q: "Does a request guarantee an entry?", a: "No. You’re expressing interest, not reserving a place or joining an official event waiting list. Availability depends on the event, entry conditions and the opportunities we can source." },
+  { q: "Do I pay anything now?", a: "No. Leaving a request is free. If an opportunity becomes available, you’ll see its price and conditions before making a decision." },
+  { q: "Will I have to buy a hotel package?", a: "Only if you choose an offer that includes one. Select only ‘Bib only’ if you don’t want package offers, or select both if you’re open to either. Packages have much more availability, so selecting both gives you the best chance." },
+  { q: "Why do you recommend the full package?", a: "Many entries are available only as part of a bib + hotel package. Choosing the full package gives you much more availability than bib only, and the best chance of getting a place." },
+  { q: "Why do you ask for my WhatsApp number?", a: "It’s optional. We use it only to reach you quickly when a last-minute place comes up, in case our email ends up in spam." },
+  { q: "My race isn’t listed. Can I still ask?", a: `Yes. Choose ‘Another race’, type the race name and press OK. You can add up to ${MAX_CUSTOM_RACES} races that aren’t on the list.` },
+  { q: "Is the bib transfer official?", a: "Any transfer must follow the organizer’s rules. Before suggesting a match, we review the event’s transfer conditions and deadlines." },
+  { q: "I can’t run my race. Can I sell my bib here?", a: "Yes. Tell us about your entry and we’ll review the details. Your offer is a private report, not a public listing, and any transfer must follow the organizer’s rules." },
+];
+const preferenceOptions = [
+  { value: "package", title: "Full package (bib + hotel)", text: "Much more availability than bib only. Your best chance of getting a place.", badge: "Best availability" },
+  { value: "bib", title: "Bib only", text: "Fewer entries available on their own." },
+];
+// Faded contour lines behind the request form.
+const contours = [
+  ...Array.from({ length: 12 }, (_, i) => ({ cx: 980 + i * 6, cy: 150 - i * 3, rx: 50 + i * 46, ry: (50 + i * 46) * (0.52 + (i % 3) * 0.04), rotate: `rotate(${-14 + i * 1.5} 980 150)` })),
+  ...Array.from({ length: 9 }, (_, i) => ({ cx: 120 + i * 6, cy: 640 - i * 3, rx: 50 + i * 46, ry: (50 + i * 46) * (0.52 + (i % 3) * 0.04), rotate: `rotate(${18 + i * 1.5} 120 640)` })),
+];
+
+type CustomRace = { name: string; code: string; selected: boolean };
+const raceCode = (name: string) => name.normalize("NFD").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "RUN";
 
 export default function BibLanding() {
   const { pathname, search } = useLocation();
-  const showOfferLink = !/^\/go\/?$/.test(pathname);
+  const isQr = /^\/go\/?$/.test(pathname);
   const oldMailingLink = new URLSearchParams(search).get("mailing") === "old-link";
   const [races, setRaces] = useState<string[]>([]);
-  const [otherRace, setOtherRace] = useState("");
+  const [customRaces, setCustomRaces] = useState<CustomRace[]>([]);
+  const [anotherOpen, setAnotherOpen] = useState(false);
+  const [customName, setCustomName] = useState("");
   const [preferences, setPreferences] = useState<string[]>(["package"]);
   const [selectionError, setSelectionError] = useState("");
   const toggle = (values: string[], value: string) => values.includes(value) ? values.filter(item => item !== value) : [...values, value];
@@ -25,95 +57,240 @@ export default function BibLanding() {
   const [dismissed, setDismissed] = useState(false);
   const complete = !dismissed && fetcher.state === "idle" && result?.success === true;
   const submitting = fetcher.state !== "idle";
+  const customFull = customRaces.length >= MAX_CUSTOM_RACES;
+  const customInput = useRef<HTMLInputElement>(null);
   const trackedResult = useRef<unknown>(null);
   useEffect(() => {
     if (complete && result !== trackedResult.current) {
       trackedResult.current = result;
       trackEvent("generate_lead", {
         landing_source: bibRequestSource(window.location.pathname),
-        race: result.races.length > 1 ? "Multiple races" : bibRaces.some(item => item.name === result.races[0]) ? result.races[0] : "Another race",
+        race: result.races.length > 1 ? "Multiple races" : listedRaces.some(item => item.name === result.races[0]) ? result.races[0] : "Another race",
         preference: result.preference,
       });
     }
   }, [complete, result]);
   const confirmation = useRef<HTMLDivElement>(null);
-  const selectedRaces = result?.success ? result.races : races.map(race => race === "Another race" ? otherRace : race);
   useEffect(() => {
     if (complete) confirmation.current?.focus();
   }, [complete]);
+  useEffect(() => {
+    if (anotherOpen) customInput.current?.focus();
+  }, [anotherOpen]);
+
+  // Each confirmed name becomes its own selected race box; "Another race" closes again.
+  const addCustomRace = () => {
+    const name = customName.trim().replace(/\s+/g, " ");
+    if (name.length < 2) { setSelectionError("Type the race name, then press OK."); customInput.current?.focus(); return; }
+    const listed = listedRaces.find(item => item.name.toLowerCase() === name.toLowerCase());
+    if (listed) setRaces(current => current.includes(listed.name) ? current : [...current, listed.name]);
+    else if (customRaces.some(item => item.name.toLowerCase() === name.toLowerCase())) setCustomRaces(current => current.map(item => item.name.toLowerCase() === name.toLowerCase() ? { ...item, selected: true } : item));
+    else if (!customFull) setCustomRaces(current => [...current, { name, code: raceCode(name), selected: true }]);
+    setCustomName("");
+    setAnotherOpen(false);
+    setSelectionError("");
+  };
+  const onCustomKey = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") { event.preventDefault(); addCustomRace(); }
+  };
+  const resetRequest = () => {
+    setDismissed(true); setRaces([]); setCustomRaces([]); setAnotherOpen(false); setCustomName(""); setSelectionError("");
+  };
 
   return (
-    <div className="bib-page" lang="en">
-      <header className={`bib-header${showOfferLink ? " bib-header-with-offer" : ""}`}>
-        <a href="#" className="bib-wordmark" aria-label="BibExchange by Runoot">bibexchange<span>by <strong>runoot</strong></span></a>
-        {showOfferLink && <Link className="bib-offer-link" to="/offer-entry">Sell your bib</Link>}
+    <div className={`bib-page bx-page ${isQr ? "bx-qr" : "bx-home"}`} lang="en">
+      <header className="bx-head">
+        <a href="#" className="bx-wordmark" aria-label="BibExchange by Runoot">bibexchange<span>by <strong>runoot</strong></span></a>
+        <nav className="bx-nav" aria-label="Main">
+          <a className="bx-nav-link" href="#how-it-works">How it works</a>
+          <a className="bx-nav-link" href="#faq">FAQ</a>
+          {!isQr && <Link className="bx-pill" to="/offer-entry">Sell your bib</Link>}
+        </nav>
       </header>
 
       <main>
-        <section className="bib-main" aria-labelledby="bib-title">
-          <div className="bib-intro">
-            <p className="bib-eyebrow"><span aria-hidden="true" /> Your next race starts with a request.</p>
-            <h1 id="bib-title">The race is<br /> on your list.<br /><em>Let’s find<br className="bib-desktop-break" /> your bib.</em></h1>
-            <p className="bib-lead">Tokyo on your mind? New York on your bucket list? Tell us where you want to run. We’ll contact you when a matching opportunity becomes available.</p>
-            <div className="bib-ticket" aria-hidden="true">
-              <div><span>DESTINATION</span><strong>YOUR NEXT RACE</strong></div>
-              <div className="bib-ticket-bottom"><span>ONE MORE<br />START LINE.</span><span className="bib-barcode" /></div>
+        {!isQr && <section className="bx-hero" aria-label="Find or sell a bib">
+          <div className="bx-door bx-door-run">
+            <div className="bx-run-grid">
+              <div className="bx-run-copy">
+                <p className="bx-kicker"><b>RUNNERS</b> I want to run</p>
+                <h1 className="bx-cond">The race is on your list. <span>Let’s find your bib.</span></h1>
+                <p className="bx-lead">Tokyo on your mind? New York on your bucket list? Tell us where you want to run. We’ll contact you when a matching opportunity becomes available.</p>
+                <a className="bx-btn bx-btn-run" href="#request">Find my bib <span className="bx-arrow" aria-hidden="true">→</span></a>
+              </div>
+              <div className="bx-bib" aria-hidden="true">
+                <span className="bx-pin" /><span className="bx-pin" /><span className="bx-pin" /><span className="bx-pin" />
+                <div className="bx-bib-band"><strong>BIBEXCHANGE</strong><span>MARATHON</span></div>
+                <b className="bx-bib-number">00000</b>
+                <div className="bx-bib-row"><span>YOUR NEXT RACE</span><span>42.195 KM</span></div>
+              </div>
             </div>
           </div>
+          <div className="bx-door bx-door-sell">
+            <p className="bx-kicker"><b>SELLERS</b> I can’t run</p>
+            <h2 className="bx-cond">Plans changed? <span>Sell your bib.</span></h2>
+            <p className="bx-lead">Tell us about your entry. We review it before any matching.</p>
+            <Link className="bx-btn bx-btn-sell" to="/offer-entry">Sell your bib <span aria-hidden="true">→</span></Link>
+            <p className="bx-note">Free. Not a public listing.</p>
+          </div>
+        </section>}
 
-          <div className="bib-form-card" id="request">
-            {complete ? (
+        <div className="bx-ticker" aria-hidden="true"><div>
+          {[...tickerCities, ...tickerCities].map((city, i) => <span key={i}>{city} <i>●</i></span>)}
+        </div></div>
+
+        <section className="bx-request" id="request" aria-labelledby="request-title">
+          <svg className="bx-topo" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <g fill="none" stroke="currentColor" strokeWidth="1.4">{contours.map((ring, i) => <ellipse key={i} cx={ring.cx} cy={ring.cy} rx={ring.rx} ry={ring.ry} transform={ring.rotate} />)}</g>
+          </svg>
+          <div className="bx-request-head">
+            <div><p className="bx-eyebrow">LET’S MAKE IT HAPPEN</p><h2 id="request-title" className="bx-cond">Where do you want to run?</h2></div>
+            <div><p>Select one or more races. We’ll keep an eye out and email you when a matching opportunity becomes available.</p><ul className="bx-facts"><li>Free to request</li><li>No account needed</li></ul></div>
+          </div>
+
+          {complete ? (
+            <div className="bx-confirmation-card">
               <div className="bib-confirmation" ref={confirmation} tabIndex={-1}>
                 <span className="bib-check" aria-hidden="true">✓</span>
                 <p className="bib-eyebrow">YOU’RE AT THE NEXT STEP</p>
-                <h2>{selectedRaces.join(", ")}.<br />Got it.</h2>
+                <h2>{result.races.join(", ")}.<br />Got it.</h2>
                 <p>Your request is on our list. We’ll contact you by email when a matching opportunity becomes available, with the price and conditions before you decide.</p>
-                {result?.success && result.confirmationEmail === "sent" && <p role="status">We’ve also sent you a confirmation email. If you don’t see it, check your spam folder.</p>}
-                {result?.success && result.confirmationEmail === "failed" && <p role="status">Your request is saved, but we couldn’t send the confirmation email. If you need a copy, please try again later or contact <a href="mailto:support@runoot.com">support@runoot.com</a>.</p>}
+                {result.confirmationEmail === "sent" && <p role="status">We’ve also sent you a confirmation email. If you don’t see it, check your spam folder.</p>}
+                {result.confirmationEmail === "failed" && <p role="status">Your request is saved, but we couldn’t send the confirmation email. If you need a copy, please try again later or contact <a href="mailto:support@runoot.com">support@runoot.com</a>.</p>}
                 <div className="bib-demo-note">An entry is not reserved or guaranteed. To withdraw your request, contact <a href="mailto:support@runoot.com">support@runoot.com</a>.</div>
-                <button className="bib-submit" type="button" onClick={() => { setDismissed(true); setRaces([]); setOtherRace(""); setSelectionError(""); }}>Request another race</button>
-                {result?.success && result.mailingOffer && <MailingListOffer offer={result.mailingOffer} />}
+                <button className="bib-submit" type="button" onClick={resetRequest}>Request another race</button>
+                {result.mailingOffer && <MailingListOffer offer={result.mailingOffer} />}
               </div>
-            ) : (
-              <fetcher.Form method="post" onSubmit={(event) => {
-                if (!races.length || !preferences.length) {
-                  event.preventDefault();
-                  setSelectionError(!races.length ? "Please select at least one race." : "Please select Bib only, Full package, or both.");
-                  event.currentTarget.querySelector<HTMLInputElement>(`input[name="${!races.length ? "race" : "preference"}"]`)?.focus();
-                  return;
-                }
-                setSelectionError("");
-                setDismissed(false);
-              }}>
-                <div className="bib-honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
-                <div className="bib-form-heading"><p className="bib-eyebrow">LET’S MAKE IT HAPPEN</p><h2>Where do you want to run?</h2><p>Select one or more races. We’ll keep an eye out.</p></div>
-                {oldMailingLink && <p role="status" className="bib-demo-note">This older subscription link is no longer used. Runoot Last Minute is now activated in the popup after a race request.</p>}
-                <fieldset className="bib-race-fieldset"><legend className="bib-sr-only">Choose your races. Select one or more.</legend><div className="bib-race-grid">
-                  {bibRaces.map((item) => <label className={`bib-race ${races.includes(item.name) ? "is-selected" : ""}`} key={item.name}>
-                    <input type="checkbox" name="race" value={item.name} checked={races.includes(item.name)} onChange={() => { setRaces(current => toggle(current, item.name)); setSelectionError(""); }} />
-                    <span className="bib-race-code" aria-hidden="true">{item.code}</span><span className="bib-race-name">{item.name}<small>{item.country}</small></span><span className="bib-selection-check" aria-hidden="true">{races.includes(item.name) ? "✓" : ""}</span>
-                  </label>)}
-                </div></fieldset>
-                {races.includes("Another race") && <label className="bib-field">Race name<input name="otherRace" value={otherRace} onChange={(event) => setOtherRace(event.target.value)} placeholder="e.g. Valencia" required maxLength={120} /></label>}
-                <fieldset className="bib-preference"><legend>I’m looking for <span className="bib-preference-hint">Select one or both.</span></legend><div>{[{ value: "package", text: "Full package (bib + hotel)" }, { value: "bib", text: "Bib only" }].map(item => <label key={item.value}><input type="checkbox" name="preference" checked={preferences.includes(item.value)} onChange={() => { setPreferences(current => toggle(current, item.value)); setSelectionError(""); }} value={item.value} /><span>{item.text}</span></label>)}</div></fieldset>
-                <div className="bib-contact-grid"><label className="bib-field">First name<input name="firstName" autoComplete="given-name" placeholder="First name" required maxLength={100} /></label><label className="bib-field">Last name<input name="lastName" autoComplete="family-name" placeholder="Last name" required maxLength={100} /></label><label className="bib-field bib-email-field">Email address<input type="email" name="email" autoComplete="email" placeholder="you@example.com" required maxLength={254} /></label></div>
-                <p className="bib-request-notice">{BIB_CONSENT_TEXT} <Link to="/privacy-policy">Privacy policy</Link></p>
-                {(selectionError || (!dismissed && result?.error)) && <p role="alert" className="bib-error">{selectionError || result?.error}</p>}
-                <button className="bib-submit" type="submit" disabled={submitting}>{submitting ? "Saving your request…" : races.length > 1 ? "Notify me about my races" : races.length === 1 && races[0] !== "Another race" ? `Notify me about ${races[0]}` : "Notify me about my race"}</button>
-                <p className="bib-form-note">Free to request. An entry is not reserved or guaranteed.</p>
-              </fetcher.Form>
-            )}
+            </div>
+          ) : (
+            <fetcher.Form method="post" onSubmit={(event) => {
+              const typed = anotherOpen && customName.trim().length >= 2;
+              const chosen = races.length + customRaces.filter(item => item.selected).length + (typed ? 1 : 0);
+              if (!chosen || !preferences.length) {
+                event.preventDefault();
+                setSelectionError(!chosen ? (anotherOpen ? "Type the race name, then press OK." : "Please select at least one race.") : "Please select Bib only, Full package, or both.");
+                if (!chosen && anotherOpen) customInput.current?.focus();
+                else event.currentTarget.querySelector<HTMLInputElement>(`input[name="${!chosen ? "race" : "preference"}"]`)?.focus();
+                return;
+              }
+              setSelectionError("");
+              setDismissed(false);
+            }}>
+              <div className="bib-honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
+              {oldMailingLink && <p role="status" className="bib-demo-note">This older subscription link is no longer used. Runoot Last Minute is now activated in the popup after a race request.</p>}
+              <fieldset className="bx-tiles"><legend className="bib-sr-only">Choose your races. Select one or more.</legend>
+                {listedRaces.map((item, i) => <label className={`bx-tile${races.includes(item.name) ? " is-selected" : ""}`} key={item.name} htmlFor={`race-${i}`}>
+                  <input id={`race-${i}`} type="checkbox" name="race" value={item.name} checked={races.includes(item.name)} onChange={() => { setRaces(current => toggle(current, item.name)); setSelectionError(""); }} />
+                  <span className="bx-tile-tick" aria-hidden="true">✓</span><span className="bx-tile-code" aria-hidden="true">{item.code}</span><span className="bx-tile-name">{item.name}<small>{item.country}</small></span>
+                </label>)}
+                {customRaces.map((item, i) => <label className={`bx-tile${item.selected ? " is-selected" : ""}`} key={item.name} htmlFor={`custom-race-${i}`}>
+                  <input id={`custom-race-${i}`} type="checkbox" name="otherRace" value={item.name} checked={item.selected} onChange={() => { setCustomRaces(current => current.map(race => race.name === item.name ? { ...race, selected: !race.selected } : race)); setSelectionError(""); }} />
+                  <span className="bx-tile-tick" aria-hidden="true">✓</span><span className="bx-tile-code" aria-hidden="true">{item.code}</span><span className="bx-tile-name">{item.name}</span>
+                </label>)}
+                <label className={`bx-tile${anotherOpen ? " is-selected" : ""}${customFull ? " is-disabled" : ""}`} htmlFor="another-race" title={customFull ? `You can add up to ${MAX_CUSTOM_RACES} races` : undefined}>
+                  <input id="another-race" type="checkbox" checked={anotherOpen} disabled={customFull} onChange={() => { setAnotherOpen(open => !open); setSelectionError(""); }} />
+                  <span className="bx-tile-tick" aria-hidden="true">✓</span><span className="bx-tile-code" aria-hidden="true">+</span><span className="bx-tile-name">Another race<small>{customFull ? `Max ${MAX_CUSTOM_RACES} races` : "Your next adventure"}</small></span>
+                </label>
+              </fieldset>
+              {anotherOpen && <div className="bx-other">
+                <label htmlFor="custom-race-name">Which race?</label>
+                <div className="bx-other-row">
+                  <input ref={customInput} id="custom-race-name" name="otherRace" value={customName} onChange={event => setCustomName(event.target.value)} onKeyDown={onCustomKey} placeholder="e.g. Valencia" maxLength={120} enterKeyHint="done" />
+                  <button type="button" onClick={addCustomRace}>OK</button>
+                </div>
+              </div>}
+
+              <div className="bx-panel">
+                <fieldset className="bx-pref">
+                  <legend>I’m looking for <span>Select one or both.</span></legend>
+                  <div className="bx-pref-opts">
+                    {preferenceOptions.map(item => <label key={item.value} htmlFor={`preference-${item.value}`} className={`bx-pref-opt${item.badge ? " is-recommended" : ""}${preferences.includes(item.value) ? " is-on" : ""}`}>
+                      <input id={`preference-${item.value}`} type="checkbox" name="preference" value={item.value} checked={preferences.includes(item.value)} onChange={() => { setPreferences(current => toggle(current, item.value)); setSelectionError(""); }} />
+                      <span className="bx-pref-box" aria-hidden="true">✓</span><b>{item.title}</b><small>{item.text}</small>{item.badge && <span className="bx-badge">{item.badge}</span>}
+                    </label>)}
+                  </div>
+                </fieldset>
+                <div className="bx-contact">
+                  <label className="bx-field">First name<input name="firstName" autoComplete="given-name" placeholder="First name" required maxLength={100} /></label>
+                  <label className="bx-field">Last name<input name="lastName" autoComplete="family-name" placeholder="Last name" required maxLength={100} /></label>
+                  <label className="bx-field">Email address<input type="email" name="email" autoComplete="email" placeholder="you@example.com" required maxLength={254} /></label>
+                  <label className="bx-field"><span>WhatsApp <span className="bx-optional">(optional)</span></span><input type="tel" name="phone" autoComplete="tel" inputMode="tel" placeholder="+39 333 123 4567" maxLength={40} /></label>
+                  <button className="bx-submit" type="submit" disabled={submitting}>{submitting ? "Saving…" : "Notify me"}</button>
+                </div>
+                <p className="bx-whatsapp">Get last-minute places on WhatsApp.</p>
+              </div>
+              {(selectionError || (!dismissed && result?.error)) && <p role="alert" className="bib-error">{selectionError || result?.error}</p>}
+              <p className="bx-legal">{BIB_CONSENT_TEXT} <Link to="/privacy-policy">Privacy policy</Link> · Free to request. An entry is not reserved or guaranteed.</p>
+            </fetcher.Form>
+          )}
+        </section>
+
+        <section className="bx-how" id="how-it-works" aria-labelledby="how-title">
+          <p className="bx-eyebrow">ONE BIB. TWO RUNNERS.</p>
+          <h2 id="how-title" className="bx-cond">Find a bib. Or pass yours on.</h2>
+          <div className="bx-how-grid">
+            <article className="bx-track bx-track-run">
+              <header><h3 className="bx-cond">Looking for a bib</h3><span>RUNNERS</span></header>
+              <ol>
+                <li data-km="START"><strong>Tell us your race</strong><span>Choose where you want to run and what you’re looking for. It only takes a moment.</span></li>
+                <li data-km="21.1K"><strong>We find a match</strong><span>When a matching opportunity becomes available, we’ll email you the details.</span></li>
+                <li data-km="FINISH"><strong>You decide</strong><span>Check the price and conditions. Take the next step only if it’s right for you.</span></li>
+              </ol>
+            </article>
+            <article className="bx-track bx-track-sell">
+              <header><h3 className="bx-cond">Selling your bib</h3><span>SELLERS</span></header>
+              <ol>
+                <li><strong>Tell us about the entry</strong><span>Include the race, date and any transfer conditions you know.</span></li>
+                <li><strong>We review the details</strong><span>We check what can be offered before looking for a match.</span></li>
+                <li><strong>We get in touch</strong><span>If there’s a possible next step, we’ll contact you by email.</span></li>
+              </ol>
+              <Link className="bx-btn bx-btn-sell" to="/offer-entry">Sell your bib <span aria-hidden="true">→</span></Link>
+            </article>
           </div>
         </section>
 
-        <section className="bib-how" id="how-it-works" aria-labelledby="bib-how-title"><div className="bib-how-heading"><p className="bib-eyebrow">LESS SEARCHING. MORE RUNNING.</p><h2 id="bib-how-title">A little closer to the start line.</h2></div><div className="bib-steps">
-          {[{ n: "01", title: "Tell us your race", text: "Choose where you want to run and what you’re looking for. It only takes a moment." }, { n: "02", title: "We find a match", text: "When a matching opportunity becomes available, we’ll email you the details." }, { n: "03", title: "You decide", text: "Check the price and conditions. Take the next step only if it’s right for you." }].map(step => <article key={step.n}><span>{step.n}</span><h3>{step.title}</h3><p>{step.text}</p></article>)}
-        </div></section>
-        <section className="bib-faq" aria-labelledby="bib-faq-title"><h2 id="bib-faq-title">Good to know.</h2><div>
-          {[{ q: "Does a request guarantee an entry?", a: "No. You’re expressing interest, not reserving a place or joining an official event waiting list. Availability depends on the event, entry conditions and the opportunities we can source." }, { q: "Will I have to buy a hotel package?", a: "Only if you choose an offer that includes one. Select only ‘Bib only’ if you don’t want package offers, or select both options if you’re open to either. Some entries are available only as part of a package." }, { q: "Do I pay anything now?", a: "No. Leaving a request is free. If an opportunity becomes available, you’ll see its price and conditions before making a decision." }].map(item => <details key={item.q}><summary>{item.q}<span aria-hidden="true">+</span></summary><p>{item.a}</p></details>)}
-        </div></section>
+        <section className="bx-faq" id="faq" aria-labelledby="faq-title">
+          <h2 id="faq-title" className="bx-cond">Good to know.</h2>
+          <div>{faq.map(item => <details key={item.q}><summary>{item.q}</summary><p>{item.a}</p></details>)}</div>
+        </section>
+
+        <section className="bx-band" aria-labelledby="band-title">
+          <h2 id="band-title" className="bx-cond">Can’t make it to the start line?</h2>
+          <Link className="bx-btn" to="/offer-entry">Sell your bib <span aria-hidden="true">→</span></Link>
+        </section>
       </main>
-      <footer className="bib-footer"><a href="#" className="bib-wordmark">bibexchange<span>by <strong>runoot</strong></span></a><p>More start lines. More possibilities.</p><div><Link to="/privacy-policy">Privacy</Link><Link to="/contact">Contact</Link><button type="button" onClick={reopenCookieBanner}>Cookie settings</button></div><small>Independent service. Not affiliated with or endorsed by the featured races.</small></footer>
+
+      <footer className="bx-foot">
+        <div className="bx-foot-grid">
+          <div className="bx-foot-brand">
+            <a href="#" className="bx-wordmark">bibexchange<span>by <strong>runoot</strong></span></a>
+            <p>More start lines. More possibilities.</p>
+          </div>
+          <nav className="bx-foot-links" aria-label="Footer">
+            <p className="bx-foot-title">Info</p>
+            <Link to="/offer-entry">Sell your bib</Link>
+            <Link to="/contact">Contact</Link>
+            <Link to="/privacy-policy">Privacy</Link>
+            <button type="button" onClick={reopenCookieBanner}>Cookie settings</button>
+          </nav>
+          <div className="bx-foot-social">
+            <p className="bx-foot-title">Follow us</p>
+            <a className="bx-instagram" href="https://www.instagram.com/thebibexchange/" target="_blank" rel="noreferrer" aria-label="BibExchange on Instagram, @thebibexchange">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none" /></svg>
+              <span>@thebibexchange</span>
+            </a>
+            <a className="bx-trustpilot" href="https://www.trustpilot.com/review/runoot.com" target="_blank" rel="noreferrer" aria-label="Read our reviews on Trustpilot">
+              <span className="bx-trustpilot-head"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#00b67a" d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7L12 17.6 5.8 21.2l1.6-7L2 9.5l7.1-.6z" /></svg>Trustpilot</span>
+              <span className="bx-stars" aria-hidden="true"><i /><i /><i /><i /><i /></span>
+              <span className="bx-trustpilot-cta">Read our reviews</span>
+            </a>
+          </div>
+        </div>
+        <div className="bx-foot-bottom">
+          <small>Independent service. Not affiliated with or endorsed by the featured races.</small>
+          <small>© 2026 Runoot</small>
+        </div>
+      </footer>
     </div>
   );
 }

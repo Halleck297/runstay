@@ -5,7 +5,7 @@ import { deleteRunnerRequests, loadRunnerRequests, parseRequestDeletion, type Ad
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 function row(n: number, email: string, source: "qr" | "site" = "site"): AdminBibRequest {
-  return { id: id(n), email, race: `Race ${n}`, first_name: "Test", last_name: "Runner", created_at: new Date(Date.UTC(2026, 8, 19, 0, n)).toISOString(), source, preference: source === "qr" ? "package" : "bib" };
+  return { id: id(n), email, phone: null, race: `Race ${n}`, first_name: "Test", last_name: "Runner", created_at: new Date(Date.UTC(2026, 8, 19, 0, n)).toISOString(), source, preference: source === "qr" ? "package" : "bib" };
 }
 
 // Exercise the real Supabase query builder against a disposable in-memory API.

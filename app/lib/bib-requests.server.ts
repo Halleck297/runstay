@@ -29,9 +29,11 @@ export async function submitBibRequest({ request }: ActionFunctionArgs) {
   }
 
   try {
-    const { races, ...contact } = parsed.value;
+    const { races, phone, ...contact } = parsed.value;
     const { error } = await supabaseAdmin.from("bib_requests").upsert(races.map(race => ({
       ...contact,
+      // Leave a previously saved number untouched when a later request has none.
+      ...(phone ? { phone } : {}),
       ...race,
       source: bibRequestSource(url.pathname),
       landing_path: url.pathname,

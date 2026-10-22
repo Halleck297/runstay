@@ -39,6 +39,22 @@ const extraPreference = form();
 extraPreference.append("preference", "invalid");
 assert.ok(validateBibRequest(extraPreference).error);
 assert.equal(validateBibRequest(form({ preference: "package" })).value?.preference, "package");
+// The new page sends each "Another race" name as its own otherRace value, up to six.
+const customOnly = form();
+customOnly.delete("race");
+["Valencia", "Berlin", "Paris"].forEach(name => customOnly.append("otherRace", name));
+assert.deepEqual(validateBibRequest(customOnly).value?.races.map(item => item.race), ["Valencia", "Berlin", "Paris"]);
+const tooMany = form();
+["A1", "B2", "C3", "D4", "E5", "F6", "G7"].forEach(name => tooMany.append("otherRace", name));
+assert.ok(validateBibRequest(tooMany).error, "More than six custom races are rejected");
+const sixAndListed = form();
+["A1", "B2", "C3", "D4", "E5", "F6", "tokyo"].forEach(name => sixAndListed.append("otherRace", name));
+assert.equal(validateBibRequest(sixAndListed).value?.races.length, 7, "A custom name matching a listed race does not count twice");
+assert.equal(validateBibRequest(form()).value?.phone, null);
+assert.equal(validateBibRequest(form({ phone: " +39 333 123 4567 " })).value?.phone, "+39 333 123 4567");
+for (const phone of ["12345", "call me", "+".repeat(41)]) {
+  assert.ok(validateBibRequest(form({ phone })).error, `Invalid phone ${phone}`);
+}
 const invalidForms: Record<string, string>[] = [{ race: "Berlin" }, { race: "Another race", otherRace: " " }, { email: "wrong" }, { firstName: " " }, { lastName: "" }, { preference: "invalid" }, { race: "Another race", otherRace: "x".repeat(121) }];
 for (const fields of invalidForms) {
   assert.ok(validateBibRequest(form(fields)).error);
