@@ -4,11 +4,12 @@ import type { Database } from "./database.types";
 type Client = SupabaseClient<Database>;
 export type RequestSource = "all" | "qr" | "site";
 type RequestRow = Database["public"]["Tables"]["bib_requests"]["Row"];
-export type AdminBibRequest = Pick<RequestRow, "id" | "created_at" | "first_name" | "last_name" | "email" | "race" | "preference" | "source">;
+export type AdminBibRequest = Pick<RequestRow, "id" | "created_at" | "first_name" | "last_name" | "email" | "phone" | "race" | "preference" | "source">;
 export type RunnerRequest = {
   email: string;
   firstName: string;
   lastName: string;
+  phone: string | null;
   latestRequestAt: string;
   races: AdminBibRequest[];
 };
@@ -44,7 +45,7 @@ export async function loadRunnerRequests(client: Client, source: RequestSource, 
 
   const rows = await readAll<AdminBibRequest>((from, to) => {
     let query = client.from("bib_requests")
-      .select("id,created_at,first_name,last_name,email,race,preference,source")
+      .select("id,created_at,first_name,last_name,email,phone,race,preference,source")
       .in("email", pageEmails)
       .order("created_at", { ascending: false }).order("id", { ascending: false });
     if (source !== "all") query = query.eq("source", source);
@@ -54,9 +55,11 @@ export async function loadRunnerRequests(client: Client, source: RequestSource, 
   for (const row of rows) {
     let group = groups.get(row.email);
     if (!group) {
-      group = { email: row.email, firstName: row.first_name, lastName: row.last_name, latestRequestAt: row.created_at, races: [] };
+      group = { email: row.email, firstName: row.first_name, lastName: row.last_name, phone: row.phone, latestRequestAt: row.created_at, races: [] };
       groups.set(row.email, group);
     }
+    // Rows arrive newest first; keep the most recent number a runner gave us.
+    group.phone ??= row.phone;
     group.races.push(row);
   }
   const requests = pageEmails.flatMap(email => {

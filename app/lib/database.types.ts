@@ -85,6 +85,7 @@ export interface Database {
           consent_version: string;
           consent_text: string;
           email_verified: boolean;
+          phone: string | null;
         };
         Insert: {
           id?: string;
@@ -100,6 +101,7 @@ export interface Database {
           consent_version: string;
           consent_text: string;
           email_verified?: boolean;
+          phone?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["bib_requests"]["Insert"]>;
         Relationships: [];

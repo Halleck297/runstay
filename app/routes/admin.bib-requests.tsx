@@ -53,6 +53,7 @@ function RequestCard({ request, source, busy }: { request: RunnerRequest; source
       <div className="min-w-0">
         <h2 className="break-words text-lg font-semibold text-navy-900">{request.firstName} {request.lastName}</h2>
         <p className="break-all text-sm text-gray-700">{request.email}</p>
+        {request.phone && <p className="break-all text-sm text-gray-700">WhatsApp: {request.phone}</p>}
         <p className="mt-1 text-xs text-gray-500">Latest request: {receivedAt(request.latestRequestAt)} UTC · {request.races.length} {request.races.length === 1 ? "race" : "races"}</p>
       </div>
       {!confirming && <button type="button" disabled={busy} onClick={() => setConfirming(true)} aria-label={`Delete request for ${request.email}`} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50">Delete request</button>}
