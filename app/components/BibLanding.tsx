@@ -2,18 +2,11 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useFetcher, useActionData, useLocation } from "react-router";
 import type { submitBibRequest } from "~/lib/bib-requests.server";
 import { bibRaces, BIB_CONSENT_TEXT, MAX_CUSTOM_RACES } from "~/lib/bib-requests";
-import landingStyles from "~/styles/bib-landing.css?url";
-import homeStyles from "~/styles/bib-home.css?url";
 import { trackEvent } from "~/lib/analytics/client";
-import { reopenCookieBanner } from "~/lib/analytics/consent";
 import { bibRequestSource } from "~/lib/bib-requests";
 import MailingListOffer from "./MailingListOffer";
-
-export const links = () => [
-  { rel: "stylesheet", href: landingStyles },
-  { rel: "stylesheet", href: homeStyles },
-  { rel: "preload", href: "/fonts/archivo-variable-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" as const },
-];
+import { BxFooter, BxHeader, BxTopo } from "./BxChrome";
+export { links } from "./BxChrome";
 
 const listedRaces = bibRaces.filter(item => item.name !== "Another race");
 const tickerCities = ["Tokyo", "London", "New York", "Chicago", "Sydney", "Cape Town", "Cardiff", "Your next race"];
@@ -31,12 +24,6 @@ const preferenceOptions = [
   { value: "package", title: "Full package (bib + hotel)", text: "Much more availability than bib only. Your best chance of getting a place.", badge: "Best availability" },
   { value: "bib", title: "Bib only", text: "Fewer entries available on their own." },
 ];
-// Faded contour lines behind the request form.
-const contours = [
-  ...Array.from({ length: 12 }, (_, i) => ({ cx: 980 + i * 6, cy: 150 - i * 3, rx: 50 + i * 46, ry: (50 + i * 46) * (0.52 + (i % 3) * 0.04), rotate: `rotate(${-14 + i * 1.5} 980 150)` })),
-  ...Array.from({ length: 9 }, (_, i) => ({ cx: 120 + i * 6, cy: 640 - i * 3, rx: 50 + i * 46, ry: (50 + i * 46) * (0.52 + (i % 3) * 0.04), rotate: `rotate(${18 + i * 1.5} 120 640)` })),
-];
-
 type CustomRace = { name: string; code: string; selected: boolean };
 const raceCode = (name: string) => name.normalize("NFD").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "RUN";
 
@@ -99,14 +86,11 @@ export default function BibLanding() {
 
   return (
     <div className={`bib-page bx-page ${isQr ? "bx-qr" : "bx-home"}`} lang="en">
-      <header className="bx-head">
-        <a href="#" className="bx-wordmark" aria-label="BibExchange by Runoot">bibexchange<span>by <strong>runoot</strong></span></a>
-        <nav className="bx-nav" aria-label="Main">
-          <a className="bx-nav-link" href="#how-it-works">How it works</a>
-          <a className="bx-nav-link" href="#faq">FAQ</a>
-          {!isQr && <Link className="bx-pill" to="/offer-entry">Sell your bib</Link>}
-        </nav>
-      </header>
+      <BxHeader homeHref="#">
+        <a className="bx-nav-link" href="#how-it-works">How it works</a>
+        <a className="bx-nav-link" href="#faq">FAQ</a>
+        {!isQr && <Link className="bx-pill" to="/offer-entry">Sell your bib</Link>}
+      </BxHeader>
 
       <main>
         {!isQr && <section className="bx-hero" aria-label="Find or sell a bib">
@@ -140,9 +124,7 @@ export default function BibLanding() {
         </div></div>
 
         <section className="bx-request" id="request" aria-labelledby="request-title">
-          <svg className="bx-topo" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-            <g fill="none" stroke="currentColor" strokeWidth="1.4">{contours.map((ring, i) => <ellipse key={i} cx={ring.cx} cy={ring.cy} rx={ring.rx} ry={ring.ry} transform={ring.rotate} />)}</g>
-          </svg>
+          <BxTopo />
           <div className="bx-request-head">
             <div><p className="bx-eyebrow">LET’S MAKE IT HAPPEN</p><h2 id="request-title" className="bx-cond">Where do you want to run?</h2></div>
             <div><p>Select one or more races. We’ll keep an eye out and email you when a matching opportunity becomes available.</p><ul className="bx-facts"><li>Free to request</li><li>No account needed</li></ul></div>
@@ -260,37 +242,7 @@ export default function BibLanding() {
         </section>
       </main>
 
-      <footer className="bx-foot">
-        <div className="bx-foot-grid">
-          <div className="bx-foot-brand">
-            <a href="#" className="bx-wordmark">bibexchange<span>by <strong>runoot</strong></span></a>
-            <p>More start lines. More possibilities.</p>
-          </div>
-          <nav className="bx-foot-links" aria-label="Footer">
-            <p className="bx-foot-title">Info</p>
-            <Link to="/offer-entry">Sell your bib</Link>
-            <Link to="/contact">Contact</Link>
-            <Link to="/privacy-policy">Privacy</Link>
-            <button type="button" onClick={reopenCookieBanner}>Cookie settings</button>
-          </nav>
-          <div className="bx-foot-social">
-            <p className="bx-foot-title">Follow us</p>
-            <a className="bx-instagram" href="https://www.instagram.com/thebibexchange/" target="_blank" rel="noreferrer" aria-label="BibExchange on Instagram, @thebibexchange">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none" /></svg>
-              <span>@thebibexchange</span>
-            </a>
-            <a className="bx-trustpilot" href="https://www.trustpilot.com/review/runoot.com" target="_blank" rel="noreferrer" aria-label="Read our reviews on Trustpilot">
-              <span className="bx-trustpilot-head"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#00b67a" d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7L12 17.6 5.8 21.2l1.6-7L2 9.5l7.1-.6z" /></svg>Trustpilot</span>
-              <span className="bx-stars" aria-hidden="true"><i /><i /><i /><i /><i /></span>
-              <span className="bx-trustpilot-cta">Read our reviews</span>
-            </a>
-          </div>
-        </div>
-        <div className="bx-foot-bottom">
-          <small>Independent service. Not affiliated with or endorsed by the featured races.</small>
-          <small>© 2026 Runoot</small>
-        </div>
-      </footer>
+      <BxFooter homeHref="#" />
     </div>
   );
 }

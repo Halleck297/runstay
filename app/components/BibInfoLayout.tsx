@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { reopenCookieBanner } from "~/lib/analytics/consent";
-import landingStyles from "~/styles/bib-landing.css?url";
+import { BxFooter, BxHeader } from "./BxChrome";
 
-export const links = () => [{ rel: "stylesheet", href: landingStyles }];
+export { links } from "./BxChrome";
 
 export default function BibInfoLayout({ eyebrow, title, intro, children }: {
   eyebrow: string;
@@ -11,11 +10,12 @@ export default function BibInfoLayout({ eyebrow, title, intro, children }: {
   intro: string;
   children: ReactNode;
 }) {
-  return <div className="bib-page bib-info-page" lang="en">
-    <header className="bib-header">
-      <Link to="/" className="bib-wordmark" aria-label="BibExchange by Runoot">bibexchange<span>by <strong>runoot</strong></span></Link>
-      <Link to="/" className="bib-info-back">Back to race requests</Link>
-    </header>
+  return <div className="bib-page bx-page bx-info bib-info-page" lang="en">
+    <BxHeader>
+      <Link className="bx-nav-link" to="/#how-it-works">How it works</Link>
+      <Link className="bx-nav-link" to="/#faq">FAQ</Link>
+      <Link className="bx-pill" to="/offer-entry">Sell your bib</Link>
+    </BxHeader>
     <main className="bib-info-main">
       <div className="bib-info-intro">
         <p className="bib-eyebrow">{eyebrow}</p>
@@ -24,11 +24,6 @@ export default function BibInfoLayout({ eyebrow, title, intro, children }: {
       </div>
       {children}
     </main>
-    <footer className="bib-footer">
-      <Link to="/" className="bib-wordmark">bibexchange<span>by <strong>runoot</strong></span></Link>
-      <p>More start lines. More possibilities.</p>
-      <div><Link to="/privacy-policy">Privacy</Link><Link to="/contact">Contact</Link><button type="button" onClick={reopenCookieBanner}>Cookie settings</button></div>
-      <small>Independent service. Not affiliated with or endorsed by the featured races.</small>
-    </footer>
+    <BxFooter />
   </div>;
 }
