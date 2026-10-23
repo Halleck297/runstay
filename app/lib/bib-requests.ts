@@ -6,8 +6,8 @@ export const landingMeta: MetaFunction = () => [
   { tagName: "link", rel: "canonical", href: "https://www.runoot.com/" },
 ];
 
-export const BIB_CONSENT_VERSION = "2026-10-22";
-export const BIB_CONSENT_TEXT = "By submitting this request, you ask Runoot to email you about matching opportunities for your selected races and, if you add your number, to contact you on WhatsApp about last-minute places. You can withdraw your request by contacting support@runoot.com.";
+export const BIB_CONSENT_VERSION = "2026-10-23";
+export const BIB_CONSENT_TEXT = "By submitting this request, you ask Runoot to email you about matching opportunities for your selected races and, if you add your number, to contact you on WhatsApp about last-minute places. You can withdraw your request by contacting support@runoot.com. You accept the BibExchange Terms of use, including that the seller and the buyer are responsible for following the race organizer’s transfer rules.";
 export const MAX_CUSTOM_RACES = 6;
 
 export const bibRaces = [

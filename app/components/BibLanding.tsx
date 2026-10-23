@@ -202,7 +202,7 @@ export default function BibLanding() {
                 <p className="bx-whatsapp">Get last-minute places on WhatsApp.</p>
               </div>
               {(selectionError || (!dismissed && result?.error)) && <p role="alert" className="bib-error">{selectionError || result?.error}</p>}
-              <p className="bx-legal">{BIB_CONSENT_TEXT} <Link to="/privacy-policy">Privacy policy</Link> · Free to request. An entry is not reserved or guaranteed.</p>
+              <p className="bx-legal">{BIB_CONSENT_TEXT} <Link to="/terms-of-use">Terms of use</Link> · <Link to="/privacy-policy">Privacy policy</Link> · Free to request. An entry is not reserved or guaranteed.</p>
             </fetcher.Form>
           )}
         </section>

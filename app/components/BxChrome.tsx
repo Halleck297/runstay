@@ -44,6 +44,7 @@ export function BxFooter({ homeHref = "/" }: { homeHref?: string }) {
         <Link to="/offer-entry">Sell your bib</Link>
         <Link to="/contact">Contact</Link>
         <Link to="/privacy-policy">Privacy</Link>
+        <Link to="/terms-of-use">Terms of use</Link>
         <button type="button" onClick={reopenCookieBanner}>Cookie settings</button>
       </nav>
       <div className="bx-foot-social">

@@ -95,7 +95,7 @@ export default function OfferEntry() {
                 <label className="bx-field">Phone number *<input name="phone" type="tel" autoComplete="tel" inputMode="tel" placeholder="+39 333 123 4567" required maxLength={40} /></label>
               </div>
             </fieldset></div>
-            <label className="bx-consent"><input type="checkbox" name="consent" required /><span>{BIB_OFFER_CONSENT} <Link to="/privacy-policy">Privacy policy</Link></span></label>
+            <label className="bx-consent"><input type="checkbox" name="consent" required /><span>{BIB_OFFER_CONSENT} <Link to="/terms-of-use">Terms of use</Link> · <Link to="/privacy-policy">Privacy policy</Link></span></label>
             <button className="bx-submit" disabled={submitting} type="submit">{submitting ? "Saving your offer…" : "Submit my offer"}</button>
           </div>
           {result?.error && <p role="alert" className="bib-error">{result.error}</p>}

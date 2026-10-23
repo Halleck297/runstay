@@ -1,4 +1,4 @@
-export const BIB_OFFER_CONSENT = "I agree that Runoot may contact me about this offer. Submitting it does not guarantee a sale. The seller and the buyer are responsible for following the race organizer’s transfer rules.";
+export const BIB_OFFER_CONSENT = "I agree that Runoot may contact me about this offer. Submitting it does not guarantee a sale. The seller and the buyer are responsible for following the race organizer’s transfer rules. I accept the BibExchange Terms of use.";
 export const BIB_OFFER_VERSION = "2026-10-23";
 
 export function validateBibOffer(form: FormData) {

@@ -224,7 +224,7 @@ export default function App() {
       /\/messages(\/|$)/,
       /\/join\//,
       /\/become-tl\//,
-      /\/(terms|terms-tour-operator|privacy-policy|cookie-policy|legal|legal-notes|note-legali|mentions-legales|aviso-legal|impressum)(\/|$)/,
+      /\/(terms|terms-of-use|terms-tour-operator|privacy-policy|cookie-policy|legal|legal-notes|note-legali|mentions-legales|aviso-legal|impressum)(\/|$)/,
     ];
     const shouldHide = isBibPublicPage(location.pathname) || !user || hideTawkPatterns.some((re) => re.test(location.pathname));
 
