@@ -4,7 +4,7 @@ const base = new URL(process.argv[2] || 'http://127.0.0.1:3001');
 const admin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const anon = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 const email = `runoot-offer-qa-${Date.now()}@example.com`;
-const fields = { firstName: 'Runoot Offer QA', lastName: 'Temporary', email, phone: '+44 7700 900123', race: 'Valencia QA', raceDate: '2027-12-05', entryType: 'bib', transferStatus: 'unknown', price: '150', currency: 'EUR', notes: 'Disposable verification record', consent: 'on' };
+const fields = { firstName: 'Runoot Offer QA', lastName: 'Temporary', email, phone: '+44 7700 900123', race: 'Valencia QA', raceDate: '2027-12-05', entryType: 'bib', price: '150', currency: 'EUR', notes: 'Disposable verification record', consent: 'on' };
 const post = (overrides = {}) => fetch(new URL('/offer-entry', base), { method: 'POST', headers: { Origin: base.origin }, body: new URLSearchParams({ ...fields, ...overrides }) });
 try {
   for (const path of ['/', '/en']) {
@@ -16,12 +16,12 @@ try {
   assert.equal((await fetch(new URL('/offer-entry', base))).status, 200);
   assert.equal((await post({ consent: '' })).status, 400);
   assert.equal((await post({ phone: '' })).status, 400);
-  assert.equal((await post({ transferStatus: 'unassigned' })).status, 400);
+  assert.equal((await post({ entryType: 'other' })).status, 400);
   assert.equal((await post()).status, 200);
   const { data, error } = await admin.from('bib_offers').select('*').eq('email', email);
   assert.ifError(error);
   assert.equal(data.length, 1);
-  assert.equal(data[0].transfer_status, 'unknown');
+  assert.equal(data[0].transfer_status, null);
   assert.equal(data[0].price, 150);
   assert.equal(data[0].phone, '+44 7700 900123');
   assert.equal(data[0].race_date, '2027-12-05');

@@ -5,20 +5,15 @@ import { BIB_OFFER_CONSENT } from "~/lib/bib-offers";
 import type { submitBibOffer } from "~/lib/bib-offers.server";
 export { links } from "~/components/BxChrome";
 export { submitBibOffer as action } from "~/lib/bib-offers.server";
-export const meta: MetaFunction = () => [{ title: "Offer a bib | BibExchange by Runoot" }, { name: "description", content: "Plans changed? Tell Runoot about your race entry. We review availability and transfer conditions before matching it with runners." }];
+export const meta: MetaFunction = () => [{ title: "Offer a bib | BibExchange by Runoot" }, { name: "description", content: "Plans changed? Tell Runoot about your race entry. We review every offer before matching it with runners." }];
 
 const entryOptions = [
   { value: "bib", title: "Bib only", text: "Just the race entry." },
   { value: "package", title: "Full package (bib + hotel)", text: "The entry together with a hotel booking." },
 ];
-const transferOptions = [
-  { value: "official_transfer", title: "Official transfer allowed", text: "The organizer allows an official name change or transfer." },
-  { value: "unknown", title: "Not sure", text: "Please review the organizer’s rules for me." },
-];
 
 export default function OfferEntry() {
   const [entryType, setEntryType] = useState("bib");
-  const [transferStatus, setTransferStatus] = useState("");
   const fetcher = useFetcher<typeof submitBibOffer>();
   const actionData = useActionData<typeof submitBibOffer>();
   const result = fetcher.data ?? actionData;
@@ -64,34 +59,32 @@ export default function OfferEntry() {
         <BxTopo />
         <div className="bx-request-head">
           <div><p className="bx-eyebrow">YOUR BIB. SOMEONE ELSE’S START LINE.</p><h2 id="offer-title" className="bx-cond">Tell us about your entry.</h2></div>
-          <div><p>Include the race, the date and any transfer conditions you know. We review every offer before looking for a match.</p><ul className="bx-facts"><li>Free to submit</li><li>No account needed</li><li>Not a public listing</li></ul></div>
+          <div><p>Include the race, the date and what you’re offering. We review every offer before looking for a match.</p><ul className="bx-facts"><li>Free to submit</li><li>No account needed</li><li>Not a public listing</li></ul></div>
         </div>
 
         {complete ? <div className="bx-confirmation-card">
-          <div className="bib-confirmation" ref={confirmation} tabIndex={-1}><span className="bib-check" aria-hidden="true">✓</span><h2>Your offer is on our list.</h2><p>We’ll review the entry and contact you if we need more details or can suggest a next step. Your offer has not been published, and no sale or transfer has been approved.</p><Link className="bib-submit" to="/">Back to BibExchange</Link></div>
+          <div className="bib-confirmation" ref={confirmation} tabIndex={-1}><span className="bib-check" aria-hidden="true">✓</span><h2>Your offer is on our list.</h2><p>We’ll review the entry and contact you if we need more details or can suggest a next step. Your offer has not been published, and no sale has been agreed.</p><Link className="bib-submit" to="/">Back to BibExchange</Link></div>
         </div> : <fetcher.Form method="post">
           <div className="bib-honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
           <div className="bx-panel">
             <fieldset className="bx-pref">
               <legend>The race <span>Fields marked * are required.</span></legend>
               <div className="bx-offer-grid">
-                <label className="bx-field bx-span-2">Race name *<input name="race" placeholder="e.g. Valencia" required minLength={2} maxLength={120} /></label>
-                <label className="bx-field bx-span-2">Race date *<input name="raceDate" type="date" required /></label>
+                <label className="bx-field">Race name *<input name="race" placeholder="e.g. Valencia" required minLength={2} maxLength={120} /></label>
+                <label className="bx-field">Race date *<input name="raceDate" type="date" required /></label>
               </div>
             </fieldset>
             <fieldset className="bx-pref">
               <legend>What are you offering? *</legend>
               {choice("entryType", entryOptions, entryType, setEntryType)}
             </fieldset>
-            <fieldset className="bx-pref">
-              <legend>How can the entry be transferred? *</legend>
-              {choice("transferStatus", transferOptions, transferStatus, setTransferStatus)}
-            </fieldset>
             <div className="bx-offer-grid">
-              <label className="bx-field bx-span-2"><span>Transfer / assignment deadline <span className="bx-optional">(optional, if known)</span></span><input name="deadline" type="date" /></label>
-              <label className="bx-field">Asking price<input name="price" type="number" min="0" max="100000" step="0.01" placeholder="e.g. 150" /></label>
-              <label className="bx-field">Currency<select name="currency" defaultValue="EUR">{["EUR", "GBP", "USD", "JPY", "AUD", "CAD", "ZAR"].map(code => <option key={code} value={code}>{code}</option>)}</select></label>
-              <label className="bx-field bx-span-full"><span>Anything we should know? <span className="bx-optional">(optional)</span></span><textarea name="notes" rows={4} maxLength={2000} placeholder="Transfer fees, package details, or a link to the organizer’s transfer rules. Please don’t include ID documents or booking codes." /></label>
+              <label className="bx-field"><span>Transfer deadline <span className="bx-optional">(optional, if known)</span></span><input name="deadline" type="date" /></label>
+              <div className="bx-field"><label htmlFor="offer-price">Asking price</label><div className="bx-money">
+                <input id="offer-price" name="price" type="number" min="0" max="100000" step="0.01" placeholder="e.g. 150" />
+                <select name="currency" defaultValue="EUR" aria-label="Currency">{["EUR", "GBP", "USD", "JPY", "AUD", "CAD", "ZAR"].map(code => <option key={code} value={code}>{code}</option>)}</select>
+              </div></div>
+              <label className="bx-field bx-span-full"><span>Anything we should know? <span className="bx-optional">(optional)</span></span><textarea name="notes" rows={4} maxLength={2000} placeholder="Package details, fees or anything else useful. Please don’t include ID documents or booking codes." /></label>
             </div>
             <div className="bx-offer-contact"><fieldset className="bx-pref">
               <legend>How can we reach you?</legend>
@@ -117,7 +110,7 @@ export default function OfferEntry() {
           <article className="bx-track bx-track-sell">
             <header><h3 className="bx-cond">Selling your bib</h3><span>SELLERS</span></header>
             <ol>
-              <li><strong>Tell us about the entry</strong><span>Include the race, date and any transfer conditions you know.</span></li>
+              <li><strong>Tell us about the entry</strong><span>Include the race, the date and what you’re offering.</span></li>
               <li><strong>We review the details</strong><span>We check what can be offered before looking for a match.</span></li>
               <li><strong>We get in touch</strong><span>If there’s a possible next step, we’ll contact you by email.</span></li>
             </ol>
@@ -126,8 +119,8 @@ export default function OfferEntry() {
             <header><h3 className="bx-cond">Good to know</h3><span>BEFORE YOU SUBMIT</span></header>
             <ul className="bx-facts">
               <li>This is a private availability report, not a public listing.</li>
-              <li>Submitting does not guarantee a sale or an approved transfer.</li>
-              <li>Any transfer must follow the organizer’s rules.</li>
+              <li>Submitting does not guarantee a sale.</li>
+              <li>The seller and the buyer are responsible for following the organizer’s transfer rules.</li>
               <li>Never send ID documents or booking codes.</li>
             </ul>
           </article>

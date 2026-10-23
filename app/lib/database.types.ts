@@ -58,7 +58,7 @@ export interface Database {
           race: string;
           race_date: string;
           entry_type: "bib" | "package";
-          transfer_status: "official_transfer" | "unknown";
+          transfer_status: "official_transfer" | "unknown" | null;
           deadline: string | null;
           price: number | null;
           currency: string;
@@ -66,7 +66,7 @@ export interface Database {
           consent_version: string;
           consent_text: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["bib_offers"]["Row"], "id" | "created_at"> & { id?: string; created_at?: string };
+        Insert: Omit<Database["public"]["Tables"]["bib_offers"]["Row"], "id" | "created_at" | "transfer_status"> & { id?: string; created_at?: string; transfer_status?: "official_transfer" | "unknown" | null };
         Update: Partial<Database["public"]["Tables"]["bib_offers"]["Insert"]>;
         Relationships: [];
       };

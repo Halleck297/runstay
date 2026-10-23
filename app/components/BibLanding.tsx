@@ -17,8 +17,8 @@ const faq = [
   { q: "Why do you recommend the full package?", a: "Many entries are available only as part of a bib + hotel package. Choosing the full package gives you much more availability than bib only, and the best chance of getting a place." },
   { q: "Why do you ask for my WhatsApp number?", a: "It’s optional. We use it only to reach you quickly when a last-minute place comes up, in case our email ends up in spam." },
   { q: "My race isn’t listed. Can I still ask?", a: `Yes. Choose ‘Another race’, type the race name and press OK. You can add up to ${MAX_CUSTOM_RACES} races that aren’t on the list.` },
-  { q: "Is the bib transfer official?", a: "Any transfer must follow the organizer’s rules. Before suggesting a match, we review the event’s transfer conditions and deadlines." },
-  { q: "I can’t run my race. Can I sell my bib here?", a: "Yes. Tell us about your entry and we’ll review the details. Your offer is a private report, not a public listing, and any transfer must follow the organizer’s rules." },
+  { q: "Who checks the organizer’s transfer rules?", a: "BibExchange helps sellers and runners find each other. Checking and following the organizer’s transfer rules and deadlines is the responsibility of the seller and the buyer." },
+  { q: "I can’t run my race. Can I sell my bib here?", a: "Yes. Tell us about your entry and we’ll review the details. Your offer is a private report, not a public listing. Following the organizer’s transfer rules is up to you and the buyer." },
 ];
 const preferenceOptions = [
   { value: "package", title: "Full package (bib + hotel)", text: "Much more availability than bib only. Your best chance of getting a place.", badge: "Best availability" },
@@ -222,7 +222,7 @@ export default function BibLanding() {
             <article className="bx-track bx-track-sell">
               <header><h3 className="bx-cond">Selling your bib</h3><span>SELLERS</span></header>
               <ol>
-                <li><strong>Tell us about the entry</strong><span>Include the race, date and any transfer conditions you know.</span></li>
+                <li><strong>Tell us about the entry</strong><span>Include the race, the date and what you’re offering.</span></li>
                 <li><strong>We review the details</strong><span>We check what can be offered before looking for a match.</span></li>
                 <li><strong>We get in touch</strong><span>If there’s a possible next step, we’ll contact you by email.</span></li>
               </ol>

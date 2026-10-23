@@ -188,12 +188,17 @@
 .bx-offer-hero h1 span{color:var(--bx-orange)}
 .bx-offer-hero .bx-bib{transform:rotate(-4deg);box-shadow:0 30px 50px -22px #000}
 .bx-offer .bx-panel{gap:26px}
-.bx-offer-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:end}
-.bx-span-2{grid-column:span 2}
+.bx-offer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:end}
 .bx-span-full{grid-column:1/-1}
 .bx-offer .bx-field{white-space:normal}
 .bx-offer .bx-field :is(input,select,textarea){width:100%;min-width:0;border:1px solid #2b3d58;background:#1a2a42;color:var(--bx-white);border-radius:8px;padding:12px;font-size:14px;font-weight:400;font-family:inherit;color-scheme:dark}
+.bx-offer .bx-field :is(input,select){height:48px}
 .bx-offer .bx-field textarea{resize:vertical}
+.bx-money{display:flex;height:48px;border:1px solid #2b3d58;border-radius:8px;background:#1a2a42;overflow:hidden}
+.bx-money:focus-within{outline:3px solid #85acfb;outline-offset:3px}
+.bx-offer .bx-money :is(input,select){height:100%;border:0;border-radius:0;outline:none}
+.bx-offer .bx-money input{flex:1}
+.bx-offer .bx-money select{flex:0 0 auto;width:auto;border-left:1px solid #2b3d58;padding-right:8px}
 .bx-offer .bx-field textarea::placeholder{color:#8797ad}
 .bx-offer .bx-pref-box{border-radius:50%}
 .bx-offer-contact{padding-top:22px;border-top:1px solid #2b3d58}
@@ -216,7 +221,6 @@
   .bx-bib{display:none}
   .bx-request{padding:56px 20px}
   .bx-offer-hero{padding:32px 20px 28px}
-  .bx-offer-grid{grid-template-columns:1fr 1fr}
   .bx-offer .bx-field :is(input,select,textarea){font-size:16px}
   .bx-offer .bx-submit{justify-self:stretch}
   .bx-request-head{grid-template-columns:1fr;gap:16px}
