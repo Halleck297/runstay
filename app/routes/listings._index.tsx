@@ -26,8 +26,7 @@ export const meta: MetaFunction = () => {
       content:
         "Browse active running listings on Runoot to exchange hotel rooms, race bibs, and race packages.",
     },
-    { name: "robots", content: "index,follow" },
-    { tagName: "link", rel: "canonical", href: "https://www.runoot.com/listings" },
+    { name: "robots", content: "noindex,follow" },
   ];
 };
 

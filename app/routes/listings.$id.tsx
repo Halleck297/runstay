@@ -20,7 +20,10 @@ import { getEventImageSlug } from "~/lib/event-image";
 import { notifyListingDeletionParticipants } from "~/lib/listing-deletion-notifications.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
-  return [{ title: (data as any)?.listing?.title || "Listing - Runoot" }];
+  return [
+    { title: (data as any)?.listing?.title || "Listing - Runoot" },
+    { name: "robots", content: "noindex,follow" },
+  ];
 };
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
