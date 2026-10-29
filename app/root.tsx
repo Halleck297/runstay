@@ -157,10 +157,11 @@ export default function App() {
 
   // Initialize Sentry once on client
   useEffect(() => {
-    if (!ENV.SENTRY_DSN || typeof window === "undefined") return;
+    // Skip in local dev so HMR noise doesn't reach Sentry
+    if (!ENV.SENTRY_DSN || typeof window === "undefined" || import.meta.env.DEV) return;
     Sentry.init({
       dsn: ENV.SENTRY_DSN,
-      environment: ENV.SENTRY_DSN.includes("localhost") ? "development" : "production",
+      environment: "production",
       tracesSampleRate: 0.2, // 20% of transactions for performance monitoring
       replaysSessionSampleRate: 0,
       replaysOnErrorSampleRate: 0,
