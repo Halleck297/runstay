@@ -2,7 +2,7 @@ import type { MetaFunction } from "react-router";
 
 export const landingMeta: MetaFunction = () => [
   { title: "Your next start line | BibExchange by Runoot" },
-  { name: "description", content: "Tell us which marathon you want to run. Get notified when a matching race entry becomes available." },
+  { name: "description", content: "Looking for a marathon bib? BibExchange by Runoot connects runners with race entry opportunities. Request your race or offer your bib for free." },
   { tagName: "link", rel: "canonical", href: "https://www.runoot.com/" },
 ];
 
