@@ -2,6 +2,7 @@ import { data, type ActionFunctionArgs } from "react-router";
 import { supabaseAdmin } from "~/lib/supabase.server";
 import { checkRateLimit, getClientIp } from "~/lib/rate-limit.server";
 import { BIB_OFFER_CONSENT, BIB_OFFER_VERSION, validateBibOffer } from "./bib-offers";
+import { escapeTelegramHtml, sendTelegram } from "~/lib/telegram.server";
 
 export async function submitBibOffer({ request }: ActionFunctionArgs) {
   const headers = { "Cache-Control": "private, no-store" };
@@ -20,6 +21,17 @@ export async function submitBibOffer({ request }: ActionFunctionArgs) {
   try {
     const { error } = await supabaseAdmin.from("bib_offers").insert({ ...parsed.value, consent_text: BIB_OFFER_CONSENT, consent_version: BIB_OFFER_VERSION });
     if (error) { console.error("bib_offer_save_failed", { code: error.code }); return fail("We couldn’t save your offer. Please try again in a moment.", 503); }
+    const offer = parsed.value;
+    // Await the alert before returning; the shared sender isolates failures from the saved offer.
+    await sendTelegram(
+      `🎟️ <b>Nuova offerta BibExchange</b>\n\n` +
+      `<b>Gara:</b> ${escapeTelegramHtml(offer.race)}\n` +
+      `<b>Data gara:</b> ${offer.race_date.split("-").reverse().join("/")}\n` +
+      `<b>Tipo:</b> ${offer.entry_type === "bib" ? "Solo pettorale" : "Pacchetto completo"}\n` +
+      `<b>Prezzo richiesto:</b> ${offer.price === null ? "Non indicato" : `${offer.price.toFixed(2)} ${offer.currency}`}\n` +
+      (offer.deadline ? `<b>Scadenza trasferimento:</b> ${offer.deadline.split("-").reverse().join("/")}\n` : "") +
+      `\n<a href="https://www.runoot.com/admin/bib-offers">Apri le offerte Runoot</a>`
+    );
     return data({ success: true as const, error: "" }, { headers });
   } catch { return fail("We couldn’t save your offer. Please try again in a moment.", 503); }
 }

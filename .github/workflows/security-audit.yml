@@ -30,10 +30,11 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      - name: Test request notifications
+      - name: Test request and offer notifications
         run: |
           node --import tsx scripts/test-telegram.ts
           node --import tsx scripts/test-bib-request-email.ts
+          node --import tsx scripts/test-bib-offer-alert.ts
 
       - name: Build
         run: npm run build
