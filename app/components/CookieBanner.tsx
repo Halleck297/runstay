@@ -5,11 +5,11 @@ export { reopenCookieBanner } from "~/lib/analytics/consent";
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
   const [customizing, setCustomizing] = useState(false);
-  const [analytics, setAnalytics] = useState(false);
+  const [analytics, setAnalytics] = useState(true);
   useEffect(() => {
     const check = () => setVisible(!readConsent());
     const open = () => {
-      setAnalytics(readConsent()?.preferences.analytics === true);
+      setAnalytics(readConsent()?.preferences.analytics ?? true);
       setCustomizing(true);
       setVisible(true);
     };
@@ -25,13 +25,12 @@ export default function CookieBanner() {
   }, []);
   if (!visible) return null;
   const choose = (allowAnalytics: boolean) => { saveConsent(allowAnalytics); setVisible(false); setCustomizing(false); };
-  return <section aria-label="Cookie preferences" className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white py-3 pl-4 pr-16 shadow-lg">
-    <button type="button" onClick={() => choose(false)} aria-label="Close and reject optional cookies" title="Close and reject optional cookies" className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-lg border border-gray-300 text-2xl text-gray-800 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"><span aria-hidden="true">×</span></button>
+  return <section aria-label="Cookie preferences" className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white px-4 py-3 shadow-lg">
     <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="max-w-2xl text-sm leading-relaxed text-gray-700">We use essential cookies. With your permission, Google Analytics helps us understand visits. Close with × to continue with essential cookies only. Your race request works either way. <a href="/privacy-policy#cookies" className="underline underline-offset-2">Cookie policy</a></p>
+      <p className="max-w-2xl text-sm leading-relaxed text-gray-700">We use essential cookies. With your permission, Google Analytics helps us understand visits. You can manage your choices in Preferences. Your race request works either way. <a href="/privacy-policy#cookies" className="underline underline-offset-2">Cookie policy</a></p>
       <div className="flex shrink-0 flex-wrap gap-2">
         <button type="button" aria-expanded={customizing} aria-controls="cookie-options" onClick={() => {
-          if (!customizing) setAnalytics(readConsent()?.preferences.analytics === true);
+          if (!customizing) setAnalytics(readConsent()?.preferences.analytics ?? true);
           setCustomizing(!customizing);
         }} className="flex-1 whitespace-nowrap rounded-lg border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50">Preferences</button>
         <button onClick={() => choose(true)} className="flex-1 whitespace-nowrap rounded-lg border border-brand-600 bg-brand-600 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-700">Accept</button>
