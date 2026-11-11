@@ -16,6 +16,14 @@ The grouped dashboard works with existing data and needs no database migration. 
 
 The server validates the request fields and records the wording shown beside the submit button, checks request origin, and includes a honeypot and process-local rate limits. The form has no separate checkbox for race alerts: selecting **Notify me** submits the request. Runoot Last Minute remains a separate choice in the popup. The IP allowance accommodates shared hotel Wi-Fi; a separate email limit restricts repeated submissions. Rate limits reset on restart and are not shared across server instances. Supabase RLS blocks direct public access; only the server service role can access the table.
 
+## Telegram alerts
+
+Every successful BibExchange request submission sends one Telegram alert after the database save, including submissions with several races and repeat submissions. Alerts start alongside the confirmation email and are awaited before returning. They summarize the races, bib/package preference and QR/site source, with a link to `/admin/bib-requests`; names, emails and phone numbers remain in the protected admin dashboard.
+
+Configure `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the production environment. The shared sender prefixes every Runoot alert with **[Runoot]**, so this project can share a bot with other projects. It does not change the bot's name, webhook or other projects' configuration. Dynamic message text is escaped for Telegram HTML. Failed sends return false and log a safe error without the token; requests time out after five seconds. Telegram failure never rolls back a request or blocks its confirmation email. There is no automatic retry or historical replay.
+
+The existing daily `/api/alerts/signup-requests` job still checks marketplace account signup requests in `access_requests`; it does not check `bib_requests`. BibExchange alerts are triggered directly by form submissions, so they do not require a new Supabase webhook or cron job. Offline checks: `node --import tsx scripts/test-telegram.ts` and `node --import tsx scripts/test-bib-request-email.ts`.
+
 ## Deployment
 
 Apply `migrations/20260916_bib_requests.sql` and `migrations/20260917_bib_requests_both_preference.sql` to the project's Supabase database before deploying. It is also included in `supabase-schema.sql` for fresh setup. Existing production environment variables `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are required. No new third-party service is needed. Deployment follows the existing GitHub main → Vercel pipeline.

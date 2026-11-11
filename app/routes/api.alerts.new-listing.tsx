@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { data } from "react-router";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { sendTelegram, verifyWebhookSecret } from "~/lib/telegram.server";
+import { escapeTelegramHtml, sendTelegram, verifyWebhookSecret } from "~/lib/telegram.server";
 
 const LISTING_TYPE_LABEL: Record<string, string> = {
   room: "Room",
@@ -30,9 +30,9 @@ export async function action({ request }: ActionFunctionArgs) {
 
   await sendTelegram(
     `📋 <b>New listing pending approval</b>\n\n` +
-    `<b>Title:</b> ${record.title || "—"}\n` +
-    `<b>Type:</b> ${typeLabel}\n` +
-    `<b>Author:</b> ${authorLabel}\n\n` +
+    `<b>Title:</b> ${escapeTelegramHtml(record.title || "—")}\n` +
+    `<b>Type:</b> ${escapeTelegramHtml(typeLabel)}\n` +
+    `<b>Author:</b> ${escapeTelegramHtml(authorLabel)}\n\n` +
     `<a href="https://www.runoot.com/admin/listings">→ Review listing</a>`
   );
 

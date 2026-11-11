@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { data } from "react-router";
 import { supabaseAdmin } from "~/lib/supabase.server";
-import { sendTelegram, verifyWebhookSecret } from "~/lib/telegram.server";
+import { escapeTelegramHtml, sendTelegram, verifyWebhookSecret } from "~/lib/telegram.server";
 
 // Called by Supabase webhook on messages INSERT
 export async function action({ request }: ActionFunctionArgs) {
@@ -82,8 +82,8 @@ export async function action({ request }: ActionFunctionArgs) {
 
   await sendTelegram(
     `💬 <b>New message to mock user</b>\n\n` +
-    `<b>From:</b> ${senderLabel}\n` +
-    `<b>Message:</b> ${shortContent}\n\n` +
+    `<b>From:</b> ${escapeTelegramHtml(senderLabel)}\n` +
+    `<b>Message:</b> ${escapeTelegramHtml(shortContent)}\n\n` +
     `<a href="https://www.runoot.com/admin/users">→ Admin Users</a>`
   );
 

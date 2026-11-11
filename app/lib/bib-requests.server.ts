@@ -5,6 +5,7 @@ import { BIB_CONSENT_TEXT, BIB_CONSENT_VERSION, bibRequestSource, validateBibReq
 import { sendTemplatedEmail } from "~/lib/email/service.server";
 import { createMailingOffer } from "~/lib/mailing-list.server";
 import { mailingIsConfigured } from "~/lib/mailing-provider.server";
+import { escapeTelegramHtml, sendTelegram } from "~/lib/telegram.server";
 
 export function landingLoader() { return { mode: "landing" as const }; }
 
@@ -44,6 +45,15 @@ export async function submitBibRequest({ request }: ActionFunctionArgs) {
       console.error("bib_request_save_failed", { code: error.code });
       return fail("We couldn’t save your request. Please try again in a moment.", 503);
     }
+    // Start both notifications after saving; Telegram failures must not affect the request or email.
+    const preferenceLabel = contact.preference === "both" ? "Pettorale o pacchetto completo" : contact.preference === "package" ? "Pacchetto completo" : "Solo pettorale";
+    const telegramAlert = sendTelegram(
+      `🎟️ <b>Richiesta BibExchange ricevuta</b>\n\n` +
+      `<b>Gare:</b> ${races.map(item => escapeTelegramHtml(item.race)).join(", ")}\n` +
+      `<b>Interesse:</b> ${preferenceLabel}\n` +
+      `<b>Origine:</b> ${bibRequestSource(url.pathname) === "qr" ? "QR (/go)" : "Sito"}\n\n` +
+      `<a href="https://www.runoot.com/admin/bib-requests">Apri le richieste Runoot</a>`
+    );
     let confirmationEmail: "sent" | "failed" = "failed";
     try {
       const emailResult = await sendTemplatedEmail({
@@ -57,6 +67,7 @@ export async function submitBibRequest({ request }: ActionFunctionArgs) {
       // Sending or logging an email failure must never undo a saved request.
       console.error("bib_request_confirmation_failed");
     }
+    await telegramAlert;
     const mailingOffer = mailingIsConfigured() ? createMailingOffer(contact) : null;
     return data({ success: true as const, races: races.map(item => item.race), preference: contact.preference, confirmationEmail, mailingOffer, error: "" }, { headers });
   } catch {

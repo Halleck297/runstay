@@ -22,18 +22,22 @@ for (const preference of ["bib", "package", "both"] as const) {
   assert.ok(rendered.text.includes(expected));
 }
 
-// All credentials and network responses below are fake. No real mail is sent.
+// All credentials and network responses below are fake. No real mail or Telegram messages are sent.
 process.env.SUPABASE_URL = "https://bib-request-email-test.invalid";
 process.env.SUPABASE_ANON_KEY = "test-anon-key";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
 process.env.RESEND_API_KEY = "test-email-key";
 process.env.RESEND_FROM_EMAIL = "Runoot <test@example.com>";
+process.env.TELEGRAM_BOT_TOKEN = "test-telegram-token";
+process.env.TELEGRAM_CHAT_ID = "test-chat";
 const originalFetch = globalThis.fetch;
 const originalConsoleError = console.error;
 type SavedRequest = { email: string; race: string; race_key: string; preference: string };
 const records: SavedRequest[] = [];
 const emails: { to: string[]; subject: string; html: string; text: string }[] = [];
 const loggedErrors: { template_id: string; recipient: string }[] = [];
+const telegramMessages: { chat_id: string; text: string; parse_mode: string }[] = [];
+let telegramFailure: "none" | "rejected" | "network" = "none";
 let saveFailure = false;
 let emailFailure = false;
 let logFailure = false;
@@ -62,6 +66,12 @@ globalThis.fetch = async (input, init) => {
     if (logFailure) throw new Error("Test logging failure");
     return new Response(null, { status: 201 });
   }
+  if (url.hostname === "api.telegram.org" && url.pathname === "/bottest-telegram-token/sendMessage") {
+    assert.ok(records.length, "Telegram is only notified after the request has been saved");
+    telegramMessages.push(JSON.parse(String(init?.body)));
+    if (telegramFailure === "network") throw new Error("Test network failure");
+    return Response.json({ ok: telegramFailure !== "rejected" }, { status: telegramFailure === "rejected" ? 503 : 200 });
+  }
   throw new Error(`Unexpected test network request: ${url.origin}${url.pathname}`);
 };
 console.error = () => {};
@@ -82,10 +92,12 @@ try {
   assert.equal((await submit({}, "/go", "https://untrusted.invalid")).success, false);
   assert.equal(saveAttempts, 0);
   assert.equal(emails.length, 0);
+  assert.equal(telegramMessages.length, 0, "Invalid submissions must not send alerts");
 
   saveFailure = true;
   assert.equal((await submit()).success, false);
   assert.equal(emails.length, 0, "Failed saves must not send a confirmation");
+  assert.equal(telegramMessages.length, 0, "Failed saves must not send alerts");
   saveFailure = false;
 
   const success = await submit();
@@ -95,6 +107,13 @@ try {
   assert.deepEqual(emails[0].to, ["alex@example.com"]);
   assert.ok(emails[0].text.includes("Tokyo") && emails[0].text.includes("New York"));
   assert.ok(emails[0].text.includes("Full package (bib + hotel)"));
+  assert.equal(telegramMessages.length, 1, "Multiple races produce one Telegram alert");
+  assert.equal(telegramMessages[0].chat_id, "test-chat");
+  assert.ok(telegramMessages[0].text.startsWith("<b>[Runoot]</b>"));
+  assert.ok(telegramMessages[0].text.includes("Tokyo, New York"));
+  assert.ok(telegramMessages[0].text.includes("QR (/go)"));
+  assert.ok(telegramMessages[0].text.includes("/admin/bib-requests"));
+  assert.ok(!telegramMessages[0].text.includes("alex@example.com"), "Contact details stay in the admin dashboard");
 
   const duplicate = await submit({ preference: "bib" }, "/");
   assert.ok(duplicate.success && duplicate.confirmationEmail === "sent");
@@ -102,6 +121,9 @@ try {
   assert.ok(emails[1].text.includes("Tokyo") && emails[1].text.includes("New York"));
   assert.ok(emails[1].text.includes("You’re looking for: Bib only"));
   assert.ok(records.every(row => row.preference === "bib"), "Saved preferences match the latest confirmation");
+  assert.equal(telegramMessages.length, 2, "A repeated saved submission generates one new alert");
+  assert.ok(telegramMessages[1].text.includes("Solo pettorale"));
+  assert.ok(telegramMessages[1].text.includes("<b>Origine:</b> Sito"));
 
   const mixed = await submit({ race: ["Tokyo", "London"], preference: ["bib", "package"] }, "/en");
   assert.ok(mixed.success && mixed.confirmationEmail === "sent");
@@ -132,8 +154,21 @@ try {
   const missingConfig = await submit({ race: "Cape Town" });
   assert.ok(missingConfig.success && missingConfig.confirmationEmail === "failed");
   assert.equal(emails.length, beforeMissingConfig, "Missing config does not make a provider call");
+  assert.ok(telegramMessages.at(-1)?.text.includes("Cape Town"), "Email configuration does not block Telegram alerts");
+
+  process.env.RESEND_API_KEY = "test-email-key";
+  for (const failure of ["rejected", "network"] as const) {
+    telegramFailure = failure;
+    const result = await submit({ race: "Tokyo" });
+    assert.ok(result.success && result.confirmationEmail === "sent", "Telegram failures must not fail a saved request or its email");
+  }
+  telegramFailure = "none";
+  const custom = await submit({ race: "Another race", otherRace: "Trail <Run> & Fun" });
+  assert.ok(custom.success);
+  assert.ok(telegramMessages.at(-1)?.text.includes("Trail &lt;Run&gt; &amp; Fun"));
+  assert.ok(!telegramMessages.at(-1)?.text.includes("Trail <Run>"));
 } finally {
   globalThis.fetch = originalFetch;
   console.error = originalConsoleError;
 }
-console.log("Bib confirmation email: template escaping, one email per submission including repeats, saved preference updates, validation and failure isolation passed. No real emails sent.");
+console.log("Bib notifications: email and Telegram after save, one alert per submission, project label, escaping, validation and independent failure handling passed. No real messages sent.");
